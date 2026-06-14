@@ -1,0 +1,193 @@
+/* =====================================================================
+   PhishLens — Gmail-injected UI
+   All selectors prefixed with pll- to avoid collisions with Gmail's CSS.
+   ===================================================================== */
+
+/* subject row -> flex layout so we can sit the button next to the subject */
+.pll-subject-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* ---------- scan button ---------- */
+.pll-scan-btn {
+    appearance: none;
+    border: none;
+    background: linear-gradient(180deg, #ff8c5a, #ff5722);
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 6px rgba(255, 87, 34, 0.32);
+    transition: transform .12s, filter .15s, opacity .15s;
+    line-height: 1;
+}
+.pll-scan-btn:hover { filter: brightness(1.05); }
+.pll-scan-btn:active { transform: scale(.97); }
+.pll-scan-btn:disabled { opacity: .6; cursor: progress; }
+.pll-scan-btn__icon { font-size: 13.5px; }
+
+.pll-scan-btn--loading .pll-scan-btn__icon {
+    animation: pll-spin 1.05s linear infinite;
+    display: inline-block;
+}
+@keyframes pll-spin { to { transform: rotate(360deg); } }
+
+/* ---------- verdict banner ---------- */
+.pll-banner {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    margin: 0 0 12px 0;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 2px 10px rgba(0,0,0,.08);
+    background: #fff;
+    color: #1f2328;
+    animation: pll-slide-in .25s ease;
+}
+@keyframes pll-slide-in {
+    from { transform: translateY(-6px); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+}
+.pll-banner__icon {
+    font-size: 22px; line-height: 1;
+    flex-shrink: 0;
+}
+.pll-banner__main { flex: 1; min-width: 0; }
+.pll-banner__title { font-weight: 700; font-size: 14px; }
+.pll-banner__sub   { color: #57606a; font-size: 12.5px; margin-top: 2px; }
+.pll-banner__sub strong { color: #1f2328; font-variant-numeric: tabular-nums; }
+
+.pll-banner--safe   { background: rgba(63, 185, 80, .10);  border-color: rgba(63, 185, 80, .35); }
+.pll-banner--safe   .pll-banner__icon { color: #1a7f37; }
+.pll-banner--danger { background: rgba(248, 81, 73, .10); border-color: rgba(248, 81, 73, .35); }
+.pll-banner--danger .pll-banner__icon { color: #c0392b; }
+.pll-banner--error  { background: rgba(210, 153, 34, .10); border-color: rgba(210, 153, 34, .35); }
+.pll-banner--error  .pll-banner__icon { color: #8b6914; }
+
+.pll-banner__close {
+    appearance: none;
+    border: none;
+    background: transparent;
+    font-size: 18px;
+    color: #57606a;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+}
+.pll-banner__close:hover { color: #1f2328; }
+
+/* Why? expandable */
+.pll-banner__why {
+    margin-top: 8px;
+}
+.pll-banner__why summary {
+    list-style: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 12px;
+    color: #57606a;
+    user-select: none;
+}
+.pll-banner__why summary::-webkit-details-marker { display: none; }
+.pll-banner__why summary::before {
+    content: "▸ ";
+    display: inline-block;
+    transition: transform .15s;
+}
+.pll-banner__why[open] summary::before { transform: rotate(90deg); }
+
+.pll-banner__tokens {
+    display: flex; flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 8px;
+    font-style: normal;
+    color: #57606a;
+    font-size: 12px;
+}
+
+.pll-tok {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    padding: 2px 7px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+.pll-tok--phishing {
+    background: rgba(255, 107, 53, .15);
+    border-color: rgba(255, 107, 53, .35);
+    color: #c34315;
+}
+.pll-tok--safe {
+    background: rgba(63, 185, 80, .15);
+    border-color: rgba(63, 185, 80, .35);
+    color: #1a7f37;
+}
+.pll-tok__w {
+    font-size: 9.5px;
+    opacity: 0.7;
+    margin-left: 4px;
+    vertical-align: 1px;
+}
+
+/* ---------- Verified sender badge ---------- */
+.pll-trusted {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: rgba(63, 185, 80, .15);
+    color: #1a7f37;
+    font-size: 10.5px;
+    font-weight: 700;
+    vertical-align: 2px;
+    border: 1px solid rgba(63, 185, 80, .35);
+}
+
+/* ---------- Theme handling ---------- */
+/* Default: follow OS dark mode. Overridden by data-phishlens-theme on <html>
+   which the popup toggle pushes through chrome.storage. */
+@media (prefers-color-scheme: dark) {
+    .pll-banner { background: #1e242b; color: #f0f6fc; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+    .pll-banner__sub { color: #8b949e; }
+    .pll-banner__sub strong { color: #f0f6fc; }
+    .pll-banner__why summary { color: #8b949e; }
+    .pll-banner__close { color: #8b949e; }
+    .pll-banner__close:hover { color: #f0f6fc; }
+    .pll-tok--phishing { color: #ff8c5a; background: rgba(255, 107, 53, .15); }
+    .pll-tok--safe     { color: #56d364; background: rgba(63, 185, 80, .15); }
+    .pll-trusted { color: #56d364; }
+}
+/* Explicit override from popup toggle */
+html[data-phishlens-theme="light"] .pll-banner {
+    background: #fff; color: #1f2328; box-shadow: 0 2px 10px rgba(0,0,0,.08);
+}
+html[data-phishlens-theme="light"] .pll-banner__sub { color: #57606a; }
+html[data-phishlens-theme="light"] .pll-banner__sub strong { color: #1f2328; }
+html[data-phishlens-theme="light"] .pll-banner__close { color: #57606a; }
+html[data-phishlens-theme="light"] .pll-tok--phishing { color: #c34315; }
+html[data-phishlens-theme="light"] .pll-tok--safe     { color: #1a7f37; }
+html[data-phishlens-theme="light"] .pll-trusted { color: #1a7f37; }
+html[data-phishlens-theme="dark"]  .pll-banner {
+    background: #1e242b; color: #f0f6fc; box-shadow: 0 2px 10px rgba(0,0,0,.4);
+}
+html[data-phishlens-theme="dark"] .pll-banner__sub { color: #8b949e; }
+html[data-phishlens-theme="dark"] .pll-banner__sub strong { color: #f0f6fc; }
+html[data-phishlens-theme="dark"] .pll-banner__close { color: #8b949e; }
+html[data-phishlens-theme="dark"] .pll-tok--phishing { color: #ff8c5a; }
+html[data-phishlens-theme="dark"] .pll-tok--safe     { color: #56d364; }
+html[data-phishlens-theme="dark"] .pll-trusted { color: #56d364; }

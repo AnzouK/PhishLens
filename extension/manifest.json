@@ -1,0 +1,34 @@
+{
+  "name": "PhishLens",
+  "description": "Detects phishing in emails and explains why, using a fine-tuned DistilBERT and LIME.",
+  "version": "1.1.0",
+  "manifest_version": 3,
+  "icons": {
+    "16":  "icons/16.png",
+    "32":  "icons/32.png",
+    "48":  "icons/48.png",
+    "96":  "icons/96.png",
+    "128": "icons/128.png"
+  },
+  "action": {
+    "default_title": "PhishLens",
+    "default_popup": "popup/popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://mail.google.com/*",
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js":  ["content_scripts/gmail.js"],
+      "css": ["content_scripts/banner.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

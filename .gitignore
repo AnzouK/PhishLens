@@ -1,0 +1,84 @@
+# =====================================================================
+# PhishLens — .gitignore
+# =====================================================================
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.so
+.Python
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# ---- Notebooks ----
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# ---- ML artefacts (model is hosted on Hugging Face Hub, NOT in git) ----
+model/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.h5
+*.ckpt
+*.onnx
+distilbert_phishing_model/
+saved_models/
+
+# Datasets / raw data
+data/raw/
+data/cache/
+*.mbox
+*.eml
+phishing_pot/
+nazario_phishing/
+umbrella-top-1m.csv*
+*.parquet
+phishing_model.zip
+
+# Keep curated, small artefacts that are part of the repo:
+!synthetic_legit_emails.csv
+
+# ---- Outputs / logs ----
+outputs/
+results/
+lime_outputs/
+lime_outputs.zip
+summary.json
+summary-*.json
+demo_qr.png
+*.zip
+wandb/
+runs/
+*.log
+.gradio/
+
+# ---- Hugging Face cache ----
+.cache/
+huggingface/
+
+# ---- Editor / IDE ----
+.idea/
+.vscode/
+*.swp
+*~
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Chrome extension build artefacts ----
+extension/*.zip
+extension/dist/        # the legacy React build from Tariq — keep extension/phishlens/
+
+# ---- Local secrets ----
+.env
+.env.local
+*.secret

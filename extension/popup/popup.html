@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhishLens</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+
+  <!-- ============ HEADER ============ -->
+  <header class="app-header">
+    <div class="brand">
+      <img src="../icons/48.png" alt="PhishLens" class="brand__logo" />
+      <div class="brand__text">
+        <h1 class="brand__name">PhishLens</h1>
+        <p class="brand__tag">Detect &amp; explain phishing emails</p>
+      </div>
+    </div>
+    <button id="theme-toggle" class="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+      <span class="theme-icon">◐</span>
+    </button>
+  </header>
+
+  <!-- ============ MAIN ============ -->
+  <main class="app-main">
+
+    <!-- ===== upload view ===== -->
+    <section id="view-upload" class="view view--active">
+
+      <!-- Tab switcher: File / Paste -->
+      <div class="tabs" role="tablist">
+        <button class="tab tab--active" data-tab="file" role="tab">
+          <span class="tab__icon">📂</span> File
+        </button>
+        <button class="tab" data-tab="paste" role="tab">
+          <span class="tab__icon">📝</span> Paste
+        </button>
+      </div>
+
+      <!-- ===== File tab ===== -->
+      <div class="tab-panel tab-panel--active" data-panel="file">
+        <div class="hint">
+          <span class="hint__icon">💡</span>
+          <span>In Gmail, open an email → menu <strong>⋮</strong> → <em>Download message</em> to get a <code>.eml</code> file.</span>
+        </div>
+
+        <label id="drop-zone" class="drop-zone" for="file-input">
+          <input id="file-input" type="file" accept=".eml" hidden />
+          <div class="drop-zone__icon">📧</div>
+          <div class="drop-zone__label">Drag &amp; drop your <code>.eml</code> file</div>
+          <div class="drop-zone__hint">or click to browse</div>
+        </label>
+      </div>
+
+      <!-- ===== Paste tab ===== -->
+      <div class="tab-panel" data-panel="paste">
+        <div class="hint">
+          <span class="hint__icon">💡</span>
+          <span>Paste the raw text of an email — useful when you only have the message body, no <code>.eml</code> file.</span>
+        </div>
+
+        <textarea id="paste-input"
+                  class="paste-input"
+                  placeholder="Paste email body here…"
+                  spellcheck="false"
+                  rows="9"></textarea>
+        <div class="paste-footer">
+          <button id="paste-clipboard-btn" class="btn btn--ghost" type="button" title="Paste from clipboard">
+            📋 Paste from clipboard
+          </button>
+          <span class="paste-counter"><span id="paste-counter">0</span> characters</span>
+        </div>
+      </div>
+
+      <button id="analyze-btn" class="btn btn--primary" disabled>
+        <span class="btn__label">Analyze</span>
+      </button>
+
+      <p id="status" class="status" hidden></p>
+    </section>
+
+    <!-- ===== loading view ===== -->
+    <section id="view-loading" class="view">
+      <div class="spinner"></div>
+      <p class="loading-text">Analyzing email…</p>
+      <p class="loading-sub">DistilBERT inference — this may take up to 30 seconds on CPU.</p>
+    </section>
+
+    <!-- ===== result view ===== -->
+    <section id="view-result" class="view">
+      <!-- big verdict card -->
+      <div id="verdict-card" class="verdict-card">
+        <div class="verdict-card__icon" id="verdict-icon">✅</div>
+        <div class="verdict-card__text">
+          <div class="verdict-card__label">
+            <span id="verdict-label">This email looks safe</span>
+            <span id="verdict-trusted" class="verdict-trusted" hidden>✓ Verified sender</span>
+          </div>
+          <div class="verdict-card__sub" id="verdict-sub">Unlikely to be a phishing attempt</div>
+        </div>
+      </div>
+
+      <!-- three agent cards -->
+      <div class="agents">
+        <div class="agent" data-agent="text">
+          <div class="agent__head">
+            <span class="agent__name">Message content</span>
+            <span class="agent__score" id="text-score">—</span>
+          </div>
+          <div class="agent__bar"><span class="agent__bar-fill" id="text-bar"></span></div>
+          <div class="agent__hint" id="text-hint">DistilBERT reads the body text.</div>
+        </div>
+
+        <div class="agent" data-agent="url">
+          <div class="agent__head">
+            <span class="agent__name">Links in the email</span>
+            <span class="agent__score" id="url-score">—</span>
+          </div>
+          <div class="agent__bar"><span class="agent__bar-fill" id="url-bar"></span></div>
+          <div class="agent__hint" id="url-hint">URL-level heuristics on the embedded links.</div>
+        </div>
+
+        <div class="agent" data-agent="metadata">
+          <div class="agent__head">
+            <span class="agent__name">Sender &amp; headers</span>
+            <span class="agent__score" id="meta-score">—</span>
+          </div>
+          <div class="agent__bar"><span class="agent__bar-fill" id="meta-bar"></span></div>
+          <div class="agent__hint" id="meta-hint">From / Reply-To / Authentication-Results.</div>
+        </div>
+      </div>
+
+      <!-- explainability panel -->
+      <details class="explain" id="explain-panel">
+        <summary class="explain__head">
+          <span>🔍 Why? — LIME explanation</span>
+          <span class="explain__caret">▾</span>
+        </summary>
+        <div class="explain__body">
+          <p class="explain__intro">
+            The tokens highlighted below influenced the verdict most. Orange tokens
+            pushed toward <em>phishing</em>; green tokens pushed toward <em>safe</em>.
+          </p>
+          <div id="explain-tokens" class="explain__tokens"></div>
+          <p id="explain-status" class="explain__status" hidden></p>
+        </div>
+      </details>
+
+      <button id="back-btn" class="btn btn--secondary">Analyze another email</button>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <span>Powered by DistilBERT + LIME</span>
+    <span class="footer__dot">·</span>
+    <span>Nile University — CYB 499</span>
+  </footer>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

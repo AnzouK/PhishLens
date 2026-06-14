@@ -1,0 +1,30 @@
+# =====================================================================
+# PhishLens — local docker-compose
+# =====================================================================
+#  Usage:
+#    1. Unzip phishing_model.zip into ./model/   (one-time)
+#    2. docker compose up --build
+#    3. open chrome://extensions and load extension/phishlens/
+# =====================================================================
+services:
+  phishlens-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: phishlens-backend:latest
+    container_name: phishlens-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the DistilBERT checkpoint read-only into the container.
+      # The image reads it from /app/model (overridable via MODEL_DIR).
+      - ./model:/app/model:ro
+    environment:
+      MODEL_DIR: /app/model
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s

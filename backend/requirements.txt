@@ -1,0 +1,15 @@
+# PhishLens backend — minimum runtime deps.
+# Targets Python 3.10+. Tested on 3.11 / 3.12 / 3.13.
+
+# Web framework
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.27,<1.0
+pydantic>=2.0,<3.0
+
+# ML
+torch>=2.0,<3.0
+transformers>=4.40,<5.0
+numpy>=1.24,<3.0
+
+# Explainability
+lime>=0.2,<1.0
