@@ -69,7 +69,7 @@ nothing is sent to a third party.
 ```bash
 # 1. Get the model files into ./backend/model/ (one-time)
 mkdir -p backend/model
-huggingface-cli download <hf-handle>/phishlens-distilbert --local-dir backend/model
+huggingface-cli download Sonje03/phishlens-distilbert --local-dir backend/model
 
 # 2. Bring the backend up
 cd backend
