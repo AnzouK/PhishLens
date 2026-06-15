@@ -131,7 +131,13 @@ async function runScan(emailView, btn) {
                 if (rr?.ok) attachExplanation(emailView, rr.data.features || []);
             });
     } catch (e) {
-        showBanner(emailView, { verdict: "error", error: String(e?.message || e) });
+        const msg = String(e?.message || e);
+        // Friendlier message when the extension was reloaded while this Gmail
+        // tab was already open — the only fix is a page refresh.
+        const friendly = /context invalidated|message port closed/i.test(msg)
+            ? "PhishLens was just reloaded — please refresh this Gmail tab to reconnect."
+            : msg;
+        showBanner(emailView, { verdict: "error", error: friendly });
     } finally {
         setBtnLoading(btn, false);
     }
