@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: Detect phishing emails and explain why with DistilBERT + LIME.
+short_description: Detect phishing emails with DistilBERT and LIME.
 ---
 
 # PhishLens — Backend Space
