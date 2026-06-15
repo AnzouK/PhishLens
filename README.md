@@ -15,6 +15,12 @@ wrapped in a Chrome extension that injects directly into Gmail.
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![Chrome](https://img.shields.io/badge/Chrome-MV3-4285F4?logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![HF Space](https://img.shields.io/badge/🤗-Live%20demo-yellow)](https://huggingface.co/spaces/Sonje03/phishlens-backend)
+[![HF Model](https://img.shields.io/badge/🤗-Model-yellow)](https://huggingface.co/Sonje03/phishlens-distilbert)
+
+<br/>
+
+<img src="docs/gmail-banner.png" alt="PhishLens injected verdict banner in Gmail" width="850">
 
 </div>
 
@@ -22,14 +28,29 @@ wrapped in a Chrome extension that injects directly into Gmail.
 
 ## ✨ What it does
 
-| In Gmail | In the popup |
-|---|---|
-| One click on **🛡 Scan with PhishLens** above any open email and a verdict banner is injected directly into the Gmail UI — Safe or Phishing, with per-agent scores and a collapsible LIME explanation. | Open the extension popup, drop a `.eml` file or paste raw email text. Same verdict + per-agent breakdown + LIME explainability. Dark/light theme synced between popup and Gmail banner. |
+PhishLens injects a **🛡 Scan with PhishLens** button next to the subject of
+every open Gmail message. One click runs the three agents and drops a verdict
+banner directly into the Gmail UI — Safe or Phishing, with per-agent scores
+and a collapsible LIME explanation. You can also open the extension popup to
+analyse an arbitrary `.eml` file or raw pasted text.
 
 The text agent is a **DistilBERT fine-tuned on ~30k emails** drawn from
 multiple public phishing corpora. On the held-out test split it reaches
 **F1 ≈ 0.97** with a ~3% false-positive rate — and the LIME explanation
 tells you which tokens pushed the verdict that way.
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="docs/popup-phishing.png" alt="Phishing verdict popup" width="380"><br/>
+      <sub><em>Phishing verdict — 3 agents + LIME tokens.</em></sub>
+    </td>
+    <td align="center">
+      <img src="docs/popup-safe-trusted.png" alt="Safe verdict popup with verified-sender badge" width="380"><br/>
+      <sub><em>Safe verdict — verified-sender badge for allowlisted domains.</em></sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
@@ -61,10 +82,24 @@ full pipeline without depending on `.pkl` artefacts.
 
 ## 🚀 Quickstart
 
-The fastest way is Docker. The full stack runs locally on your machine —
-nothing is sent to a third party.
+You have three options. The extension's gear (⚙) menu lets you switch
+between them at any time without reloading.
 
-### Option 1 · Docker (recommended)
+<div align="center">
+  <img src="docs/popup-settings.png" alt="Backend selector in PhishLens settings" width="380">
+</div>
+
+### Option 0 · Cloud demo (zero setup)
+
+Just install the extension, switch the backend to **Cloud demo** in the
+gear menu, and you're done. The popup calls
+[`https://sonje03-phishlens-backend.hf.space`](https://huggingface.co/spaces/Sonje03/phishlens-backend)
+— a Hugging Face Space running the same FastAPI image as Option 1.
+
+Free-tier caveats: ~30–60 s cold start after inactivity, CPU-only inference,
+public endpoint (don't paste sensitive email content).
+
+### Option 1 · Docker (recommended for daily use)
 
 ```bash
 # 1. Get the model files into ./backend/model/ (one-time)
@@ -78,7 +113,7 @@ docker compose up --build
 
 After ~30 seconds you should see `Model loaded on device=cpu. Ready on http://0.0.0.0:8000`.
 
-### Option 2 · Manual install (without Docker)
+### Option 2 · Manual Python install (without Docker)
 
 ```bash
 cd backend
