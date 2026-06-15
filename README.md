@@ -219,4 +219,4 @@ Released under the [MIT License](LICENSE).
 ## 🔗 Related repository
 
 The model-training notebooks and the URL / metadata Random Forest agents
-live at [**dodi-ctrl/PhishingDetector**](https://github.com/dodi-ctrl/PhishingDetector).
+live at [**PhishingDetector**](https://github.com/dodi-ctrl/PhishingDetector).
