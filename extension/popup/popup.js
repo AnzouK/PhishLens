@@ -2,7 +2,22 @@
 // PhishLens popup logic — vanilla JS, no build step.
 // =====================================================================
 
-const API_BASE = "http://127.0.0.1:8000";
+// Backend choices (persisted in chrome.storage under "backend").
+// "local"  -> http://127.0.0.1:8000           (Docker on user's Mac)
+// "cloud"  -> https://sonje03-phishlens-backend.hf.space  (HF Space)
+// "custom" -> whatever URL the user types in the settings view
+const BACKEND_PRESETS = {
+    local:  "http://127.0.0.1:8000",
+    cloud:  "https://sonje03-phishlens-backend.hf.space",
+};
+const DEFAULT_BACKEND = "local";
+
+let backendChoice = DEFAULT_BACKEND;     // "local" | "cloud" | "custom"
+let backendCustomUrl = "";
+function getApiBase() {
+    if (backendChoice === "custom") return backendCustomUrl.replace(/\/$/, "");
+    return BACKEND_PRESETS[backendChoice] || BACKEND_PRESETS.local;
+}
 
 // ---------- DOM refs ----------
 const $ = (id) => document.getElementById(id);
@@ -10,6 +25,7 @@ const views = {
     upload: $("view-upload"),
     loading: $("view-loading"),
     result: $("view-result"),
+    settings: $("view-settings"),
 };
 const dropZone = $("drop-zone");
 const fileInput = $("file-input");
@@ -43,6 +59,21 @@ const STORAGE = chrome?.storage?.local;
         document.documentElement.setAttribute("data-theme", saved);
     }
 })();
+// ---------- backend choice persistence ----------
+async function loadBackendChoice() {
+    try {
+        if (!STORAGE) return;
+        const s = await new Promise((r) => STORAGE.get(["backend", "backend_custom_url"], r));
+        if (s.backend === "local" || s.backend === "cloud" || s.backend === "custom") {
+            backendChoice = s.backend;
+        }
+        if (typeof s.backend_custom_url === "string") {
+            backendCustomUrl = s.backend_custom_url;
+        }
+    } catch {}
+}
+loadBackendChoice();
+
 themeBtn.addEventListener("click", () => {
     const current = document.documentElement.getAttribute("data-theme") || "dark";
     const next = current === "dark" ? "light" : "dark";
@@ -210,7 +241,7 @@ analyzeBtn.addEventListener("click", async () => {
     explainError = null;
 
     try {
-        const resp = await fetch(`${API_BASE}/analyse`, {
+        const resp = await fetch(`${getApiBase()}/analyse`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -304,7 +335,7 @@ function renderResult(data) {
 // ---------- LIME explain (background pre-fire) ----------
 async function fetchExplain(payload, thisRun) {
     try {
-        const resp = await fetch(`${API_BASE}/explain`, {
+        const resp = await fetch(`${getApiBase()}/explain`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -369,6 +400,75 @@ backBtn.addEventListener("click", () => {
     explainError = null;
     setSelectedFile(null);
     showView("upload");
+});
+
+// ---------- settings view ----------
+const settingsBtn = $("settings-btn");
+const settingsBack = $("settings-back");
+const customUrlInput = $("custom-url");
+const testConnBtn = $("test-conn-btn");
+const connStatus = $("conn-status");
+let previousView = "upload";
+
+function renderSettings() {
+    const radios = document.querySelectorAll('input[name="backend"]');
+    radios.forEach((r) => { r.checked = (r.value === backendChoice); });
+    customUrlInput.value = backendCustomUrl;
+    customUrlInput.disabled = backendChoice !== "custom";
+    connStatus.hidden = true;
+    connStatus.className = "conn-status";
+    connStatus.textContent = "";
+}
+
+settingsBtn.addEventListener("click", () => {
+    previousView = Object.entries(views).find(([k, el]) =>
+        el.classList.contains("view--active"))?.[0] || "upload";
+    renderSettings();
+    showView("settings");
+});
+
+settingsBack.addEventListener("click", () => {
+    showView(previousView === "settings" ? "upload" : previousView);
+});
+
+document.querySelectorAll('input[name="backend"]').forEach((r) => {
+    r.addEventListener("change", () => {
+        if (!r.checked) return;
+        backendChoice = r.value;
+        customUrlInput.disabled = backendChoice !== "custom";
+        STORAGE?.set({ backend: backendChoice });
+        if (backendChoice === "custom" && !customUrlInput.value) {
+            customUrlInput.focus();
+        }
+    });
+});
+
+customUrlInput.addEventListener("input", () => {
+    backendCustomUrl = customUrlInput.value.trim();
+    STORAGE?.set({ backend_custom_url: backendCustomUrl });
+});
+
+testConnBtn.addEventListener("click", async () => {
+    connStatus.hidden = false;
+    connStatus.className = "conn-status conn-status--info";
+    connStatus.textContent = "Testing…";
+    try {
+        const url = getApiBase();
+        if (!url || !/^https?:\/\//.test(url)) {
+            throw new Error("URL must start with http:// or https://");
+        }
+        const resp = await fetch(`${url}/`, { method: "GET" });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json().catch(() => null);
+        connStatus.className = "conn-status conn-status--ok";
+        connStatus.textContent = `✓ Backend reachable — model: ${data?.model || "unknown"}`;
+    } catch (e) {
+        connStatus.className = "conn-status conn-status--err";
+        const msg = String(e?.message || e);
+        connStatus.textContent = msg.startsWith("Failed to fetch")
+            ? "❌ Backend unreachable. Check the URL and that the server is running."
+            : `❌ ${msg}`;
+    }
 });
 
 // ---------- util ----------

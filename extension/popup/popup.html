@@ -17,9 +17,14 @@
         <p class="brand__tag">Detect &amp; explain phishing emails</p>
       </div>
     </div>
-    <button id="theme-toggle" class="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
-      <span class="theme-icon">◐</span>
-    </button>
+    <div class="header-actions">
+      <button id="settings-btn" class="theme-toggle" title="Backend settings" aria-label="Backend settings">
+        <span>⚙</span>
+      </button>
+      <button id="theme-toggle" class="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+        <span class="theme-icon">◐</span>
+      </button>
+    </div>
   </header>
 
   <!-- ============ MAIN ============ -->
@@ -148,6 +153,57 @@
       </details>
 
       <button id="back-btn" class="btn btn--secondary">Analyze another email</button>
+    </section>
+
+    <!-- ===== settings view ===== -->
+    <section id="view-settings" class="view">
+      <div class="settings-header">
+        <button id="settings-back" class="btn--icon" title="Back" aria-label="Back">←</button>
+        <h2 class="settings-title">Backend settings</h2>
+      </div>
+
+      <p class="settings-intro">
+        Choose where PhishLens sends emails for analysis. Your choice is
+        remembered between sessions.
+      </p>
+
+      <div class="backend-option">
+        <input type="radio" id="opt-local" name="backend" value="local" />
+        <label for="opt-local" class="backend-option__label">
+          <span class="backend-option__icon">🖥</span>
+          <div class="backend-option__main">
+            <div class="backend-option__title">Local backend (Docker)</div>
+            <div class="backend-option__sub"><code>http://127.0.0.1:8000</code> — private, no setup once Docker runs.</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="backend-option">
+        <input type="radio" id="opt-cloud" name="backend" value="cloud" />
+        <label for="opt-cloud" class="backend-option__label">
+          <span class="backend-option__icon">☁</span>
+          <div class="backend-option__main">
+            <div class="backend-option__title">Cloud demo (Hugging Face Space)</div>
+            <div class="backend-option__sub"><code>sonje03-phishlens-backend.hf.space</code> — works without setup, ~30s cold start.</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="backend-option">
+        <input type="radio" id="opt-custom" name="backend" value="custom" />
+        <label for="opt-custom" class="backend-option__label">
+          <span class="backend-option__icon">🔧</span>
+          <div class="backend-option__main">
+            <div class="backend-option__title">Custom URL</div>
+            <div class="backend-option__sub">For self-hosted backends.</div>
+          </div>
+        </label>
+        <input type="url" id="custom-url" class="custom-url-input"
+               placeholder="https://your-server.example.com" />
+      </div>
+
+      <button id="test-conn-btn" class="btn btn--secondary">Test connection</button>
+      <p id="conn-status" class="conn-status" hidden></p>
     </section>
 
   </main>
