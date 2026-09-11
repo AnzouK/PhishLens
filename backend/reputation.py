@@ -402,21 +402,34 @@ class URLhaus:
 # =====================================================================
 async def _spamhaus_dbl(domain: str) -> dict[str, Any] | None:
     """
-    Query domain.dbl.spamhaus.org. If it resolves, the domain is listed.
-    NXDOMAIN = clean.
+    Query domain.dbl.spamhaus.org. If it resolves to a 127.0.1.x code,
+    the domain is listed. NXDOMAIN = clean.
 
-    Reuses the same technique as auth_headers.check_spamhaus_dbl but
-    returns a reputation-shaped verdict when listed.
+    IMPORTANT: 127.255.255.x codes are NOT listings — they are Spamhaus
+    policy responses telling us the query was rejected (open/public
+    resolver, anonymous query, rate limit). If we see one of those, we
+    treat the check as "unavailable" and return None. Counting them as
+    listings would false-positive on every domain we ever query.
+
+    See https://www.spamhaus.org/faq/section/DNSBL%20Usage#365 for the
+    full code table.
     """
+    # Real listings — dbl.spamhaus.org threat classifications.
     _CODES = {
-        "127.0.1.2":  ("SPAM",           "spam"),
-        "127.0.1.4":  ("SOCIAL_ENGINEERING", "phish"),
-        "127.0.1.5":  ("MALWARE",        "malware"),
-        "127.0.1.6":  ("BOTNET_CC",      "botnet_cc"),
-        "127.0.1.102": ("SPAM",          "abused_legit_spam"),
+        "127.0.1.2":   ("SPAM",               "spam"),
+        "127.0.1.4":   ("SOCIAL_ENGINEERING", "phish"),
+        "127.0.1.5":   ("MALWARE",            "malware"),
+        "127.0.1.6":   ("BOTNET_CC",          "botnet_cc"),
+        "127.0.1.102": ("SPAM",               "abused_legit_spam"),
+        "127.0.1.103": ("SUSPICIOUS",         "abused_legit_redirector"),
         "127.0.1.104": ("SOCIAL_ENGINEERING", "abused_legit_phish"),
-        "127.0.1.105": ("MALWARE",       "abused_legit_malware"),
+        "127.0.1.105": ("MALWARE",            "abused_legit_malware"),
+        "127.0.1.106": ("BOTNET_CC",          "abused_legit_botnet_cc"),
     }
+    # Policy / error codes — the query was NOT answered. Treat as
+    # "check unavailable", NOT as "domain malicious".
+    _POLICY_ERROR_PREFIX = "127.255.255."
+
     if not domain or "." not in domain:
         return None
     query = f"{domain}.dbl.spamhaus.org"
@@ -430,13 +443,45 @@ async def _spamhaus_dbl(domain: str) -> dict[str, Any] | None:
         return None
     except Exception:
         return None
-    threat_type, category = _CODES.get(resp, ("SUSPICIOUS", "listed_unknown"))
+
+    # Policy error — Spamhaus refused to answer (open resolver, rate
+    # limit, anonymous query). NOT a listing. Return None so the caller
+    # treats the tier as "no signal" rather than "malicious".
+    if resp.startswith(_POLICY_ERROR_PREFIX):
+        # Log once so we know DBL is effectively disabled on this host.
+        if not _spamhaus_policy_logged["done"]:
+            print(f"⚠ Spamhaus DBL policy response ({resp}) — the DNS resolver "
+                  "used by this host is blocked by Spamhaus. DBL lookups will "
+                  "be treated as unavailable. Use a private recursive resolver "
+                  "or the Spamhaus DQS commercial feed to enable DBL.")
+            _spamhaus_policy_logged["done"] = True
+        return None
+
+    # Real listing — 127.0.1.x range.
+    if resp not in _CODES:
+        # Unknown but 127.0.1.x-shaped response — probably a new threat
+        # code we don't map yet. Still treat as SUSPICIOUS.
+        if resp.startswith("127.0.1."):
+            return {
+                "source": "spamhaus_dbl",
+                "threat_types": ["SUSPICIOUS"],
+                "dbl_code": resp,
+                "category": "listed_unknown_code",
+            }
+        # Anything else — not a documented DBL response, ignore.
+        return None
+
+    threat_type, category = _CODES[resp]
     return {
         "source": "spamhaus_dbl",
         "threat_types": [threat_type],
         "dbl_code": resp,
         "category": category,
     }
+
+
+# Log the Spamhaus policy warning only once per process lifetime.
+_spamhaus_policy_logged = {"done": False}
 
 
 # =====================================================================

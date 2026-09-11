@@ -220,10 +220,14 @@ async def check_spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any
     Returns:
       {"listed": bool, "category": str | None, "response": str | None}
 
-    A domain resolving in dbl.spamhaus.org means Spamhaus has flagged it.
-    NXDOMAIN means clean. Any other DNS error is reported as "listed=False"
-    with an "error" key — we never fail-open to "malicious" on a transient
-    DNS failure.
+    A domain resolving to a 127.0.1.x code in dbl.spamhaus.org means
+    Spamhaus has flagged it. NXDOMAIN means clean.
+
+    IMPORTANT: 127.255.255.x codes are Spamhaus *policy errors* — the
+    query was rejected because the DNS resolver used by this host is
+    public/open, anonymous, or rate-limited. Those are NOT listings;
+    treating them as such would false-positive every domain we ever
+    query. We report them with error="policy_error" and listed=False.
     """
     result: dict[str, Any] = {"listed": False, "category": None, "response": None}
     domain = _domain_of(domain)
@@ -239,9 +243,15 @@ async def check_spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any
             loop.run_in_executor(None, socket.gethostbyname, query),
             timeout=timeout,
         )
-        result["listed"] = True
         result["response"] = response
-        result["category"] = _DBL_CODES.get(response, "listed_unknown_code")
+        if response.startswith("127.255.255."):
+            # Policy response — DBL didn't answer. Treat as unavailable.
+            result["error"] = "policy_error"
+            result["category"] = "spamhaus_refused_query"
+        elif response.startswith("127.0.1."):
+            result["listed"] = True
+            result["category"] = _DBL_CODES.get(response, "listed_unknown_code")
+        # Any other response shape → not a documented DBL result, ignore
     except (socket.gaierror, socket.herror):
         pass                       # NXDOMAIN -> clean
     except asyncio.TimeoutError:
