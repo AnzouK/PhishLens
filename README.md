@@ -246,11 +246,13 @@ Department of Cybersecurity, session 2025–2026.
 - [x] Opt-in scaffolding for the trained URL / metadata Random Forest agents (`URL_RF_PATH` / `METADATA_RF_PATH` env vars)
 - [x] `/health` endpoint for warm-up ping consistency across all deployments
 
-### 🚧 Planned for v1.5.0 (short-term)
+### ✅ Shipped in v1.5.0
+- [x] **Scan history dashboard** — `lib/history.js` module, `chrome.storage.local`-backed, capped at 500 entries; scans from Gmail, `.eml` upload and pasted text are auto-persisted
+- [x] **In-popup analytics** — total scans, phishing %, average text score, Safe/Phishing ratio bar, 30-day timeline, top LIME phishing tokens, recent scans list, CSV / JSON export, one-click clear
+- [x] **Trained URL & metadata Random Forest agents** — backend downloads `AnzouKiona/phishlens-agents` from Hugging Face at startup and uses `URLAgent.get_prediction_with_confidence()` / `MetadataAgent.get_prediction_with_confidence()`; heuristic fallback still runs when the joblibs aren't reachable
+
+### 🚧 Planned for next release
 - [ ] **HTTPS + custom domain** — DuckDNS + Caddy on the Oracle VM (Chrome 🔒 badge, professional URL)
-- [ ] **Scan history dashboard** — local `chrome.storage` log with export as CSV / JSON
-- [ ] **In-popup analytics** — total scans, phishing %, top flagged tokens, simple charts
-- [ ] **Publish the trained RF models** to Hugging Face and wire them into the Docker image so the `URL_RF_PATH` / `METADATA_RF_PATH` opt-in becomes the default
 
 ### 🔭 Planned for v2.0 (medium-term)
 - [ ] **Yahoo Mail** content script

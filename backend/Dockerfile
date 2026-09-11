@@ -25,8 +25,14 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
 
-# App code
+# App code — extension_backend.py + optional trained-agent runtime.
+# feature_extraction.py / url_agent.py / metadata_agent.py are only
+# needed when the corresponding joblibs are present (either mounted or
+# downloaded from HF); when they're absent the heuristic path takes over.
 COPY extension_backend.py .
+COPY feature_extraction.py .
+COPY url_agent.py .
+COPY metadata_agent.py .
 
 # Where the unzipped DistilBERT checkpoint will be mounted
 ENV MODEL_DIR=/app/model
