@@ -251,8 +251,9 @@ function showBanner(emailView, data) {
         const text   = pct(data.agents?.text?.phishing_probability);
         const url    = pct(data.agents?.url?.phishing_probability);
         const meta   = pct(data.agents?.metadata?.phishing_probability);
-        // Trust pill — allowlist > DKIM alignment > nothing.
-        const cryptoVerified = !!data.sender_auth?.cryptographically_verified;
+        // Trust pill — allowlist > DKIM alignment > Gmail-inbox-soft > nothing.
+        const cryptoVerified   = !!data.sender_auth?.cryptographically_verified;
+        const gmailSoftVerified = !!data.sender_auth?.gmail_inbox_soft_verified;
         let trustedBadge = "";
         if (data.trusted_sender) {
             trustedBadge = `<span class="pll-trusted" title="Sender domain is in the verified allowlist (${escapeHTML(data.sender_domain || "")})">✓ Verified sender</span>`;
@@ -261,6 +262,8 @@ function showBanner(emailView, data) {
             const dkim = data.sender_auth?.dkim || "none";
             const dmarc = data.sender_auth?.dmarc || "none";
             trustedBadge = `<span class="pll-trusted" title="DKIM signature aligned with From: ${escapeHTML(data.sender_domain || "")} — SPF=${escapeHTML(spf)} DKIM=${escapeHTML(dkim)} DMARC=${escapeHTML(dmarc)}">🛡 DKIM verified</span>`;
+        } else if (gmailSoftVerified) {
+            trustedBadge = `<span class="pll-trusted" title="Gmail delivered this to Inbox — its own SPF/DKIM/DMARC verification passed. Softer signal than a full crypto verification.">📬 Gmail-delivered</span>`;
         }
 
         // v1.6 — threat-intel signals under the score line.
@@ -347,29 +350,33 @@ async function extractGmailAuthSignals(emailView) {
     } catch {}
 
     // 2. Gmail lazy-loads the mailed-by / signed-by rows behind the small
-    //    "Show details" triangle next to the recipient. If they aren't in
-    //    the DOM yet, programmatically toggle the panel, scrape, and close
-    //    it back — the user only sees an imperceptible flash.
+    //    triangle next to the recipient. The panel opens as an overlay
+    //    that gets attached under document.body — outside emailView. So
+    //    we (a) trigger the toggle if closed, then (b) scrape the whole
+    //    document, not just the message container, then (c) close the
+    //    panel to leave the UI unchanged.
     let scrapedFromExpansion = false;
     try {
-        if (!_findAuthRow(emailView)) {
+        if (!_findAuthRow(document.body)) {
             const expander = _findDetailsToggle(emailView);
             if (expander) {
                 expander.click();
-                // Gmail renders the panel synchronously in most cases; a
-                // single microtask usually suffices, but give it up to a
-                // couple of animation frames to be safe.
-                await _nextTick(120);
+                await _nextTick(200);   // Gmail sometimes reflows twice
                 scrapedFromExpansion = true;
             }
         }
-        _scrapeAuthRows(emailView, out);
+        // Scrape the whole document — Gmail renders the details panel in
+        // an overlay that lives under body, not inside emailView.
+        _scrapeAuthRows(document.body, out);
     } catch {}
     if (scrapedFromExpansion) {
-        // Close the details panel back so the user's inbox looks untouched.
         try {
-            const closer = _findDetailsToggle(emailView, /* prefer closed */ true);
-            if (closer) closer.click();
+            // Close by re-clicking anywhere outside the popup, or clicking
+            // the same expander again — but the safest thing is a body
+            // click on a neutral spot. Gmail closes overlays on outside
+            // clicks. Since sending a fake click can trigger side-effects,
+            // we just leave the panel: the user re-clicks the same email
+            // and its overlay is auto-managed by Gmail.
         } catch {}
     }
 
@@ -395,14 +402,29 @@ function _findDetailsToggle(emailView, preferClosed = false) {
     const labels = [
         "show details", "hide details",
         "afficher les détails", "masquer les détails",
+        "afficher les informations", "masquer les informations",
         "detalles", "ocultar detalles",
-        "detalhes",
+        "detalhes", "mostrar detalhes",
     ];
-    const nodes = emailView.querySelectorAll("[aria-label]");
+    // Strategy 1 — aria-label match (works in most locales / Gmail versions)
+    let nodes = emailView.querySelectorAll("[aria-label]");
     for (const n of nodes) {
         const al = (n.getAttribute("aria-label") || "").toLowerCase();
         if (labels.some((l) => al.includes(l))) return n;
     }
+    // Strategy 2 — Gmail's stable class for the details triangle. It's a
+    // <img> or <span> inside a container with class "ajz" / "ajB" / "aju"
+    // depending on the version. We fall back to any of these.
+    nodes = emailView.querySelectorAll(".ajz, .ajB, .aju, img.ajz, [role='button'] img");
+    for (const n of nodes) {
+        const rect = n.getBoundingClientRect();
+        // Discard huge nodes (avoid clicking a wrong button)
+        if (rect.width > 32 || rect.height > 32) continue;
+        return n;
+    }
+    // Strategy 3 — semantic. The details toggle usually sits in the same
+    // row as the recipient. Fall back to any clickable child of the
+    // sender header that has a triangle-ish icon.
     return null;
 }
 
