@@ -7,9 +7,11 @@
 //      Gmail content script. Gmail's CSP would block direct fetches from
 //      the page context, so the content script messages us instead.
 //   3. Warm-up ping — ping the cloud backend on Chrome startup, on install,
-//      and every 10 min so the Hugging Face Space container is already
-//      awake when the user actually scans an email (avoids the 30-60 s
-//      cold-start latency on the first click of the day).
+//      and every 10 min. Originally introduced to mitigate the 30-60 s
+//      cold-start latency of the previous Hugging Face Space / Render.com
+//      deployments. The current Oracle Cloud VM runs continuously so cold
+//      starts no longer occur, but the ping is kept as an inexpensive
+//      liveness check.
 // =====================================================================
 
 const BACKEND_PRESETS = {

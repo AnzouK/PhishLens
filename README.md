@@ -15,7 +15,7 @@ wrapped in a Chrome extension that injects directly into Gmail.
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![Chrome](https://img.shields.io/badge/Chrome-MV3-4285F4?logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Live demo](https://img.shields.io/badge/Render-Live%20demo-46E3B7?logo=render&logoColor=white)](https://phishlens-backend.onrender.com)
+[![Live demo](https://img.shields.io/badge/Oracle%20Cloud-Live%20demo-F80000?logo=oracle&logoColor=white)](http://130.61.146.213)
 [![HF Model](https://img.shields.io/badge/🤗-Model-yellow)](https://huggingface.co/AnzouKiona/phishlens-distilbert)
 
 <br/>
@@ -93,13 +93,13 @@ between them at any time without reloading.
 
 Just install the extension, switch the backend to **Cloud demo** in the
 gear menu, and you're done. The popup calls
-[`https://phishlens-backend.onrender.com`](https://phishlens-backend.onrender.com)
-— a Render.com Web Service running the same FastAPI Docker image as Option 1.
+[`http://130.61.146.213`](http://130.61.146.213) — an Oracle Cloud Always
+Free VM (ARM Ampere A1, 4 OCPU / 24 GB RAM) running the same FastAPI Docker
+image as Option 1.
 
-Free-tier caveats: ~30–60 s cold start after 15 min of inactivity, CPU-only
-inference, public endpoint (don't paste sensitive email content). The
-extension mitigates the cold start by pinging the backend on Chrome startup
-and every 10 min while the browser is running.
+Caveats: CPU-only inference (~3–5 s per `/analyse`), public HTTP endpoint —
+don't paste sensitive email content. The VM runs continuously (no cold
+start). For end-to-end encryption on your own domain, self-host with Option 1.
 
 ### Option 1 · Docker (recommended for daily use)
 

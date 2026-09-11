@@ -1,5 +1,5 @@
 # =====================================================================
-# PhishLens backend — Hugging Face Space image.
+# PhishLens backend — cloud deployment image (Oracle Cloud / any Docker host).
 # =====================================================================
 # Differences from the local backend Dockerfile:
 #   - listens on $PORT (HF Spaces inject 7860 by default)
