@@ -793,14 +793,20 @@ async def analyse(req: AnalyseRequest):
     elif gmail_inbox_soft:
         # Gmail delivered this message to Inbox — its own SPF/DKIM/DMARC
         # verification passed even though our scraping couldn't recover
-        # the exact identifiers. Softer discount than crypto_verified,
-        # but still enough to prevent "verify your email" template false
-        # positives on legit transactional mail. Threshold nudged up so
-        # the fused score still needs a real majority to flip to phishing.
+        # the exact identifiers. Discount text agent contribution and
+        # disable the single-agent override so a confident DistilBERT call
+        # on a transactional template ("verify your email") doesn't flip
+        # the verdict on its own.
+        #
+        # Gmail's spam filter catches >99% of phishing before Inbox delivery,
+        # so we can be aggressive with this discount. URL / metadata agents
+        # still contribute at full weight — if a URL is actually malicious
+        # (RF or reputation cascade), the fused score can still cross the
+        # threshold. GSB match still forces phishing regardless.
         gsb_hit = "google_safe_browsing" in rep_hit_sources
-        fused = (W_TEXT * 0.75) * p_text + W_URL * p_url + W_META * p_meta
-        high_conf = gsb_hit or (max(p_text, p_url, p_meta) >= 0.95)
-        threshold = 0.60
+        fused = (W_TEXT * 0.6) * p_text + W_URL * p_url + W_META * p_meta
+        high_conf = gsb_hit
+        threshold = 0.62
     else:
         fused = W_TEXT * p_text + W_URL * p_url + W_META * p_meta
         high_conf = max(p_text, p_url, p_meta) >= HIGH_CONF_OVERRIDE
