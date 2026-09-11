@@ -306,35 +306,85 @@ SUSPICIOUS_TLDS = {"zip", "review", "click", "country", "kim", "cricket",
 
 
 # ---------------------------------------------------------------------------
-# Trained URL & metadata agents (opt-in via env vars).
+# Trained URL & metadata agents.
 # ---------------------------------------------------------------------------
-# See space/extension_backend.py for the reference implementation and the
-# feature-extraction contract expected from the joblib-dumped models.
-_URL_RF = None
-_METADATA_RF = None
+# The heuristic agents further down are always available as a safety net.
+# On top of that, the backend can load the trained Random Forest agents
+# from a Hugging Face model repo (default: AnzouKiona/phishlens-agents),
+# or from local files pointed at by the URL_AGENT_PATH / METADATA_AGENT_PATH
+# env vars.
+#
+# The upstream training pipeline lives at
+# https://github.com/AnzouK/PhishingDetector — the URLAgent and
+# MetadataAgent classes ship in this folder (copied verbatim from the
+# training repo) so we can load their pickled state directly.
+HF_AGENTS_REPO = os.environ.get("HF_AGENTS_REPO", "AnzouKiona/phishlens-agents")
+_URL_AGENT       = None
+_METADATA_AGENT  = None
+_FEATURE_EXTRACT = None
+
+def _try_download_agents() -> tuple[Path | None, Path | None]:
+    """Fetch the two agent joblibs from Hugging Face, if reachable."""
+    try:
+        from huggingface_hub import hf_hub_download
+        url_path = hf_hub_download(
+            repo_id=HF_AGENTS_REPO, filename="url_agent.joblib",
+            repo_type="model", local_dir="./agents"
+        )
+        meta_path = hf_hub_download(
+            repo_id=HF_AGENTS_REPO, filename="metadata_agent.joblib",
+            repo_type="model", local_dir="./agents"
+        )
+        return Path(url_path), Path(meta_path)
+    except Exception as e:
+        print(f"⚠ Could not fetch agents from {HF_AGENTS_REPO}: {e}")
+        return None, None
+
+
 try:
-    if os.environ.get("URL_RF_PATH") and Path(os.environ["URL_RF_PATH"]).exists():
-        import joblib
-        _URL_RF = joblib.load(os.environ["URL_RF_PATH"])
-        print(f"✓ Loaded trained URL agent from {os.environ['URL_RF_PATH']}")
-    if os.environ.get("METADATA_RF_PATH") and Path(os.environ["METADATA_RF_PATH"]).exists():
-        import joblib
-        _METADATA_RF = joblib.load(os.environ["METADATA_RF_PATH"])
-        print(f"✓ Loaded trained metadata agent from {os.environ['METADATA_RF_PATH']}")
+    # Feature extractor (always available — trained agents need it).
+    from feature_extraction import FeatureExtractor  # noqa: E402
+    _FEATURE_EXTRACT = FeatureExtractor()
+
+    # Local override paths win over the HF download.
+    local_url  = os.environ.get("URL_AGENT_PATH")
+    local_meta = os.environ.get("METADATA_AGENT_PATH")
+    url_path   = Path(local_url) if local_url and Path(local_url).exists() else None
+    meta_path  = Path(local_meta) if local_meta and Path(local_meta).exists() else None
+
+    if url_path is None or meta_path is None:
+        u2, m2 = _try_download_agents()
+        url_path  = url_path  or u2
+        meta_path = meta_path or m2
+
+    if url_path and url_path.exists():
+        from url_agent import URLAgent  # noqa: E402
+        _URL_AGENT = URLAgent()
+        _URL_AGENT.load_model(str(url_path))
+        print(f"✓ Loaded trained URL agent from {url_path}")
+
+    if meta_path and meta_path.exists():
+        from metadata_agent import MetadataAgent  # noqa: E402
+        _METADATA_AGENT = MetadataAgent()
+        _METADATA_AGENT.load_model(str(meta_path))
+        print(f"✓ Loaded trained metadata agent from {meta_path}")
+
+    if not _URL_AGENT and not _METADATA_AGENT:
+        print("ℹ No trained agents loaded — using heuristic fallbacks.")
 except Exception as e:
-    print(f"⚠ Trained agents load failed (falling back to heuristic): {e}")
+    print(f"⚠ Trained-agents init failed, falling back to heuristics: {e}")
 
 
-def url_agent(urls: list[str]) -> float:
-    """URL score — trained RF if available, heuristic fallback otherwise."""
-    if _URL_RF is not None and urls:
+def url_agent(urls: list[str], body_text: str = "") -> float:
+    """URL score — trained RF on the full body text when available,
+    heuristic on the extracted URL list otherwise."""
+    if _URL_AGENT is not None and _FEATURE_EXTRACT is not None and body_text:
         try:
-            from feature_extraction import extract_url_features
-            X = [extract_url_features(u) for u in urls]
-            probs = _URL_RF.predict_proba(X)[:, 1]
-            return float(probs.max())
-        except Exception:
-            pass
+            feats = _FEATURE_EXTRACT.extract_url_features(body_text)
+            pred  = _URL_AGENT.get_prediction_with_confidence(feats)
+            return float(pred["phishing_probability"])
+        except Exception as e:
+            print(f"  url_agent trained path failed ({e}); falling back to heuristic")
     if not urls:
         return 0.05  # almost no risk with no URLs
     bad = 0.0
@@ -351,16 +401,16 @@ def url_agent(urls: list[str]) -> float:
     return bad
 
 
-def metadata_agent(headers: dict[str, str]) -> float:
-    """Metadata score — trained RF if available, heuristic fallback otherwise."""
-    if _METADATA_RF is not None and headers:
+def metadata_agent(headers: dict[str, str], raw_email: bytes | None = None) -> float:
+    """Metadata score — trained RF on the raw email when available,
+    heuristic on the parsed header dict otherwise."""
+    if _METADATA_AGENT is not None and _FEATURE_EXTRACT is not None and raw_email:
         try:
-            from feature_extraction import extract_metadata_features
-            X = [extract_metadata_features(headers)]
-            probs = _METADATA_RF.predict_proba(X)[:, 1]
-            return float(probs[0])
-        except Exception:
-            pass
+            feats = _FEATURE_EXTRACT.extract_metadata_features(raw_email)
+            pred  = _METADATA_AGENT.get_prediction_with_confidence(feats)
+            return float(pred["phishing_probability"])
+        except Exception as e:
+            print(f"  metadata_agent trained path failed ({e}); falling back to heuristic")
     score = 0.0
     sender = headers.get("from", "").lower()
     reply_to = headers.get("reply-to", "").lower()
@@ -403,15 +453,14 @@ def root():
 @app.get("/health")
 def health():
     """Lightweight liveness probe. Used by the extension to warm the container
-    on Chrome startup so users don't hit a 30-60 s cold-start on their first
-    scan. Deliberately does no model I/O — just confirms the process is up."""
+    so users don't hit a cold-start on their first scan."""
     return {"status": "ok", "model": "DistilBERT"}
 
 
 @app.post("/explain")
 def explain(req: AnalyseRequest):
     """Top-K LIME tokens explaining the text-agent decision."""
-    body, _, _ = _get_body_urls_headers(req)
+    body, _, _, _ = _get_body_urls_headers(req)
     if not body:
         raise HTTPException(400, "Could not extract any text from this email.")
 
@@ -452,11 +501,13 @@ def explain(req: AnalyseRequest):
 
 
 def _get_body_urls_headers(req: AnalyseRequest):
-    """Resolve the request into (body, urls, headers).
+    """Resolve the request into (body, urls, headers, raw_bytes).
 
     Either raw_email_b64 (full EML) or raw_text (plain body) must be present.
     sender_email, when provided, is injected into headers['from'] so the
-    rest of the pipeline can use it uniformly.
+    rest of the pipeline can use it uniformly. raw_bytes is the raw EML
+    bytes when available (needed by the trained metadata agent), None when
+    only raw_text was supplied.
     """
     if req.raw_text:
         body = req.raw_text.strip()
@@ -464,7 +515,7 @@ def _get_body_urls_headers(req: AnalyseRequest):
         headers: dict[str, str] = {}
         if req.sender_email:
             headers["from"] = req.sender_email
-        return body, urls, headers
+        return body, urls, headers, None
     if not req.raw_email_b64:
         raise HTTPException(400, "Provide either raw_email_b64 or raw_text.")
     try:
@@ -478,12 +529,12 @@ def _get_body_urls_headers(req: AnalyseRequest):
     # let sender_email override the parsed From if explicitly given
     if req.sender_email:
         headers["from"] = req.sender_email
-    return body, urls, headers
+    return body, urls, headers, raw_bytes
 
 
 @app.post("/analyse")
 def analyse(req: AnalyseRequest):
-    body, urls, headers = _get_body_urls_headers(req)
+    body, urls, headers, raw_bytes = _get_body_urls_headers(req)
     if not body:
         raise HTTPException(400, "Could not extract any text from this email.")
 
@@ -491,11 +542,13 @@ def analyse(req: AnalyseRequest):
     sender_domain = _sender_domain(headers.get("from", ""))
     trusted_sender = is_trusted_domain(sender_domain)
 
-    # run agents
+    # run agents — pass the extra context so the trained models can take
+    # over when they're loaded; the heuristic fallback still works with
+    # just the parsed urls/headers.
     try:
         p_text = text_agent(body)
-        p_url  = url_agent(urls)
-        p_meta = metadata_agent(headers)
+        p_url  = url_agent(urls, body_text=body)
+        p_meta = metadata_agent(headers, raw_email=raw_bytes)
     except Exception as e:
         raise HTTPException(500, f"Inference failed: {e}")
 

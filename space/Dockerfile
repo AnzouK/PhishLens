@@ -26,8 +26,15 @@ COPY --chown=user:user requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
 
-# Application code (the same extension_backend.py used by the local stack).
+# Application code — kept identical to the local backend so both paths
+# produce the same behaviour. feature_extraction.py + url_agent.py +
+# metadata_agent.py are optional at inference (the heuristic fallbacks
+# still work when the trained joblibs are absent), but they let the
+# runtime load the real Random Forest agents when they are.
 COPY --chown=user:user extension_backend.py .
+COPY --chown=user:user feature_extraction.py .
+COPY --chown=user:user url_agent.py .
+COPY --chown=user:user metadata_agent.py .
 
 # HF Spaces sets PORT=7860 by default; honour it.
 ENV PORT=7860
