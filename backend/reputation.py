@@ -101,12 +101,21 @@ class Cache:
 
     def _get_sync(self, url: str) -> dict[str, Any] | None:
         cutoff = int(time.time()) - CACHE_TTL_SEC
-        with sqlite3.connect(self.path) as db:
-            row = db.execute(
-                "SELECT verdict, stored_at FROM reputation_cache "
-                "WHERE url = ? AND stored_at > ?",
-                (url, cutoff),
-            ).fetchone()
+        try:
+            with sqlite3.connect(self.path) as db:
+                row = db.execute(
+                    "SELECT verdict, stored_at FROM reputation_cache "
+                    "WHERE url = ? AND stored_at > ?",
+                    (url, cutoff),
+                ).fetchone()
+        except sqlite3.OperationalError as e:
+            # Defensive self-heal — if the DB file was deleted / corrupted
+            # since we opened it (or the volume was remounted), re-create
+            # the schema and treat this lookup as a miss.
+            if "no such table" in str(e).lower():
+                self._init_db()
+                return None
+            raise
         if not row:
             return None
         try:
@@ -124,12 +133,26 @@ class Cache:
     def _put_sync(self, url: str, verdict: dict[str, Any]):
         # Strip the cached flag before storing so we don't compound it.
         v = {k: val for k, val in verdict.items() if k not in ("cached", "cached_age_sec")}
-        with sqlite3.connect(self.path) as db:
-            db.execute(
-                "INSERT OR REPLACE INTO reputation_cache(url, verdict, stored_at) "
-                "VALUES (?, ?, ?)",
-                (url, json.dumps(v), int(time.time())),
-            )
+        try:
+            with sqlite3.connect(self.path) as db:
+                db.execute(
+                    "INSERT OR REPLACE INTO reputation_cache(url, verdict, stored_at) "
+                    "VALUES (?, ?, ?)",
+                    (url, json.dumps(v), int(time.time())),
+                )
+        except sqlite3.OperationalError as e:
+            if "no such table" in str(e).lower():
+                # Re-create schema and retry once. If it still fails after
+                # the retry there's a real filesystem issue — surface it.
+                self._init_db()
+                with sqlite3.connect(self.path) as db:
+                    db.execute(
+                        "INSERT OR REPLACE INTO reputation_cache(url, verdict, stored_at) "
+                        "VALUES (?, ?, ?)",
+                        (url, json.dumps(v), int(time.time())),
+                    )
+            else:
+                raise
 
     async def purge_expired(self):
         async with self._lock:
@@ -137,8 +160,14 @@ class Cache:
 
     def _purge_sync(self):
         cutoff = int(time.time()) - CACHE_TTL_SEC
-        with sqlite3.connect(self.path) as db:
-            db.execute("DELETE FROM reputation_cache WHERE stored_at <= ?", (cutoff,))
+        try:
+            with sqlite3.connect(self.path) as db:
+                db.execute("DELETE FROM reputation_cache WHERE stored_at <= ?", (cutoff,))
+        except sqlite3.OperationalError as e:
+            if "no such table" in str(e).lower():
+                self._init_db()          # no rows to purge but future writes work
+            else:
+                raise
 
     def stats(self) -> dict[str, int]:
         with sqlite3.connect(self.path) as db:
