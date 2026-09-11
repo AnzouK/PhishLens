@@ -4,11 +4,11 @@
 
 // Backend choices (persisted in chrome.storage under "backend").
 // "local"  -> http://127.0.0.1:8000                     (Docker on user's Mac)
-// "cloud"  -> https://phishlens-backend.onrender.com    (Render.com)
+// "cloud"  -> http://130.61.146.213    (Oracle Cloud)
 // "custom" -> whatever URL the user types in the settings view
 const BACKEND_PRESETS = {
     local:  "http://127.0.0.1:8000",
-    cloud:  "https://phishlens-backend.onrender.com",
+    cloud:  "http://130.61.146.213",
 };
 const DEFAULT_BACKEND = "local";
 
