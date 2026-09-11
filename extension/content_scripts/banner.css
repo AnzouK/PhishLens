@@ -191,3 +191,44 @@ html[data-phishlens-theme="dark"] .pll-banner__close { color: #8b949e; }
 html[data-phishlens-theme="dark"] .pll-tok--phishing { color: #ff8c5a; }
 html[data-phishlens-theme="dark"] .pll-tok--safe     { color: #56d364; }
 html[data-phishlens-theme="dark"] .pll-trusted { color: #56d364; }
+
+/* ==================================================================
+   v1.6 — threat-intel signal chips (URL reputation + sender auth)
+   Live under the score line inside the banner. Themed for both
+   light/dark, using the popup's badge palette semantics.
+   ================================================================== */
+.pll-signals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+.pll-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    line-height: 1.2;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.pll-chip--good { color: #0a7d3b; background: rgba(16, 132, 66, 0.10); border-color: rgba(16, 132, 66, 0.35); }
+.pll-chip--warn { color: #a15b00; background: rgba(216, 138, 0, 0.10); border-color: rgba(216, 138, 0, 0.35); }
+.pll-chip--bad  { color: #b02020; background: rgba(200, 40, 40, 0.10); border-color: rgba(200, 40, 40, 0.4);  }
+
+/* dark-mode variants */
+@media (prefers-color-scheme: dark) {
+    .pll-chip--good { color: #6ee7a8; background: rgba(20, 128, 70, 0.18); border-color: rgba(20, 128, 70, 0.4); }
+    .pll-chip--warn { color: #ffc46b; background: rgba(216, 138, 0, 0.2);  border-color: rgba(216, 138, 0, 0.45); }
+    .pll-chip--bad  { color: #ff9494; background: rgba(200, 40, 40, 0.18); border-color: rgba(200, 40, 40, 0.5); }
+}
+/* explicit theme overrides from popup toggle */
+html[data-phishlens-theme="light"] .pll-chip--good { color: #0a7d3b; background: rgba(16, 132, 66, 0.10); }
+html[data-phishlens-theme="light"] .pll-chip--warn { color: #a15b00; background: rgba(216, 138, 0, 0.10); }
+html[data-phishlens-theme="light"] .pll-chip--bad  { color: #b02020; background: rgba(200, 40, 40, 0.10); }
+html[data-phishlens-theme="dark"]  .pll-chip--good { color: #6ee7a8; background: rgba(20, 128, 70, 0.18); }
+html[data-phishlens-theme="dark"]  .pll-chip--warn { color: #ffc46b; background: rgba(216, 138, 0, 0.2);  }
+html[data-phishlens-theme="dark"]  .pll-chip--bad  { color: #ff9494; background: rgba(200, 40, 40, 0.18); }

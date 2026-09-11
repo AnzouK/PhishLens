@@ -1,7 +1,7 @@
 {
   "name": "PhishLens",
   "description": "Detects phishing in emails and explains why, using a fine-tuned DistilBERT and LIME.",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "manifest_version": 3,
   "icons": {
     "16":  "icons/16.png",
