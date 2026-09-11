@@ -15,8 +15,8 @@ wrapped in a Chrome extension that injects directly into Gmail.
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![Chrome](https://img.shields.io/badge/Chrome-MV3-4285F4?logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![HF Space](https://img.shields.io/badge/🤗-Live%20demo-yellow)](https://huggingface.co/spaces/Sonje03/phishlens-backend)
-[![HF Model](https://img.shields.io/badge/🤗-Model-yellow)](https://huggingface.co/Sonje03/phishlens-distilbert)
+[![Live demo](https://img.shields.io/badge/Render-Live%20demo-46E3B7?logo=render&logoColor=white)](https://phishlens-backend.onrender.com)
+[![HF Model](https://img.shields.io/badge/🤗-Model-yellow)](https://huggingface.co/AnzouKiona/phishlens-distilbert)
 
 <br/>
 
@@ -93,18 +93,20 @@ between them at any time without reloading.
 
 Just install the extension, switch the backend to **Cloud demo** in the
 gear menu, and you're done. The popup calls
-[`https://sonje03-phishlens-backend.hf.space`](https://huggingface.co/spaces/Sonje03/phishlens-backend)
-— a Hugging Face Space running the same FastAPI image as Option 1.
+[`https://phishlens-backend.onrender.com`](https://phishlens-backend.onrender.com)
+— a Render.com Web Service running the same FastAPI Docker image as Option 1.
 
-Free-tier caveats: ~30–60 s cold start after inactivity, CPU-only inference,
-public endpoint (don't paste sensitive email content).
+Free-tier caveats: ~30–60 s cold start after 15 min of inactivity, CPU-only
+inference, public endpoint (don't paste sensitive email content). The
+extension mitigates the cold start by pinging the backend on Chrome startup
+and every 10 min while the browser is running.
 
 ### Option 1 · Docker (recommended for daily use)
 
 ```bash
 # 1. Get the model files into ./backend/model/ (one-time)
 mkdir -p backend/model
-huggingface-cli download Sonje03/phishlens-distilbert --local-dir backend/model
+huggingface-cli download AnzouKiona/phishlens-distilbert --local-dir backend/model
 
 # 2. Bring the backend up
 cd backend
@@ -165,8 +167,8 @@ Default is to follow your OS dark-mode preference.
 
 ### Environment variables
 
-| Variable | Default | Purpose |
-|---|---|---|
+| Variable    | Default   | Purpose                                    |
+|-------------|-----------|--------------------------------------------|
 | `MODEL_DIR` | `./model` | Path to the unzipped DistilBERT checkpoint |
 
 ### Trusted sender allowlist
@@ -185,13 +187,13 @@ lab-report or bank-KYC emails that share template wording with phishing.
 
 ### Fusion weights
 
-| Knob | Default |
-|---|---|
-| `W_TEXT` | `0.34` |
-| `W_URL` | `0.33` |
-| `W_META` | `0.33` |
-| `FUSION_THRESHOLD` | `0.5` |
-| `HIGH_CONF_OVERRIDE` | `0.85` |
+| Knob                 | Default |
+|----------------------|---------|
+| `W_TEXT`             | `0.34`  |
+| `W_URL`              | `0.33`  |
+| `W_META`             | `0.33`  |
+| `FUSION_THRESHOLD`   | `0.5`   |
+| `HIGH_CONF_OVERRIDE` | `0.85`  |
 
 ---
 

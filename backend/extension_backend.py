@@ -55,7 +55,7 @@ MODEL_DIR = Path(os.environ.get("MODEL_DIR", Path(__file__).parent / "model"))
 # If the local MODEL_DIR is empty, the lifespan will try to fetch the
 # checkpoint from this Hugging Face Hub repo. This is the path used by the
 # HF Spaces deployment, where bundling the model in the image is wasteful.
-HF_MODEL_REPO = os.environ.get("HF_MODEL_REPO", "Sonje03/phishlens-distilbert")
+HF_MODEL_REPO = os.environ.get("HF_MODEL_REPO", "AnzouKiona/phishlens-distilbert")
 
 # Port the server should listen on. Local Docker uses 8000; HF Spaces inject
 # their own PORT env var (typically 7860).
@@ -353,7 +353,15 @@ def verdict_label(p: float, threshold: float = 0.5) -> str:
 @app.get("/")
 def root():
     return {"status": "ok", "model": "DistilBERT",
-            "endpoints": ["/analyse", "/explain"]}
+            "endpoints": ["/analyse", "/explain", "/health"]}
+
+
+@app.get("/health")
+def health():
+    """Lightweight liveness probe. Used by the extension to warm the container
+    on Chrome startup so users don't hit a 30-60 s cold-start on their first
+    scan. Deliberately does no model I/O — just confirms the process is up."""
+    return {"status": "ok", "model": "DistilBERT"}
 
 
 @app.post("/explain")
