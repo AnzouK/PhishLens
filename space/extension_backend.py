@@ -358,7 +358,14 @@ def verdict_label(p: float, threshold: float = 0.5) -> str:
 @app.get("/")
 def root():
     return {"status": "ok", "model": "DistilBERT",
-            "endpoints": ["/analyse", "/explain"]}
+            "endpoints": ["/analyse", "/explain", "/health"]}
+
+
+@app.get("/health")
+def health():
+    """Lightweight liveness probe. Used by the extension to warm the container
+    so users don't hit a cold-start on their first scan."""
+    return {"status": "ok", "model": "DistilBERT"}
 
 
 @app.post("/explain")
