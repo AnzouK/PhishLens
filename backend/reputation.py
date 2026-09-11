@@ -251,6 +251,20 @@ class GoogleSafeBrowsing:
             print(f"⚠ GSB request failed: {e}")
             return {}
 
+        # Temporary debug — log what Google actually returned so we can
+        # diagnose "consumed=1 but zero matches" cases. Cheap enough to
+        # leave on: one line per /analyse call, empty body most of the time.
+        if os.environ.get("GSB_DEBUG", "1") != "0":
+            n_matches = len(body.get("matches", []))
+            print(f"[GSB] sent {len(urls)} URL(s), Google returned "
+                  f"{n_matches} match(es). URLs={urls}. Body_keys={list(body.keys())}")
+            if n_matches == 0 and urls:
+                # Show first URL and full body — helps spot canonicalization
+                # or key-restriction issues (e.g. HTTP referrer restrictions
+                # on the API key can silently return {}).
+                print(f"[GSB] first URL sent: {urls[0]!r}")
+                print(f"[GSB] full response body: {body}")
+
         results: dict[str, dict[str, Any]] = {}
         for match in body.get("matches", []):
             url = match.get("threat", {}).get("url", "")
