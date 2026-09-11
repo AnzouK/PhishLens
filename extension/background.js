@@ -14,7 +14,7 @@
 
 const BACKEND_PRESETS = {
     local: "http://127.0.0.1:8000",
-    cloud: "https://phishlens-backend.onrender.com",
+    cloud: "http://130.61.146.213",
 };
 
 async function getApiBase() {

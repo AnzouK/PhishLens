@@ -1,7 +1,7 @@
 {
   "name": "PhishLens",
   "description": "Detects phishing in emails and explains why, using a fine-tuned DistilBERT and LIME.",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "manifest_version": 3,
   "icons": {
     "16":  "icons/16.png",
@@ -22,7 +22,7 @@
     "https://mail.google.com/*",
     "http://127.0.0.1:8000/*",
     "http://localhost:8000/*",
-    "https://*.onrender.com/*"
+    "http://130.61.146.213/*"
   ],
   "content_scripts": [
     {
