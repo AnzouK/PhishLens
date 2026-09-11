@@ -6,9 +6,11 @@
 
 **Detect and explain phishing emails — in real time, inside your browser.**
 
-A fine-tuned DistilBERT classifier, two heuristic agents (URLs, headers),
-weighted fusion with a trusted-domain allowlist, and a LIME explanation panel,
-wrapped in a Chrome extension that injects directly into Gmail.
+A fine-tuned DistilBERT text classifier, two trained Random Forest agents
+(URLs, headers), an RFC-7489 sender-authentication path (SPF / DKIM / DMARC),
+a multi-source URL reputation cascade (Google Safe Browsing, PhishTank,
+URLhaus, Spamhaus DBL), and a LIME explanation panel — wrapped in a Chrome
+extension that injects directly into Gmail.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -49,7 +51,7 @@ tells you which tokens pushed the verdict that way.
     </td>
     <td align="center">
       <img src="docs/popup-safe-trusted.png" alt="Safe verdict popup with verified-sender badge" width="380"><br/>
-      <sub><em>Safe verdict — verified-sender badge for allowlisted domains.</em></sub>
+      <sub><em>Safe verdict — verified-sender pill when SPF/DKIM/DMARC align.</em></sub>
     </td>
   </tr>
 </table>
@@ -59,27 +61,35 @@ tells you which tokens pushed the verdict that way.
 ## 🏗 Architecture
 
 ```
-┌─────────────────────────────────────┐        ┌────────────────────────────────────────┐
-│        Chrome extension (MV3)       │        │        FastAPI backend (Docker)        │
-│                                     │        │                                        │
-│  ┌──────────┐    ┌───────────────┐  │ POST   │  ┌──────────────────────────────────┐  │
-│  │  Popup   │    │ Gmail content │  │/analyse│  │  DistilBERT       text agent     │  │
-│  │  + LIME  │    │  script       │──┼────────┼─▶│  RF (23 feats)    URL agent      │  │
-│  │  cache   │    │ (MutationObs) │  │/explain│  │  RF (37 feats)    metadata agent │  │
-│  └──────────┘    └───────────────┘  │        │  └──────────────────────────────────┘  │
-│         ▲                ▲          │        │              │                         │
-│         │                │          │        │              ▼                         │
-│         └──── Background service ───┘        │  ┌──────────────────────────────────┐  │
-│              (CSP-bypass proxy)              │  │  Sender auth (SPF/DKIM/DMARC)    │  │
-│                                              │  │  URL reputation cascade:         │  │
-│                                              │  │    cache → GSB → PhishTank →     │  │
-│                                              │  │    URLhaus → Spamhaus DBL        │  │
-│                                              │  └──────────────────────────────────┘  │
-│                                              │              │                         │
-│                                              │              ▼                         │
-│                                              │  Weighted fusion + LIME  ─▶  verdict   │
-│                                              │  (crypto_verified / trusted paths)     │
-└─────────────────────────────────────┘        └────────────────────────────────────────┘
+┌──────────────────────────────────────┐      ┌──────────────────────────────────────┐
+│         Chrome extension (MV3)       │      │        FastAPI backend (Docker)      │
+│                                      │      │                                      │
+│  ┌──────────┐     ┌───────────────┐  │      │  ┌────────────────────────────────┐  │
+│  │  Popup   │     │ Gmail content │  │ POST │  │  DistilBERT     text agent     │  │
+│  │  + LIME  │     │   script      │──┼──────┼─▶│  RF (23 feats)  URL agent      │  │
+│  │  cache   │     │ (MutationObs) │  │      │  │  RF (37 feats)  metadata agent │  │
+│  └──────────┘     └───────────────┘  │      │  └────────────────────────────────┘  │
+│         ▲                 ▲          │      │                 │                    │
+│         │                 │          │      │                 ▼                    │
+│         └───── Background service ───┘      │  ┌────────────────────────────────┐  │
+│               (CSP-bypass fetch proxy       │  │  Sender auth  (SPF/DKIM/DMARC) │  │
+│                + warm-up alarm)             │  │  URL reputation cascade:       │  │
+│                                             │  │    cache → GSB → PhishTank →   │  │
+│  Local storage:                             │  │    URLhaus → Spamhaus DBL      │  │
+│    • scan history (500 entries)             │  └────────────────────────────────┘  │
+│    • LIME cache   (200 entries)             │                 │                    │
+│    • theme / backend selection              │                 ▼                    │
+│    • analytics dashboard                    │  ┌────────────────────────────────┐  │
+│                                             │  │  Weighted fusion + LIME        │  │
+│                                             │  │  paths: crypto_verified,       │  │
+│                                             │  │         gmail_inbox_soft,      │  │
+│                                             │  │         trusted allowlist,     │  │
+│                                             │  │         default                │  │
+│                                             │  └────────────────────────────────┘  │
+│                                             │                 │                    │
+│                                             │                 ▼                    │
+│                                             │            verdict + LIME            │
+└──────────────────────────────────────┘      └──────────────────────────────────────┘
 ```
 
 The trained URL and metadata Random Forest agents live in a sibling repo
@@ -228,6 +238,8 @@ both signals are available.
 
 ### Fusion weights
 
+Base weights applied on the default (unauthenticated) path:
+
 | Knob                 | Default |
 |----------------------|---------|
 | `W_TEXT`             | `0.34`  |
@@ -235,6 +247,19 @@ both signals are available.
 | `W_META`             | `0.33`  |
 | `FUSION_THRESHOLD`   | `0.5`   |
 | `HIGH_CONF_OVERRIDE` | `0.85`  |
+
+The four sender-trust paths override some of these knobs. Summary:
+
+| Path                       | Text weight  | Single-agent override        | Threshold |
+|----------------------------|--------------|------------------------------|-----------|
+| `trusted_sender` (allowlist) | `W_TEXT × 0.5` | disabled                     | `0.65`    |
+| `crypto_verified` (DKIM aligned) | `W_TEXT × 0.5` | disabled (unless GSB match)  | `0.65`    |
+| `gmail_inbox_soft` (Inbox-delivered) | `W_TEXT × 0.6` | disabled (unless GSB match)  | `0.62`    |
+| default                    | `W_TEXT × 1.0` | on when any agent ≥ `0.85`   | `0.5`     |
+
+A Google Safe Browsing hit on any URL forces the phishing verdict regardless
+of the path (a signed message with a Safe-Browsing-listed link means the
+sender's account is compromised).
 
 ---
 
@@ -256,7 +281,7 @@ PhishLens/
 ├── space/                        # cloud deployment (Oracle VM / HF Space)
 │   └── ...                       # mirrors backend/ with the cloud-specific Dockerfile
 ├── extension/
-│   ├── manifest.json             # MV3 manifest (v1.6.0)
+│   ├── manifest.json             # MV3 manifest
 │   ├── background.js             # service worker (CSP-bypass fetch proxy + warm-up alarm)
 │   ├── popup/                    # popup UI (HTML/CSS/JS, no build step)
 │   ├── content_scripts/          # Gmail injection + banner CSS
