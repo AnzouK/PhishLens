@@ -117,11 +117,11 @@ async function runScan(emailView, btn) {
         // Gmail already ran SPF/DKIM/DMARC before delivering — surface its
         // verdict from the DOM so the backend can apply the crypto_verified
         // discount even when we only have raw_text (no Authentication-Results
-        // header to parse). Without this, popup scans (which get the full
-        // .eml) and Gmail scans (which get body-only) can disagree on the
-        // same message — legit signed mail flagged as phishing in the banner
-        // and safe in the popup.
-        const gmailAuth = extractGmailAuthSignals(emailView);
+        // header to parse). Gmail lazy-loads the mailed-by / signed-by rows,
+        // so we have to programmatically toggle the "details" panel to get
+        // them into the DOM before scraping.
+        const gmailAuth = await extractGmailAuthSignals(emailView);
+        console.log(TAG, "extracted Gmail auth signals:", gmailAuth);
 
         // Send the body as raw_text and the sender separately so the backend
         // can run the trusted-domain check.
@@ -335,7 +335,7 @@ function pct(p) { return p == null ? "—" : Math.round(p * 100); }
 //
 // Robust to Gmail's obfuscated class names — we match on visible text
 // rather than a specific class, so this survives Gmail redesigns.
-function extractGmailAuthSignals(emailView) {
+async function extractGmailAuthSignals(emailView) {
     const out = { signedBy: null, mailedBy: null, via: null, inInbox: false };
 
     // 1. Detect "in inbox" by looking at the URL — Gmail routes inbox to
@@ -346,39 +346,99 @@ function extractGmailAuthSignals(emailView) {
         out.inInbox = !(hash.includes("spam") || hash.includes("trash"));
     } catch {}
 
-    // 2. Look up mailed-by / signed-by rows via visible text labels.
-    //    Gmail renders these as pairs of <td> — first the label, then the
-    //    value. We walk the emailView for cells whose text starts with
-    //    the label, and grab the sibling.
+    // 2. Gmail lazy-loads the mailed-by / signed-by rows behind the small
+    //    "Show details" triangle next to the recipient. If they aren't in
+    //    the DOM yet, programmatically toggle the panel, scrape, and close
+    //    it back — the user only sees an imperceptible flash.
+    let scrapedFromExpansion = false;
     try {
-        const rows = emailView.querySelectorAll("td, span, div");
-        for (const el of rows) {
-            const t = (el.textContent || "").trim().toLowerCase();
-            if (!t) continue;
-            if (t === "mailed-by:" || t === "envoyé par :" || t === "envoyé par:") {
-                const val = el.nextElementSibling?.textContent?.trim();
-                if (val && /\./.test(val)) out.mailedBy = val;
-            } else if (t === "signed-by:" || t === "signé par :" || t === "signé par:") {
-                const val = el.nextElementSibling?.textContent?.trim();
-                if (val && /\./.test(val)) out.signedBy = val;
+        if (!_findAuthRow(emailView)) {
+            const expander = _findDetailsToggle(emailView);
+            if (expander) {
+                expander.click();
+                // Gmail renders the panel synchronously in most cases; a
+                // single microtask usually suffices, but give it up to a
+                // couple of animation frames to be safe.
+                await _nextTick(120);
+                scrapedFromExpansion = true;
             }
         }
+        _scrapeAuthRows(emailView, out);
     } catch {}
+    if (scrapedFromExpansion) {
+        // Close the details panel back so the user's inbox looks untouched.
+        try {
+            const closer = _findDetailsToggle(emailView, /* prefer closed */ true);
+            if (closer) closer.click();
+        } catch {}
+    }
 
     // 3. The inline "via <domain>" indicator shown when SPF path differs
     //    from From:. Structure varies but we can look for a span whose text
     //    is "via" followed by a text node with the domain.
     try {
-        const viaCandidates = emailView.querySelectorAll("span.g3, span");
+        const viaCandidates = emailView.querySelectorAll("span");
         for (const el of viaCandidates) {
             const t = (el.textContent || "").trim().toLowerCase();
-            // Very cheap match — "via example.com" or "via" + sibling
             const m = t.match(/^via\s+([a-z0-9.-]+\.[a-z]{2,})$/i);
             if (m) { out.via = m[1]; break; }
         }
     } catch {}
 
     return out;
+}
+
+// --- helpers for the DOM scrape ---
+// Gmail marks the details toggle with aria-label text that varies by locale.
+// We match on a set of known labels rather than the (obfuscated) class name.
+function _findDetailsToggle(emailView, preferClosed = false) {
+    const labels = [
+        "show details", "hide details",
+        "afficher les détails", "masquer les détails",
+        "detalles", "ocultar detalles",
+        "detalhes",
+    ];
+    const nodes = emailView.querySelectorAll("[aria-label]");
+    for (const n of nodes) {
+        const al = (n.getAttribute("aria-label") || "").toLowerCase();
+        if (labels.some((l) => al.includes(l))) return n;
+    }
+    return null;
+}
+
+// Find any Authentication-Results row already in the DOM (either mailed-by
+// or signed-by or the localized equivalent). Used to skip the toggle click
+// when the info is already accessible.
+function _findAuthRow(emailView) {
+    const nodes = emailView.querySelectorAll("td, span, div");
+    for (const el of nodes) {
+        const t = (el.textContent || "").trim().toLowerCase();
+        if (t === "mailed-by:" || t === "signed-by:" ||
+            t === "envoyé par :" || t === "envoyé par:" ||
+            t === "signé par :" || t === "signé par:") {
+            return el;
+        }
+    }
+    return null;
+}
+
+function _scrapeAuthRows(emailView, out) {
+    const nodes = emailView.querySelectorAll("td, span, div");
+    for (const el of nodes) {
+        const t = (el.textContent || "").trim().toLowerCase();
+        if (!t) continue;
+        if (t === "mailed-by:" || t === "envoyé par :" || t === "envoyé par:") {
+            const val = el.nextElementSibling?.textContent?.trim();
+            if (val && /\./.test(val)) out.mailedBy = val;
+        } else if (t === "signed-by:" || t === "signé par :" || t === "signé par:") {
+            const val = el.nextElementSibling?.textContent?.trim();
+            if (val && /\./.test(val)) out.signedBy = val;
+        }
+    }
+}
+
+function _nextTick(ms = 0) {
+    return new Promise((r) => setTimeout(r, ms));
 }
 
 // Resolve the currently-selected backend URL — needed for the LIME cache
