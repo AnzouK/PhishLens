@@ -1,7 +1,0 @@
-0000000000000000000000000000000000000000 4bf6c570eae3df6e176fbfc2e0c4eeee85582103 Sonje03 <juniorbamoquina@gmail.com> 1781475792 +0100	commit (initial): feat: initial PhishLens release
-4bf6c570eae3df6e176fbfc2e0c4eeee85582103 ffe26338a9bbce344c02b30ef49cd49f42cc030e Sonje03 <juniorbamoquina@gmail.com> 1781477385 +0100	commit: docs: link to Sonje03/phishlens-distilbert on HF Hub
-ffe26338a9bbce344c02b30ef49cd49f42cc030e 1c2e8582e8702360b6a7328949b6c2b0828d95fc Sonje03 <83333163+Sonje03@users.noreply.github.com> 1781516871 +0100	commit: link fix
-1c2e8582e8702360b6a7328949b6c2b0828d95fc 5875e8be5a59e5dc3092a913e0b8d9bd5e84fd0f Sonje03 <83333163+Sonje03@users.noreply.github.com> 1781549903 +0100	commit: feat: backend URL selector + HF Hub model fallback + HF Spaces config
-5875e8be5a59e5dc3092a913e0b8d9bd5e84fd0f 3c77f91bc6973724509aacd4592de625557df0be Sonje03 <83333163+Sonje03@users.noreply.github.com> 1781550446 +0100	commit: fix: shorten space short_description to fit HF YAML limit (≤60 chars)
-3c77f91bc6973724509aacd4592de625557df0be 61b530a438706721f4159a2b3fa6317d8a9d7cf9 Sonje03 <83333163+Sonje03@users.noreply.github.com> 1781552422 +0100	commit: docs: add screenshots + cloud-demo option in Quickstart
-61b530a438706721f4159a2b3fa6317d8a9d7cf9 c305095f796fba30b1854d3061399e4a37fa2bca Sonje03 <83333163+Sonje03@users.noreply.github.com> 1789120169 +0100	commit: rebrand: Sonje03 → AnzouKiona (HF) + AnzouK (GitHub), backend on Render.com

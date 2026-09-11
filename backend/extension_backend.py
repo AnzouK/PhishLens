@@ -193,9 +193,10 @@ async def lifespan(_app: FastAPI):
     print(f"Loading DistilBERT from {model_dir} ...")
     device = _pick_device()
     tok = AutoTokenizer.from_pretrained(str(model_dir))
-    # FP16 halves the model's RAM footprint (~256MB → ~128MB) so the whole
-    # process fits in Render.com's 512Mi free-tier limit. Slower on CPU than
-    # FP32 but only by ~1.5–2×, still well under 10s per /analyse.
+    # FP16 halves the model's RAM footprint (~256MB → ~128MB) — kept from the
+    # earlier Render.com deployment where 512Mi was tight. On the current
+    # Oracle Cloud 24GB VM this is no longer required, but FP16 stays as a
+    # sensible default for any downstream self-host on constrained instances.
     model = AutoModelForSequenceClassification.from_pretrained(
         str(model_dir), torch_dtype=torch.float16
     )
