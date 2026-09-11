@@ -232,3 +232,13 @@ html[data-phishlens-theme="light"] .pll-chip--bad  { color: #b02020; background:
 html[data-phishlens-theme="dark"]  .pll-chip--good { color: #6ee7a8; background: rgba(20, 128, 70, 0.18); }
 html[data-phishlens-theme="dark"]  .pll-chip--warn { color: #ffc46b; background: rgba(216, 138, 0, 0.2);  }
 html[data-phishlens-theme="dark"]  .pll-chip--bad  { color: #ff9494; background: rgba(200, 40, 40, 0.18); }
+
+/* v1.6.1 — cached-explanation hint next to the LIME tokens */
+.pll-cache-hint {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 11px;
+    color: #6ee7a8;
+    opacity: 0.75;
+    font-weight: 500;
+}

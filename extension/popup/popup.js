@@ -475,8 +475,31 @@ function renderMetaBadges(auth) {
 
 // ---------- LIME explain (background pre-fire) ----------
 async function fetchExplain(payload, thisRun) {
+    const base = getApiBase();
+    // Client-side cache — LIME output only depends on {backend, text},
+    // both stable enough for a 30-day TTL. Re-opening the same email
+    // returns instantly instead of eating 8-15 s of CPU on the server.
     try {
-        const resp = await fetch(`${getApiBase()}/explain`, {
+        const cached = await window.PhishLensLimeCache?.get(base, payload);
+        if (cached && thisRun === runId) {
+            explainData = cached.features;
+            if (explainPanel.open) renderExplain(explainData);
+            // Skip the network call entirely — history token attach below
+            // still runs so we don't lose the analytics signal.
+            if (currentHistoryId && Array.isArray(explainData)) {
+                const tokens = explainData.slice(0, 5).map((f) => ({
+                    token:  f.token  || (Array.isArray(f) ? f[0] : ""),
+                    weight: f.weight ?? (Array.isArray(f) ? f[1] : 0),
+                }));
+                try { await window.PhishLensHistory?.attachTokens(currentHistoryId, tokens); }
+                catch {}
+            }
+            return;
+        }
+    } catch {}
+
+    try {
+        const resp = await fetch(`${base}/explain`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -490,6 +513,10 @@ async function fetchExplain(payload, thisRun) {
         if (thisRun !== runId) return;        // stale — discard
         explainData = data.features || [];
         if (explainPanel.open) renderExplain(explainData);
+
+        // Persist to the LIME cache (fire-and-forget).
+        try { window.PhishLensLimeCache?.put(base, payload, explainData); }
+        catch {}
 
         // Attach top LIME tokens to the history entry so the analytics
         // view can aggregate them into the "top phishing tokens" chart.

@@ -27,7 +27,7 @@
   "content_scripts": [
     {
       "matches": ["https://mail.google.com/*"],
-      "js":  ["content_scripts/gmail.js"],
+      "js":  ["lib/lime_cache.js", "content_scripts/gmail.js"],
       "css": ["content_scripts/banner.css"],
       "run_at": "document_idle"
     }

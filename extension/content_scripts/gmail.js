@@ -148,23 +148,48 @@ async function runScan(emailView, btn) {
         }).catch(() => null);
         const savedId = saveResp?.id;
 
-        // pre-fetch explanation in background; banner will pick it up on demand
-        chrome.runtime.sendMessage({ type: "phishlens.explain", payload })
-            .then((rr) => {
-                if (!rr?.ok) return;
-                const features = rr.data.features || [];
-                attachExplanation(emailView, features);
-                if (savedId) {
-                    const tokens = features.slice(0, 5).map((f) => ({
-                        token: f.token || f[0] || "",
-                        weight: f.weight || f[1] || 0,
-                    }));
-                    chrome.runtime.sendMessage({
-                        type: "phishlens.history.attachTokens",
-                        id: savedId, tokens,
-                    }).catch(() => {});
+        // Pre-fetch explanation in background; banner picks it up on demand.
+        // Fast path: check the client-side LIME cache first. If we already
+        // ran /explain on this exact payload (same email re-opened, same
+        // backend), we skip the ~10 s server round-trip entirely.
+        (async () => {
+            let features = null;
+            let cached = false;
+
+            try {
+                const backendBase = await _getBackendBase();
+                const hit = await window.PhishLensLimeCache?.get(backendBase, payload);
+                if (hit) {
+                    features = hit.features;
+                    cached = true;
                 }
-            });
+            } catch {}
+
+            if (!features) {
+                const rr = await chrome.runtime.sendMessage({
+                    type: "phishlens.explain", payload,
+                }).catch(() => null);
+                if (!rr?.ok) return;
+                features = rr.data.features || [];
+                // Persist to the LIME cache for the next scan of this email.
+                try {
+                    const backendBase = await _getBackendBase();
+                    window.PhishLensLimeCache?.put(backendBase, payload, features);
+                } catch {}
+            }
+
+            attachExplanation(emailView, features, cached);
+            if (savedId) {
+                const tokens = features.slice(0, 5).map((f) => ({
+                    token: f.token || f[0] || "",
+                    weight: f.weight || f[1] || 0,
+                }));
+                chrome.runtime.sendMessage({
+                    type: "phishlens.history.attachTokens",
+                    id: savedId, tokens,
+                }).catch(() => {});
+            }
+        })();
     } catch (e) {
         const msg = String(e?.message || e);
         // Friendlier message when the extension was reloaded while this Gmail
@@ -256,18 +281,21 @@ function showBanner(emailView, data) {
     banner.querySelector(".pll-banner__close")?.addEventListener("click", () => banner.remove());
 }
 
-function attachExplanation(emailView, features) {
+function attachExplanation(emailView, features, cached = false) {
     const slot = emailView.querySelector(".pll-banner .pll-banner__tokens");
     if (!slot) return;
     if (!features.length) {
         slot.textContent = "No salient tokens returned.";
         return;
     }
-    slot.innerHTML = features.map((f) => {
+    const chips = features.map((f) => {
         const cls = f.supports === "phishing" ? "pll-tok--phishing" : "pll-tok--safe";
         const w = Math.abs(f.weight).toFixed(2);
         return `<span class="pll-tok ${cls}" title="${f.supports}: ${w}">${escapeHTML(f.token)}<span class="pll-tok__w">${w}</span></span>`;
     }).join("");
+    slot.innerHTML = cached
+        ? chips + '<span class="pll-cache-hint" title="Explanation served from local cache — no server call needed">⚡ cached</span>'
+        : chips;
 }
 
 // ---------------------------------------------------------------------
@@ -278,6 +306,24 @@ function textOf(el) {
     return el.innerText.replace(/\s+\n/g, "\n").trim();
 }
 function pct(p) { return p == null ? "—" : Math.round(p * 100); }
+
+// Resolve the currently-selected backend URL — needed for the LIME cache
+// key. Mirrors the resolution logic in background.js so the two agree.
+const _BACKEND_PRESETS = {
+    local: "http://127.0.0.1:8000",
+    cloud: "http://130.61.146.213",
+};
+async function _getBackendBase() {
+    try {
+        const s = await new Promise((r) =>
+            chrome.storage.local.get(["backend", "backend_custom_url"], r));
+        const choice = s.backend || "local";
+        if (choice === "custom") return (s.backend_custom_url || "").replace(/\/$/, "");
+        return _BACKEND_PRESETS[choice] || _BACKEND_PRESETS.local;
+    } catch {
+        return _BACKEND_PRESETS.local;
+    }
+}
 
 // ---------------------------------------------------------------------
 // v1.6 — threat-intel signal chips inside the Gmail banner.
