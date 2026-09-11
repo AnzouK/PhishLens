@@ -306,11 +306,22 @@ function renderResult(data) {
         ? "This email looks like phishing"
         : "This email looks safe";
 
-    // verified sender pill
+    // Verified-sender pill — three tiers:
+    //   1. Trusted allowlist (static list, highest trust — kept for legacy)
+    //   2. DKIM-aligned (cryptographic proof the sender is who they claim)
+    //   3. Neither → hidden
     const trustedEl = $("verdict-trusted");
+    const cryptoVerified = !!data.sender_auth?.cryptographically_verified;
     if (data.trusted_sender) {
         trustedEl.hidden = false;
+        trustedEl.textContent = "✓ Verified sender";
         trustedEl.title = `Sender domain in allowlist: ${data.sender_domain || ""}`;
+    } else if (cryptoVerified) {
+        trustedEl.hidden = false;
+        trustedEl.textContent = "🛡 DKIM verified";
+        trustedEl.title =
+            `DKIM signature aligned with From: ${data.sender_domain || ""}\n` +
+            `SPF=${data.sender_auth.spf} DKIM=${data.sender_auth.dkim} DMARC=${data.sender_auth.dmarc}`;
     } else {
         trustedEl.hidden = true;
     }
@@ -319,7 +330,9 @@ function renderResult(data) {
         ? "We recommend not clicking any links."
         : (data.trusted_sender
             ? "Sender domain is in the verified allowlist."
-            : "Unlikely to be a phishing attempt.");
+            : cryptoVerified
+                ? "Sender identity confirmed by DKIM signature."
+                : "Unlikely to be a phishing attempt.");
 
     // helper to fill an agent block
     const fillAgent = (key, scoreEl, barEl, hintEl, hintCopy) => {
@@ -352,10 +365,112 @@ function renderResult(data) {
              : "The sender appears legitimate."
     );
 
+    // v1.6+ — reputation & auth badges
+    renderUrlBadges(data.url_reputation);
+    renderMetaBadges(data.sender_auth);
+
     // collapse explain by default
     explainPanel.removeAttribute("open");
     explainTokens.innerHTML = "";
     explainStatus.hidden = true;
+}
+
+// ---------- v1.6 badges ----------
+// Human-readable labels for the raw threat-intel enum values.
+const _THREAT_LABEL = {
+    "MALWARE":                          "malware",
+    "SOCIAL_ENGINEERING":               "phishing",
+    "UNWANTED_SOFTWARE":                "unwanted software",
+    "POTENTIALLY_HARMFUL_APPLICATION":  "harmful app",
+    "SPAM":                             "spam",
+    "BOTNET_CC":                        "botnet C&C",
+    "SUSPICIOUS":                       "suspicious",
+    "PHISHING":                         "phishing",
+};
+const _SOURCE_LABEL = {
+    "google_safe_browsing":  "Google Safe Browsing",
+    "phishtank":             "PhishTank",
+    "urlhaus":               "URLhaus",
+    "spamhaus_dbl":          "Spamhaus DBL",
+};
+
+// Escape user-visible strings before inlining them into a title/tooltip.
+function _sanitizeTitle(s) {
+    return String(s || "").replace(/["\n\r]/g, " ").slice(0, 240);
+}
+
+function _mkBadge(text, kind, title) {
+    const el = document.createElement("span");
+    el.className = `badge badge--${kind}`;
+    el.textContent = text;
+    if (title) el.title = _sanitizeTitle(title);
+    return el;
+}
+
+function renderUrlBadges(rep) {
+    const host = $("url-badges");
+    host.innerHTML = "";
+    if (!rep || !rep.checked) { host.hidden = true; return; }
+    if (rep.malicious_count === 0) {
+        host.appendChild(_mkBadge(`✓ ${rep.checked} link${rep.checked > 1 ? "s" : ""} checked`,
+                                  "good",
+                                  "URL reputation cascade returned clean"));
+    } else {
+        // Per-source badges — one per intel source that fired
+        for (const src of rep.sources_hit || []) {
+            const label = _SOURCE_LABEL[src] || src;
+            host.appendChild(_mkBadge(`🔴 ${label}`, "bad",
+                                      `${label} flagged ${rep.malicious_count} URL(s)`));
+        }
+        // Threat-type badges — collapse enum values into words
+        for (const tt of rep.threat_types || []) {
+            const label = _THREAT_LABEL[tt] || tt.toLowerCase();
+            host.appendChild(_mkBadge(label, "bad", `Threat type reported: ${tt}`));
+        }
+    }
+    host.hidden = false;
+}
+
+function renderMetaBadges(auth) {
+    const host = $("meta-badges");
+    host.innerHTML = "";
+    if (!auth) { host.hidden = true; return; }
+
+    const badges = [];
+    if (auth.cryptographically_verified) {
+        badges.push(_mkBadge("🛡 DKIM aligned", "good",
+                             "DKIM signature aligned with the From: domain — sender proven"));
+    }
+    const results = {
+        SPF:   auth.spf,
+        DKIM:  auth.dkim,
+        DMARC: auth.dmarc,
+    };
+    for (const [name, verdict] of Object.entries(results)) {
+        if (verdict === "pass") {
+            badges.push(_mkBadge(`${name} pass`, "good", `${name} check passed`));
+        } else if (verdict === "fail") {
+            badges.push(_mkBadge(`${name} fail`, "bad",
+                                 `${name} check FAILED — possible spoofing`));
+        } else if (verdict === "softfail") {
+            badges.push(_mkBadge(`${name} softfail`, "warn",
+                                 `${name} soft-failed — sender not authorised but not blocked`));
+        }
+        // "none" / "neutral" / "temperror" → no badge (silent)
+    }
+    if (auth.spamhaus_dbl_listed) {
+        badges.push(_mkBadge("🔴 Spamhaus listed", "bad",
+                             "Sender domain is on the Spamhaus DBL"));
+    }
+    // Explicit signal that the message didn't ship with auth headers at all
+    if ((auth.reasons || []).includes("no_auth_header") && badges.length === 0) {
+        badges.push(_mkBadge("no auth header", "warn",
+                             "Message shipped without SPF/DKIM/DMARC — origin unverifiable"));
+    }
+
+    if (badges.length === 0) { host.hidden = true; return; }
+    for (const b of badges) host.appendChild(b);
+    host.hidden = false;
 }
 
 // ---------- LIME explain (background pre-fire) ----------

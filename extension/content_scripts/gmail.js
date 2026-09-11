@@ -210,9 +210,20 @@ function showBanner(emailView, data) {
         const text   = pct(data.agents?.text?.phishing_probability);
         const url    = pct(data.agents?.url?.phishing_probability);
         const meta   = pct(data.agents?.metadata?.phishing_probability);
-        const trustedBadge = data.trusted_sender
-            ? `<span class="pll-trusted" title="Sender domain is in the verified allowlist (${escapeHTML(data.sender_domain || "")})">✓ Verified sender</span>`
-            : "";
+        // Trust pill — allowlist > DKIM alignment > nothing.
+        const cryptoVerified = !!data.sender_auth?.cryptographically_verified;
+        let trustedBadge = "";
+        if (data.trusted_sender) {
+            trustedBadge = `<span class="pll-trusted" title="Sender domain is in the verified allowlist (${escapeHTML(data.sender_domain || "")})">✓ Verified sender</span>`;
+        } else if (cryptoVerified) {
+            const spf = data.sender_auth?.spf || "none";
+            const dkim = data.sender_auth?.dkim || "none";
+            const dmarc = data.sender_auth?.dmarc || "none";
+            trustedBadge = `<span class="pll-trusted" title="DKIM signature aligned with From: ${escapeHTML(data.sender_domain || "")} — SPF=${escapeHTML(spf)} DKIM=${escapeHTML(dkim)} DMARC=${escapeHTML(dmarc)}">🛡 DKIM verified</span>`;
+        }
+
+        // v1.6 — threat-intel signals under the score line.
+        const signalChips = renderBannerSignals(data);
         banner.innerHTML = `
             <span class="pll-banner__icon">${phishing ? "⚠" : "✓"}</span>
             <div class="pll-banner__main">
@@ -225,6 +236,7 @@ function showBanner(emailView, data) {
                 Links <strong>${url}%</strong> &nbsp;·&nbsp;
                 Sender <strong>${meta}%</strong>
               </div>
+              ${signalChips}
               <details class="pll-banner__why">
                 <summary>Why?</summary>
                 <div class="pll-banner__tokens">Loading LIME explanation…</div>
@@ -266,6 +278,48 @@ function textOf(el) {
     return el.innerText.replace(/\s+\n/g, "\n").trim();
 }
 function pct(p) { return p == null ? "—" : Math.round(p * 100); }
+
+// ---------------------------------------------------------------------
+// v1.6 — threat-intel signal chips inside the Gmail banner.
+// ---------------------------------------------------------------------
+const _SOURCE_LABEL_GMAIL = {
+    google_safe_browsing: "Google Safe Browsing",
+    phishtank:            "PhishTank",
+    urlhaus:              "URLhaus",
+    spamhaus_dbl:         "Spamhaus DBL",
+};
+
+function renderBannerSignals(data) {
+    const chips = [];
+    const rep = data.url_reputation || {};
+    const auth = data.sender_auth || {};
+
+    // URL reputation chips — one per intel source that flagged.
+    if (rep.malicious_count > 0) {
+        for (const src of rep.sources_hit || []) {
+            const label = _SOURCE_LABEL_GMAIL[src] || src;
+            chips.push(`<span class="pll-chip pll-chip--bad" title="${escapeHTML(label)} flagged ${rep.malicious_count} URL(s)">🔴 ${escapeHTML(label)}</span>`);
+        }
+    } else if (rep.checked > 0) {
+        chips.push(`<span class="pll-chip pll-chip--good" title="URL reputation cascade returned clean">✓ Links checked</span>`);
+    }
+
+    // Sender-auth failures worth surfacing prominently.
+    if (auth.dmarc === "fail") {
+        chips.push(`<span class="pll-chip pll-chip--bad" title="DMARC check failed — the From: domain does not authorise this sender">DMARC fail</span>`);
+    } else if (auth.dkim === "fail") {
+        chips.push(`<span class="pll-chip pll-chip--bad" title="DKIM signature invalid or missing">DKIM fail</span>`);
+    } else if (auth.spf === "fail") {
+        chips.push(`<span class="pll-chip pll-chip--warn" title="SPF check failed — sender IP not authorised">SPF fail</span>`);
+    }
+
+    if (auth.spamhaus_dbl_listed) {
+        chips.push(`<span class="pll-chip pll-chip--bad" title="Sender domain is on the Spamhaus block list">🔴 Spamhaus listed</span>`);
+    }
+
+    if (!chips.length) return "";
+    return `<div class="pll-signals">${chips.join(" ")}</div>`;
+}
 function escapeHTML(s) {
     return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
                     .replaceAll('"',"&quot;").replaceAll("'","&#039;");

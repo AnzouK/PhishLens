@@ -479,6 +479,48 @@ body {
 .agent[data-flagged="phishing"] .agent__score { color: var(--accent); }
 .agent__hint { font-size: 11px; color: var(--text-mute); line-height: 1.35; }
 
+/* signal badges — sender_auth verdicts + URL reputation hits (v1.6+) */
+.agent__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.agent__badges[hidden] { display: none; }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  line-height: 1.2;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-elev);
+  color: var(--text-mute);
+  white-space: nowrap;
+  font-weight: 500;
+}
+.badge--good {
+  color: #0a7d3b;
+  border-color: rgba(16, 132, 66, 0.35);
+  background: rgba(16, 132, 66, 0.10);
+}
+.badge--warn {
+  color: #a15b00;
+  border-color: rgba(216, 138, 0, 0.35);
+  background: rgba(216, 138, 0, 0.10);
+}
+.badge--bad {
+  color: #b02020;
+  border-color: rgba(200, 40, 40, 0.4);
+  background: rgba(200, 40, 40, 0.10);
+}
+/* dark-mode variants keep the semantic colours but re-tune brightness */
+:root[data-theme="dark"] .badge--good { color: #6ee7a8; background: rgba(20, 128, 70, 0.18); }
+:root[data-theme="dark"] .badge--warn { color: #ffc46b; background: rgba(216, 138, 0, 0.2); }
+:root[data-theme="dark"] .badge--bad  { color: #ff9494; background: rgba(200, 40, 40, 0.18); }
+
 /* explain panel */
 .explain {
   border: 1px solid var(--border-soft);
