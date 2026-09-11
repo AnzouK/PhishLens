@@ -27,6 +27,7 @@ Then load the extension in Chrome:
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import os
 import re
@@ -43,6 +44,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from lime.lime_text import LimeTextExplainer
 from pydantic import BaseModel
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+# Sender authentication + Spamhaus DBL — real cryptographic signals to
+# replace the static allowlist. Optional: if the module isn't present the
+# backend still boots and the heuristic path takes over.
+try:
+    from auth_headers import build_metadata_auth_signal, parse_authentication_results
+    _AUTH_HEADERS_AVAILABLE = True
+except Exception as _e:
+    _AUTH_HEADERS_AVAILABLE = False
+    print(f"⚠ auth_headers module not loaded ({_e}); "
+          "SPF/DKIM/DMARC + Spamhaus DBL disabled.")
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -533,7 +545,7 @@ def _get_body_urls_headers(req: AnalyseRequest):
 
 
 @app.post("/analyse")
-def analyse(req: AnalyseRequest):
+async def analyse(req: AnalyseRequest):
     body, urls, headers, raw_bytes = _get_body_urls_headers(req)
     if not body:
         raise HTTPException(400, "Could not extract any text from this email.")
@@ -541,6 +553,18 @@ def analyse(req: AnalyseRequest):
     # trusted-sender check (must be done before fusion)
     sender_domain = _sender_domain(headers.get("from", ""))
     trusted_sender = is_trusted_domain(sender_domain)
+
+    # NEW: SPF/DKIM/DMARC + Spamhaus DBL. This runs in parallel with the
+    # model inference below — the DNS lookup is ~50ms and the header parse
+    # is <1ms, so we kick it off first and gather the result later.
+    auth_signal_task = None
+    if _AUTH_HEADERS_AVAILABLE:
+        # Toggle DBL via env — set REPUTATION_ENABLE_DBL=0 to skip the DNS
+        # lookup entirely (useful in isolated dev environments).
+        enable_dbl = os.environ.get("REPUTATION_ENABLE_DBL", "1") != "0"
+        auth_signal_task = asyncio.create_task(
+            build_metadata_auth_signal(headers, enable_dbl=enable_dbl)
+        )
 
     # run agents — pass the extra context so the trained models can take
     # over when they're loaded; the heuristic fallback still works with
@@ -550,7 +574,26 @@ def analyse(req: AnalyseRequest):
         p_url  = url_agent(urls, body_text=body)
         p_meta = metadata_agent(headers, raw_email=raw_bytes)
     except Exception as e:
+        if auth_signal_task:
+            auth_signal_task.cancel()
         raise HTTPException(500, f"Inference failed: {e}")
+
+    # Collect the auth signal (or a safe default if disabled/errored)
+    auth_signal: dict[str, Any] = {"score_delta": 0.0, "reasons": [], "auth": {}, "spamhaus_dbl": {}}
+    if auth_signal_task:
+        try:
+            auth_signal = await auth_signal_task
+        except Exception as e:
+            print(f"⚠ auth_signal task failed: {e}")
+
+    # Apply the auth signal to the metadata score. Clamp to [0, 1] so a big
+    # negative delta on a well-signed email can't drive p_meta below zero.
+    p_meta_raw = p_meta
+    p_meta = max(0.0, min(1.0, p_meta + float(auth_signal.get("score_delta", 0.0))))
+
+    # Alignment override — if the message is DKIM-aligned to a well-known
+    # institutional domain, we trust the crypto signal over any allowlist.
+    crypto_verified = bool(auth_signal.get("auth", {}).get("cryptographically_verified"))
 
     # When the sender domain is trusted, the metadata agent reports a low
     # score and the text agent's contribution to the fused score is halved
@@ -560,6 +603,12 @@ def analyse(req: AnalyseRequest):
         fused = (W_TEXT * 0.5) * p_text + W_URL * p_url + W_META * p_meta
         high_conf = False              # disable single-agent override for trusted senders
         threshold = 0.65               # raise the bar for flagging a trusted sender
+    elif crypto_verified:
+        # DKIM-aligned but not on the static allowlist — softer version of
+        # the trusted path. Halve text weight only, keep single-agent override.
+        fused = (W_TEXT * 0.75) * p_text + W_URL * p_url + W_META * p_meta
+        high_conf = max(p_text, p_url, p_meta) >= HIGH_CONF_OVERRIDE
+        threshold = 0.55
     else:
         fused = W_TEXT * p_text + W_URL * p_url + W_META * p_meta
         high_conf = max(p_text, p_url, p_meta) >= HIGH_CONF_OVERRIDE
@@ -573,12 +622,23 @@ def analyse(req: AnalyseRequest):
         "high_confidence_override": bool(high_conf),
         "trusted_sender": bool(trusted_sender),
         "sender_domain": sender_domain,
+        "sender_auth": {
+            "cryptographically_verified": crypto_verified,
+            "spf":   auth_signal.get("auth", {}).get("spf", "none"),
+            "dkim":  auth_signal.get("auth", {}).get("dkim", "none"),
+            "dmarc": auth_signal.get("auth", {}).get("dmarc", "none"),
+            "aligned": auth_signal.get("auth", {}).get("aligned", False),
+            "spamhaus_dbl_listed": bool(auth_signal.get("spamhaus_dbl", {}).get("listed")),
+            "reasons": auth_signal.get("reasons", []),
+            "score_delta": auth_signal.get("score_delta", 0.0),
+        },
         "agents": {
             "text":     {"phishing_probability": p_text,
                          "verdict": verdict_label(p_text)},
             "url":      {"phishing_probability": p_url,
                          "verdict": verdict_label(p_url)},
             "metadata": {"phishing_probability": p_meta,
+                         "phishing_probability_raw": p_meta_raw,
                          "verdict": verdict_label(p_meta)},
         },
     }
