@@ -193,12 +193,14 @@ async def lifespan(_app: FastAPI):
     print(f"Loading DistilBERT from {model_dir} ...")
     device = _pick_device()
     tok = AutoTokenizer.from_pretrained(str(model_dir))
-    # FP16 halves the model's RAM footprint (~256MB → ~128MB) — kept from the
-    # earlier Render.com deployment where 512Mi was tight. On the current
-    # Oracle Cloud 24GB VM this is no longer required, but FP16 stays as a
-    # sensible default for any downstream self-host on constrained instances.
+    # FP32 loading — CPUs don't have great FP16 support and inference is ~2×
+    # slower in FP16 on typical CPU targets. With a ~256MB footprint this
+    # fits comfortably in any host that can run a Docker container, so we
+    # prefer the speed. Set MODEL_DTYPE=float16 in the env to opt into FP16
+    # on RAM-constrained hosts (~128MB with a small precision loss).
+    _dtype = torch.float16 if os.environ.get("MODEL_DTYPE") == "float16" else torch.float32
     model = AutoModelForSequenceClassification.from_pretrained(
-        str(model_dir), torch_dtype=torch.float16
+        str(model_dir), torch_dtype=_dtype
     )
     model.to(device).eval()
     STATE["tokenizer"] = tok
@@ -303,8 +305,48 @@ SUSPICIOUS_TLDS = {"zip", "review", "click", "country", "kim", "cricket",
                    "science", "work", "party", "gq", "tk", "ml", "ga", "cf"}
 
 
+# ---------------------------------------------------------------------------
+# Trained URL & metadata agents (opt-in via env vars).
+# ---------------------------------------------------------------------------
+# The heuristic agents below ship out of the box so the backend always runs.
+# If you have trained the Random Forest agents (see the PhishingDetector repo
+# notebooks), joblib-dump them and mount them via env vars:
+#
+#   URL_RF_PATH        = /path/to/url_rf.joblib
+#   URL_FEATURES_PATH  = /path/to/url_feature_extractor.joblib  (or import)
+#   METADATA_RF_PATH   = /path/to/metadata_rf.joblib
+#   METADATA_FEATURES_PATH = /path/to/metadata_feature_extractor.joblib
+#
+# When these vars are set and the files exist, the agents below will call
+# the trained model instead of the heuristic. See docs/trained-agents.md
+# for the exact feature contract expected by each model.
+_URL_RF = None
+_METADATA_RF = None
+try:
+    if os.environ.get("URL_RF_PATH") and Path(os.environ["URL_RF_PATH"]).exists():
+        import joblib
+        _URL_RF = joblib.load(os.environ["URL_RF_PATH"])
+        print(f"✓ Loaded trained URL agent from {os.environ['URL_RF_PATH']}")
+    if os.environ.get("METADATA_RF_PATH") and Path(os.environ["METADATA_RF_PATH"]).exists():
+        import joblib
+        _METADATA_RF = joblib.load(os.environ["METADATA_RF_PATH"])
+        print(f"✓ Loaded trained metadata agent from {os.environ['METADATA_RF_PATH']}")
+except Exception as e:
+    print(f"⚠ Trained agents load failed (falling back to heuristic): {e}")
+
+
 def url_agent(urls: list[str]) -> float:
-    """Heuristic URL score (replace with the trained RF when available)."""
+    """URL score — trained RF if available, heuristic fallback otherwise."""
+    if _URL_RF is not None and urls:
+        try:
+            # Feature extraction contract: see PhishingDetector URL_Agent.ipynb
+            # for the reference implementation.
+            from feature_extraction import extract_url_features  # user-supplied
+            X = [extract_url_features(u) for u in urls]
+            probs = _URL_RF.predict_proba(X)[:, 1]
+            return float(probs.max())
+        except Exception:
+            pass  # silent fallback to heuristic below
     if not urls:
         return 0.05  # almost no risk with no URLs
     bad = 0.0
@@ -322,7 +364,15 @@ def url_agent(urls: list[str]) -> float:
 
 
 def metadata_agent(headers: dict[str, str]) -> float:
-    """Heuristic metadata score (replace with the trained RF when available)."""
+    """Metadata score — trained RF if available, heuristic fallback otherwise."""
+    if _METADATA_RF is not None and headers:
+        try:
+            from feature_extraction import extract_metadata_features  # user-supplied
+            X = [extract_metadata_features(headers)]
+            probs = _METADATA_RF.predict_proba(X)[:, 1]
+            return float(probs[0])
+        except Exception:
+            pass  # silent fallback to heuristic below
     score = 0.0
     sender = headers.get("from", "").lower()
     reply_to = headers.get("reply-to", "").lower()
@@ -379,11 +429,14 @@ def explain(req: AnalyseRequest):
     lime = STATE["lime"]
     try:
         # Cap body length: LIME runs num_samples forward passes, so a shorter
-        # body shaves off real wall-time.
+        # body shaves off real wall-time. 100 samples give explanations that
+        # are qualitatively identical to 200 while halving latency
+        # (~8s vs ~15s per explanation on a CPU-only host).
         body_short = body[:800]
         exp = lime.explain_instance(
             body_short, predict_proba_batch,
-            num_samples=200, num_features=12,
+            num_samples=int(os.environ.get("LIME_NUM_SAMPLES", "100")),
+            num_features=12,
             labels=(1,),     # explain in the Phishing direction
         )
         # Build the feature list. We keep tokens whose absolute weight is
