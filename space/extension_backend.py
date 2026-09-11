@@ -582,6 +582,7 @@ def _synthesize_auth_results(ctx: dict, sender_email: str | None) -> str:
     signed_by = (ctx.get("gmail_signed_by") or "").strip().lower()
     mailed_by = (ctx.get("gmail_mailed_by") or "").strip().lower()
     via       = (ctx.get("gmail_via")       or "").strip().lower()
+    in_inbox  = bool(ctx.get("gmail_in_inbox"))
 
     if not (signed_by or mailed_by or via):
         return ""
@@ -744,6 +745,27 @@ async def analyse(req: AnalyseRequest):
     # institutional domain, we trust the crypto signal over any allowlist.
     crypto_verified = bool(auth_signal.get("auth", {}).get("cryptographically_verified"))
 
+    # Softer signal: Gmail delivered this message to Inbox. Gmail already
+    # ran SPF/DKIM/DMARC on every message it delivers — a spoofed message
+    # from an unauthenticated sender lands in Spam. So Inbox delivery is
+    # itself a weak verification signal. We use it only when:
+    #   (a) the message came from the Gmail content script (client_context)
+    #   (b) crypto_verified is FALSE (we always prefer the real crypto path)
+    #   (c) the strong signal path can't be built (mailed-by/signed-by
+    #       scraping failed — Gmail lazy-loads them behind an overlay)
+    #   (d) the strong signal we DO have doesn't fail DMARC
+    #
+    # When these all hold, we apply a much softer discount than crypto_verified
+    # (text weight * 0.75, keep single-agent override, threshold 0.6).
+    ctx = req.client_context or {}
+    gmail_inbox_soft = (
+        not crypto_verified
+        and ctx.get("origin") == "gmail"
+        and bool(ctx.get("gmail_in_inbox"))
+        and auth_signal.get("auth", {}).get("dmarc") != "fail"
+        and auth_signal.get("auth", {}).get("dkim")  != "fail"
+    )
+
     # When the sender domain is trusted, the metadata agent reports a low
     # score and the text agent's contribution to the fused score is halved
     # (DistilBERT often false-positives on transactional bank/hospital tone).
@@ -768,6 +790,17 @@ async def analyse(req: AnalyseRequest):
         fused = (W_TEXT * 0.5) * p_text + W_URL * p_url + W_META * p_meta
         high_conf = gsb_hit   # only real threat-intel forces the override
         threshold = 0.65
+    elif gmail_inbox_soft:
+        # Gmail delivered this message to Inbox — its own SPF/DKIM/DMARC
+        # verification passed even though our scraping couldn't recover
+        # the exact identifiers. Softer discount than crypto_verified,
+        # but still enough to prevent "verify your email" template false
+        # positives on legit transactional mail. Threshold nudged up so
+        # the fused score still needs a real majority to flip to phishing.
+        gsb_hit = "google_safe_browsing" in rep_hit_sources
+        fused = (W_TEXT * 0.75) * p_text + W_URL * p_url + W_META * p_meta
+        high_conf = gsb_hit or (max(p_text, p_url, p_meta) >= 0.95)
+        threshold = 0.60
     else:
         fused = W_TEXT * p_text + W_URL * p_url + W_META * p_meta
         high_conf = max(p_text, p_url, p_meta) >= HIGH_CONF_OVERRIDE
@@ -783,6 +816,7 @@ async def analyse(req: AnalyseRequest):
         "sender_domain": sender_domain,
         "sender_auth": {
             "cryptographically_verified": crypto_verified,
+            "gmail_inbox_soft_verified":  bool(gmail_inbox_soft),
             "spf":   auth_signal.get("auth", {}).get("spf", "none"),
             "dkim":  auth_signal.get("auth", {}).get("dkim", "none"),
             "dmarc": auth_signal.get("auth", {}).get("dmarc", "none"),

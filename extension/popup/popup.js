@@ -311,7 +311,8 @@ function renderResult(data) {
     //   2. DKIM-aligned (cryptographic proof the sender is who they claim)
     //   3. Neither → hidden
     const trustedEl = $("verdict-trusted");
-    const cryptoVerified = !!data.sender_auth?.cryptographically_verified;
+    const cryptoVerified   = !!data.sender_auth?.cryptographically_verified;
+    const gmailSoftVerified = !!data.sender_auth?.gmail_inbox_soft_verified;
     if (data.trusted_sender) {
         trustedEl.hidden = false;
         trustedEl.textContent = "✓ Verified sender";
@@ -322,6 +323,12 @@ function renderResult(data) {
         trustedEl.title =
             `DKIM signature aligned with From: ${data.sender_domain || ""}\n` +
             `SPF=${data.sender_auth.spf} DKIM=${data.sender_auth.dkim} DMARC=${data.sender_auth.dmarc}`;
+    } else if (gmailSoftVerified) {
+        trustedEl.hidden = false;
+        trustedEl.textContent = "📬 Gmail-delivered";
+        trustedEl.title =
+            "Gmail delivered this message to Inbox, so its own SPF/DKIM/DMARC checks passed. " +
+            "This is a soft trust signal, weaker than a full DKIM verification.";
     } else {
         trustedEl.hidden = true;
     }
