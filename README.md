@@ -71,24 +71,24 @@ tells you which tokens pushed the verdict that way.
 │  └──────────┘     └───────────────┘  │      │  └────────────────────────────────┘  │
 │         ▲                 ▲          │      │                 │                    │
 │         │                 │          │      │                 ▼                    │
-│         └───── Background service ───┘      │  ┌────────────────────────────────┐  │
-│               (CSP-bypass fetch proxy       │  │  Sender auth  (SPF/DKIM/DMARC) │  │
-│                + warm-up alarm)             │  │  URL reputation cascade:       │  │
-│                                             │  │    cache → GSB → PhishTank →   │  │
-│  Local storage:                             │  │    URLhaus → Spamhaus DBL      │  │
-│    • scan history (500 entries)             │  └────────────────────────────────┘  │
-│    • LIME cache   (200 entries)             │                 │                    │
-│    • theme / backend selection              │                 ▼                    │
-│    • analytics dashboard                    │  ┌────────────────────────────────┐  │
-│                                             │  │  Weighted fusion + LIME        │  │
-│                                             │  │  paths: crypto_verified,       │  │
-│                                             │  │         gmail_inbox_soft,      │  │
-│                                             │  │         trusted allowlist,     │  │
-│                                             │  │         default                │  │
-│                                             │  └────────────────────────────────┘  │
-│                                             │                 │                    │
-│                                             │                 ▼                    │
-│                                             │            verdict + LIME            │
+│         └──── Background service     │      │  ┌────────────────────────────────┐  │
+│             (CSP-bypass fetch proxy  │      │  │  Sender auth  (SPF/DKIM/DMARC) │  │
+│              + warm-up alarm)        │      │  │  URL reputation cascade:       │  │
+│                                      │      │  │    cache → GSB → PhishTank →   │  │
+│  Local storage:                      │      │  │    URLhaus → Spamhaus DBL      │  │
+│    - scan history   (500 entries)    │      │  └────────────────────────────────┘  │
+│    - LIME cache     (200 entries)    │      │                 │                    │
+│    - theme / backend selection       │      │                 ▼                    │
+│    - analytics dashboard state       │      │  ┌────────────────────────────────┐  │
+│                                      │      │  │  Weighted fusion + LIME        │  │
+│  Trust signals shown in the UI:      │      │  │  paths: crypto_verified,       │  │
+│    DKIM verified   (crypto path)     │      │  │         gmail_inbox_soft,      │  │
+│    Gmail-delivered (soft path)       │      │  │         trusted allowlist,     │  │
+│    Verified sender (allowlist)       │      │  │         default                │  │
+│    chips per intel source flagged    │      │  └────────────────────────────────┘  │
+│                                      │      │                 │                    │
+│                                      │      │                 ▼                    │
+│                                      │      │            verdict + LIME            │
 └──────────────────────────────────────┘      └──────────────────────────────────────┘
 ```
 
