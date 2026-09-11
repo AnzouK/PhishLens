@@ -274,10 +274,20 @@ class AnalyseRequest(BaseModel):
     The optional sender_email lets the caller (e.g. the Gmail content
     script) supply the sender address explicitly, even when raw_text is
     used and the full headers are not available.
+
+    client_context carries best-effort signals the extension can extract
+    from the surrounding UI when the raw headers aren't available. For
+    Gmail this includes the visible "mailed-by" / "signed-by" values and
+    whether the message is in Inbox (Gmail already ran SPF/DKIM/DMARC on
+    every delivered message; surfacing that avoids a false-positive gap
+    between raw_email_b64 scans — full headers — and raw_text scans —
+    body only). Structure is intentionally loose (dict) so we can add new
+    hints without a breaking API bump.
     """
     raw_email_b64: str | None = None
     raw_text: str | None = None
     sender_email: str | None = None
+    client_context: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -550,6 +560,55 @@ def explain(req: AnalyseRequest):
     return {"features": feats}
 
 
+def _synthesize_auth_results(ctx: dict, sender_email: str | None) -> str:
+    """
+    Build a synthetic Authentication-Results header from Gmail DOM signals.
+
+    Gmail scans expose "mailed-by" (SPF-authenticated identity) and
+    "signed-by" (DKIM-signing domain) in the DOM. When the extension's
+    Gmail content script scrapes those and passes them to us in
+    client_context, we forge a header that looks like what a real MTA
+    would produce. parse_authentication_results() then handles it the
+    same way it handles a real one — and the alignment check makes sure
+    a spoofed "signed-by" that doesn't align with From: is still caught.
+
+    Returns "" when there's not enough signal to synthesize anything.
+    """
+    if not isinstance(ctx, dict):
+        return ""
+    if ctx.get("origin") != "gmail":
+        return ""
+
+    signed_by = (ctx.get("gmail_signed_by") or "").strip().lower()
+    mailed_by = (ctx.get("gmail_mailed_by") or "").strip().lower()
+    via       = (ctx.get("gmail_via")       or "").strip().lower()
+
+    if not (signed_by or mailed_by or via):
+        return ""
+
+    # From: domain — used by parse_authentication_results to check alignment.
+    from_addr = (sender_email or "").strip()
+    m = re.search(r"@([^>\s,]+)", from_addr)
+    from_domain = m.group(1).lower() if m else ""
+
+    parts = ["gmail-client-context;"]
+    if signed_by:
+        parts.append(f"dkim=pass header.i=@{signed_by}")
+    if mailed_by or via:
+        spf_domain = mailed_by or via
+        parts.append(f"spf=pass smtp.mailfrom={spf_domain}")
+    # DMARC pass only when the signed-by aligns with From: at the org level.
+    if signed_by and from_domain:
+        # cheap org-domain compare — mirrors auth_headers._org_domain
+        def _od(d):
+            ps = d.split(".")
+            return ".".join(ps[-2:]) if len(ps) >= 2 else d
+        if _od(signed_by) == _od(from_domain):
+            parts.append(f"dmarc=pass header.from={from_domain}")
+
+    return " ".join(parts)
+
+
 def _get_body_urls_headers(req: AnalyseRequest):
     """Resolve the request into (body, urls, headers, raw_bytes).
 
@@ -565,6 +624,17 @@ def _get_body_urls_headers(req: AnalyseRequest):
         headers: dict[str, str] = {}
         if req.sender_email:
             headers["from"] = req.sender_email
+        # Synthesize an Authentication-Results header from the extension's
+        # client_context when we have one. Rationale: Gmail already ran
+        # SPF/DKIM/DMARC on every delivered message and exposes the results
+        # in the DOM ("mailed-by:" / "signed-by:"). If the signed-by domain
+        # aligns with the From: domain we treat it as DKIM=pass, which lets
+        # the /analyse crypto_verified path apply the same discount as
+        # raw_email_b64 scans of the same message.
+        ctx = req.client_context or {}
+        synth = _synthesize_auth_results(ctx, req.sender_email)
+        if synth:
+            headers["authentication-results"] = synth
         return body, urls, headers, None
     if not req.raw_email_b64:
         raise HTTPException(400, "Provide either raw_email_b64 or raw_text.")

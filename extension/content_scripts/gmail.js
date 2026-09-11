@@ -114,11 +114,27 @@ async function runScan(emailView, btn) {
 
     setBtnLoading(btn, true);
     try {
+        // Gmail already ran SPF/DKIM/DMARC before delivering — surface its
+        // verdict from the DOM so the backend can apply the crypto_verified
+        // discount even when we only have raw_text (no Authentication-Results
+        // header to parse). Without this, popup scans (which get the full
+        // .eml) and Gmail scans (which get body-only) can disagree on the
+        // same message — legit signed mail flagged as phishing in the banner
+        // and safe in the popup.
+        const gmailAuth = extractGmailAuthSignals(emailView);
+
         // Send the body as raw_text and the sender separately so the backend
         // can run the trusted-domain check.
         const payload = {
             raw_text: body.slice(0, 4000),
             sender_email: senderEmail || null,
+            client_context: {
+                origin: "gmail",
+                gmail_signed_by: gmailAuth.signedBy,
+                gmail_mailed_by: gmailAuth.mailedBy,
+                gmail_via:       gmailAuth.via,
+                gmail_in_inbox:  gmailAuth.inInbox,
+            },
         };
 
         const r = await chrome.runtime.sendMessage({
@@ -306,6 +322,64 @@ function textOf(el) {
     return el.innerText.replace(/\s+\n/g, "\n").trim();
 }
 function pct(p) { return p == null ? "—" : Math.round(p * 100); }
+
+// ---------------------------------------------------------------------
+// Gmail's own auth signals — mailed-by / signed-by / via / in-inbox.
+// ---------------------------------------------------------------------
+// Gmail runs its own SPF/DKIM/DMARC checks on every incoming message and
+// exposes the results in the "expanded header" panel (the small ▾ next to
+// the recipient). Even when that panel is collapsed, the DOM still contains
+// the underlying rows — we just look them up by their visible labels
+// ("mailed-by", "signed-by"). Also picks up the inline "via foo.com" hint
+// that appears next to the sender when the SPF/return-path domain differs.
+//
+// Robust to Gmail's obfuscated class names — we match on visible text
+// rather than a specific class, so this survives Gmail redesigns.
+function extractGmailAuthSignals(emailView) {
+    const out = { signedBy: null, mailedBy: null, via: null, inInbox: false };
+
+    // 1. Detect "in inbox" by looking at the URL — Gmail routes inbox to
+    //    "#inbox/<msg-id>". Spam / trash are also possible; we just care
+    //    that it wasn't filtered.
+    try {
+        const hash = String(window.location.hash || "").toLowerCase();
+        out.inInbox = !(hash.includes("spam") || hash.includes("trash"));
+    } catch {}
+
+    // 2. Look up mailed-by / signed-by rows via visible text labels.
+    //    Gmail renders these as pairs of <td> — first the label, then the
+    //    value. We walk the emailView for cells whose text starts with
+    //    the label, and grab the sibling.
+    try {
+        const rows = emailView.querySelectorAll("td, span, div");
+        for (const el of rows) {
+            const t = (el.textContent || "").trim().toLowerCase();
+            if (!t) continue;
+            if (t === "mailed-by:" || t === "envoyé par :" || t === "envoyé par:") {
+                const val = el.nextElementSibling?.textContent?.trim();
+                if (val && /\./.test(val)) out.mailedBy = val;
+            } else if (t === "signed-by:" || t === "signé par :" || t === "signé par:") {
+                const val = el.nextElementSibling?.textContent?.trim();
+                if (val && /\./.test(val)) out.signedBy = val;
+            }
+        }
+    } catch {}
+
+    // 3. The inline "via <domain>" indicator shown when SPF path differs
+    //    from From:. Structure varies but we can look for a span whose text
+    //    is "via" followed by a text node with the domain.
+    try {
+        const viaCandidates = emailView.querySelectorAll("span.g3, span");
+        for (const el of viaCandidates) {
+            const t = (el.textContent || "").trim().toLowerCase();
+            // Very cheap match — "via example.com" or "via" + sibling
+            const m = t.match(/^via\s+([a-z0-9.-]+\.[a-z]{2,})$/i);
+            if (m) { out.via = m[1]; break; }
+        }
+    } catch {}
+
+    return out;
+}
 
 // Resolve the currently-selected backend URL — needed for the LIME cache
 // key. Mirrors the resolution logic in background.js so the two agree.
