@@ -683,11 +683,21 @@ async def analyse(req: AnalyseRequest):
         high_conf = False              # disable single-agent override for trusted senders
         threshold = 0.65               # raise the bar for flagging a trusted sender
     elif crypto_verified:
-        # DKIM-aligned but not on the static allowlist — softer version of
-        # the trusted path. Halve text weight only, keep single-agent override.
-        fused = (W_TEXT * 0.75) * p_text + W_URL * p_url + W_META * p_meta
-        high_conf = max(p_text, p_url, p_meta) >= HIGH_CONF_OVERRIDE
-        threshold = 0.55
+        # DKIM-aligned to the visible From: — cryptographic proof of the
+        # sender identity. Apply the same discount as the static allowlist:
+        # halve the text weight (DistilBERT often false-positives on
+        # "verify your account" transactional templates) and disable the
+        # single-agent override (a confident text-agent call alone shouldn't
+        # flip an authenticated message to phishing).
+        #
+        # Exception: URL reputation hits (Google Safe Browsing, etc.)
+        # override this — a real threat-intel match on a link means the
+        # sender's account was compromised, so we let the phishing verdict
+        # through even for a signed message.
+        gsb_hit = "google_safe_browsing" in rep_hit_sources
+        fused = (W_TEXT * 0.5) * p_text + W_URL * p_url + W_META * p_meta
+        high_conf = gsb_hit   # only real threat-intel forces the override
+        threshold = 0.65
     else:
         fused = W_TEXT * p_text + W_URL * p_url + W_META * p_meta
         high_conf = max(p_text, p_url, p_meta) >= HIGH_CONF_OVERRIDE
