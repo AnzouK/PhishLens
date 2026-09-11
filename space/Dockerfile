@@ -23,7 +23,12 @@ ENV HF_HOME=/home/user/.cache/huggingface \
 
 # Install Python dependencies.
 COPY --chown=user:user requirements.txt .
+# torch first, from the CPU-only wheel index — skips ~3.5 GB of NVIDIA CUDA
+# runtime packages that ship as hard deps of the default torch 2.14+ wheels.
+# The Oracle Cloud ARM VM has no GPU, so those packages are pure bloat.
 RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+        "torch>=2.0,<3.0" \
  && pip install --no-cache-dir -r requirements.txt
 
 # Application code — kept identical to the local backend so both paths

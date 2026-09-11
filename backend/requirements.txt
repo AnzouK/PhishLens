@@ -7,7 +7,9 @@ uvicorn[standard]>=0.27,<1.0
 pydantic>=2.0,<3.0
 
 # ML — text agent
-torch>=2.0,<3.0
+# NB: torch is installed separately from the CPU-only PyPI index in the
+# Dockerfile so pip doesn't pull the ~3.5 GB of NVIDIA CUDA runtime packages
+# that torch 2.14+ declares as hard dependencies (useless on ARM CPU hosts).
 transformers>=4.40,<5.0
 huggingface_hub>=0.20,<1.0
 numpy>=1.24,<3.0

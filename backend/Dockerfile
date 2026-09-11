@@ -20,9 +20,13 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# Install Python dependencies first (better layer caching)
+# Install Python dependencies first (better layer caching).
+# torch is installed from the CPU-only index — the default wheels ship
+# with ~3.5 GB of NVIDIA CUDA runtime that's useless on CPU hosts.
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+        "torch>=2.0,<3.0" \
  && pip install --no-cache-dir -r requirements.txt
 
 # App code — extension_backend.py + optional trained-agent runtime.
