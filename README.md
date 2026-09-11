@@ -302,12 +302,13 @@ Department of Cybersecurity, session 2025–2026.
 - [x] **In-popup analytics** — total scans, phishing %, average text score, Safe/Phishing ratio bar, 30-day timeline, top LIME phishing tokens, recent scans list, CSV / JSON export, one-click clear
 - [x] **Trained URL & metadata Random Forest agents** — backend downloads `AnzouKiona/phishlens-agents` from Hugging Face at startup and uses `URLAgent.get_prediction_with_confidence()` / `MetadataAgent.get_prediction_with_confidence()`; heuristic fallback still runs when the joblibs aren't reachable
 
-### ✅ Shipped in v1.6.0
+### ✅ Shipped in v1.6.x
 - [x] **RFC-7489 sender authentication** — `auth_headers.py` parses the `Authentication-Results` header (SPF / DKIM / DMARC) and computes organizational-domain alignment against the visible `From:`. Static `TRUSTED_DOMAINS` allowlist is now a fallback, not the primary signal — a spoofed `From: paypal.com` signed by `attacker.tld` no longer passes the trust check.
 - [x] **URL reputation cascade** — `reputation.py` layers `cache → Google Safe Browsing v4 (10 k/day) → PhishTank → URLhaus → Spamhaus DBL`, run in parallel with model inference. Reputation-hit URLs override the RF score (GSB match → `p_url = 0.95`); local SQLite cache with 24-h TTL absorbs repeat lookups.
 - [x] **New `sender_auth` and `url_reputation` fields** in the `/analyse` response; new `GET /reputation/stats` endpoint for cache-hit rate and GSB quota monitoring.
 - [x] **Popup + Gmail banner surface the new signals** — colour-coded chips per intel source, per-auth verdict; `🛡 DKIM verified` pill replaces the plain "trusted allowlist" pill when the sender is cryptographically proven.
 - [x] **Gmail parity with popup scans** — content script scrapes Gmail's own `mailed-by` / `signed-by` DOM signals and forwards them to the backend as a synthesized `Authentication-Results`, so Gmail-injected scans and `.eml`-upload scans of the same message agree.
+- [x] **Gmail-inbox soft-verification fallback** (v1.6.2) — when the DOM scrape fails but Gmail delivered the message to Inbox, we treat that as a weak trust signal (Gmail already ran SPF/DKIM/DMARC before delivery). The fusion halves the text weight and disables the single-agent override, so legitimate `Verify your email` templates no longer trigger false positives. `📬 Gmail-delivered` pill on the verdict card differentiates it from full crypto verification.
 - [x] **Client-side LIME cache** — `lib/lime_cache.js`, SHA-256-keyed on `{backend, payload}` in `chrome.storage.local`. Re-opening the same email: `~10 s → ~50 ms`.
 
 ### 🚧 Planned for next release
