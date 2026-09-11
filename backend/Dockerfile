@@ -38,6 +38,7 @@ COPY feature_extraction.py .
 COPY url_agent.py .
 COPY metadata_agent.py .
 COPY auth_headers.py .
+COPY reputation.py .
 
 # Where the unzipped DistilBERT checkpoint will be mounted
 ENV MODEL_DIR=/app/model
