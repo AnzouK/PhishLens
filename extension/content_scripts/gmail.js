@@ -121,7 +121,6 @@ async function runScan(emailView, btn) {
         // so we have to programmatically toggle the "details" panel to get
         // them into the DOM before scraping.
         const gmailAuth = await extractGmailAuthSignals(emailView);
-        console.log(TAG, "extracted Gmail auth signals:", gmailAuth);
 
         // Send the body as raw_text and the sender separately so the backend
         // can run the trusted-domain check.
@@ -349,36 +348,17 @@ async function extractGmailAuthSignals(emailView) {
         out.inInbox = !(hash.includes("spam") || hash.includes("trash"));
     } catch {}
 
-    // 2. Gmail lazy-loads the mailed-by / signed-by rows behind the small
-    //    triangle next to the recipient. The panel opens as an overlay
-    //    that gets attached under document.body — outside emailView. So
-    //    we (a) trigger the toggle if closed, then (b) scrape the whole
-    //    document, not just the message container, then (c) close the
-    //    panel to leave the UI unchanged.
-    let scrapedFromExpansion = false;
+    // 2. Scrape the whole document for mailed-by / signed-by rows. Gmail
+    //    lazy-loads them behind a triangle button; if the user hasn't
+    //    opened the details panel we won't find them, but that's fine —
+    //    the backend has a soft-verification fallback when only
+    //    gmail_in_inbox=true is available. Auto-clicking the toggle was
+    //    tried but is visually intrusive (the panel visibly spawns every
+    //    time the user hits Scan), so we don't do it anymore. If the user
+    //    happens to have the details open, we'll catch it here.
     try {
-        if (!_findAuthRow(document.body)) {
-            const expander = _findDetailsToggle(emailView);
-            if (expander) {
-                expander.click();
-                await _nextTick(200);   // Gmail sometimes reflows twice
-                scrapedFromExpansion = true;
-            }
-        }
-        // Scrape the whole document — Gmail renders the details panel in
-        // an overlay that lives under body, not inside emailView.
         _scrapeAuthRows(document.body, out);
     } catch {}
-    if (scrapedFromExpansion) {
-        try {
-            // Close by re-clicking anywhere outside the popup, or clicking
-            // the same expander again — but the safest thing is a body
-            // click on a neutral spot. Gmail closes overlays on outside
-            // clicks. Since sending a fake click can trigger side-effects,
-            // we just leave the panel: the user re-clicks the same email
-            // and its overlay is auto-managed by Gmail.
-        } catch {}
-    }
 
     // 3. The inline "via <domain>" indicator shown when SPF path differs
     //    from From:. Structure varies but we can look for a span whose text
