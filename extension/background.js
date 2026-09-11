@@ -1,18 +1,26 @@
 // =====================================================================
 // PhishLens background service worker.
 // =====================================================================
-// Three jobs:
+// Four jobs:
 //   1. Log install/update events.
 //   2. Proxy fetch() calls to the configured backend on behalf of the
 //      Gmail content script. Gmail's CSP would block direct fetches from
 //      the page context, so the content script messages us instead.
 //   3. Warm-up ping — ping the cloud backend on Chrome startup, on install,
-//      and every 10 min. Originally introduced to mitigate the 30-60 s
-//      cold-start latency of the previous Hugging Face Space / Render.com
-//      deployments. The current Oracle Cloud VM runs continuously so cold
-//      starts no longer occur, but the ping is kept as an inexpensive
-//      liveness check.
+//      and every 10 min. Originally introduced to mitigate the cold-start
+//      latency of the previous Hugging Face Space / Render.com deployments.
+//      The current Oracle Cloud VM runs continuously so cold starts no
+//      longer occur, but the ping is kept as an inexpensive liveness check.
+//   4. Persist scan history — receive save messages from the Gmail content
+//      script (which can't easily reach chrome.storage in some flows) and
+//      write them via the shared history module.
 // =====================================================================
+
+// Load the shared history module into the service worker so we can call
+// PhishLensHistory.saveScan(...) and .attachTokens(...) when the Gmail
+// content script asks us to persist a scan.
+try { importScripts("lib/history.js"); }
+catch (e) { console.warn("[PhishLens] history module not loaded:", e); }
 
 const BACKEND_PRESETS = {
     local: "http://127.0.0.1:8000",
@@ -88,6 +96,30 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    // History persistence — content scripts (Gmail) delegate storage to us.
+    if (msg?.type === "phishlens.history.save") {
+        (async () => {
+            try {
+                const id = await self.PhishLensHistory?.saveScan(msg.entry);
+                sendResponse({ ok: true, id });
+            } catch (e) {
+                sendResponse({ ok: false, error: String(e?.message || e) });
+            }
+        })();
+        return true;
+    }
+    if (msg?.type === "phishlens.history.attachTokens") {
+        (async () => {
+            try {
+                await self.PhishLensHistory?.attachTokens(msg.id, msg.tokens);
+                sendResponse({ ok: true });
+            } catch (e) {
+                sendResponse({ ok: false, error: String(e?.message || e) });
+            }
+        })();
+        return true;
+    }
+
     if (msg?.type !== "phishlens.analyse" && msg?.type !== "phishlens.explain")
         return false;
 
