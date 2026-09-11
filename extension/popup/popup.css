@@ -556,3 +556,263 @@ body {
   display: flex; justify-content: center; gap: 6px;
 }
 .footer__dot { opacity: 0.5; }
+
+/* =====================================================================
+   Insights view (scan history + analytics)
+   ===================================================================== */
+#view-insights { gap: 14px; }
+
+.insights-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-mute);
+}
+.insights-empty__icon { font-size: 40px; margin-bottom: 8px; }
+.insights-empty__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.insights-empty__sub { font-size: 12px; }
+
+/* stat cards row */
+.insights-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.stat-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 8px;
+  text-align: center;
+}
+.stat-card__value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.15;
+}
+.stat-card__label {
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Safe / Phishing ratio bar */
+.ratio-block {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.ratio-block__label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  margin-bottom: 6px;
+}
+.ratio-safe-label     { color: var(--success); }
+.ratio-phishing-label { color: var(--danger); }
+.ratio-bar {
+  display: flex;
+  height: 8px;
+  background: var(--bg-elev-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.ratio-bar__safe     { background: var(--success); }
+.ratio-bar__phishing { background: var(--danger);  }
+
+/* Generic chart block wrapper */
+.chart-block {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.chart-block__title {
+  font-size: 11px;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+/* 30-day timeline */
+.daily-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 84px;
+}
+.dc-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+.dc-stack {
+  width: 100%;
+  min-height: 2px;
+  display: flex;
+  flex-direction: column-reverse;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--bg-elev-2);
+}
+.dc-safe     { display: block; background: var(--success); width: 100%; }
+.dc-phishing { display: block; background: var(--danger);  width: 100%; }
+.dc-label {
+  font-size: 8px;
+  color: var(--text-subtle);
+  transform: rotate(-45deg);
+  transform-origin: top center;
+  white-space: nowrap;
+  margin-top: 2px;
+  height: 12px;
+  overflow: hidden;
+}
+
+/* Top LIME tokens */
+.top-tokens {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+.token-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+}
+.token-row__label {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.token-row__bar {
+  height: 6px;
+  background: var(--bg-elev-2);
+  border-radius: 999px;
+  overflow: hidden;
+  display: block;
+}
+.token-row__bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+}
+.empty-hint {
+  font-size: 11px;
+  color: var(--text-mute);
+  font-style: italic;
+  text-align: center;
+  padding: 6px 0;
+}
+
+/* History list */
+.history-block {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px 12px;
+}
+.history-block__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.history-actions {
+  display: flex;
+  gap: 4px;
+}
+.btn--tiny {
+  font-size: 10.5px;
+  padding: 4px 8px;
+  height: auto;
+  min-height: 0;
+  border-radius: 6px;
+}
+.btn--danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.btn--danger:hover {
+  background: var(--danger-soft);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.history-item {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  cursor: default;
+  transition: background 100ms;
+}
+.history-item:hover { background: var(--bg-elev-2); }
+.history-item[data-verdict="phishing"] {
+  border-left: 2px solid var(--danger);
+}
+.history-item[data-verdict="safe"] {
+  border-left: 2px solid var(--success);
+}
+.history-item__dot { font-size: 14px; }
+/* Grid children must have min-width:0 to shrink below their content width,
+   otherwise long subjects/senders push the whole card past the popup edge. */
+.history-item__main {
+  min-width: 0;
+  overflow: hidden;
+}
+.history-item__subject {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-item__meta {
+  font-size: 10px;
+  color: var(--text-subtle);
+  margin-top: 1px;
+  /* Single-line with ellipsis — block layout so text-overflow works. */
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-item__meta > span {
+  vertical-align: middle;
+}
+.history-list {
+  /* Prevent a stray horizontal scrollbar if a very long token ever slips in. */
+  overflow-x: hidden;
+}
+.history-item__score {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-mute);
+}

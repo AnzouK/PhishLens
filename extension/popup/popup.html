@@ -18,6 +18,9 @@
       </div>
     </div>
     <div class="header-actions">
+      <button id="insights-btn" class="theme-toggle" title="Scan history &amp; stats" aria-label="Scan history and stats">
+        <span>📊</span>
+      </button>
       <button id="settings-btn" class="theme-toggle" title="Backend settings" aria-label="Backend settings">
         <span>⚙</span>
       </button>
@@ -155,6 +158,74 @@
       <button id="back-btn" class="btn btn--secondary">Analyze another email</button>
     </section>
 
+    <!-- ===== insights view (scan history + analytics) ===== -->
+    <section id="view-insights" class="view">
+      <div class="settings-header">
+        <button id="insights-back" class="btn--icon" title="Back" aria-label="Back">←</button>
+        <h2 class="settings-title">Insights</h2>
+      </div>
+
+      <!-- Empty state -->
+      <div id="insights-empty" class="insights-empty" hidden>
+        <div class="insights-empty__icon">📭</div>
+        <div class="insights-empty__title">No scans yet</div>
+        <div class="insights-empty__sub">Once you analyse a few emails, you'll see stats and a history here.</div>
+      </div>
+
+      <!-- Stats block -->
+      <div id="insights-stats" class="insights-stats">
+        <div class="stat-card">
+          <div class="stat-card__value" id="stat-total">0</div>
+          <div class="stat-card__label">total scans</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card__value" id="stat-phishing-pct">0%</div>
+          <div class="stat-card__label">flagged as phishing</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card__value" id="stat-avg-score">0</div>
+          <div class="stat-card__label">avg text score</div>
+        </div>
+      </div>
+
+      <!-- Ratio bar (Safe vs Phishing) -->
+      <div class="ratio-block" id="ratio-block">
+        <div class="ratio-block__label">
+          <span class="ratio-safe-label">✓ Safe (<span id="ratio-safe-count">0</span>)</span>
+          <span class="ratio-phishing-label"><span id="ratio-phishing-count">0</span> Phishing ⚠</span>
+        </div>
+        <div class="ratio-bar">
+          <span class="ratio-bar__safe" id="ratio-safe-fill"></span>
+          <span class="ratio-bar__phishing" id="ratio-phishing-fill"></span>
+        </div>
+      </div>
+
+      <!-- Last 30 days timeline (pure CSS bar chart) -->
+      <div class="chart-block">
+        <div class="chart-block__title">Scans, last 30 days</div>
+        <div id="daily-chart" class="daily-chart" aria-label="Daily scan chart"></div>
+      </div>
+
+      <!-- Top phishing tokens -->
+      <div class="chart-block" id="top-tokens-block">
+        <div class="chart-block__title">Top phishing tokens (from LIME)</div>
+        <div id="top-tokens" class="top-tokens"></div>
+      </div>
+
+      <!-- Recent history list -->
+      <div class="history-block">
+        <div class="history-block__head">
+          <span class="chart-block__title">Recent scans</span>
+          <div class="history-actions">
+            <button id="export-csv-btn" class="btn btn--ghost btn--tiny" title="Download CSV">CSV</button>
+            <button id="export-json-btn" class="btn btn--ghost btn--tiny" title="Download JSON">JSON</button>
+            <button id="clear-history-btn" class="btn btn--ghost btn--tiny btn--danger" title="Clear history">Clear</button>
+          </div>
+        </div>
+        <div id="history-list" class="history-list"></div>
+      </div>
+    </section>
+
     <!-- ===== settings view ===== -->
     <section id="view-settings" class="view">
       <div class="settings-header">
@@ -214,6 +285,7 @@
     <span>Nile University — CYB 499</span>
   </footer>
 
+  <script src="../lib/history.js"></script>
   <script type="module" src="popup.js"></script>
 </body>
 </html>

@@ -26,7 +26,12 @@ const views = {
     loading: $("view-loading"),
     result: $("view-result"),
     settings: $("view-settings"),
+    insights: $("view-insights"),
 };
+
+// Track the id of the currently-displayed scan so we can attach its LIME
+// tokens to the history entry once /explain resolves.
+let currentHistoryId = null;
 const dropZone = $("drop-zone");
 const fileInput = $("file-input");
 const analyzeBtn = $("analyze-btn");
@@ -255,6 +260,27 @@ analyzeBtn.addEventListener("click", async () => {
         renderResult(data);
         showView("result");
 
+        // Persist this scan in the local history via the shared module.
+        try {
+            const entry = {
+                source:  (payload.raw_email_b64 ? "file" : "paste"),
+                subject: (selectedFile?.name || "").slice(0, 120),
+                sender:  data.sender_domain || "",
+                verdict: data.verdict,
+                score:   Number(data.agents?.text?.phishing_probability) || 0,
+                agents: {
+                    text:     Number(data.agents?.text?.phishing_probability)     || 0,
+                    url:      Number(data.agents?.url?.phishing_probability)      || 0,
+                    metadata: Number(data.agents?.metadata?.phishing_probability) || 0,
+                },
+                trusted: !!data.trusted_sender,
+            };
+            currentHistoryId = await window.PhishLensHistory?.saveScan(entry);
+        } catch (histErr) {
+            console.warn("[PhishLens] failed to persist history entry:", histErr);
+            currentHistoryId = null;
+        }
+
         // fire LIME explanation in the background — tagged with the run id
         fetchExplain(payload, thisRun);
     } catch (e) {
@@ -349,6 +375,17 @@ async function fetchExplain(payload, thisRun) {
         if (thisRun !== runId) return;        // stale — discard
         explainData = data.features || [];
         if (explainPanel.open) renderExplain(explainData);
+
+        // Attach top LIME tokens to the history entry so the analytics
+        // view can aggregate them into the "top phishing tokens" chart.
+        if (currentHistoryId && Array.isArray(explainData)) {
+            const tokens = explainData.slice(0, 5).map((f) => ({
+                token:  f.token  || (Array.isArray(f) ? f[0] : ""),
+                weight: f.weight ?? (Array.isArray(f) ? f[1] : 0),
+            }));
+            try { await window.PhishLensHistory?.attachTokens(currentHistoryId, tokens); }
+            catch {}
+        }
     } catch (e) {
         if (thisRun !== runId) return;        // stale — discard
         explainError = e?.message || String(e);
@@ -446,6 +483,178 @@ document.querySelectorAll('input[name="backend"]').forEach((r) => {
 customUrlInput.addEventListener("input", () => {
     backendCustomUrl = customUrlInput.value.trim();
     STORAGE?.set({ backend_custom_url: backendCustomUrl });
+});
+
+// ---------- insights view (history + analytics) ----------
+const insightsBtn      = $("insights-btn");
+const insightsBack     = $("insights-back");
+const insightsEmpty    = $("insights-empty");
+const insightsStats    = $("insights-stats");
+const ratioBlock       = $("ratio-block");
+const topTokensBlock   = $("top-tokens-block");
+const dailyChart       = $("daily-chart");
+const topTokensEl      = $("top-tokens");
+const historyList      = $("history-list");
+const exportCsvBtn     = $("export-csv-btn");
+const exportJsonBtn    = $("export-json-btn");
+const clearHistoryBtn  = $("clear-history-btn");
+
+async function renderInsights() {
+    const stats = await window.PhishLensHistory?.getStats();
+    const list  = await window.PhishLensHistory?.getHistory();
+    if (!stats || stats.total === 0) {
+        insightsEmpty.hidden = false;
+        insightsStats.style.display = "none";
+        ratioBlock.style.display = "none";
+        topTokensBlock.style.display = "none";
+        document.querySelector(".chart-block:not(#top-tokens-block)").style.display = "none";
+        historyList.innerHTML = "";
+        return;
+    }
+    insightsEmpty.hidden = true;
+    insightsStats.style.display = "";
+    ratioBlock.style.display = "";
+    topTokensBlock.style.display = "";
+    document.querySelector(".chart-block:not(#top-tokens-block)").style.display = "";
+
+    // Stat cards
+    $("stat-total").textContent = stats.total;
+    $("stat-phishing-pct").textContent = `${stats.phishingPct}%`;
+    $("stat-avg-score").textContent = stats.avgScore.toFixed(2);
+
+    // Ratio bar
+    $("ratio-safe-count").textContent = stats.safe;
+    $("ratio-phishing-count").textContent = stats.phishing;
+    $("ratio-safe-fill").style.width = `${stats.safePct}%`;
+    $("ratio-phishing-fill").style.width = `${stats.phishingPct}%`;
+
+    // Daily chart (30 columns, height proportional to total scans that day)
+    const maxDaily = Math.max(1, ...stats.days.map((d) => d.phishing + d.safe));
+    dailyChart.innerHTML = stats.days.map((d) => {
+        const tot = d.phishing + d.safe;
+        const h = Math.round((tot / maxDaily) * 100);
+        const phishH = tot ? Math.round((d.phishing / tot) * h) : 0;
+        const safeH  = h - phishH;
+        const short = d.date.slice(5);   // MM-DD
+        return `
+          <div class="dc-col" title="${d.date}: ${tot} scan(s) — ${d.phishing} phishing / ${d.safe} safe">
+            <div class="dc-stack" style="height:${h}%">
+              <span class="dc-phishing" style="height:${phishH}%"></span>
+              <span class="dc-safe"     style="height:${safeH}%"></span>
+            </div>
+            <div class="dc-label">${short}</div>
+          </div>`;
+    }).join("");
+
+    // Top phishing tokens
+    if (stats.topTokens.length === 0) {
+        topTokensEl.innerHTML =
+            `<div class="empty-hint">No phishing tokens recorded yet — LIME data will accumulate as you scan.</div>`;
+    } else {
+        const maxW = Math.max(...stats.topTokens.map((t) => t.weight));
+        topTokensEl.innerHTML = stats.topTokens.map((t) => {
+            const pct = Math.round((t.weight / maxW) * 100);
+            return `
+              <div class="token-row">
+                <span class="token-row__label">${escapeHtml(t.token)}</span>
+                <span class="token-row__bar"><span style="width:${pct}%"></span></span>
+              </div>`;
+        }).join("");
+    }
+
+    // Recent history — last 20
+    historyList.innerHTML = list.slice(0, 20).map((e) => {
+        const dot = e.verdict === "phishing" ? "🚩" : "✅";
+        const when = timeAgo(e.ts);
+        const subj = e.subject || "(no subject)";
+        const src = ({ gmail: "Gmail", file: ".eml file", paste: "pasted text" })[e.source] || e.source;
+        return `
+          <div class="history-item" data-verdict="${e.verdict}" data-id="${e.id}">
+            <div class="history-item__dot">${dot}</div>
+            <div class="history-item__main">
+              <div class="history-item__subject">${escapeHtml(subj)}</div>
+              <div class="history-item__meta">
+                <span>${src}</span>
+                <span>·</span>
+                <span>${when}</span>
+                ${e.sender ? `<span>·</span><span>${escapeHtml(e.sender)}</span>` : ""}
+              </div>
+            </div>
+            <div class="history-item__score">${Math.round((e.score || 0) * 100)}%</div>
+          </div>`;
+    }).join("");
+}
+
+function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+}
+
+function timeAgo(ts) {
+    const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
+    if (s < 60)      return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60)      return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24)      return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 30)      return `${d}d ago`;
+    return new Date(ts).toISOString().slice(0, 10);
+}
+
+insightsBtn.addEventListener("click", async () => {
+    previousView = Object.entries(views).find(([k, el]) =>
+        el.classList.contains("view--active"))?.[0] || "upload";
+    await renderInsights();
+    showView("insights");
+});
+
+insightsBack.addEventListener("click", () => {
+    showView(previousView === "insights" ? "upload" : previousView);
+});
+
+// Export handlers — trigger a client-side download using a Blob URL.
+function downloadBlob(name, mime, text) {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+exportCsvBtn.addEventListener("click", async () => {
+    const csv = await window.PhishLensHistory?.exportCSV();
+    if (!csv) return;
+    downloadBlob(`phishlens-history-${new Date().toISOString().slice(0, 10)}.csv`,
+                 "text/csv;charset=utf-8", csv);
+});
+
+exportJsonBtn.addEventListener("click", async () => {
+    const json = await window.PhishLensHistory?.exportJSON();
+    if (!json) return;
+    downloadBlob(`phishlens-history-${new Date().toISOString().slice(0, 10)}.json`,
+                 "application/json", json);
+});
+
+clearHistoryBtn.addEventListener("click", async () => {
+    if (!confirm("Delete all locally-stored scan history? This cannot be undone.")) return;
+    await window.PhishLensHistory?.clearHistory();
+    await renderInsights();
+});
+
+// Click on a history row → delete on shift-click, otherwise ignore for now.
+// (Room to open a full detail view in a later version.)
+historyList.addEventListener("click", async (ev) => {
+    const row = ev.target.closest(".history-item");
+    if (!row) return;
+    if (ev.shiftKey) {
+        const id = row.dataset.id;
+        if (id && confirm("Remove this entry from history?")) {
+            await window.PhishLensHistory?.deleteScan(id);
+            await renderInsights();
+        }
+    }
 });
 
 testConnBtn.addEventListener("click", async () => {

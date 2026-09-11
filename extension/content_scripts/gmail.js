@@ -102,6 +102,7 @@ async function runScan(emailView, btn) {
     const sender = emailView.querySelector(SENDER_SEL);
     const senderEmail = sender?.getAttribute("email") || "";
     const senderName  = sender?.textContent?.trim() || "";
+    const subject = emailView.querySelector(SUBJECT_SEL)?.textContent?.trim() || "";
 
     if (!body || body.length < 20) {
         showBanner(emailView, {
@@ -125,10 +126,44 @@ async function runScan(emailView, btn) {
         });
         if (!r?.ok) throw new Error(r?.error || "Unknown error");
         showBanner(emailView, r.data);
+
+        // Persist this scan in the local history — background.js writes it
+        // via the shared history module. We remember the returned id so we
+        // can attach LIME tokens to the same entry when /explain resolves.
+        const historyEntry = {
+            source:  "gmail",
+            subject: subject,
+            sender:  senderEmail || senderName,
+            verdict: r.data.verdict,
+            score:   Number(r.data.agents?.text?.phishing_probability) || 0,
+            agents: {
+                text:     Number(r.data.agents?.text?.phishing_probability)     || 0,
+                url:      Number(r.data.agents?.url?.phishing_probability)      || 0,
+                metadata: Number(r.data.agents?.metadata?.phishing_probability) || 0,
+            },
+            trusted: !!r.data.trusted_sender,
+        };
+        const saveResp = await chrome.runtime.sendMessage({
+            type: "phishlens.history.save", entry: historyEntry,
+        }).catch(() => null);
+        const savedId = saveResp?.id;
+
         // pre-fetch explanation in background; banner will pick it up on demand
         chrome.runtime.sendMessage({ type: "phishlens.explain", payload })
             .then((rr) => {
-                if (rr?.ok) attachExplanation(emailView, rr.data.features || []);
+                if (!rr?.ok) return;
+                const features = rr.data.features || [];
+                attachExplanation(emailView, features);
+                if (savedId) {
+                    const tokens = features.slice(0, 5).map((f) => ({
+                        token: f.token || f[0] || "",
+                        weight: f.weight || f[1] || 0,
+                    }));
+                    chrome.runtime.sendMessage({
+                        type: "phishlens.history.attachTokens",
+                        id: savedId, tokens,
+                    }).catch(() => {});
+                }
             });
     } catch (e) {
         const msg = String(e?.message || e);
