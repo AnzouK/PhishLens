@@ -56,6 +56,16 @@ except Exception as _e:
     print(f"⚠ auth_headers module not loaded ({_e}); "
           "SPF/DKIM/DMARC + Spamhaus DBL disabled.")
 
+# URL reputation cascade — GSB → PhishTank → URLhaus → Spamhaus DBL.
+# Same graceful-fallback pattern as auth_headers: missing module → heuristics.
+try:
+    import reputation as _reputation
+    _REPUTATION_AVAILABLE = True
+except Exception as _e:
+    _REPUTATION_AVAILABLE = False
+    print(f"⚠ reputation module not loaded ({_e}); "
+          "GSB / PhishTank / URLhaus disabled.")
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -220,7 +230,23 @@ async def lifespan(_app: FastAPI):
     STATE["device"] = device
     STATE["lime"] = LimeTextExplainer(class_names=CLASS_NAMES, bow=False)
     print(f"Model loaded on device={device}. Ready on port {PORT}.")
+
+    # Start the reputation cascade (PhishTank feed download, cache warm-up).
+    # Runs after model load so a slow PhishTank fetch doesn't block startup
+    # health checks — the model is already serving by then.
+    if _REPUTATION_AVAILABLE:
+        try:
+            await _reputation.startup()
+        except Exception as _e:
+            print(f"⚠ reputation.startup() failed: {_e}")
+
     yield
+
+    if _REPUTATION_AVAILABLE:
+        try:
+            await _reputation.shutdown()
+        except Exception:
+            pass
     STATE.clear()
 
 
@@ -469,6 +495,18 @@ def health():
     return {"status": "ok", "model": "DistilBERT"}
 
 
+@app.get("/reputation/stats")
+def reputation_stats():
+    """
+    Debug endpoint — cache hit rate, GSB quota consumption, PhishTank feed
+    size. Handy for monitoring how close we get to the 10k/day GSB limit
+    and whether the cache is doing its job. Not exposed to end users.
+    """
+    if not _REPUTATION_AVAILABLE:
+        return {"enabled": False, "reason": "reputation module not loaded"}
+    return {"enabled": True, **_reputation.stats()}
+
+
 @app.post("/explain")
 def explain(req: AnalyseRequest):
     """Top-K LIME tokens explaining the text-agent decision."""
@@ -566,6 +604,13 @@ async def analyse(req: AnalyseRequest):
             build_metadata_auth_signal(headers, enable_dbl=enable_dbl)
         )
 
+    # NEW: URL reputation cascade. Same pattern — kick it off in parallel so
+    # its latency (mostly one GSB HTTP round-trip on cache miss) overlaps
+    # with the model inference on the CPU.
+    reputation_task = None
+    if _REPUTATION_AVAILABLE and urls:
+        reputation_task = asyncio.create_task(_reputation.check_urls(urls))
+
     # run agents — pass the extra context so the trained models can take
     # over when they're loaded; the heuristic fallback still works with
     # just the parsed urls/headers.
@@ -576,6 +621,8 @@ async def analyse(req: AnalyseRequest):
     except Exception as e:
         if auth_signal_task:
             auth_signal_task.cancel()
+        if reputation_task:
+            reputation_task.cancel()
         raise HTTPException(500, f"Inference failed: {e}")
 
     # Collect the auth signal (or a safe default if disabled/errored)
@@ -585,6 +632,38 @@ async def analyse(req: AnalyseRequest):
             auth_signal = await auth_signal_task
         except Exception as e:
             print(f"⚠ auth_signal task failed: {e}")
+
+    # Collect the URL reputation verdicts (or an empty list if disabled)
+    reputation_verdicts: list[dict[str, Any]] = []
+    if reputation_task:
+        try:
+            reputation_verdicts = await reputation_task
+        except Exception as e:
+            print(f"⚠ reputation task failed: {e}")
+
+    # Apply reputation to the URL agent score. Any tier flagging a URL is
+    # very strong evidence — much better than a RF trained on lexical
+    # features alone. We take the max score across all URLs.
+    rep_max_score = 0.0
+    rep_hit_sources: set[str] = set()
+    rep_threat_types: set[str] = set()
+    for v in reputation_verdicts:
+        if v.get("malicious"):
+            rep_max_score = max(rep_max_score, float(v.get("score", 0.0)))
+            for s in v.get("sources", []):
+                rep_hit_sources.add(s)
+            for t in v.get("threat_types", []):
+                rep_threat_types.add(t)
+
+    # Fusion between RF/heuristic (p_url) and reputation:
+    #   • Google Safe Browsing hit (score 1.0)         → override to 0.95
+    #   • Any fallback source hit                      → boost via weighted max
+    #   • No hit                                       → keep RF score untouched
+    p_url_raw = p_url
+    if rep_max_score >= 0.99:               # GSB match
+        p_url = max(p_url, 0.95)
+    elif rep_max_score > 0:                 # PhishTank / URLhaus / Spamhaus
+        p_url = max(p_url, 0.7 * rep_max_score + 0.3 * p_url)
 
     # Apply the auth signal to the metadata score. Clamp to [0, 1] so a big
     # negative delta on a well-signed email can't drive p_meta below zero.
@@ -632,10 +711,18 @@ async def analyse(req: AnalyseRequest):
             "reasons": auth_signal.get("reasons", []),
             "score_delta": auth_signal.get("score_delta", 0.0),
         },
+        "url_reputation": {
+            "checked": len(reputation_verdicts),
+            "malicious_count": sum(1 for v in reputation_verdicts if v.get("malicious")),
+            "sources_hit": sorted(rep_hit_sources),
+            "threat_types": sorted(rep_threat_types),
+            "verdicts": reputation_verdicts,
+        },
         "agents": {
             "text":     {"phishing_probability": p_text,
                          "verdict": verdict_label(p_text)},
             "url":      {"phishing_probability": p_url,
+                         "phishing_probability_raw": p_url_raw,
                          "verdict": verdict_label(p_url)},
             "metadata": {"phishing_probability": p_meta,
                          "phishing_probability_raw": p_meta_raw,
