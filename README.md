@@ -238,12 +238,33 @@ Department of Cybersecurity, session 2025–2026.
 
 ## 🗺 Roadmap
 
-- [ ] Integrate Google Safe Browsing API v4 for the URL agent
-- [ ] Replace heuristic metadata agent with the trained Random Forest
-- [ ] Yahoo Mail content script
-- [ ] Outlook Web content script
-- [ ] Local analysis history (chrome.storage) with export
-- [ ] Multi-architecture Docker images (linux/amd64 + linux/arm64)
+### ✅ Shipped in v1.4.0
+- [x] Cloud backend migrated to a self-managed Oracle Cloud VM (24 GB RAM, always-free)
+- [x] Model loaded in FP32 by default for faster CPU inference (~5 s → ~3 s per `/analyse`)
+- [x] LIME sample budget cut from 200 → 100 (~15 s → ~8 s per `/explain`), env-tunable
+- [x] Verdict + explanation streamed asynchronously in the UI (verdict shows in ~3 s while LIME loads in background)
+- [x] Opt-in scaffolding for the trained URL / metadata Random Forest agents (`URL_RF_PATH` / `METADATA_RF_PATH` env vars)
+- [x] `/health` endpoint for warm-up ping consistency across all deployments
+
+### 🚧 Planned for v1.5.0 (short-term)
+- [ ] **HTTPS + custom domain** — DuckDNS + Caddy on the Oracle VM (Chrome 🔒 badge, professional URL)
+- [ ] **Scan history dashboard** — local `chrome.storage` log with export as CSV / JSON
+- [ ] **In-popup analytics** — total scans, phishing %, top flagged tokens, simple charts
+- [ ] **Publish the trained RF models** to Hugging Face and wire them into the Docker image so the `URL_RF_PATH` / `METADATA_RF_PATH` opt-in becomes the default
+
+### 🔭 Planned for v2.0 (medium-term)
+- [ ] **Yahoo Mail** content script
+- [ ] **Outlook Web** content script
+- [ ] **PDF / HTML attachment parsing** via pdfplumber + BeautifulSoup — cover the modern phishing-via-attachment attack surface
+- [ ] **Automatic background scan** of new Gmail messages, with a native Chrome notification when a phishing verdict is issued
+- [ ] **Google Safe Browsing API v4** cross-check inside the URL agent
+- [ ] **Multi-architecture Docker images** (`linux/amd64` + `linux/arm64`) so `docker pull` just works everywhere
+- [ ] **Multilingual DistilBERT** — extend beyond English to French / Hausa / Yoruba corpora
+
+### 🔬 Research directions
+- [ ] Quantized ONNX Runtime backend for sub-second `/analyse` on modest CPUs
+- [ ] End-to-end evaluation on a live Gmail stream (out-of-distribution FPR / FNR)
+- [ ] SHAP explanations as a stability comparator for LIME
 
 ---
 
