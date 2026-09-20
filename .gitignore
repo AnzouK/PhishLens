@@ -82,4 +82,5 @@ extension/dist/        # the legacy React build from Tariq — keep extension/ph
 .env
 .env.local
 *.secret
+.phishlens.env       # holds GSB_API_KEY etc. on the Oracle VM — never commit
 **/.venv/
