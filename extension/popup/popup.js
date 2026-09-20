@@ -4,11 +4,11 @@
 
 // Backend choices (persisted in chrome.storage under "backend").
 // "local"  -> http://127.0.0.1:8000                     (Docker on user's Mac)
-// "cloud"  -> http://130.61.146.213    (Oracle Cloud)
+// "cloud"  -> https://anzouk.duckdns.org                (Oracle Cloud, behind Caddy + Let's Encrypt)
 // "custom" -> whatever URL the user types in the settings view
 const BACKEND_PRESETS = {
     local:  "http://127.0.0.1:8000",
-    cloud:  "http://130.61.146.213",
+    cloud:  "https://anzouk.duckdns.org",
 };
 const DEFAULT_BACKEND = "local";
 

@@ -18,7 +18,7 @@ extension that injects directly into Gmail.
 [![Chrome](https://img.shields.io/badge/Chrome-MV3-4285F4?logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/AnzouK/PhishLens?color=blueviolet)](https://github.com/AnzouK/PhishLens/releases/latest)
-[![Live demo](https://img.shields.io/badge/Oracle%20Cloud-Live%20demo-F80000?logo=oracle&logoColor=white)](http://130.61.146.213)
+[![Live demo](https://img.shields.io/badge/Oracle%20Cloud-Live%20demo-F80000?logo=oracle&logoColor=white)](https://anzouk.duckdns.org)
 [![HF Model](https://img.shields.io/badge/🤗-Model-yellow)](https://huggingface.co/AnzouKiona/phishlens-distilbert)
 [![HF Agents](https://img.shields.io/badge/🤗-Agents-yellow)](https://huggingface.co/AnzouKiona/phishlens-agents)
 
@@ -114,13 +114,14 @@ between them at any time without reloading.
 
 Just install the extension, switch the backend to **Cloud demo** in the
 gear menu, and you're done. The popup calls
-[`http://130.61.146.213`](http://130.61.146.213) — an Oracle Cloud Always
-Free VM (ARM Ampere A1, 4 OCPU / 24 GB RAM) running the same FastAPI Docker
-image as Option 1.
+[`https://anzouk.duckdns.org`](https://anzouk.duckdns.org) — an Oracle
+Cloud Always Free VM (ARM Ampere A1, 4 OCPU / 24 GB RAM) running the same
+FastAPI Docker image as Option 1, behind Caddy with a Let's Encrypt
+certificate auto-renewed.
 
-Caveats: CPU-only inference (~3–5 s per `/analyse`), public HTTP endpoint —
+Caveats: CPU-only inference (~3–5 s per `/analyse`), shared instance —
 don't paste sensitive email content. The VM runs continuously (no cold
-start). For end-to-end encryption on your own domain, self-host with Option 1.
+start). For a fully self-hosted deployment on your own domain, use Option 1.
 
 ### Option 1 · Docker (recommended for daily use)
 
@@ -336,8 +337,8 @@ Department of Cybersecurity, session 2025–2026.
 - [x] **Gmail-inbox soft-verification fallback** (v1.6.2) — when the DOM scrape fails but Gmail delivered the message to Inbox, we treat that as a weak trust signal (Gmail already ran SPF/DKIM/DMARC before delivery). The fusion halves the text weight and disables the single-agent override, so legitimate `Verify your email` templates no longer trigger false positives. `📬 Gmail-delivered` pill on the verdict card differentiates it from full crypto verification.
 - [x] **Client-side LIME cache** — `lib/lime_cache.js`, SHA-256-keyed on `{backend, payload}` in `chrome.storage.local`. Re-opening the same email: `~10 s → ~50 ms`.
 
-### 🚧 Planned for next release
-- [ ] **HTTPS + custom domain** — DuckDNS + Caddy on the Oracle VM (Chrome 🔒 badge, professional URL)
+### ✅ Shipped in v1.7.0
+- [x] **HTTPS + custom domain** — Caddy reverse proxy on the Oracle VM, DuckDNS domain `anzouk.duckdns.org`, Let's Encrypt certificate auto-renewed. The extension's Cloud demo preset now points to `https://anzouk.duckdns.org`; the raw IP `130.61.146.213` is kept in `host_permissions` for backward compatibility with existing installs.
 
 ### 🔭 Planned for v2.0 (medium-term)
 - [ ] **Yahoo Mail** content script

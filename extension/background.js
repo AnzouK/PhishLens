@@ -24,7 +24,7 @@ catch (e) { console.warn("[PhishLens] history module not loaded:", e); }
 
 const BACKEND_PRESETS = {
     local: "http://127.0.0.1:8000",
-    cloud: "http://130.61.146.213",
+    cloud: "https://anzouk.duckdns.org",
 };
 
 async function getApiBase() {
