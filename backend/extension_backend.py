@@ -958,24 +958,36 @@ async def analyse_attachment(req: AttachmentRequest):
     elif rep_max_score > 0:
         p_url = max(p_url, 0.7 * rep_max_score + 0.3 * p_url)
 
-    # PDF / HTML notable features carry weight too — /JavaScript in a
-    # PDF you didn't ask for is a red flag on its own. We surface these
-    # in the response but only nudge the score, we don't dominate it.
+    # PDF / HTML notable features carry weight — an unsolicited HTML
+    # attachment carrying a password field is basically a phishing
+    # template, and a PDF that auto-executes JavaScript on open is a
+    # malware dropper. These features often ARE the whole signal on
+    # attachments (extracted text is short or empty), so we let the
+    # bonus climb to ~0.7 rather than capping at 0.4.
     notable = extracted.get("notable_features", []) or []
     feature_bonus = 0.0
     _RISK = {
-        "contains_javascript":     0.15,
-        "auto_execute_on_open":    0.20,
-        "launch_external_action":  0.25,
-        "embeds_another_file":     0.15,
-        "submits_form_to_url":     0.15,
-        "contains_password_field": 0.20,
-        "meta_refresh_redirect":   0.10,
-        "flash_or_richmedia":      0.10,
+        # PDF-side markers
+        "contains_javascript":     0.20,
+        "auto_execute_on_open":    0.30,
+        "launch_external_action":  0.35,
+        "embeds_another_file":     0.20,
+        "submits_form_to_url":     0.25,
+        "contains_link_annotation":0.00,   # too common in legit PDFs
+        "remote_link_action":      0.10,
+        "flash_or_richmedia":      0.15,
+        # HTML-side markers
+        "contains_form":           0.15,
+        "contains_password_field": 0.40,   # login-page attachments are ~always phish
+        "contains_iframe":         0.10,
+        "meta_refresh_redirect":   0.20,
     }
     for f in notable:
         feature_bonus += _RISK.get(f, 0.0)
-    feature_bonus = min(feature_bonus, 0.4)
+    # Combo bump — a form + password field together is a full login page
+    if "contains_form" in notable and "contains_password_field" in notable:
+        feature_bonus += 0.10
+    feature_bonus = min(feature_bonus, 0.7)
 
     # Attachments have no From:/DKIM to check, so the metadata agent is
     # effectively N/A — we still expose it as 0 for consistent shape.
