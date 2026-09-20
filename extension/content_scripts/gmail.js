@@ -507,4 +507,256 @@ function escapeHTML(s) {
                     .replaceAll('"',"&quot;").replaceAll("'","&#039;");
 }
 
+// =====================================================================
+// v1.8 — attachment scanning (PDF, HTML for Phase 1).
+// =====================================================================
+// Gmail renders each attachment as an anchor with a download attribute
+// pointing to its per-attachment fetch URL. Since we run in the Gmail
+// page context, a same-origin fetch on that URL sends the session
+// cookies automatically — no need to shuttle through the background
+// service worker just to authenticate.
+//
+// UX:
+//   - one "🛡 Scan" pill per supported attachment, injected next to the
+//     download control
+//   - if the mail has >1 supported attachment we ALSO inject a header
+//     button that scans all of them sequentially
+//   - each scan produces a mini-banner right below the attachment tile,
+//     using the same colour language as the main verdict banner
+// =====================================================================
+
+const ATT_MAX          = 15;                   // hard limit per mail
+const ATT_MAX_SIZE_MB  = 10;
+const ATT_SUPPORTED    = new Set(["pdf", "html", "htm"]);
+const ATT_HOOKED       = new WeakSet();
+
+// Selector for attachment download anchors inside the currently open email.
+// Gmail's obfuscated classes shift over time — the [download] attribute is
+// what makes an anchor a per-attachment fetch, so we match on that.
+const ATT_ANCHOR_SEL = 'a[download]';
+
+// A dedicated debounced observer for attachment tiles — they can
+// appear AFTER the email opens (Gmail lazy-loads them) so we can't
+// rely on the main injectIfNeeded() pass. Re-scans every open email
+// view whenever the DOM settles.
+let _attScanQueued = false;
+const _attObs = new MutationObserver(() => {
+    if (_attScanQueued) return;
+    _attScanQueued = true;
+    setTimeout(() => {
+        _attScanQueued = false;
+        document.querySelectorAll('div[role="main"]').forEach((view) => {
+            try { installAttachmentButtons(view); } catch (e) {
+                console.warn(TAG, "attachment scan failed:", e);
+            }
+        });
+    }, 400);
+});
+_attObs.observe(document.body, { childList: true, subtree: true });
+
+function installAttachmentButtons(emailView) {
+    if (!emailView) return;
+    const anchors = emailView.querySelectorAll(ATT_ANCHOR_SEL);
+    if (!anchors.length) return;
+
+    // Collect supported ones we haven't touched yet
+    const targets = [];
+    anchors.forEach((a) => {
+        if (ATT_HOOKED.has(a)) return;
+        const name = (a.getAttribute("download") || "").trim();
+        if (!name) return;
+        const ext = (name.split(".").pop() || "").toLowerCase();
+        if (!ATT_SUPPORTED.has(ext)) return;
+        targets.push({ anchor: a, name, ext });
+    });
+    if (!targets.length) return;
+
+    targets.forEach(({ anchor, name, ext }) => {
+        ATT_HOOKED.add(anchor);
+        injectAttachmentBtn(anchor, name, ext, emailView);
+    });
+
+    // Collect ALL supported anchors on this email (even the ones we
+    // already hooked earlier) to decide whether to show "Scan all N".
+    const allSupported = Array.from(anchors).filter((a) => {
+        const n = (a.getAttribute("download") || "").trim();
+        const e = (n.split(".").pop() || "").toLowerCase();
+        return ATT_SUPPORTED.has(e);
+    });
+    if (allSupported.length > 1) {
+        installScanAllButton(emailView, allSupported);
+    }
+}
+
+function injectAttachmentBtn(anchor, filename, ext, emailView) {
+    // Find the tile (attachment container) — walk up from the anchor
+    // until we hit something that looks like the tile boundary. Fall
+    // back to the anchor's parent element.
+    let tile = anchor.closest('[role="listitem"], .aQH, .aZo, .aV3') ||
+               anchor.parentElement;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "pll-att-btn";
+    btn.title = `Scan ${filename} with PhishLens`;
+    btn.innerHTML = `<span class="pll-att-btn__icon">🛡</span><span>Scan</span>`;
+    btn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        scanOneAttachment({ anchor, filename, ext, tile, emailView, btn });
+    });
+
+    // Insert next to the download control (or fall back to the tile)
+    (tile || anchor.parentElement || anchor).appendChild(btn);
+}
+
+function installScanAllButton(emailView, allAnchors) {
+    // Idempotent — install once per email view
+    if (emailView.dataset.pllAllInstalled === "1") return;
+    emailView.dataset.pllAllInstalled = "1";
+
+    // Anchor near the subject bar
+    const subjectEl = emailView.querySelector(SUBJECT_SEL);
+    const wrap = subjectEl?.parentElement;
+    if (!wrap) return;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "pll-scan-btn pll-scan-btn--all";
+    btn.innerHTML = `<span class="pll-scan-btn__icon">📎</span>` +
+                    `<span class="pll-scan-btn__label">Scan ${allAnchors.length} attachments</span>`;
+    btn.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const supported = allAnchors.map((a) => {
+            const n = (a.getAttribute("download") || "").trim();
+            const e = (n.split(".").pop() || "").toLowerCase();
+            const tile = a.closest('[role="listitem"], .aQH, .aZo, .aV3') || a.parentElement;
+            return { anchor: a, filename: n, ext: e, tile, emailView };
+        });
+
+        if (supported.length >= 5 &&
+            !confirm(`This will scan ${supported.length} attachments one at a time. ` +
+                     `On a CPU-only backend that can take 30–60 seconds total. Continue?`)) {
+            return;
+        }
+        if (supported.length > ATT_MAX) {
+            alert(`Too many attachments (${supported.length}). Max ${ATT_MAX} per email.`);
+            return;
+        }
+        btn.disabled = true;
+        for (let i = 0; i < supported.length; i++) {
+            btn.querySelector(".pll-scan-btn__label").textContent =
+                `Scanning ${i + 1} / ${supported.length}…`;
+            try { await scanOneAttachment(supported[i]); } catch {}
+        }
+        btn.querySelector(".pll-scan-btn__label").textContent = "All scanned";
+        setTimeout(() => btn.remove(), 3000);
+    });
+    wrap.appendChild(btn);
+}
+
+// Fetch the attachment, base64-encode it, POST to /analyse_attachment
+// via the background service worker (CSP-bypass proxy).
+async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn }) {
+    // Placeholder banner right below the tile
+    let banner = tile?.querySelector(":scope > .pll-att-banner");
+    if (!banner) {
+        banner = document.createElement("div");
+        banner.className = "pll-att-banner pll-att-banner--loading";
+        (tile || anchor.parentElement).appendChild(banner);
+    }
+    banner.className = "pll-att-banner pll-att-banner--loading";
+    banner.innerHTML = `<span>⏳ Downloading and analyzing <strong>${escapeHTML(filename)}</strong>…</span>`;
+    if (btn) { btn.disabled = true; }
+
+    try {
+        const url = anchor.href;
+        if (!url) throw new Error("attachment has no href");
+
+        // Same-origin fetch — Gmail's session cookie is sent automatically.
+        const resp = await fetch(url, { credentials: "include" });
+        if (!resp.ok) throw new Error(`Download failed (HTTP ${resp.status})`);
+        const buf = await resp.arrayBuffer();
+        if (buf.byteLength > ATT_MAX_SIZE_MB * 1024 * 1024) {
+            throw new Error(`File too large (${(buf.byteLength / 1024 / 1024).toFixed(1)} MB, max ${ATT_MAX_SIZE_MB} MB)`);
+        }
+        const b64 = arrayBufferToBase64(buf);
+
+        // Route through background for CSP-bypass + backend selection.
+        const senderEl = emailView.querySelector(SENDER_SEL);
+        const r = await chrome.runtime.sendMessage({
+            type: "phishlens.analyse_attachment",
+            payload: {
+                content_b64: b64,
+                filename,
+                mime_type: (ext === "pdf") ? "application/pdf"
+                         : (ext === "html" || ext === "htm") ? "text/html"
+                         : null,
+                parent_email: {
+                    sender_email: senderEl?.getAttribute("email") || null,
+                    subject:      emailView.querySelector(SUBJECT_SEL)?.textContent?.trim() || null,
+                },
+            },
+        });
+        if (!r?.ok) throw new Error(r?.error || "backend error");
+        renderAttachmentBanner(banner, r.data, filename);
+    } catch (e) {
+        banner.className = "pll-att-banner pll-att-banner--error";
+        banner.innerHTML = `<span>❌ ${escapeHTML(filename)}: ${escapeHTML(e.message || String(e))}</span>`;
+    } finally {
+        if (btn) { btn.disabled = false; }
+    }
+}
+
+function renderAttachmentBanner(banner, data, filename) {
+    const bad = data.verdict === "phishing";
+    banner.className = "pll-att-banner " + (bad ? "pll-att-banner--danger" : "pll-att-banner--safe");
+    const pct = (v) => Math.round((Number(v) || 0) * 100);
+    const chips = [];
+    (data.attachment?.notable_features || []).forEach((f) => {
+        chips.push(`<span class="pll-att-chip pll-att-chip--warn">${escapeHTML(f.replace(/_/g, " "))}</span>`);
+    });
+    (data.url_reputation?.sources_hit || []).forEach((s) => {
+        chips.push(`<span class="pll-att-chip pll-att-chip--bad">🔴 ${escapeHTML(s)}</span>`);
+    });
+    const a = data.attachment || {};
+    const meta = [
+        a.kind ? a.kind.toUpperCase() : "",
+        a.size_bytes ? `${(a.size_bytes / 1024).toFixed(0)} KB` : "",
+        a.page_count ? `${a.pages_read || a.page_count} / ${a.page_count} pages` : "",
+        a.extracted_urls_count ? `${a.extracted_urls_count} URL${a.extracted_urls_count > 1 ? "s" : ""}` : "",
+    ].filter(Boolean).join(" · ");
+
+    banner.innerHTML = `
+        <div class="pll-att-banner__row">
+            <span class="pll-att-banner__icon">${bad ? "⚠" : "✓"}</span>
+            <div class="pll-att-banner__main">
+                <div class="pll-att-banner__title">
+                    ${bad ? "This attachment looks like phishing" : "This attachment looks safe"}
+                    <span class="pll-att-banner__file">— ${escapeHTML(filename)}</span>
+                </div>
+                <div class="pll-att-banner__sub">
+                    ${meta ? `<span>${escapeHTML(meta)}</span> · ` : ""}
+                    Content <strong>${pct(data.agents?.text?.phishing_probability)}%</strong> ·
+                    Links <strong>${pct(data.agents?.url?.phishing_probability)}%</strong>
+                </div>
+                ${chips.length ? `<div class="pll-att-banner__chips">${chips.join(" ")}</div>` : ""}
+            </div>
+        </div>
+    `;
+}
+
+// Fast base64 encoding of a raw ArrayBuffer without blowing the stack
+// on large files.
+function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const chunk = 0x8000;
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+}
+
 console.log(TAG, "Gmail content script loaded.");

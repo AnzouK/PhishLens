@@ -66,6 +66,16 @@ except Exception as _e:
     print(f"⚠ reputation module not loaded ({_e}); "
           "GSB / PhishTank / URLhaus disabled.")
 
+# Email attachment analysis — PDF / HTML in v1.8 (Phase 1). DOCX/XLSX
+# and image OCR + steg heuristics are planned for later phases.
+try:
+    import attachment_analysis as _attachments
+    _ATTACHMENTS_AVAILABLE = True
+except Exception as _e:
+    _ATTACHMENTS_AVAILABLE = False
+    print(f"⚠ attachment_analysis module not loaded ({_e}); "
+          "the /analyse_attachment endpoint will 501.")
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -288,6 +298,23 @@ class AnalyseRequest(BaseModel):
     raw_text: str | None = None
     sender_email: str | None = None
     client_context: dict[str, Any] | None = None
+
+
+class AttachmentRequest(BaseModel):
+    """
+    Payload for POST /analyse_attachment (v1.8+).
+
+    content_b64  — base64-encoded attachment bytes, 10 MB hard cap
+    filename     — original filename (only used for MIME sniffing and UX)
+    mime_type    — client hint, not trusted (we sniff for real)
+    parent_email — optional context: {sender_email, subject} of the mail
+                   the attachment came from. Not required for /analyse_attachment
+                   to work, but nice to attach in the response for the UI.
+    """
+    content_b64:  str
+    filename:     str | None = None
+    mime_type:    str | None = None
+    parent_email: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -847,5 +874,154 @@ async def analyse(req: AnalyseRequest):
             "metadata": {"phishing_probability": p_meta,
                          "phishing_probability_raw": p_meta_raw,
                          "verdict": verdict_label(p_meta)},
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# /analyse_attachment — v1.8+
+# ---------------------------------------------------------------------------
+# Runs the same text-agent + URL-agent + reputation-cascade pipeline as
+# /analyse, but on content extracted from an uploaded attachment (PDF or
+# HTML in Phase 1). The response shape mirrors /analyse so the extension
+# and landing widgets can share their rendering code — with an extra
+# `attachment` object carrying the extracted metadata (kind, size, page
+# count, notable features like /JavaScript in PDFs, etc).
+# ---------------------------------------------------------------------------
+@app.post("/analyse_attachment")
+async def analyse_attachment(req: AttachmentRequest):
+    if not _ATTACHMENTS_AVAILABLE:
+        raise HTTPException(
+            501,
+            "Attachment analysis is not available on this backend "
+            "(attachment_analysis module failed to import).",
+        )
+
+    try:
+        extracted = _attachments.analyse_attachment(
+            req.content_b64,
+            filename=req.filename or "",
+            mime_type=req.mime_type,
+        )
+    except ValueError as e:
+        # Client-side error — unsupported type, oversized, bad base64.
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        # Server-side extraction failed (corrupt PDF, etc). Not a 500 —
+        # the request was valid, the file just doesn't parse.
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Attachment analysis crashed: {e}")
+
+    text = extracted.get("extracted_text", "") or ""
+    urls = extracted.get("extracted_urls", []) or []
+
+    # If we couldn't extract any text (image-only PDF for instance),
+    # we skip the text agent and only rely on the URL agent + reputation.
+    # This still catches most malicious PDFs — they usually carry a link
+    # to a credential-harvesting page.
+    p_text = 0.0
+    if text.strip():
+        try:
+            p_text = float(text_agent(text))
+        except Exception as e:
+            print(f"⚠ text_agent failed on attachment: {e}")
+
+    # URL agent — trained RF when available, heuristic fallback otherwise.
+    try:
+        p_url = float(url_agent(urls, body_text=text))
+    except Exception as e:
+        print(f"⚠ url_agent failed on attachment: {e}")
+        p_url = 0.0
+
+    # Reputation cascade in parallel — same tiers as /analyse.
+    reputation_verdicts: list[dict[str, Any]] = []
+    if _REPUTATION_AVAILABLE and urls:
+        try:
+            reputation_verdicts = await _reputation.check_urls(urls)
+        except Exception as e:
+            print(f"⚠ reputation check failed on attachment: {e}")
+
+    rep_max_score = 0.0
+    rep_hit_sources: set[str] = set()
+    rep_threat_types: set[str] = set()
+    for v in reputation_verdicts:
+        if v.get("malicious"):
+            rep_max_score = max(rep_max_score, float(v.get("score", 0.0)))
+            rep_hit_sources.update(v.get("sources", []))
+            rep_threat_types.update(v.get("threat_types", []))
+
+    # Fusion between RF and reputation — same rule as /analyse.
+    p_url_raw = p_url
+    if rep_max_score >= 0.99:
+        p_url = max(p_url, 0.95)
+    elif rep_max_score > 0:
+        p_url = max(p_url, 0.7 * rep_max_score + 0.3 * p_url)
+
+    # PDF / HTML notable features carry weight too — /JavaScript in a
+    # PDF you didn't ask for is a red flag on its own. We surface these
+    # in the response but only nudge the score, we don't dominate it.
+    notable = extracted.get("notable_features", []) or []
+    feature_bonus = 0.0
+    _RISK = {
+        "contains_javascript":     0.15,
+        "auto_execute_on_open":    0.20,
+        "launch_external_action":  0.25,
+        "embeds_another_file":     0.15,
+        "submits_form_to_url":     0.15,
+        "contains_password_field": 0.20,
+        "meta_refresh_redirect":   0.10,
+        "flash_or_richmedia":      0.10,
+    }
+    for f in notable:
+        feature_bonus += _RISK.get(f, 0.0)
+    feature_bonus = min(feature_bonus, 0.4)
+
+    # Attachments have no From:/DKIM to check, so the metadata agent is
+    # effectively N/A — we still expose it as 0 for consistent shape.
+    p_meta = 0.0
+
+    # Attachment-specific fusion: text and URL carry all the weight,
+    # plus the feature bonus on top. Threshold is a bit higher than
+    # /analyse's default (0.55) because attachments have less signal.
+    fused = 0.5 * p_text + 0.5 * p_url + feature_bonus
+    fused = min(1.0, fused)
+    gsb_hit = "google_safe_browsing" in rep_hit_sources
+    high_conf = gsb_hit or (max(p_text, p_url) >= HIGH_CONF_OVERRIDE)
+    threshold = 0.55
+    is_phishing = fused >= threshold or high_conf
+
+    return {
+        "verdict": "phishing" if is_phishing else "safe",
+        "fused_score": float(fused),
+        "high_confidence_override": bool(high_conf),
+        "attachment": {
+            "filename":            extracted.get("filename"),
+            "kind":                extracted.get("kind"),
+            "size_bytes":          extracted.get("size_bytes"),
+            "page_count":          extracted.get("page_count"),
+            "pages_read":          extracted.get("pages_read"),
+            "extracted_text_chars": extracted.get("extracted_text_chars"),
+            "extracted_urls_count": len(urls),
+            "notable_features":    notable,
+            "feature_bonus":       round(feature_bonus, 3),
+        },
+        "parent_email": req.parent_email or None,
+        "url_reputation": {
+            "checked": len(reputation_verdicts),
+            "malicious_count": sum(1 for v in reputation_verdicts if v.get("malicious")),
+            "sources_hit": sorted(rep_hit_sources),
+            "threat_types": sorted(rep_threat_types),
+            "verdicts": reputation_verdicts,
+        },
+        "agents": {
+            "text":     {"phishing_probability": p_text,
+                         "verdict": verdict_label(p_text)},
+            "url":      {"phishing_probability": p_url,
+                         "phishing_probability_raw": p_url_raw,
+                         "verdict": verdict_label(p_url)},
+            "metadata": {"phishing_probability": p_meta,
+                         "verdict": "Safe",
+                         "note": "not applicable to attachments"},
         },
     }

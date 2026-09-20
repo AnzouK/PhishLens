@@ -42,6 +42,7 @@ COPY --chown=user:user url_agent.py .
 COPY --chown=user:user metadata_agent.py .
 COPY --chown=user:user auth_headers.py .
 COPY --chown=user:user reputation.py .
+COPY --chown=user:user attachment_analysis.py .
 
 # HF Spaces sets PORT=7860 by default; honour it.
 ENV PORT=7860

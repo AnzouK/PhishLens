@@ -25,3 +25,10 @@ lime>=0.2,<1.0
 # URL reputation cascade (v1.6+) — Google Safe Browsing, PhishTank, URLhaus.
 # httpx gives us async HTTP without dragging in the whole aiohttp stack.
 httpx>=0.27,<1.0
+
+# Attachment analysis (v1.8+) — PDF and HTML extraction in Phase 1.
+# pdfplumber pulls pdfminer.six as a hard dep, both are pure-Python and
+# small (~5 MB total). BeautifulSoup gets a permissive parser for the
+# HTML attachments.
+pdfplumber>=0.11,<1.0
+beautifulsoup4>=4.12,<5.0

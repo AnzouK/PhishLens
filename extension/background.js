@@ -120,10 +120,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return true;
     }
 
-    if (msg?.type !== "phishlens.analyse" && msg?.type !== "phishlens.explain")
-        return false;
+    const ENDPOINT_MAP = {
+        "phishlens.analyse":            "/analyse",
+        "phishlens.explain":            "/explain",
+        "phishlens.analyse_attachment": "/analyse_attachment",
+    };
+    if (!(msg?.type in ENDPOINT_MAP)) return false;
 
-    const endpoint = msg.type === "phishlens.analyse" ? "/analyse" : "/explain";
+    const endpoint = ENDPOINT_MAP[msg.type];
     const payload  = msg.payload || {};
 
     (async () => {
