@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhishLens — Detect and explain phishing emails in real time</title>
+<meta name="description" content="Chrome extension + FastAPI backend that detects phishing emails inside Gmail and explains why with DistilBERT, LIME, sender authentication and a URL reputation cascade.">
+<meta name="theme-color" content="#0d1117">
+
+<!-- Open Graph -->
+<meta property="og:title" content="PhishLens">
+<meta property="og:description" content="Detect and explain phishing emails in real time, inside Gmail.">
+<meta property="og:url" content="https://anzouk.duckdns.org">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://raw.githubusercontent.com/AnzouK/PhishLens/main/extension/icons/128.png">
+
+<link rel="icon" href="/icon.png" type="image/png">
+
+<style>
+  :root {
+    --bg:       #0d1117;
+    --bg-elev:  #161b22;
+    --bg-elev2: #1c232c;
+    --border:   #30363d;
+    --border-soft: #21262d;
+    --text:     #e6edf3;
+    --text-mute:#8b949e;
+    --accent:   #ff6b35;
+    --accent-2: #ffa07a;
+    --good:     #56d364;
+    --warn:     #ffc46b;
+    --bad:      #ff8c5a;
+    --link:     #79c0ff;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  h1, h2, h3 { line-height: 1.25; margin: 0 0 12px; }
+  h1 { font-size: 44px; font-weight: 700; }
+  h2 { font-size: 22px; font-weight: 600; }
+  h3 { font-size: 15px; font-weight: 600; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.5px; }
+  p  { margin: 0 0 10px; color: var(--text-mute); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
+         background: var(--bg-elev); padding: 1px 6px; border-radius: 4px; }
+  hr { border: 0; border-top: 1px solid var(--border-soft); margin: 48px 0; }
+
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+
+  /* ================= HERO ================= */
+  .hero {
+    text-align: center;
+    padding: 64px 20px 40px;
+    background:
+      radial-gradient(ellipse at top, rgba(255, 107, 53, 0.10), transparent 60%),
+      var(--bg);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .hero__icon { display: block; margin: 0 auto 16px; border-radius: 20px;
+                box-shadow: 0 10px 40px rgba(255, 107, 53, 0.25); }
+  .hero h1 { margin: 0 0 8px;
+             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 60%, #fff 100%);
+             -webkit-background-clip: text; background-clip: text;
+             -webkit-text-fill-color: transparent; color: transparent; }
+  .hero__tagline { font-size: 18px; color: var(--text); max-width: 560px; margin: 0 auto 20px; }
+  .hero__meta { color: var(--text-mute); font-size: 14px; margin-bottom: 24px; }
+  .hero__meta a { color: var(--text-mute); border-bottom: 1px dotted var(--text-mute); }
+
+  .status {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    padding: 6px 14px; border-radius: 999px; font-size: 13px;
+    margin-bottom: 24px;
+  }
+  .status__dot { width: 8px; height: 8px; border-radius: 50%;
+                 background: var(--text-mute); box-shadow: 0 0 0 0 currentColor;
+                 animation: pulse 2s infinite; }
+  .status--up   .status__dot { background: var(--good); color: var(--good); }
+  .status--down .status__dot { background: var(--bad);  color: var(--bad);  animation: none; }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0   rgba(86, 211, 100, 0.5); }
+    70%  { box-shadow: 0 0 0 8px rgba(86, 211, 100, 0); }
+    100% { box-shadow: 0 0 0 0   rgba(86, 211, 100, 0); }
+  }
+
+  .cta { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 8px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 18px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: var(--text);
+    font-weight: 500; font-size: 14px;
+    transition: transform 0.1s ease, border-color 0.2s ease, background 0.2s ease;
+  }
+  .btn:hover { text-decoration: none; border-color: var(--accent); transform: translateY(-1px); }
+  .btn--primary { background: var(--accent); border-color: var(--accent); color: #1f2328; }
+  .btn--primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+
+  /* ================= SECTIONS ================= */
+  section { padding: 40px 0; }
+  .grid  { display: grid; gap: 16px; }
+  .grid--3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 720px) { .grid--3 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .card ul, .card ol { padding-left: 20px; margin: 0; color: var(--text-mute); }
+  .card li { margin-bottom: 6px; }
+  .card li strong { color: var(--text); font-weight: 500; }
+
+  /* ================= LIVE DEMO ================= */
+  .demo { background: var(--bg-elev); border: 1px solid var(--border);
+          border-radius: 10px; padding: 24px; }
+  .demo__tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+  .demo__tab {
+    flex: 0 0 auto; padding: 8px 16px; border-radius: 8px 8px 0 0;
+    background: transparent; color: var(--text-mute); border: 1px solid transparent;
+    border-bottom: 0; cursor: pointer; font-size: 13px; font-weight: 500;
+    font-family: inherit;
+  }
+  .demo__tab:hover { color: var(--text); }
+  .demo__tab[aria-selected="true"] {
+    background: var(--bg); color: var(--text);
+    border-color: var(--border);
+  }
+  .demo__pane { display: none; }
+  .demo__pane[data-active="true"] { display: block; }
+
+  .demo textarea {
+    width: 100%; min-height: 140px; resize: vertical;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; font-family: inherit; font-size: 14px; line-height: 1.5;
+  }
+  .demo textarea:focus { outline: none; border-color: var(--accent); }
+
+  .drop {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; min-height: 140px; padding: 20px;
+    background: var(--bg); color: var(--text-mute);
+    border: 2px dashed var(--border); border-radius: 8px;
+    cursor: pointer; text-align: center; transition: border-color 0.2s, background 0.2s;
+  }
+  .drop:hover, .drop--hover { border-color: var(--accent); color: var(--text); }
+  .drop__icon { font-size: 24px; }
+  .drop__title { font-weight: 500; color: var(--text); }
+  .drop__sub { font-size: 12px; }
+  .drop__file { font-weight: 500; color: var(--accent); }
+  .drop input[type="file"] { display: none; }
+
+  .demo__row { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .demo__hint { color: var(--text-mute); font-size: 12px; flex: 1; min-width: 200px; }
+  .demo__btn {
+    background: var(--accent); color: #1f2328; border: 0;
+    padding: 10px 24px; border-radius: 8px; font-weight: 600; cursor: pointer;
+    font-size: 14px;
+  }
+  .demo__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .demo__btn:hover:not(:disabled) { background: var(--accent-2); }
+
+  .verdict {
+    margin-top: 16px; padding: 16px; border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .verdict--good { border-color: rgba(86, 211, 100, 0.4);  background: rgba(20, 128, 70, 0.10); }
+  .verdict--bad  { border-color: rgba(255, 140, 90, 0.5);  background: rgba(200, 40, 40, 0.10); }
+  .verdict__title { font-weight: 600; font-size: 16px; margin-bottom: 6px; }
+  .verdict--good .verdict__title { color: var(--good); }
+  .verdict--bad  .verdict__title { color: var(--bad); }
+  .verdict__scores { color: var(--text-mute); font-size: 13px; }
+  .verdict__scores strong { color: var(--text); }
+  .verdict__pill {
+    display: inline-block; margin-left: 8px; padding: 2px 8px;
+    border-radius: 999px; font-size: 11px; font-weight: 500;
+    background: rgba(255,255,255,0.06); color: var(--text-mute);
+  }
+
+  /* ================= STATS ================= */
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 640px) { .stats-grid { grid-template-columns: 1fr; } }
+  .stat {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px;
+  }
+  .stat__label { color: var(--text-mute); font-size: 12px; text-transform: uppercase;
+                 letter-spacing: 0.5px; margin-bottom: 6px; }
+  .stat__value { font-size: 22px; font-weight: 600; color: var(--text); }
+  .stat__sub   { font-size: 11px; color: var(--text-mute); margin-top: 4px; }
+
+  /* ================= FOOTER ================= */
+  footer {
+    text-align: center; padding: 32px 20px; color: var(--text-mute);
+    font-size: 13px; border-top: 1px solid var(--border-soft); margin-top: 40px;
+  }
+  footer a { color: var(--text-mute); border-bottom: 1px dotted var(--text-mute); }
+</style>
+</head>
+<body>
+
+<!-- =============== HERO =============== -->
+<header class="hero">
+  <img class="hero__icon" src="/icon.png" alt="PhishLens" width="96" height="96"
+       onerror="this.src='https://raw.githubusercontent.com/AnzouK/PhishLens/main/extension/icons/128.png'">
+  <h1>PhishLens</h1>
+  <p class="hero__tagline">Detect and explain phishing emails in real time — inside Gmail.</p>
+
+  <div class="status" id="status">
+    <span class="status__dot"></span>
+    <span class="status__label">Checking backend…</span>
+  </div>
+
+  <div class="hero__meta">
+    Version <span id="version">…</span> · running on
+    <a href="https://www.oracle.com/cloud/free/" target="_blank" rel="noopener">Oracle Cloud Always Free</a>
+  </div>
+
+  <div class="cta">
+    <a class="btn btn--primary" href="https://github.com/AnzouK/PhishLens" target="_blank" rel="noopener">GitHub</a>
+    <a class="btn" href="https://huggingface.co/AnzouKiona/phishlens-distilbert" target="_blank" rel="noopener">🤗 Model</a>
+    <a class="btn" href="https://huggingface.co/AnzouKiona/phishlens-agents" target="_blank" rel="noopener">🤗 Agents</a>
+    <a class="btn" href="https://github.com/AnzouK/PhishLens/releases/latest" target="_blank" rel="noopener">Latest release</a>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- =============== FEATURES =============== -->
+  <section>
+    <div class="grid grid--3">
+      <div class="card">
+        <h3>What it does</h3>
+        <ul>
+          <li>Fine-tuned <strong>DistilBERT</strong> text classifier (F1 ≈ 0.97)</li>
+          <li>Trained <strong>Random Forest</strong> agents for URLs (23 feats) and headers (37 feats)</li>
+          <li><strong>SPF / DKIM / DMARC</strong> parsing + organizational-domain alignment</li>
+          <li>URL <strong>reputation cascade</strong>: cache → Google Safe Browsing → PhishTank → URLhaus → Spamhaus DBL</li>
+          <li><strong>LIME</strong> token-level explanation for every verdict</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>How to try it</h3>
+        <ol>
+          <li>Clone the <a href="https://github.com/AnzouK/PhishLens" target="_blank" rel="noopener">GitHub repo</a></li>
+          <li>Open <code>chrome://extensions</code> → Developer mode</li>
+          <li>Click <strong>Load unpacked</strong> → pick <code>extension/</code></li>
+          <li>Open Gmail — a <strong>🛡 Scan with PhishLens</strong> pill appears next to the subject</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Tech stack</h3>
+        <ul>
+          <li>FastAPI · PyTorch · Transformers</li>
+          <li>scikit-learn · LIME · httpx</li>
+          <li>Chrome MV3 · vanilla JS · no build step</li>
+          <li>Docker · Caddy · Let's Encrypt</li>
+          <li>Deployed on Oracle ARM Ampere A1</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- =============== LIVE DEMO =============== -->
+  <section>
+    <h2>Try it live</h2>
+    <p>Paste an email body or upload a <code>.eml</code> file — this page calls the same <code>/analyse</code> endpoint the extension uses.</p>
+    <div class="demo">
+      <div class="demo__tabs" role="tablist">
+        <button class="demo__tab" id="tab-paste" role="tab" aria-selected="true"  data-target="pane-paste">📝 Paste text</button>
+        <button class="demo__tab" id="tab-file"  role="tab" aria-selected="false" data-target="pane-file">📂 Upload .eml</button>
+      </div>
+
+      <div class="demo__pane" id="pane-paste" data-active="true" role="tabpanel">
+        <textarea id="demo-input" placeholder="e.g. Your account has been suspended. Click here to verify: http://paypa1-verify.tld/login"></textarea>
+      </div>
+
+      <div class="demo__pane" id="pane-file" role="tabpanel">
+        <label class="drop" id="drop-zone">
+          <span class="drop__icon">📥</span>
+          <span class="drop__title" id="drop-title">Drop a .eml file here, or click to browse</span>
+          <span class="drop__sub">Anything you upload stays in your browser except for the raw email bytes sent to /analyse — nothing is logged server-side.</span>
+          <input type="file" id="file-input" accept=".eml,message/rfc822,text/plain">
+        </label>
+      </div>
+
+      <div class="demo__row">
+        <div class="demo__hint">
+          Backend runs on CPU-only Oracle VM. First call warms DistilBERT (~3s).
+        </div>
+        <button class="demo__btn" id="demo-btn">Analyze</button>
+      </div>
+      <div id="demo-result"></div>
+    </div>
+  </section>
+
+  <!-- =============== LIVE STATS =============== -->
+  <section>
+    <h2>Live backend stats</h2>
+    <p>Pulled from <code>/reputation/stats</code> — refreshed on page load.</p>
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat"><div class="stat__label">Loading…</div><div class="stat__value">—</div></div>
+      <div class="stat"><div class="stat__label">Loading…</div><div class="stat__value">—</div></div>
+      <div class="stat"><div class="stat__label">Loading…</div><div class="stat__value">—</div></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  B.Sc. Cybersecurity final-year project ·
+  <a href="https://nileuniversity.edu.ng/" target="_blank" rel="noopener">Nile University of Nigeria</a> ·
+  2025–2026 · <a href="https://github.com/AnzouK/PhishLens/blob/main/LICENSE" target="_blank" rel="noopener">MIT license</a>
+</footer>
+
+<script>
+  // ================ Live status ================
+  (async () => {
+    const el = document.getElementById("status");
+    const label = el.querySelector(".status__label");
+    try {
+      const r = await fetch("/health", { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const d = await r.json();
+      el.classList.add("status--up");
+      label.textContent = "Backend online — " + (d.model || "DistilBERT") + " ready";
+    } catch (e) {
+      el.classList.add("status--down");
+      label.textContent = "Backend offline (" + (e.message || "unreachable") + ")";
+    }
+  })();
+
+  // Version pill — try to fetch from GitHub releases API (public, no auth needed)
+  (async () => {
+    const el = document.getElementById("version");
+    try {
+      const r = await fetch("https://api.github.com/repos/AnzouK/PhishLens/releases/latest", { cache: "no-store" });
+      if (!r.ok) throw 0;
+      const d = await r.json();
+      el.textContent = d.tag_name || "—";
+    } catch { el.textContent = "v1.7.0"; }
+  })();
+
+  // ================ Live stats ================
+  (async () => {
+    const grid = document.getElementById("stats-grid");
+    try {
+      const r = await fetch("/reputation/stats", { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const d = await r.json();
+
+      const cache = d.cache || {};
+      const gsb   = d.gsb   || {};
+      const pt    = d.phishtank || {};
+
+      grid.innerHTML = `
+        <div class="stat">
+          <div class="stat__label">Google Safe Browsing quota</div>
+          <div class="stat__value">${(gsb.consumed ?? 0).toLocaleString()} / ${(gsb.limit ?? 10000).toLocaleString()}</div>
+          <div class="stat__sub">${(gsb.remaining ?? 0).toLocaleString()} lookups left today</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">URL reputation cache</div>
+          <div class="stat__value">${(cache.cache_entries ?? 0).toLocaleString()}</div>
+          <div class="stat__sub">Hit rate ${((cache.hit_rate ?? 0) * 100).toFixed(1)}% (${(cache.hits ?? 0).toLocaleString()} / ${((cache.hits ?? 0) + (cache.misses ?? 0)).toLocaleString()})</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">PhishTank feed</div>
+          <div class="stat__value">${(pt.phishtank_entries ?? 0).toLocaleString()}</div>
+          <div class="stat__sub">${(pt.phishtank_domains ?? 0).toLocaleString()} unique domains</div>
+        </div>
+      `;
+    } catch (e) {
+      grid.innerHTML = `<div class="stat" style="grid-column: 1 / -1">
+        <div class="stat__label">Stats unavailable</div>
+        <div class="stat__value" style="font-size: 14px; font-weight: 400; color: var(--text-mute)">${e.message || "backend unreachable"}</div>
+      </div>`;
+    }
+  })();
+
+  // ================ Live demo ================
+  const demoBtn    = document.getElementById("demo-btn");
+  const demoInput  = document.getElementById("demo-input");
+  const demoResult = document.getElementById("demo-result");
+  const fileInput  = document.getElementById("file-input");
+  const dropZone   = document.getElementById("drop-zone");
+  const dropTitle  = document.getElementById("drop-title");
+  const tabs       = document.querySelectorAll(".demo__tab");
+  const panes      = document.querySelectorAll(".demo__pane");
+  let activeTab    = "paste";       // "paste" | "file"
+  let selectedFile = null;          // File object when the user picks a .eml
+
+  // --- Tab switching -------------------------------------------------
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      activeTab = tab.id === "tab-file" ? "file" : "paste";
+      tabs.forEach((t) => t.setAttribute("aria-selected", t === tab ? "true" : "false"));
+      panes.forEach((p) => p.setAttribute("data-active",
+        p.id === tab.dataset.target ? "true" : "false"));
+    });
+  });
+
+  // --- File picking + drag-and-drop ---------------------------------
+  function setFile(file) {
+    selectedFile = file || null;
+    if (file) {
+      const kb = (file.size / 1024).toFixed(1);
+      dropTitle.innerHTML = `Selected: <span class="drop__file">${escapeHtml(file.name)}</span> (${kb} KB)`;
+    } else {
+      dropTitle.textContent = "Drop a .eml file here, or click to browse";
+    }
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+    }[c]));
+  }
+  fileInput.addEventListener("change", () => setFile(fileInput.files[0] || null));
+
+  ["dragenter", "dragover"].forEach((ev) =>
+    dropZone.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      dropZone.classList.add("drop--hover");
+    })
+  );
+  ["dragleave", "drop"].forEach((ev) =>
+    dropZone.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      dropZone.classList.remove("drop--hover");
+    })
+  );
+  dropZone.addEventListener("drop", (e) => {
+    const file = e.dataTransfer?.files?.[0];
+    if (file) setFile(file);
+  });
+
+  // --- Helpers ------------------------------------------------------
+  // Read a File as base64 (strips the data: URI prefix).
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => {
+        const s = String(reader.result || "");
+        const idx = s.indexOf(",");
+        resolve(idx >= 0 ? s.slice(idx + 1) : s);
+      };
+      reader.onerror = () => reject(reader.error || new Error("File read failed"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // --- Analyze click ------------------------------------------------
+  demoBtn.addEventListener("click", async () => {
+    // Build the payload from whichever pane is active.
+    let payload;
+    if (activeTab === "file") {
+      if (!selectedFile) { dropZone.click(); return; }
+      try {
+        const b64 = await fileToBase64(selectedFile);
+        payload = { raw_email_b64: b64 };
+      } catch (e) {
+        demoResult.innerHTML = `<div class="verdict verdict--bad">
+          <div class="verdict__title">Could not read the file</div>
+          <div class="verdict__scores">${escapeHtml(e.message || String(e))}</div>
+        </div>`;
+        return;
+      }
+    } else {
+      const text = demoInput.value.trim();
+      if (!text) { demoInput.focus(); return; }
+      payload = { raw_text: text };
+    }
+
+    demoBtn.disabled = true;
+    demoBtn.textContent = "Analyzing…";
+    demoResult.innerHTML = "";
+
+    try {
+      const r = await fetch("/analyse", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.detail || ("HTTP " + r.status));
+      }
+      const d = await r.json();
+      const bad = d.verdict === "phishing";
+      const pct = (v) => Math.round((v ?? 0) * 100);
+
+      const trustPill = d.trusted_sender ? '<span class="verdict__pill">✓ Verified sender</span>'
+                     : d.sender_auth?.cryptographically_verified ? '<span class="verdict__pill">🛡 DKIM verified</span>'
+                     : d.sender_auth?.gmail_inbox_soft_verified ? '<span class="verdict__pill">📬 Gmail-delivered</span>'
+                     : '';
+
+      const repHits = d.url_reputation?.sources_hit?.length
+        ? '<span class="verdict__pill" style="color: var(--bad)">🔴 ' + escapeHtml(d.url_reputation.sources_hit.join(", ")) + '</span>'
+        : '';
+
+      demoResult.innerHTML = `
+        <div class="verdict verdict--${bad ? "bad" : "good"}">
+          <div class="verdict__title">
+            ${bad ? "⚠️ Phishing" : "✅ Safe"}${trustPill}${repHits}
+          </div>
+          <div class="verdict__scores">
+            Content <strong>${pct(d.agents?.text?.phishing_probability)}%</strong> ·
+            Links <strong>${pct(d.agents?.url?.phishing_probability)}%</strong> ·
+            Sender <strong>${pct(d.agents?.metadata?.phishing_probability)}%</strong>
+          </div>
+        </div>
+      `;
+    } catch (e) {
+      demoResult.innerHTML = `<div class="verdict verdict--bad">
+        <div class="verdict__title">Analysis failed</div>
+        <div class="verdict__scores">${escapeHtml(e.message || String(e))}</div>
+      </div>`;
+    } finally {
+      demoBtn.disabled = false;
+      demoBtn.textContent = "Analyze";
+    }
+  });
+
+  // Ctrl/Cmd + Enter triggers analyze from the paste pane
+  demoInput.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); demoBtn.click(); }
+  });
+</script>
+
+</body>
+</html>
