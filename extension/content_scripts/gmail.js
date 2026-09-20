@@ -447,7 +447,7 @@ function _nextTick(ms = 0) {
 // key. Mirrors the resolution logic in background.js so the two agree.
 const _BACKEND_PRESETS = {
     local: "http://127.0.0.1:8000",
-    cloud: "http://130.61.146.213",
+    cloud: "https://anzouk.duckdns.org",
 };
 async function _getBackendBase() {
     try {
