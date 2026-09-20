@@ -530,10 +530,21 @@ const ATT_MAX_SIZE_MB  = 10;
 const ATT_SUPPORTED    = new Set(["pdf", "html", "htm"]);
 const ATT_HOOKED       = new WeakSet();
 
-// Selector for attachment download anchors inside the currently open email.
-// Gmail's obfuscated classes shift over time — the [download] attribute is
-// what makes an anchor a per-attachment fetch, so we match on that.
-const ATT_ANCHOR_SEL = 'a[download]';
+// Gmail attachment strip container. Everything below must be scoped
+// to an .aQH (or .aQe / .hq in older layouts) — the strip is the ONLY
+// place attachments live, so scanning outside of it is what caused
+// orphan "Scan" buttons to appear over random spans in the message body
+// or sidebar.
+const ATT_STRIP_SEL = '.aQH, .aQe, .hq';
+
+// Tile-level selectors — must all be scoped to a strip when queried.
+const ATT_TILE_HINT_SELECTORS_IN_STRIP = [
+    'a[download]',
+    'div[data-attachmentid]',
+    'div[data-tooltip*="oad"]',              // 'Download' / 'Télécharger le fichier'
+    'div[role="listitem"]',
+    '.aZo',                                   // classic Gmail attachment tile
+];
 
 // A dedicated debounced observer for attachment tiles — they can
 // appear AFTER the email opens (Gmail lazy-loads them) so we can't
@@ -556,66 +567,148 @@ _attObs.observe(document.body, { childList: true, subtree: true });
 
 function installAttachmentButtons(emailView) {
     if (!emailView) return;
-    const anchors = emailView.querySelectorAll(ATT_ANCHOR_SEL);
-    if (!anchors.length) return;
 
-    // Collect supported ones we haven't touched yet
-    const targets = [];
-    anchors.forEach((a) => {
-        if (ATT_HOOKED.has(a)) return;
-        const name = (a.getAttribute("download") || "").trim();
-        if (!name) return;
-        const ext = (name.split(".").pop() || "").toLowerCase();
-        if (!ATT_SUPPORTED.has(ext)) return;
-        targets.push({ anchor: a, name, ext });
-    });
-    if (!targets.length) return;
+    // Attachments only live inside an attachment strip. Everything else
+    // is out of bounds — this is what prevented orphan "Scan" buttons
+    // from appearing over random spans in the message body / sidebar.
+    const strips = emailView.querySelectorAll(ATT_STRIP_SEL);
+    if (!strips.length) return;
 
-    targets.forEach(({ anchor, name, ext }) => {
-        ATT_HOOKED.add(anchor);
-        injectAttachmentBtn(anchor, name, ext, emailView);
+    const candidates = new Set();
+    strips.forEach((strip) => {
+        // Try each tile-shape hint inside this strip.
+        for (const sel of ATT_TILE_HINT_SELECTORS_IN_STRIP) {
+            strip.querySelectorAll(sel).forEach((el) => candidates.add(el));
+        }
+        // Fallback: any element inside the strip whose text ends with
+        // a supported extension (Gmail sometimes doesn't use any of
+        // the classes above in newer redesigns).
+        strip.querySelectorAll("span, div").forEach((el) => {
+            const t = (el.textContent || "").trim();
+            if (t.length > 3 && t.length < 260) {
+                const ext = (t.split(".").pop() || "").toLowerCase();
+                if (ATT_SUPPORTED.has(ext)) candidates.add(el);
+            }
+        });
     });
 
-    // Collect ALL supported anchors on this email (even the ones we
-    // already hooked earlier) to decide whether to show "Scan all N".
-    const allSupported = Array.from(anchors).filter((a) => {
-        const n = (a.getAttribute("download") || "").trim();
-        const e = (n.split(".").pop() || "").toLowerCase();
-        return ATT_SUPPORTED.has(e);
+    const found = [];
+    const seenTiles = new Set();
+    candidates.forEach((el) => {
+        // Constrain the tile walk to the enclosing strip — otherwise
+        // .closest('[role="listitem"]') can escape past .aQH and match
+        // the whole-message container that Gmail also marks as
+        // role="listitem" in the thread view. That's what caused the
+        // orphan "Scan" button below the attachment banners.
+        const strip = el.closest(ATT_STRIP_SEL);
+        if (!strip) return;
+
+        const tile = _findAttachmentTile(el, strip);
+        if (!tile || ATT_HOOKED.has(tile) || seenTiles.has(tile)) return;
+        // Belt & braces: reject anything that ended up outside the strip
+        // or already scanned (attachment banner is now the source of truth).
+        if (!strip.contains(tile)) return;
+        if (tile.dataset.pllScanned === "1") return;
+        seenTiles.add(tile);
+
+        // Sanity check — a real Gmail attachment tile is between roughly
+        // 100x80 and 350x280 px. Anything smaller is a stray hit and
+        // anything much bigger is a container we shouldn't hook.
+        const r = tile.getBoundingClientRect();
+        if (r.width < 80 || r.height < 60 || r.width > 400 || r.height > 400) return;
+
+        const info = _extractAttachmentInfo(tile);
+        if (!info) return;
+        if (!ATT_SUPPORTED.has(info.ext)) return;
+        ATT_HOOKED.add(tile);
+        found.push({ tile, ...info, emailView });
     });
-    if (allSupported.length > 1) {
-        installScanAllButton(emailView, allSupported);
+
+    if (!found.length) return;
+
+    // Single central button — no per-tile pills. Way cleaner visually,
+    // no alignment mismatch between the tile row and the banner grid.
+    installScanAllButton(emailView, found);
+}
+
+// Walk up from a node until we hit something that looks like an
+// attachment tile boundary, but NEVER past `strip` (the .aQH container).
+// Without the strip clamp, closest() would happily walk out of the
+// attachment area and grab a whole-message row (which Gmail also marks
+// as role="listitem" in thread view).
+function _findAttachmentTile(node, strip) {
+    const selector = '.aZo, [data-attachmentid], .aQw';   // strong tile hints only
+    let cur = node;
+    while (cur && cur !== strip && cur !== document.body) {
+        if (cur.matches?.(selector)) return cur;
+        cur = cur.parentElement;
     }
+    // No strong match — walk up again looking for role="listitem" but
+    // stop at the strip boundary.
+    cur = node;
+    while (cur && cur !== strip && cur !== document.body) {
+        if (cur.matches?.('[role="listitem"]')) return cur;
+        cur = cur.parentElement;
+    }
+    // Last resort — the node itself (if it's not the strip)
+    return (node !== strip) ? node : null;
 }
 
-function injectAttachmentBtn(anchor, filename, ext, emailView) {
-    // Find the tile (attachment container) — walk up from the anchor
-    // until we hit something that looks like the tile boundary. Fall
-    // back to the anchor's parent element.
-    let tile = anchor.closest('[role="listitem"], .aQH, .aZo, .aV3') ||
-               anchor.parentElement;
+// Given a tile, extract the filename, extension, and best downloadable
+// anchor. Returns null when the tile doesn't look like a supported
+// attachment.
+function _extractAttachmentInfo(tile) {
+    // 1. Filename — prefer an `a[download]` value, else fall back to the
+    //    first .aV3-ish span, else the tile's visible text.
+    let filename = "";
+    const dlAnchor = tile.querySelector("a[download]");
+    if (dlAnchor && dlAnchor.getAttribute("download")) {
+        filename = dlAnchor.getAttribute("download").trim();
+    }
+    if (!filename) {
+        const nameSpan = tile.querySelector(".aV3, .aQw, .aQA, .a1V");
+        if (nameSpan) filename = (nameSpan.textContent || "").trim();
+    }
+    if (!filename) {
+        // last resort: the tile's own text (short first line)
+        const txt = (tile.textContent || "").trim().split("\n")[0].trim();
+        if (txt.length < 260) filename = txt;
+    }
+    if (!filename || filename.length > 260) return null;
 
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "pll-att-btn";
-    btn.title = `Scan ${filename} with PhishLens`;
-    btn.innerHTML = `<span class="pll-att-btn__icon">🛡</span><span>Scan</span>`;
-    btn.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        scanOneAttachment({ anchor, filename, ext, tile, emailView, btn });
-    });
+    // Strip trailing size text — Gmail sometimes suffixes tile text with
+    // "Checklist.pdf 320 KB". Keep only the first .ext-ending chunk.
+    const extMatch = filename.match(/([\w \-\.\(\)]+\.(pdf|html?|htm))/i);
+    if (extMatch) filename = extMatch[1].trim();
 
-    // Insert next to the download control (or fall back to the tile)
-    (tile || anchor.parentElement || anchor).appendChild(btn);
+    const ext = (filename.split(".").pop() || "").toLowerCase();
+    if (!ATT_SUPPORTED.has(ext)) return null;
+
+    // 2. Anchor — anything inside the tile with an href we can fetch.
+    const anchor = dlAnchor
+        || tile.querySelector('a[href*="&view=att"], a[href*="ui=2"]')
+        || tile.querySelector("a[href]");
+
+    return { filename, ext, anchor };
 }
 
-function installScanAllButton(emailView, allAnchors) {
-    // Idempotent — install once per email view
-    if (emailView.dataset.pllAllInstalled === "1") return;
-    emailView.dataset.pllAllInstalled = "1";
+function installScanAllButton(emailView, targets) {
+    // Idempotent — install once per email view. If a previous pass
+    // already installed the button with a different attachment count
+    // (Gmail lazy-loaded more tiles), update the label instead of
+    // duplicating.
+    const existing = emailView.querySelector(".pll-scan-btn--all");
+    if (existing) {
+        const label = existing.querySelector(".pll-scan-btn__label");
+        if (label && !existing.disabled) {
+            label.textContent = targets.length > 1
+                ? `Scan ${targets.length} attachments`
+                : "Scan attachment";
+        }
+        existing._pllTargets = targets;
+        return;
+    }
 
-    // Anchor near the subject bar
     const subjectEl = emailView.querySelector(SUBJECT_SEL);
     const wrap = subjectEl?.parentElement;
     if (!wrap) return;
@@ -623,35 +716,40 @@ function installScanAllButton(emailView, allAnchors) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "pll-scan-btn pll-scan-btn--all";
+    btn._pllTargets = targets;
     btn.innerHTML = `<span class="pll-scan-btn__icon">📎</span>` +
-                    `<span class="pll-scan-btn__label">Scan ${allAnchors.length} attachments</span>`;
+                    `<span class="pll-scan-btn__label">${
+                        targets.length > 1
+                            ? `Scan ${targets.length} attachments`
+                            : "Scan attachment"
+                    }</span>`;
     btn.addEventListener("click", async (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
-        const supported = allAnchors.map((a) => {
-            const n = (a.getAttribute("download") || "").trim();
-            const e = (n.split(".").pop() || "").toLowerCase();
-            const tile = a.closest('[role="listitem"], .aQH, .aZo, .aV3') || a.parentElement;
-            return { anchor: a, filename: n, ext: e, tile, emailView };
-        });
 
-        if (supported.length >= 5 &&
-            !confirm(`This will scan ${supported.length} attachments one at a time. ` +
+        // Use the latest target list (may have been updated by a later
+        // MutationObserver pass if more tiles lazy-loaded).
+        const currentTargets = btn._pllTargets || targets;
+
+        if (currentTargets.length >= 5 &&
+            !confirm(`This will scan ${currentTargets.length} attachments one at a time. ` +
                      `On a CPU-only backend that can take 30–60 seconds total. Continue?`)) {
             return;
         }
-        if (supported.length > ATT_MAX) {
-            alert(`Too many attachments (${supported.length}). Max ${ATT_MAX} per email.`);
+        if (currentTargets.length > ATT_MAX) {
+            alert(`Too many attachments (${currentTargets.length}). Max ${ATT_MAX} per email.`);
             return;
         }
         btn.disabled = true;
-        for (let i = 0; i < supported.length; i++) {
-            btn.querySelector(".pll-scan-btn__label").textContent =
-                `Scanning ${i + 1} / ${supported.length}…`;
-            try { await scanOneAttachment(supported[i]); } catch {}
+        const labelEl = btn.querySelector(".pll-scan-btn__label");
+        for (let i = 0; i < currentTargets.length; i++) {
+            labelEl.textContent = currentTargets.length > 1
+                ? `Scanning ${i + 1} / ${currentTargets.length}…`
+                : "Scanning…";
+            try { await scanOneAttachment(currentTargets[i]); } catch {}
         }
-        btn.querySelector(".pll-scan-btn__label").textContent = "All scanned";
-        setTimeout(() => btn.remove(), 3000);
+        labelEl.textContent = "✓ Scanned";
+        setTimeout(() => btn.remove(), 2500);
     });
     wrap.appendChild(btn);
 }
@@ -659,20 +757,43 @@ function installScanAllButton(emailView, allAnchors) {
 // Fetch the attachment, base64-encode it, POST to /analyse_attachment
 // via the background service worker (CSP-bypass proxy).
 async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn }) {
-    // Placeholder banner right below the tile
-    let banner = tile?.querySelector(":scope > .pll-att-banner");
+    // Banner placement — Gmail's attachment tiles have their own font
+    // scaling and flex layout that mangle anything appended inside. We
+    // instead find (or create) a dedicated stack container placed AFTER
+    // the whole attachment strip, and put one banner per attachment
+    // in there.
+    const stack = _getAttachmentBannerStack(tile, emailView);
+    const bannerId = "pll-att-" + _fileKey(filename);
+    let banner = stack.querySelector(`#${CSS.escape(bannerId)}`);
     if (!banner) {
         banner = document.createElement("div");
+        banner.id = bannerId;
         banner.className = "pll-att-banner pll-att-banner--loading";
-        (tile || anchor.parentElement).appendChild(banner);
+        stack.appendChild(banner);
     }
     banner.className = "pll-att-banner pll-att-banner--loading";
     banner.innerHTML = `<span>⏳ Downloading and analyzing <strong>${escapeHTML(filename)}</strong>…</span>`;
-    if (btn) { btn.disabled = true; }
+    // Drop the Scan pill immediately when the loading banner shows —
+    // the banner itself is the ongoing feedback. On error we'll offer
+    // a Retry inside the banner rather than resurrect the pill.
+    if (tile) {
+        tile.querySelectorAll(".pll-att-btn").forEach((el) => el.remove());
+    } else if (btn && btn.isConnected) {
+        btn.remove();
+    }
 
     try {
-        const url = anchor.href;
-        if (!url) throw new Error("attachment has no href");
+        // Resolve a download URL. Gmail lazy-loads the download anchor
+        // on hover, so if we don't have one, dispatch a mouseover to
+        // reveal it, wait a beat, then re-scan the tile.
+        let url = anchor?.href || "";
+        if (!url && tile) {
+            tile.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+            await new Promise((r) => setTimeout(r, 200));
+            const late = tile.querySelector("a[download], a[href*='view=att']");
+            if (late) url = late.href;
+        }
+        if (!url) throw new Error("Could not find the attachment download URL — try refreshing Gmail");
 
         // Same-origin fetch — Gmail's session cookie is sent automatically.
         const resp = await fetch(url, { credentials: "include" });
@@ -694,18 +815,32 @@ async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn }
                          : (ext === "html" || ext === "htm") ? "text/html"
                          : null,
                 parent_email: {
-                    sender_email: senderEl?.getAttribute("email") || null,
-                    subject:      emailView.querySelector(SUBJECT_SEL)?.textContent?.trim() || null,
+                    sender_email:    senderEl?.getAttribute("email") || null,
+                    subject:         emailView.querySelector(SUBJECT_SEL)?.textContent?.trim() || null,
+                    // The mail is currently open in this Gmail account's
+                    // Inbox — SPF/DKIM/DMARC already passed on Google's
+                    // side, otherwise it would have landed in Spam.
+                    // We forward this to the backend so the attachment
+                    // scoring inherits the parent's trust context
+                    // (softer weights, higher threshold).
+                    gmail_delivered: !window.location.hash.toLowerCase().includes("spam"),
                 },
             },
         });
         if (!r?.ok) throw new Error(r?.error || "backend error");
         renderAttachmentBanner(banner, r.data, filename);
+        // Mark the tile as scanned so the MutationObserver doesn't
+        // resurrect a Scan pill on the next DOM tick.
+        if (tile) tile.dataset.pllScanned = "1";
     } catch (e) {
         banner.className = "pll-att-banner pll-att-banner--error";
-        banner.innerHTML = `<span>❌ ${escapeHTML(filename)}: ${escapeHTML(e.message || String(e))}</span>`;
-    } finally {
-        if (btn) { btn.disabled = false; }
+        banner.innerHTML = `
+            <span>❌ ${escapeHTML(filename)}: ${escapeHTML(e.message || String(e))}</span>
+            <button type="button" class="pll-att-btn" style="margin-left:8px">Retry</button>
+        `;
+        banner.querySelector("button")?.addEventListener("click", () => {
+            scanOneAttachment({ anchor, filename, ext, tile, emailView });
+        });
     }
 }
 
@@ -714,6 +849,9 @@ function renderAttachmentBanner(banner, data, filename) {
     banner.className = "pll-att-banner " + (bad ? "pll-att-banner--danger" : "pll-att-banner--safe");
     const pct = (v) => Math.round((Number(v) || 0) * 100);
     const chips = [];
+    if (data.parent_trusted) {
+        chips.push(`<span class="pll-att-chip pll-att-chip--good" title="Parent email is Gmail-delivered — softer weights applied">📬 Parent trusted</span>`);
+    }
     (data.attachment?.notable_features || []).forEach((f) => {
         chips.push(`<span class="pll-att-chip pll-att-chip--warn">${escapeHTML(f.replace(/_/g, " "))}</span>`);
     });
@@ -732,19 +870,45 @@ function renderAttachmentBanner(banner, data, filename) {
         <div class="pll-att-banner__row">
             <span class="pll-att-banner__icon">${bad ? "⚠" : "✓"}</span>
             <div class="pll-att-banner__main">
-                <div class="pll-att-banner__title">
-                    ${bad ? "This attachment looks like phishing" : "This attachment looks safe"}
-                    <span class="pll-att-banner__file">— ${escapeHTML(filename)}</span>
+                <div class="pll-att-banner__title" title="${escapeHTML(filename)}">
+                    ${bad ? "Phishing" : "Safe"}
                 </div>
-                <div class="pll-att-banner__sub">
-                    ${meta ? `<span>${escapeHTML(meta)}</span> · ` : ""}
-                    Content <strong>${pct(data.agents?.text?.phishing_probability)}%</strong> ·
-                    Links <strong>${pct(data.agents?.url?.phishing_probability)}%</strong>
-                </div>
-                ${chips.length ? `<div class="pll-att-banner__chips">${chips.join(" ")}</div>` : ""}
+                <div class="pll-att-banner__file" title="${escapeHTML(filename)}">${escapeHTML(filename)}</div>
             </div>
         </div>
+        <div class="pll-att-banner__sub">
+            ${meta ? `${escapeHTML(meta)}<br>` : ""}
+            Content <strong>${pct(data.agents?.text?.phishing_probability)}%</strong> ·
+            Links <strong>${pct(data.agents?.url?.phishing_probability)}%</strong>
+        </div>
+        ${chips.length ? `<div class="pll-att-banner__chips">${chips.join("")}</div>` : ""}
     `;
+}
+
+// Find or create a container to stack attachment banners. Instead of
+// walking the DOM looking for a "nice" parent (fragile — Gmail changes
+// its layout constantly), we anchor to the strip and rely on CSS to
+// force the stack to full width regardless of the parent's display
+// mode (flex row / grid / whatever). See .pll-att-stack in banner.css.
+function _getAttachmentBannerStack(tile, emailView) {
+    const strip = (tile && tile.closest(ATT_STRIP_SEL))
+               || emailView.querySelector(ATT_STRIP_SEL);
+    const anchor = strip || emailView.querySelector(BODY_SEL) || emailView;
+    const parent = anchor.parentElement || emailView;
+
+    let stack = parent.querySelector(":scope > .pll-att-stack");
+    if (!stack) {
+        stack = document.createElement("div");
+        stack.className = "pll-att-stack";
+        anchor.insertAdjacentElement("afterend", stack);
+    }
+    return stack;
+}
+
+// Deterministic short id from the filename so the same attachment
+// updates its own banner instead of appending duplicates on re-scan.
+function _fileKey(name) {
+    return String(name || "").replace(/[^a-z0-9]+/gi, "-").slice(0, 60).toLowerCase();
 }
 
 // Fast base64 encoding of a raw ArrayBuffer without blowing the stack

@@ -248,18 +248,26 @@ html[data-phishlens-theme="dark"]  .pll-chip--bad  { color: #ff9494; background:
    ================================================================== */
 
 /* Small "🛡 Scan" pill injected next to each attachment tile.
-   Kept discreet so it doesn't dominate the Gmail attachment strip.  */
+   Kept discreet so it doesn't dominate the Gmail attachment strip.
+   Font sizes are marked !important because Gmail's tile container
+   forces its own font scaling on descendants. */
 .pll-att-btn {
     display: inline-flex; align-items: center; gap: 4px;
     background: #ff6b35; color: #1f2328; border: 0;
     padding: 3px 10px; margin: 4px 0 0 8px;
-    border-radius: 999px; font-size: 11px; font-weight: 600;
-    cursor: pointer; font-family: -apple-system, sans-serif;
-    vertical-align: middle; line-height: 1.4;
+    border-radius: 999px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+    cursor: pointer;
+    vertical-align: middle;
+    text-transform: none;
+    letter-spacing: normal;
 }
 .pll-att-btn:hover:not(:disabled) { background: #ffa07a; }
 .pll-att-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.pll-att-btn__icon { font-size: 12px; }
+.pll-att-btn__icon { font-size: 12px !important; }
 
 /* Modifier for the header "Scan N attachments" button — same shape as
    pll-scan-btn but with a slightly muted colour so it doesn't compete
@@ -273,41 +281,125 @@ html[data-phishlens-theme="dark"]  .pll-chip--bad  { color: #ff9494; background:
     background: #363b42;
 }
 
-/* Per-attachment verdict banner (drops below the tile).  */
-.pll-att-banner {
-    margin: 6px 0;
-    padding: 10px 12px;
-    border-radius: 8px;
-    border: 1px solid transparent;
-    background: #1e242b;
-    color: #f0f6fc;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    font-size: 13px;
+/* Container for all attachment banners. Lays out as a horizontal grid
+   of compact cards that align with the attachment tiles above (each
+   ~200 px wide, wrapping to a new row when the email is narrow).
+   Full-width in the parent regardless of layout mode. */
+.pll-att-stack {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 1 0 100% !important;
+    grid-column: 1 / -1 !important;
+    margin: 10px 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
 }
-.pll-att-banner--loading { border-color: #444c56; color: #8b949e; }
-.pll-att-banner--error   { border-color: #b02020; color: #ff9494; }
-.pll-att-banner--safe    { border-color: #1a7f37; background: rgba(20, 128, 70, 0.15); }
-.pll-att-banner--danger  { border-color: #c34315; background: rgba(200, 40, 40, 0.15); }
 
-.pll-att-banner__row  { display: flex; align-items: flex-start; gap: 10px; }
-.pll-att-banner__icon { flex: 0 0 auto; font-size: 18px; line-height: 1.2; }
-.pll-att-banner__main { flex: 1; min-width: 0; }
-.pll-att-banner__title { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
-.pll-att-banner__file  { font-weight: 400; color: #8b949e; }
-.pll-att-banner__sub   { color: #8b949e; font-size: 12px; }
-.pll-att-banner__sub strong { color: #f0f6fc; }
-.pll-att-banner__chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+/* One compact card per attachment. Card fills its grid column, keeps
+   height minimal, and reserves the top border strip for the verdict
+   colour. Everything is !important because Gmail's own CSS forcefully
+   sets colours/fonts on descendants inside the attachment area. */
+.pll-att-banner {
+    display: block !important;
+    margin: 0 !important;
+    padding: 8px 10px !important;
+    border-radius: 6px !important;
+    border: 1px solid #d0d7de !important;
+    border-top-width: 3px !important;
+    background: #ffffff !important;
+    color: #1f2328 !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+    text-align: left !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+.pll-att-banner--loading { border-top-color: #8b949e !important; }
+.pll-att-banner--error   { border-top-color: #b02020 !important; }
+.pll-att-banner--safe    { border-top-color: #1a7f37 !important; background: #f4fbf5 !important; }
+.pll-att-banner--danger  { border-top-color: #c34315 !important; background: #fff5f0 !important; }
+
+.pll-att-banner__row   { display: flex !important; align-items: center !important; gap: 6px !important; }
+.pll-att-banner__icon  { flex: 0 0 auto !important; font-size: 14px !important; line-height: 1 !important; }
+.pll-att-banner__main  { flex: 1 !important; min-width: 0 !important; }
+
+.pll-att-banner__title {
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    margin: 0 !important;
+    color: #1f2328 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+.pll-att-banner--safe   .pll-att-banner__title { color: #1a7f37 !important; }
+.pll-att-banner--danger .pll-att-banner__title { color: #c34315 !important; }
+
+.pll-att-banner__file  {
+    display: block !important;
+    font-weight: 400 !important;
+    color: #57606a !important;
+    font-size: 11px !important;
+    margin-top: 2px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+.pll-att-banner__sub   { color: #57606a !important; font-size: 11px !important; margin-top: 4px !important; }
+.pll-att-banner__sub strong { color: #1f2328 !important; font-weight: 600 !important; }
+.pll-att-banner__chips { display: flex !important; flex-wrap: wrap !important; gap: 3px !important; margin-top: 6px !important; }
+
+/* Dark theme via OS preference */
+@media (prefers-color-scheme: dark) {
+    .pll-att-banner          { background: #1e242b !important; color: #f0f6fc !important; border-color: #30363d !important; }
+    .pll-att-banner--safe    { background: #12271b !important; }
+    .pll-att-banner--danger  { background: #2a1c1c !important; }
+    .pll-att-banner__title   { color: #f0f6fc !important; }
+    .pll-att-banner--safe   .pll-att-banner__title { color: #6ee7a8 !important; }
+    .pll-att-banner--danger .pll-att-banner__title { color: #ff8c5a !important; }
+    .pll-att-banner__file    { color: #f0f6fc !important; }
+    .pll-att-banner__sub     { color: #cdd9e5 !important; }
+    .pll-att-banner__sub strong { color: #ffffff !important; }
+    .pll-att-stack           { color: #f0f6fc !important; }
+}
+
+/* Explicit theme overrides broadcast by the popup toggle */
+html[data-phishlens-theme="light"] .pll-att-banner          { background: #ffffff !important; color: #1f2328 !important; border-color: #d0d7de !important; }
+html[data-phishlens-theme="light"] .pll-att-banner--safe    { background: #f0fff4 !important; }
+html[data-phishlens-theme="light"] .pll-att-banner--danger  { background: #fff5f0 !important; }
+html[data-phishlens-theme="light"] .pll-att-banner__title   { color: #1f2328 !important; }
+html[data-phishlens-theme="light"] .pll-att-banner--safe   .pll-att-banner__title { color: #1a7f37 !important; }
+html[data-phishlens-theme="light"] .pll-att-banner--danger .pll-att-banner__title { color: #c34315 !important; }
+html[data-phishlens-theme="light"] .pll-att-banner__file    { color: #1f2328 !important; }
+html[data-phishlens-theme="light"] .pll-att-banner__sub     { color: #57606a !important; }
+html[data-phishlens-theme="light"] .pll-att-banner__sub strong { color: #1f2328 !important; }
+html[data-phishlens-theme="light"] .pll-att-stack           { color: #1f2328 !important; }
+
+html[data-phishlens-theme="dark"]  .pll-att-banner          { background: #1e242b !important; color: #f0f6fc !important; border-color: #30363d !important; }
+html[data-phishlens-theme="dark"]  .pll-att-banner--safe    { background: #12271b !important; }
+html[data-phishlens-theme="dark"]  .pll-att-banner--danger  { background: #2a1c1c !important; }
+html[data-phishlens-theme="dark"]  .pll-att-banner__title   { color: #f0f6fc !important; }
+html[data-phishlens-theme="dark"]  .pll-att-banner--safe   .pll-att-banner__title { color: #6ee7a8 !important; }
+html[data-phishlens-theme="dark"]  .pll-att-banner--danger .pll-att-banner__title { color: #ff8c5a !important; }
+html[data-phishlens-theme="dark"]  .pll-att-banner__file    { color: #f0f6fc !important; }
+html[data-phishlens-theme="dark"]  .pll-att-banner__sub     { color: #cdd9e5 !important; }
+html[data-phishlens-theme="dark"]  .pll-att-banner__sub strong { color: #ffffff !important; }
+html[data-phishlens-theme="dark"]  .pll-att-stack           { color: #f0f6fc !important; }
 
 .pll-att-chip {
     display: inline-flex; align-items: center;
     padding: 2px 8px; border-radius: 999px;
-    font-size: 11px; font-weight: 500;
+    font-size: 11px !important; font-weight: 500 !important;
+    line-height: 1.4 !important;
     border: 1px solid transparent;
 }
-.pll-att-chip--warn { color: #a15b00; background: rgba(216, 138, 0, 0.15); border-color: rgba(216, 138, 0, 0.35); }
-.pll-att-chip--bad  { color: #b02020; background: rgba(200, 40, 40, 0.15); border-color: rgba(200, 40, 40, 0.4); }
-
-@media (prefers-color-scheme: dark) {
-    .pll-att-chip--warn { color: #ffc46b; background: rgba(216, 138, 0, 0.2); }
-    .pll-att-chip--bad  { color: #ff9494; background: rgba(200, 40, 40, 0.2); }
-}
+.pll-att-chip--good { color: #6ee7a8 !important; background: rgba(20, 128, 70, 0.2) !important;  border-color: rgba(20, 128, 70, 0.4) !important; }
+.pll-att-chip--warn { color: #ffc46b !important; background: rgba(216, 138, 0, 0.2) !important;  border-color: rgba(216, 138, 0, 0.4) !important; }
+.pll-att-chip--bad  { color: #ff9494 !important; background: rgba(200, 40, 40, 0.2) !important;  border-color: rgba(200, 40, 40, 0.4) !important; }
