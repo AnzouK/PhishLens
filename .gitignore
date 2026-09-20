@@ -82,3 +82,4 @@ extension/dist/        # the legacy React build from Tariq — keep extension/ph
 .env
 .env.local
 *.secret
+**/.venv/

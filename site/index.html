@@ -289,9 +289,9 @@
       <div class="demo__pane" id="pane-file" role="tabpanel">
         <label class="drop" id="drop-zone">
           <span class="drop__icon">📥</span>
-          <span class="drop__title" id="drop-title">Drop a .eml file here, or click to browse</span>
-          <span class="drop__sub">Anything you upload stays in your browser except for the raw email bytes sent to /analyse — nothing is logged server-side.</span>
-          <input type="file" id="file-input" accept=".eml,message/rfc822,text/plain">
+          <span class="drop__title" id="drop-title">Drop a .eml, .pdf or .html file here, or click to browse</span>
+          <span class="drop__sub">Anything you upload stays in your browser except for the raw bytes sent to /analyse or /analyse_attachment — nothing is logged server-side. 10 MB max.</span>
+          <input type="file" id="file-input" accept=".eml,message/rfc822,.pdf,application/pdf,.html,.htm,text/html,.txt,text/plain">
         </label>
       </div>
 
@@ -462,13 +462,29 @@
 
   // --- Analyze click ------------------------------------------------
   demoBtn.addEventListener("click", async () => {
-    // Build the payload from whichever pane is active.
-    let payload;
+    // Build the payload from whichever pane is active. We route to
+    // /analyse_attachment for PDF / HTML and to /analyse for .eml
+    // and plain text, based on the filename extension.
+    let payload, endpoint = "/analyse";
     if (activeTab === "file") {
       if (!selectedFile) { dropZone.click(); return; }
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        demoResult.innerHTML = `<div class="verdict verdict--bad">
+          <div class="verdict__title">File too large</div>
+          <div class="verdict__scores">Max 10 MB. This file is ${(selectedFile.size / 1024 / 1024).toFixed(1)} MB.</div>
+        </div>`;
+        return;
+      }
+      const ext = (selectedFile.name.split(".").pop() || "").toLowerCase();
+      const isAttachment = ["pdf", "html", "htm"].includes(ext);
       try {
         const b64 = await fileToBase64(selectedFile);
-        payload = { raw_email_b64: b64 };
+        if (isAttachment) {
+          endpoint = "/analyse_attachment";
+          payload  = { content_b64: b64, filename: selectedFile.name, mime_type: selectedFile.type };
+        } else {
+          payload  = { raw_email_b64: b64 };
+        }
       } catch (e) {
         demoResult.innerHTML = `<div class="verdict verdict--bad">
           <div class="verdict__title">Could not read the file</div>
@@ -487,7 +503,7 @@
     demoResult.innerHTML = "";
 
     try {
-      const r = await fetch("/analyse", {
+      const r = await fetch(endpoint, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify(payload),
@@ -509,6 +525,18 @@
         ? '<span class="verdict__pill" style="color: var(--bad)">🔴 ' + escapeHtml(d.url_reputation.sources_hit.join(", ")) + '</span>'
         : '';
 
+      // Attachment-specific chips — kind, page count, notable features
+      let attachmentPills = "";
+      if (d.attachment) {
+        const a = d.attachment;
+        const size = ((a.size_bytes || 0) / 1024).toFixed(0);
+        attachmentPills += `<span class="verdict__pill">📎 ${escapeHtml(a.kind || "")} · ${size} KB</span>`;
+        if (a.page_count) attachmentPills += `<span class="verdict__pill">${a.pages_read || a.page_count} / ${a.page_count} pages</span>`;
+        (a.notable_features || []).forEach((f) => {
+          attachmentPills += `<span class="verdict__pill" style="color: var(--warn)">⚑ ${escapeHtml(f.replace(/_/g, " "))}</span>`;
+        });
+      }
+
       demoResult.innerHTML = `
         <div class="verdict verdict--${bad ? "bad" : "good"}">
           <div class="verdict__title">
@@ -519,6 +547,7 @@
             Links <strong>${pct(d.agents?.url?.phishing_probability)}%</strong> ·
             Sender <strong>${pct(d.agents?.metadata?.phishing_probability)}%</strong>
           </div>
+          ${attachmentPills ? `<div class="verdict__scores" style="margin-top: 10px">${attachmentPills}</div>` : ""}
         </div>
       `;
     } catch (e) {

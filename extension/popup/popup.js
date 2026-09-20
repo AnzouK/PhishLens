@@ -222,12 +222,28 @@ analyzeBtn.addEventListener("click", async () => {
     hideStatus();
     showView("loading");
 
-    // build payload depending on active tab
+    // build payload depending on active tab. Files ending in .pdf / .html
+    // are routed to /analyse_attachment; .eml (and everything else) stays
+    // on /analyse.
     let payload;
+    let endpointPath = "/analyse";
     try {
         if (activeTab === "file") {
-            if (!selectedFile) throw new Error("Pick a .eml file first.");
-            payload = { raw_email_b64: await fileToB64(selectedFile) };
+            if (!selectedFile) throw new Error("Pick a .eml, .pdf or .html file first.");
+            if (selectedFile.size > 10 * 1024 * 1024)
+                throw new Error("File too large — 10 MB max.");
+            const ext = (selectedFile.name.split(".").pop() || "").toLowerCase();
+            const b64 = await fileToB64(selectedFile);
+            if (ext === "pdf" || ext === "html" || ext === "htm") {
+                endpointPath = "/analyse_attachment";
+                payload = {
+                    content_b64: b64,
+                    filename:    selectedFile.name,
+                    mime_type:   selectedFile.type || null,
+                };
+            } else {
+                payload = { raw_email_b64: b64 };
+            }
         } else {
             if (pastedText.trim().length < 20)
                 throw new Error("Paste at least 20 characters of email body.");
@@ -246,7 +262,7 @@ analyzeBtn.addEventListener("click", async () => {
     explainError = null;
 
     try {
-        const resp = await fetch(`${getApiBase()}/analyse`, {
+        const resp = await fetch(`${getApiBase()}${endpointPath}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),

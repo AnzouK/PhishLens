@@ -242,3 +242,72 @@ html[data-phishlens-theme="dark"]  .pll-chip--bad  { color: #ff9494; background:
     opacity: 0.75;
     font-weight: 500;
 }
+
+/* ==================================================================
+   v1.8 — attachment scan button + mini banner per attachment
+   ================================================================== */
+
+/* Small "🛡 Scan" pill injected next to each attachment tile.
+   Kept discreet so it doesn't dominate the Gmail attachment strip.  */
+.pll-att-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #ff6b35; color: #1f2328; border: 0;
+    padding: 3px 10px; margin: 4px 0 0 8px;
+    border-radius: 999px; font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: -apple-system, sans-serif;
+    vertical-align: middle; line-height: 1.4;
+}
+.pll-att-btn:hover:not(:disabled) { background: #ffa07a; }
+.pll-att-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pll-att-btn__icon { font-size: 12px; }
+
+/* Modifier for the header "Scan N attachments" button — same shape as
+   pll-scan-btn but with a slightly muted colour so it doesn't compete
+   with the main "Scan with PhishLens" pill. */
+.pll-scan-btn.pll-scan-btn--all {
+    background: #2c3138; color: #f0f6fc;
+    border: 1px solid #ff6b35;
+    margin-left: 8px;
+}
+.pll-scan-btn.pll-scan-btn--all:hover:not(:disabled) {
+    background: #363b42;
+}
+
+/* Per-attachment verdict banner (drops below the tile).  */
+.pll-att-banner {
+    margin: 6px 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: #1e242b;
+    color: #f0f6fc;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 13px;
+}
+.pll-att-banner--loading { border-color: #444c56; color: #8b949e; }
+.pll-att-banner--error   { border-color: #b02020; color: #ff9494; }
+.pll-att-banner--safe    { border-color: #1a7f37; background: rgba(20, 128, 70, 0.15); }
+.pll-att-banner--danger  { border-color: #c34315; background: rgba(200, 40, 40, 0.15); }
+
+.pll-att-banner__row  { display: flex; align-items: flex-start; gap: 10px; }
+.pll-att-banner__icon { flex: 0 0 auto; font-size: 18px; line-height: 1.2; }
+.pll-att-banner__main { flex: 1; min-width: 0; }
+.pll-att-banner__title { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.pll-att-banner__file  { font-weight: 400; color: #8b949e; }
+.pll-att-banner__sub   { color: #8b949e; font-size: 12px; }
+.pll-att-banner__sub strong { color: #f0f6fc; }
+.pll-att-banner__chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+
+.pll-att-chip {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 500;
+    border: 1px solid transparent;
+}
+.pll-att-chip--warn { color: #a15b00; background: rgba(216, 138, 0, 0.15); border-color: rgba(216, 138, 0, 0.35); }
+.pll-att-chip--bad  { color: #b02020; background: rgba(200, 40, 40, 0.15); border-color: rgba(200, 40, 40, 0.4); }
+
+@media (prefers-color-scheme: dark) {
+    .pll-att-chip--warn { color: #ffc46b; background: rgba(216, 138, 0, 0.2); }
+    .pll-att-chip--bad  { color: #ff9494; background: rgba(200, 40, 40, 0.2); }
+}
