@@ -9,8 +9,9 @@
 A fine-tuned DistilBERT text classifier, two trained Random Forest agents
 (URLs, headers), an RFC-7489 sender-authentication path (SPF / DKIM / DMARC),
 a multi-source URL reputation cascade (Google Safe Browsing, PhishTank,
-URLhaus, Spamhaus DBL), and a LIME explanation panel — wrapped in a Chrome
-extension that injects directly into Gmail.
+URLhaus, Spamhaus DBL), **per-attachment scanning** for PDF and HTML files,
+and a LIME explanation panel — wrapped in a Chrome extension that injects
+directly into Gmail.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -269,9 +270,10 @@ sender's account is compromised).
 ```
 PhishLens/
 ├── backend/                      # local Docker deployment
-│   ├── extension_backend.py      # FastAPI app (/analyse, /explain, /reputation/stats)
+│   ├── extension_backend.py      # FastAPI app (/analyse, /explain, /analyse_attachment, /reputation/stats)
 │   ├── auth_headers.py           # SPF/DKIM/DMARC parser + Spamhaus DBL DNS lookup
 │   ├── reputation.py             # URL reputation cascade — GSB / PhishTank / URLhaus / DBL
+│   ├── attachment_analysis.py    # PDF (pdfplumber) + HTML (bs4) extraction + feature flags
 │   ├── feature_extraction.py     # feature engineering for the trained RF agents
 │   ├── url_agent.py              # trained URL Random Forest wrapper (from PhishingDetector)
 │   ├── metadata_agent.py         # trained metadata Random Forest wrapper
@@ -339,11 +341,22 @@ Department of Cybersecurity, session 2025–2026.
 
 ### ✅ Shipped in v1.7.0
 - [x] **HTTPS + custom domain** — Caddy reverse proxy on the Oracle VM, DuckDNS domain `anzouk.duckdns.org`, Let's Encrypt certificate auto-renewed. The extension's Cloud demo preset now points to `https://anzouk.duckdns.org`; the raw IP `130.61.146.213` is kept in `host_permissions` for backward compatibility with existing installs.
+- [x] **Landing page** at `https://anzouk.duckdns.org` — dark-themed single-file page served by Caddy on the same origin as the API. Live status pill queries `/health`, live backend stats query `/reputation/stats`, and a "Try it live" widget lets visitors paste an email body or upload a `.eml` and get the same verdict the extension produces.
+
+### ✅ Shipped in v1.8.0 — Phase 1: attachment analysis
+- [x] **PDF and HTML attachment analysis** — new `POST /analyse_attachment` endpoint. PDF text/URL extraction via `pdfplumber`, HTML via `BeautifulSoup`. Reuses the existing text agent + URL agent + reputation cascade on the extracted content. 10 MB hard cap, MIME sniffed from magic bytes.
+- [x] **Feature-flag detection** — `contains_javascript`, `auto_execute_on_open`, `launch_external_action`, `embeds_another_file`, `submits_form_to_url`, `remote_link_action`, `flash_or_richmedia` for PDFs; `contains_form`, `contains_password_field`, `contains_iframe`, `meta_refresh_redirect` for HTML. Flags add a bounded score bonus (cap 0.7) and a `+0.10` combo bump when a form and a password field appear together.
+- [x] **Gmail integration** — per-attachment `🛡 Scan` pill on every supported attachment tile. When a message has more than one supported attachment, a header `📎 Scan N attachments` button runs them sequentially with a `confirm()` past five and a hard cap at fifteen. Each scan produces its own mini-banner right below the tile with verdict, size, page count, URL count, notable feature chips, and reputation-hit chips.
+- [x] **Popup and landing widgets** — file input accepts `.pdf` and `.html` in addition to `.eml`; routes to the correct endpoint automatically; attachment-specific chips (kind, size, page count, notable features) render alongside the agent scores.
+
+### 🚧 Planned for next release — Phase 2 and 3
+- [ ] **DOCX / XLSX support** — extract text + hyperlinks via `python-docx` and `openpyxl`; macro presence flagged as a hard red flag
+- [ ] **Image OCR** — Tesseract OCR on images so hidden text inside login-page screenshots doesn't bypass the text agent
+- [ ] **Basic steganography heuristics** — LSB chi-square test, EXIF thumbnail mismatch, file-size-vs-dimensions anomaly
 
 ### 🔭 Planned for v2.0 (medium-term)
 - [ ] **Yahoo Mail** content script
 - [ ] **Outlook Web** content script
-- [ ] **PDF / HTML attachment parsing** via pdfplumber + BeautifulSoup — cover the modern phishing-via-attachment attack surface
 - [ ] **Automatic background scan** of new Gmail messages, with a native Chrome notification when a phishing verdict is issued
 - [ ] **Multi-architecture Docker images** (`linux/amd64` + `linux/arm64`) so `docker pull` just works everywhere
 - [ ] **Multilingual DistilBERT** — extend beyond English to French / Hausa / Yoruba corpora

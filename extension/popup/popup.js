@@ -189,10 +189,13 @@ dropZone.addEventListener("drop", (e) => {
     e.preventDefault();
     dropZone.classList.remove("drop-zone--active");
     const f = e.dataTransfer.files?.[0];
-    if (f && f.name.toLowerCase().endsWith(".eml")) {
+    if (!f) return;
+    const name = (f.name || "").toLowerCase();
+    if (name.endsWith(".eml") || name.endsWith(".pdf") ||
+        name.endsWith(".html") || name.endsWith(".htm")) {
         setSelectedFile(f);
     } else {
-        showStatus("Please drop a .eml file.");
+        showStatus("Please drop a .eml, .pdf or .html file.");
     }
 });
 
@@ -297,8 +300,17 @@ analyzeBtn.addEventListener("click", async () => {
             currentHistoryId = null;
         }
 
-        // fire LIME explanation in the background — tagged with the run id
-        fetchExplain(payload, thisRun);
+        // fire LIME explanation in the background — tagged with the run id.
+        // Skip LIME for attachment payloads: /explain only accepts
+        // raw_text / raw_email_b64, and the DistilBERT explanation isn't
+        // that meaningful on extracted PDF/HTML text anyway.
+        if (payload.raw_text || payload.raw_email_b64) {
+            fetchExplain(payload, thisRun);
+        } else {
+            // Hide the LIME panel entirely for attachments
+            explainData = null;
+            explainError = null;
+        }
     } catch (e) {
         if (thisRun !== runId) return;     // user already moved on, swallow
         showView("upload");
@@ -313,6 +325,12 @@ analyzeBtn.addEventListener("click", async () => {
 // ---------- render result ----------
 function renderResult(data) {
     const isPhishing = data.verdict === "phishing";
+    const isAttachment = !!data.attachment;
+
+    // Hide the LIME "Why?" panel entirely for attachment scans — /explain
+    // doesn't accept attachment payloads and DistilBERT explanations on
+    // extracted PDF/HTML text aren't very meaningful anyway.
+    if (explainPanel) explainPanel.hidden = isAttachment;
 
     // verdict card
     const card = $("verdict-card");

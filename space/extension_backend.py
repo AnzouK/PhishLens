@@ -993,14 +993,40 @@ async def analyse_attachment(req: AttachmentRequest):
     # effectively N/A — we still expose it as 0 for consistent shape.
     p_meta = 0.0
 
-    # Attachment-specific fusion: text and URL carry all the weight,
-    # plus the feature bonus on top. Threshold is a bit higher than
-    # /analyse's default (0.55) because attachments have less signal.
-    fused = 0.5 * p_text + 0.5 * p_url + feature_bonus
-    fused = min(1.0, fused)
+    # Inherit trust context from the parent email. If the extension told
+    # us the message is Gmail-delivered (soft SPF/DKIM/DMARC pass) or
+    # cryptographically DKIM-aligned, we know a phishing attachment
+    # requires a compromised legitimate account — much rarer than a
+    # random attacker. We apply softer weights and a higher threshold
+    # in that case to avoid false-positives on legit documents (INTERPOL
+    # checklists, HR onboarding kits, bank T&Cs) whose text vocabulary
+    # overlaps with real phishing.
+    #
+    # EXCEPTION: a Google Safe Browsing hit on any URL in the attachment
+    # still forces phishing regardless — a signed message pointing to a
+    # blocklisted URL means the sender's account is compromised.
+    parent = req.parent_email or {}
+    parent_trusted = bool(
+        parent.get("crypto_verified")
+        or parent.get("gmail_inbox_soft_verified")
+        or parent.get("trusted_sender")
+        or parent.get("gmail_delivered")   # explicit flag set by gmail.js
+    )
     gsb_hit = "google_safe_browsing" in rep_hit_sources
-    high_conf = gsb_hit or (max(p_text, p_url) >= HIGH_CONF_OVERRIDE)
-    threshold = 0.55
+
+    if parent_trusted and not gsb_hit:
+        # text agent halved, url weight kept, feature bonus intact.
+        # Threshold raised so purely-textual false-positives (99% content
+        # score on a legit doc) don't cross alone.
+        fused = 0.5 * 0.5 * p_text + 0.5 * p_url + feature_bonus
+        threshold = 0.72
+        high_conf = False              # disable single-agent override
+    else:
+        fused = 0.5 * p_text + 0.5 * p_url + feature_bonus
+        threshold = 0.55
+        high_conf = gsb_hit or (max(p_text, p_url) >= HIGH_CONF_OVERRIDE)
+
+    fused = min(1.0, fused)
     is_phishing = fused >= threshold or high_conf
 
     return {
@@ -1019,6 +1045,7 @@ async def analyse_attachment(req: AttachmentRequest):
             "feature_bonus":       round(feature_bonus, 3),
         },
         "parent_email": req.parent_email or None,
+        "parent_trusted": bool(parent_trusted),
         "url_reputation": {
             "checked": len(reputation_verdicts),
             "malicious_count": sum(1 for v in reputation_verdicts if v.get("malicious")),
