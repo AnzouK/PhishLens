@@ -1,0 +1,73 @@
+# =====================================================================
+# PhishLens — Dependabot version updates
+# =====================================================================
+# Dependabot alerts + security updates are managed in the repo Security
+# settings (they run without a config file). This file adds weekly
+# version-bump PRs for our declared dependencies. Grouped by ecosystem
+# so we don't get 20 PRs on the same Monday morning.
+#
+# Docs: https://docs.github.com/en/code-security/dependabot
+# =====================================================================
+version: 2
+updates:
+
+  # Python backend — pip requirements
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Africa/Lagos
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "python"]
+    commit-message:
+      prefix: chore(deps)
+      include: scope
+    # Bundle patch + minor into one PR per group, keep major bumps in
+    # their own PR (they usually need a manual look).
+    groups:
+      python-minor-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
+      python-security:
+        applies-to: security-updates
+        update-types: [patch, minor, major]
+    # Torch is installed from the CPU-only PyPI index at Dockerfile
+    # build time, not from requirements.txt — ignore it here.
+    ignore:
+      - dependency-name: torch
+      - dependency-name: nvidia-*
+
+  # GitHub Actions used by the CI workflow
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Africa/Lagos
+    open-pull-requests-limit: 3
+    labels: ["dependencies", "github-actions"]
+    commit-message:
+      prefix: chore(ci)
+      include: scope
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
+
+  # Docker base images (python:3.11-slim in both Dockerfiles). Weekly
+  # patch bumps catch upstream CVE fixes.
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Africa/Lagos
+    open-pull-requests-limit: 2
+    labels: ["dependencies", "docker"]
+    commit-message:
+      prefix: chore(docker)
+      include: scope
