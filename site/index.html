@@ -188,6 +188,43 @@
     background: rgba(255,255,255,0.06); color: var(--text-mute);
   }
 
+  /* LIME token explanation */
+  .lime {
+    margin-top: 14px;
+    border-top: 1px solid var(--border-soft);
+    padding-top: 12px;
+  }
+  .lime__head {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-mute);
+    list-style: none;
+    user-select: none;
+  }
+  .lime__head::-webkit-details-marker { display: none; }
+  .lime__head:hover { color: var(--text); }
+  .lime[open] .lime__head { color: var(--text); margin-bottom: 8px; }
+  .lime__intro { font-size: 12px; color: var(--text-mute); margin: 0 0 10px; }
+  .lime__tokens { display: flex; flex-wrap: wrap; gap: 5px; }
+  .lime-tok {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.2;
+    border: 1px solid transparent;
+  }
+  .lime-tok__w {
+    font-size: 10px;
+    opacity: 0.7;
+    font-weight: 400;
+  }
+  .lime-tok--phishing { color: #ff8c5a; background: rgba(255, 107, 53, 0.13); border-color: rgba(255, 107, 53, 0.35); }
+  .lime-tok--safe     { color: #6ee7a8; background: rgba(20, 128, 70, 0.13);  border-color: rgba(20, 128, 70, 0.35); }
+
   /* ================= STATS ================= */
   .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   @media (max-width: 640px) { .stats-grid { grid-template-columns: 1fr; } }
@@ -548,8 +585,44 @@
             Sender <strong>${pct(d.agents?.metadata?.phishing_probability)}%</strong>
           </div>
           ${attachmentPills ? `<div class="verdict__scores" style="margin-top: 10px">${attachmentPills}</div>` : ""}
+          ${endpoint === "/analyse" ? `
+            <details class="lime" id="lime-panel">
+              <summary class="lime__head">🔍 Why? — LIME token explanation</summary>
+              <div class="lime__body">
+                <p class="lime__intro">The tokens below influenced the DistilBERT verdict most.
+                Orange pushed toward <em>phishing</em>, green toward <em>safe</em>.</p>
+                <div class="lime__tokens" id="lime-tokens">Loading (~8s on the CPU-only backend)…</div>
+              </div>
+            </details>
+          ` : ""}
         </div>
       `;
+
+      // Fire /explain in the background for email scans only
+      // (attachments don't have a text-agent-ready body).
+      if (endpoint === "/analyse") {
+        fetch("/explain", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify(payload),
+        })
+        .then((r) => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
+        .then((expl) => {
+          const slot = document.getElementById("lime-tokens");
+          if (!slot) return;
+          const feats = expl.features || [];
+          if (!feats.length) { slot.textContent = "No salient tokens returned."; return; }
+          slot.innerHTML = feats.map((f) => {
+            const cls = f.supports === "phishing" ? "lime-tok--phishing" : "lime-tok--safe";
+            const w   = Math.abs(f.weight).toFixed(2);
+            return `<span class="lime-tok ${cls}" title="${f.supports}: ${w}">${escapeHtml(f.token)}<span class="lime-tok__w">${w}</span></span>`;
+          }).join(" ");
+        })
+        .catch((err) => {
+          const slot = document.getElementById("lime-tokens");
+          if (slot) slot.textContent = "LIME unavailable: " + (err.message || err);
+        });
+      }
     } catch (e) {
       demoResult.innerHTML = `<div class="verdict verdict--bad">
         <div class="verdict__title">Analysis failed</div>

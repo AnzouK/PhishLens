@@ -849,7 +849,9 @@ testConnBtn.addEventListener("click", async () => {
         if (!url || !/^https?:\/\//.test(url)) {
             throw new Error("URL must start with http:// or https://");
         }
-        const resp = await fetch(`${url}/`, { method: "GET" });
+        // Hit /health (not /) because / now serves the landing HTML
+        // through Caddy on the Cloud demo backend.
+        const resp = await fetch(`${url}/health`, { method: "GET" });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json().catch(() => null);
         connStatus.className = "conn-status conn-status--ok";
