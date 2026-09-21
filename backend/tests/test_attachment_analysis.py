@@ -121,11 +121,21 @@ class TestAnalyseAttachment:
         with pytest.raises(ValueError, match="Empty"):
             analyse_attachment("", filename="x.pdf")
 
-    def test_bad_base64_rejected(self):
-        # base64 is very permissive so hard to make it error on decode.
-        # Use a payload that decodes to nothing.
-        with pytest.raises(ValueError, match="empty after decode"):
+    def test_empty_base64_rejected(self):
+        # base64.b64encode(b"") returns "" which is falsy, so the
+        # dispatcher hits the "Empty attachment" guard before the
+        # decode step. Either way, we get a ValueError — that's what
+        # we're asserting.
+        with pytest.raises(ValueError):
             analyse_attachment(self._b64(b""), filename="x.pdf")
+
+    def test_unknown_type_rejected(self):
+        # A short non-empty payload that isn't a PDF / HTML / plain-text.
+        # Should take the "Unsupported attachment type" path.
+        with pytest.raises(ValueError, match="Unsupported"):
+            analyse_attachment(self._b64(b"just some bytes"),
+                               filename="x.bin",
+                               mime_type="application/octet-stream")
 
     def test_oversized_rejected(self):
         # Craft an 11 MB blob

@@ -5,16 +5,15 @@ honest by reporting anything that looks off.
 
 ## Reporting a vulnerability
 
-**Preferred:** GitHub Security Advisories.
-Go to
+**Use GitHub Security Advisories.** Go to
 [https://github.com/AnzouK/PhishLens/security/advisories/new](https://github.com/AnzouK/PhishLens/security/advisories/new)
 and open a private advisory. This starts a thread visible only to
 maintainers, and (with your approval) becomes a public CVE with credit
 to you when the fix ships.
 
-**Fallback:** email [REDACTED](mailto:REDACTED)
-with `[SECURITY] PhishLens` in the subject. Please don't open a public
-issue for an unpatched issue.
+Please don't open a regular public issue for an unpatched security
+issue, and don't post proof-of-concept payloads in public places
+before we've had a chance to fix them.
 
 ## What's in scope
 
