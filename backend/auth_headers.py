@@ -31,6 +31,9 @@ import socket
 from dataclasses import dataclass, field, asdict
 from typing import Any
 
+import logging
+logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
+
 
 # =====================================================================
 # Authentication-Results parsing
