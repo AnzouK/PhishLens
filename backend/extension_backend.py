@@ -33,6 +33,7 @@ import os
 import re
 from contextlib import asynccontextmanager
 from email import message_from_bytes, policy
+from email.utils import parseaddr
 from pathlib import Path
 from typing import Any
 
@@ -550,12 +551,12 @@ def metadata_agent(headers: dict[str, str], raw_email: bytes | None = None) -> f
     if "authentication-results" not in headers:
         score += 0.15
     # Display name impersonation: 'PayPal' from a non-paypal address.
-    # Length-capped so a crafted From: header can't push the regex
-    # engine into polynomial time (CodeQL py/polynomial-redos). 200 chars
-    # is well beyond any legit display name.
-    m = re.match(r'"?([^"<]{1,200})"?\s*<', headers.get("from", "")[:400])
-    if m:
-        display = m.group(1).lower()
+    # Use stdlib email.utils.parseaddr instead of a regex so we can't
+    # be hit by ReDoS on a crafted From: header. Header is sliced to
+    # 400 chars first as a belt-and-braces cap.
+    display_name, _addr = parseaddr(headers.get("from", "")[:400])
+    display = display_name.lower()[:200]
+    if display:
         for brand in ("paypal", "apple", "google", "microsoft", "amazon", "facebook"):
             if brand in display and brand not in domain(sender):
                 score += 0.35
