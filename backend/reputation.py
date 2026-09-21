@@ -42,6 +42,9 @@ from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import urlparse
 
+import logging
+logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
+
 try:
     import httpx
     _HTTPX_AVAILABLE = True
@@ -277,7 +280,7 @@ class GoogleSafeBrowsing:
             r.raise_for_status()
             body = r.json()
         except Exception as e:
-            print(f"⚠ GSB request failed: {e}")
+            logger.warning("GSB request failed: {e}")
             return {}
 
         # Opt-in debug — set GSB_DEBUG=1 to log every GSB call and its
@@ -285,9 +288,9 @@ class GoogleSafeBrowsing:
         # diagnosing why an expected phishing URL isn't being flagged.
         if os.environ.get("GSB_DEBUG", "0") != "0":
             n_matches = len(body.get("matches", []))
-            print(f"[GSB] sent {len(urls)} URL(s), got {n_matches} match(es). URLs={urls}")
+            logger.debug("[GSB] sent {len(urls)} URL(s), got {n_matches} match(es). URLs={urls}")
             if n_matches == 0:
-                print(f"[GSB] full response body: {body}")
+                logger.debug("[GSB] full response body: {body}")
 
         results: dict[str, dict[str, Any]] = {}
         for match in body.get("matches", []):
@@ -339,7 +342,7 @@ class PhishTank:
                 r.raise_for_status()
                 data = r.json()
         except Exception as e:
-            print(f"⚠ PhishTank refresh failed: {e}")
+            logger.warning("PhishTank refresh failed: {e}")
             return 0
 
         urls, domains = set(), set()
@@ -366,9 +369,9 @@ class PhishTank:
             try:
                 n = await self.refresh()
                 if n:
-                    print(f"✓ PhishTank feed refreshed: {n} entries")
+                    logger.info("PhishTank feed refreshed: {n} entries")
             except Exception as e:
-                print(f"⚠ PhishTank loop error: {e}")
+                logger.warning("PhishTank loop error: {e}")
             await asyncio.sleep(PHISHTANK_REFRESH_S)
 
     def check(self, url: str) -> dict[str, Any] | None:
@@ -569,7 +572,7 @@ class ReputationEngine:
         if self.phishtank and _HTTPX_AVAILABLE:
             n = await self.phishtank.refresh()
             if n:
-                print(f"✓ PhishTank initial load: {n} entries")
+                logger.info("PhishTank initial load: {n} entries")
             # Fire-and-forget refresh loop
             self.phishtank._refresh_task = asyncio.create_task(
                 self.phishtank.start_refresh_loop()

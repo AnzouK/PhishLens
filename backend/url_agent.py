@@ -317,6 +317,7 @@ class URLAgent:
         return feature_importance_df
 
     def _plot_evaluation_results(self, conf_matrix, y_test, y_pred_proba, results):
+        # lazy imports so the inference-only backend doesn't need matplotlib/seaborn
         import matplotlib.pyplot as plt
         import seaborn as sns
         """Generate visualisation plots for model evaluation."""

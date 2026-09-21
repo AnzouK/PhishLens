@@ -25,7 +25,17 @@ directly into Gmail.
 
 <br/>
 
+<a href="https://anzouk.duckdns.org" target="_blank">
+  <img src="docs/landing-page.png" alt="PhishLens landing page — https://anzouk.duckdns.org" width="850">
+</a>
+
+<sub><em>Live at <a href="https://anzouk.duckdns.org">anzouk.duckdns.org</a> — click to open. Backend health, GSB quota, and PhishTank feed size are updated live from the same endpoints the extension uses.</em></sub>
+
+<br/><br/>
+
 <img src="docs/gmail-banner.png" alt="PhishLens injected verdict banner in Gmail" width="850">
+
+<sub><em>The Gmail-injected verdict banner — DistilBERT + trained RF agents + LIME tokens, right above the email body.</em></sub>
 
 </div>
 
@@ -120,9 +130,11 @@ Cloud Always Free VM (ARM Ampere A1, 4 OCPU / 24 GB RAM) running the same
 FastAPI Docker image as Option 1, behind Caddy with a Let's Encrypt
 certificate auto-renewed.
 
-Caveats: CPU-only inference (~3–5 s per `/analyse`), shared instance —
-don't paste sensitive email content. The VM runs continuously (no cold
-start). For a fully self-hosted deployment on your own domain, use Option 1.
+Caveats: CPU-only inference (~3–5 s per `/analyse`); **this is a
+shared open backend** with permissive CORS (`allow_origins=["*"]`) and
+per-IP rate limits — anyone can query it, so **don't paste sensitive
+email content**. The VM runs continuously (no cold start). For a
+private, fully self-hosted deployment on your own domain, use Option 1.
 
 ### Option 1 · Docker (recommended for daily use)
 
@@ -230,13 +242,19 @@ share template wording with phishing, without the security hole of the
 old allowlist — a spoofed `From: paypal.com` signed by `attacker.tld`
 fails the alignment check and stays on the strict path.
 
-### Static allowlist (fallback)
+### Static allowlist
 
-`extension_backend.py` still ships with a curated `TRUSTED_DOMAINS` set
-of well-known institutional senders as a fallback for messages that
-arrive without an `Authentication-Results` header. Edit the set to add
-or remove entries. The runtime prefers cryptographic verification when
-both signals are available.
+`extension_backend.py` ships with a curated `TRUSTED_DOMAINS` set of
+well-known institutional senders. When the sender domain matches the
+allowlist the message takes the `trusted_sender` path (text weight
+halved, metadata score floored at 0.05, single-agent override off,
+threshold 0.65) — this takes **precedence over the DKIM-alignment
+path**. It's a curated list of senders the runtime trusts unconditionally
+(even if their DKIM setup is temporarily broken), so it wins over the
+cryptographic path when both apply. The list is Nigerian-centric by
+default (Nigerian banks, telcos, universities) — extend `TRUSTED_DOMAINS`
+in `extension_backend.py` for your region. Priority order:
+`trusted_sender > crypto_verified > gmail_inbox_soft > default`.
 
 ### Fusion weights
 
@@ -269,20 +287,20 @@ sender's account is compromised).
 
 ```
 PhishLens/
-├── backend/                      # local Docker deployment
-│   ├── extension_backend.py      # FastAPI app (/analyse, /explain, /analyse_attachment, /reputation/stats)
+├── backend/                      # FastAPI + ML — single source of truth
+│   ├── extension_backend.py      # main app (/analyse, /explain, /analyse_attachment, /reputation/stats)
 │   ├── auth_headers.py           # SPF/DKIM/DMARC parser + Spamhaus DBL DNS lookup
 │   ├── reputation.py             # URL reputation cascade — GSB / PhishTank / URLhaus / DBL
 │   ├── attachment_analysis.py    # PDF (pdfplumber) + HTML (bs4) extraction + feature flags
 │   ├── feature_extraction.py     # feature engineering for the trained RF agents
 │   ├── url_agent.py              # trained URL Random Forest wrapper (from PhishingDetector)
 │   ├── metadata_agent.py         # trained metadata Random Forest wrapper
-│   ├── Dockerfile
-│   ├── docker-compose.yml
+│   ├── Dockerfile.local          # local dev image — model mounted at /app/model, port 8000
+│   ├── Dockerfile.cloud          # cloud image — model pulled from HF at boot, port 7860, non-root
+│   ├── docker-compose.yml        # uses Dockerfile.local by default
 │   ├── requirements.txt
-│   └── model/                    # DistilBERT — NOT tracked by git
-├── space/                        # cloud deployment (Oracle VM / HF Space)
-│   └── ...                       # mirrors backend/ with the cloud-specific Dockerfile
+│   ├── tests/                    # pytest suite for the pure-logic modules
+│   └── model/                    # DistilBERT — NOT tracked by git (populated by huggingface-cli)
 ├── extension/
 │   ├── manifest.json             # MV3 manifest
 │   ├── background.js             # service worker (CSP-bypass fetch proxy + warm-up alarm)
@@ -343,11 +361,19 @@ Department of Cybersecurity, session 2025–2026.
 - [x] **HTTPS + custom domain** — Caddy reverse proxy on the Oracle VM, DuckDNS domain `anzouk.duckdns.org`, Let's Encrypt certificate auto-renewed. The extension's Cloud demo preset now points to `https://anzouk.duckdns.org`; the raw IP `130.61.146.213` is kept in `host_permissions` for backward compatibility with existing installs.
 - [x] **Landing page** at `https://anzouk.duckdns.org` — dark-themed single-file page served by Caddy on the same origin as the API. Live status pill queries `/health`, live backend stats query `/reputation/stats`, and a "Try it live" widget lets visitors paste an email body or upload a `.eml` and get the same verdict the extension produces.
 
-### ✅ Shipped in v1.8.0 — Phase 1: attachment analysis
+### ✅ Shipped in v1.8.x — Phase 1: attachment analysis
 - [x] **PDF and HTML attachment analysis** — new `POST /analyse_attachment` endpoint. PDF text/URL extraction via `pdfplumber`, HTML via `BeautifulSoup`. Reuses the existing text agent + URL agent + reputation cascade on the extracted content. 10 MB hard cap, MIME sniffed from magic bytes.
 - [x] **Feature-flag detection** — `contains_javascript`, `auto_execute_on_open`, `launch_external_action`, `embeds_another_file`, `submits_form_to_url`, `remote_link_action`, `flash_or_richmedia` for PDFs; `contains_form`, `contains_password_field`, `contains_iframe`, `meta_refresh_redirect` for HTML. Flags add a bounded score bonus (cap 0.7) and a `+0.10` combo bump when a form and a password field appear together.
-- [x] **Gmail integration** — per-attachment `🛡 Scan` pill on every supported attachment tile. When a message has more than one supported attachment, a header `📎 Scan N attachments` button runs them sequentially with a `confirm()` past five and a hard cap at fifteen. Each scan produces its own mini-banner right below the tile with verdict, size, page count, URL count, notable feature chips, and reputation-hit chips.
+- [x] **Gmail integration** — single `📎 Scan N attachments` header button that scans all supported attachments sequentially (confirm past 5, hard cap at 15). Each scan produces a compact card in a grid below the tiles, with verdict, size, page count, URL count, notable feature chips, and reputation-hit chips.
+- [x] **Parent-trust inheritance** — `/analyse_attachment` reads `parent_email.gmail_delivered` / `crypto_verified` / `trusted_sender`. When any is true and no Safe Browsing hit fires, the softer weights (text × 0.5, threshold 0.72, no single-agent override) kick in — fixes false-positives on legit-but-textually-similar attachments.
 - [x] **Popup and landing widgets** — file input accepts `.pdf` and `.html` in addition to `.eml`; routes to the correct endpoint automatically; attachment-specific chips (kind, size, page count, notable features) render alongside the agent scores.
+
+### ✅ Shipped in v1.9.0 — hardening
+- [x] **Rate limiting** on `/analyse`, `/explain`, and `/analyse_attachment` via `slowapi` — protects the public Cloud demo from abuse (e.g. burning through the 10 k/day GSB quota). Env-tunable per endpoint.
+- [x] **`backend/` consolidation** — `space/` folder dropped. One source tree with `Dockerfile.local` (docker-compose, model mounted, port 8000) and `Dockerfile.cloud` (Caddy-fronted, HF pull, port 7860, non-root user). No more manual `cp` between two directories.
+- [x] **Test suite** — pytest coverage for `auth_headers` (spoof rejection, org-domain alignment) and `attachment_analysis` (MIME sniffing, size cap, HTML feature flags).
+- [x] **CI** — GitHub Actions pipeline running ruff + compile-all + pytest on every push and PR.
+- [x] **Logging** — replaced ad-hoc `print()` calls in the runtime modules with `logging.getLogger("phishlens.…")` so uvicorn's log stack picks levels up correctly.
 
 ### 🚧 Planned for next release — Phase 2 and 3
 - [ ] **DOCX / XLSX support** — extract text + hyperlinks via `python-docx` and `openpyxl`; macro presence flagged as a hard red flag

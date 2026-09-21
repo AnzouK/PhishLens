@@ -10,7 +10,7 @@ services:
   phishlens-backend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.local
     image: phishlens-backend:latest
     container_name: phishlens-backend
     ports:

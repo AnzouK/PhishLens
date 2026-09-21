@@ -32,3 +32,8 @@ httpx>=0.27,<1.0
 # HTML attachments.
 pdfplumber>=0.11,<1.0
 beautifulsoup4>=4.12,<5.0
+
+# Rate limiting (v1.9+) — protects the public backend from abuse (e.g.
+# burning through the 10 k/day GSB quota) without adding auth. In-memory
+# by default; swap to Redis via SLOWAPI_STORAGE_URI when needed.
+slowapi>=0.1.9,<1.0
