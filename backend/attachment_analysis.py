@@ -17,6 +17,9 @@ import io
 import re
 from typing import Any
 
+import logging
+logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
+
 # ---------------------------------------------------------------------
 # Limits — enforced BEFORE decoding to protect the process.
 # ---------------------------------------------------------------------
@@ -34,14 +37,14 @@ try:
     _PDFPLUMBER_OK = True
 except Exception as _e:
     _PDFPLUMBER_OK = False
-    print(f"⚠ pdfplumber not available ({_e}); PDF attachments will be rejected.")
+    logger.warning("pdfplumber not available ({_e}); PDF attachments will be rejected.")
 
 try:
     from bs4 import BeautifulSoup             # type: ignore
     _BS4_OK = True
 except Exception as _e:
     _BS4_OK = False
-    print(f"⚠ beautifulsoup4 not available ({_e}); HTML attachments will be rejected.")
+    logger.warning("beautifulsoup4 not available ({_e}); HTML attachments will be rejected.")
 
 
 # ---------------------------------------------------------------------

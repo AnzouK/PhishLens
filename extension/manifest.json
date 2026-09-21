@@ -1,7 +1,7 @@
 {
   "name": "PhishLens",
-  "description": "Detects phishing in emails and explains why, using a fine-tuned DistilBERT and LIME.",
-  "version": "1.8.1",
+  "description": "Detect and explain phishing emails in Gmail \u2014 DistilBERT, trained URL/header Random Forests, SPF/DKIM/DMARC, URL reputation cascade (GSB, PhishTank, URLhaus, Spamhaus), PDF/HTML attachment scanning, LIME explanations.",
+  "version": "1.9.0",
   "manifest_version": 3,
   "icons": {
     "16": "icons/16.png",

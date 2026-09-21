@@ -39,11 +39,14 @@ from typing import Any
 import numpy as np
 import torch
 import torch.nn.functional as F
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from lime.lime_text import LimeTextExplainer
 from pydantic import BaseModel
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+import logging
+logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
 # Sender authentication + Spamhaus DBL — real cryptographic signals to
 # replace the static allowlist. Optional: if the module isn't present the
@@ -117,6 +120,14 @@ HIGH_CONF_OVERRIDE = 0.85
 # Personal email providers (gmail.com, yahoo.com, outlook.com, ...) are
 # deliberately NOT in this set — they are used by phishers as much as by
 # legitimate senders, so they carry no trust signal.
+#
+# REGION NOTE: the default list is Nigerian-centric because PhishLens is
+# a Nile University project. If you fork this for a different region,
+# extend the list with your local banks / telcos / gov domains — an
+# empty allowlist is safe (the crypto path still runs), just less
+# forgiving on legit transactional templates from those senders.
+# Priority order at scan time:
+#     trusted_sender  >  crypto_verified  >  gmail_inbox_soft  >  default
 TRUSTED_DOMAINS = {
     # Nigerian banks
     "ubagroup.com", "gtbank.com", "gtco.com", "zenithbank.com",
@@ -248,7 +259,7 @@ async def lifespan(_app: FastAPI):
         try:
             await _reputation.startup()
         except Exception as _e:
-            print(f"⚠ reputation.startup() failed: {_e}")
+            logger.warning("reputation.startup() failed: {_e}")
 
     yield
 
@@ -266,15 +277,52 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Smart Phishing Detector — extension backend",
               lifespan=lifespan)
 
-# Chrome extensions have origin chrome-extension://<id>. For local dev we
-# allow any origin (the backend is localhost-only anyway).
+# Chrome extensions have origin chrome-extension://<id>. The Cloud demo
+# is a shared open backend, so we allow any origin — self-hosted deploys
+# should tighten this via CORS_ALLOW_ORIGINS if they don't need it open.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=os.environ.get("CORS_ALLOW_ORIGINS", "*").split(","),
     allow_credentials=False,
     allow_methods=["POST", "GET", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Rate limiting (v1.9+) — protects the public backend from abuse. The
+# heavy endpoints (/analyse, /explain, /analyse_attachment) are limited
+# to a few dozen requests per minute per client IP. /health and
+# /reputation/stats are cheap and left unlimited so uptime probes and
+# the landing page don't get throttled.
+#
+# Uses slowapi (in-memory bucket by default; set SLOWAPI_STORAGE_URI to
+# a Redis URL when horizontally scaling). Gracefully degrades to a
+# no-op if slowapi isn't installed (dev / older venvs).
+# ---------------------------------------------------------------------------
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.util import get_remote_address
+
+    _limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=[os.environ.get("RATE_LIMIT_DEFAULT", "60/minute")],
+        storage_uri=os.environ.get("SLOWAPI_STORAGE_URI", "memory://"),
+    )
+    app.state.limiter = _limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    RATE_LIMIT_ANALYSE    = os.environ.get("RATE_LIMIT_ANALYSE",    "30/minute")
+    RATE_LIMIT_ATTACHMENT = os.environ.get("RATE_LIMIT_ATTACHMENT", "20/minute")
+    RATE_LIMIT_EXPLAIN    = os.environ.get("RATE_LIMIT_EXPLAIN",    "15/minute")
+    _RATE_LIMIT_OK = True
+except Exception as _e:
+    logger.warning("slowapi not available ({_e}); rate limiting disabled.")
+    _limiter = None
+    _RATE_LIMIT_OK = False
+    def _noop_decorator(*_a, **_k):
+        def _wrap(fn): return fn
+        return _wrap
+    RATE_LIMIT_ANALYSE = RATE_LIMIT_ATTACHMENT = RATE_LIMIT_EXPLAIN = None
 
 
 class AnalyseRequest(BaseModel):
@@ -412,7 +460,7 @@ def _try_download_agents() -> tuple[Path | None, Path | None]:
         )
         return Path(url_path), Path(meta_path)
     except Exception as e:
-        print(f"⚠ Could not fetch agents from {HF_AGENTS_REPO}: {e}")
+        logger.warning("Could not fetch agents from {HF_AGENTS_REPO}: {e}")
         return None, None
 
 
@@ -436,18 +484,18 @@ try:
         from url_agent import URLAgent  # noqa: E402
         _URL_AGENT = URLAgent()
         _URL_AGENT.load_model(str(url_path))
-        print(f"✓ Loaded trained URL agent from {url_path}")
+        logger.info("Loaded trained URL agent from {url_path}")
 
     if meta_path and meta_path.exists():
         from metadata_agent import MetadataAgent  # noqa: E402
         _METADATA_AGENT = MetadataAgent()
         _METADATA_AGENT.load_model(str(meta_path))
-        print(f"✓ Loaded trained metadata agent from {meta_path}")
+        logger.info("Loaded trained metadata agent from {meta_path}")
 
     if not _URL_AGENT and not _METADATA_AGENT:
-        print("ℹ No trained agents loaded — using heuristic fallbacks.")
+        logger.info("No trained agents loaded — using heuristic fallbacks.")
 except Exception as e:
-    print(f"⚠ Trained-agents init failed, falling back to heuristics: {e}")
+    logger.warning("Trained-agents init failed, falling back to heuristics: {e}")
 
 
 def url_agent(urls: list[str], body_text: str = "") -> float:
@@ -545,7 +593,8 @@ def reputation_stats():
 
 
 @app.post("/explain")
-def explain(req: AnalyseRequest):
+@(_limiter.limit(RATE_LIMIT_EXPLAIN) if _RATE_LIMIT_OK else (lambda f: f))
+def explain(request: Request, req: AnalyseRequest):
     """Top-K LIME tokens explaining the text-agent decision."""
     body, _, _, _ = _get_body_urls_headers(req)
     if not body:
@@ -681,7 +730,8 @@ def _get_body_urls_headers(req: AnalyseRequest):
 
 
 @app.post("/analyse")
-async def analyse(req: AnalyseRequest):
+@(_limiter.limit(RATE_LIMIT_ANALYSE) if _RATE_LIMIT_OK else (lambda f: f))
+async def analyse(request: Request, req: AnalyseRequest):
     body, urls, headers, raw_bytes = _get_body_urls_headers(req)
     if not body:
         raise HTTPException(400, "Could not extract any text from this email.")
@@ -729,7 +779,7 @@ async def analyse(req: AnalyseRequest):
         try:
             auth_signal = await auth_signal_task
         except Exception as e:
-            print(f"⚠ auth_signal task failed: {e}")
+            logger.warning("auth_signal task failed: {e}")
 
     # Collect the URL reputation verdicts (or an empty list if disabled)
     reputation_verdicts: list[dict[str, Any]] = []
@@ -737,7 +787,7 @@ async def analyse(req: AnalyseRequest):
         try:
             reputation_verdicts = await reputation_task
         except Exception as e:
-            print(f"⚠ reputation task failed: {e}")
+            logger.warning("reputation task failed: {e}")
 
     # Apply reputation to the URL agent score. Any tier flagging a URL is
     # very strong evidence — much better than a RF trained on lexical
@@ -889,7 +939,8 @@ async def analyse(req: AnalyseRequest):
 # count, notable features like /JavaScript in PDFs, etc).
 # ---------------------------------------------------------------------------
 @app.post("/analyse_attachment")
-async def analyse_attachment(req: AttachmentRequest):
+@(_limiter.limit(RATE_LIMIT_ATTACHMENT) if _RATE_LIMIT_OK else (lambda f: f))
+async def analyse_attachment(request: Request, req: AttachmentRequest):
     if not _ATTACHMENTS_AVAILABLE:
         raise HTTPException(
             501,
@@ -925,13 +976,13 @@ async def analyse_attachment(req: AttachmentRequest):
         try:
             p_text = float(text_agent(text))
         except Exception as e:
-            print(f"⚠ text_agent failed on attachment: {e}")
+            logger.warning("text_agent failed on attachment: {e}")
 
     # URL agent — trained RF when available, heuristic fallback otherwise.
     try:
         p_url = float(url_agent(urls, body_text=text))
     except Exception as e:
-        print(f"⚠ url_agent failed on attachment: {e}")
+        logger.warning("url_agent failed on attachment: {e}")
         p_url = 0.0
 
     # Reputation cascade in parallel — same tiers as /analyse.
@@ -940,7 +991,7 @@ async def analyse_attachment(req: AttachmentRequest):
         try:
             reputation_verdicts = await _reputation.check_urls(urls)
         except Exception as e:
-            print(f"⚠ reputation check failed on attachment: {e}")
+            logger.warning("reputation check failed on attachment: {e}")
 
     rep_max_score = 0.0
     rep_hit_sources: set[str] = set()
@@ -1005,6 +1056,13 @@ async def analyse_attachment(req: AttachmentRequest):
     # EXCEPTION: a Google Safe Browsing hit on any URL in the attachment
     # still forces phishing regardless — a signed message pointing to a
     # blocklisted URL means the sender's account is compromised.
+    # SECURITY NOTE: parent_email is a client-supplied hint we can't
+    # independently verify from a raw /analyse_attachment call — a caller
+    # can trivially claim `gmail_delivered=true` in curl. The impact of
+    # a false claim is limited: it only softens THAT caller's own scoring,
+    # never anyone else's. A Google Safe Browsing hit still overrides the
+    # softer path (see gsb_hit below). Never widen this trust surface
+    # to actions with side-effects for other users.
     parent = req.parent_email or {}
     parent_trusted = bool(
         parent.get("crypto_verified")
