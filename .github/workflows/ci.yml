@@ -24,6 +24,12 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege token: this workflow only reads the code, it never
+# posts back to the repo (no PR comments, no status writes beyond what
+# GH does automatically). CodeQL wants an explicit permissions block.
+permissions:
+  contents: read
+
 jobs:
   python:
     name: Python lint + tests
