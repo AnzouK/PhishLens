@@ -11,15 +11,19 @@
 // through to the network as before, then writes the result back.
 //
 // Storage: one key `limeCache` -> { [key]: {features, ts} }.
-// Cap: MAX_ENTRIES (LRU by timestamp). Bytes stay well under the 5 MB
-// chrome.storage cap even at max.
+// Cap: LRU by timestamp. Bytes stay well under the 5 MB chrome.storage cap.
+//
+// This whole file is wrapped in an IIFE so that internals (constants,
+// helpers) don't leak to the global scope — popup.html loads history.js
+// alongside us as classic <script>, and both defined _get/_set/etc.
+// The only symbol we export is window.PhishLensLimeCache.
 // =====================================================================
+(function () {
+"use strict";
 
-const CACHE_KEY = "limeCache";
+const CACHE_KEY   = "limeCache";
 const MAX_ENTRIES = 200;
-const TTL_MS = 30 * 24 * 3600 * 1000;   // 30 days — LIME output only
-                                        // depends on model + text, both
-                                        // stable-ish
+const TTL_MS      = 30 * 24 * 3600 * 1000;    // 30 days
 
 // ---------------------------------------------------------------------
 // Payload hash — SHA-256 over a canonical representation of the input.
@@ -111,3 +115,4 @@ if (typeof window     !== "undefined") window.PhishLensLimeCache     = PhishLens
 if (typeof self       !== "undefined") self.PhishLensLimeCache       = PhishLensLimeCache;
 
 if (typeof module !== "undefined" && module.exports) module.exports = PhishLensLimeCache;
+})();
