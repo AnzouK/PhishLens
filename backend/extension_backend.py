@@ -549,8 +549,11 @@ def metadata_agent(headers: dict[str, str], raw_email: bytes | None = None) -> f
         score += 0.40
     if "authentication-results" not in headers:
         score += 0.15
-    # Display name impersonation: 'PayPal' from a non-paypal address
-    m = re.match(r'"?([^"<]+)"?\s*<', headers.get("from", ""))
+    # Display name impersonation: 'PayPal' from a non-paypal address.
+    # Length-capped so a crafted From: header can't push the regex
+    # engine into polynomial time (CodeQL py/polynomial-redos). 200 chars
+    # is well beyond any legit display name.
+    m = re.match(r'"?([^"<]{1,200})"?\s*<', headers.get("from", "")[:400])
     if m:
         display = m.group(1).lower()
         for brand in ("paypal", "apple", "google", "microsoft", "amazon", "facebook"):

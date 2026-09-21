@@ -176,8 +176,13 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
     # with no visible URL text). We also parse /URI markers directly.
     urls = extract_urls(text)
     if len(urls) < MAX_EXTRACTED_URLS:
-        # Cheap annotation URI scan — grabs (/URI (https://…))
-        for m in re.finditer(rb"/URI\s*\(([^)]+)\)", raw):
+        # Cheap annotation URI scan — grabs (/URI (https://…)).
+        # The inner class is length-capped (2048 bytes) to close a
+        # polynomial-ReDoS surface that CodeQL flagged: a crafted PDF
+        # with a very long /URI( body and no closing paren could push
+        # the regex engine into O(n²) territory. 2 KB is more than any
+        # legit annotation ever holds.
+        for m in re.finditer(rb"/URI\s*\(([^)]{1,2048})\)", raw):
             try:
                 u = m.group(1).decode("latin-1", errors="ignore").strip()
                 if u.lower().startswith(("http://", "https://")) and u not in urls:

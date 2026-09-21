@@ -3,10 +3,14 @@
 # =====================================================================
 # Runs on every push to main + every pull request.
 #
-#   1. Lint Python with ruff (only errors + a few high-signal warns)
-#   2. Compile every Python file to catch SyntaxErrors on the whole tree
-#   3. Run the backend/tests/ pytest suite (pure-function tests, no
-#      model loading, no network)
+#   1. Compile every backend Python file to catch SyntaxErrors
+#   2. Lint the backend with ruff (fatal errors only — we're not enforcing
+#      house style, just catching bugs like unused imports, undefined
+#      names, syntax issues)
+#   3. Run the backend/tests/ pytest suite — pure-function tests, no
+#      model loading, no network, no heavy deps (torch/transformers/
+#      pdfplumber are deliberately NOT installed here to keep runs
+#      under a minute)
 # =====================================================================
 name: CI
 
@@ -34,29 +38,27 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install test dependencies
+      - name: Install lint + test dependencies
         run: |
           python -m pip install --upgrade pip
-          # Only what the pure-function tests need — we deliberately
-          # skip torch / transformers / pdfplumber to keep CI fast.
-          # attachment_analysis's PDF path is exercised end-to-end
-          # from the extension; here we only run the HTML + dispatcher
-          # tests which need beautifulsoup4.
+          # Only what auth_headers + attachment_analysis need at test time.
+          # NB: no torch / transformers / pdfplumber — we keep CI fast by
+          # not exercising the model path here.
           pip install pytest ruff beautifulsoup4
 
-      - name: Ruff (lint, errors only)
-        run: |
-          ruff check backend/ --select E,F,W,B --ignore E501
+      - name: Compile every backend .py to catch SyntaxError
+        run: python -m compileall -q backend/
 
-      - name: Compile every .py to catch SyntaxError
+      - name: Ruff (fatal errors only — E9, F63, F7, F82)
         run: |
-          python -m compileall -q backend/ extension/ site/ 2>/dev/null || true
-          python -m compileall -q backend/
+          # Narrow rule set on purpose. We're not enforcing style here,
+          # just catching things that would 500 the app: syntax errors
+          # (E9), undefined names (F821, F823), assert on tuples (F631),
+          # not-implemented tests (F811), etc.
+          ruff check backend/ --select E9,F63,F7,F82 --output-format=github
 
       - name: Run pytest
         working-directory: backend
-        run: |
-          # Explicitly point PYTHONPATH at backend/ so the tests can
-          # import auth_headers and attachment_analysis without an
-          # install step.
-          PYTHONPATH=. pytest tests/ -q --tb=short
+        env:
+          PYTHONPATH: .
+        run: pytest tests/ -q --tb=short

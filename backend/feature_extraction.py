@@ -252,7 +252,9 @@ class FeatureExtractor:
 
                     per_url.append({
                         'domain_length': len(domain),
-                        'domain_has_ip': int(bool(re.match(r'\d+\.\d+\.\d+\.\d+', domain))),
+                        # Bounded quantifiers + full-match anchors kill the
+                        # polynomial-ReDoS surface CodeQL flagged here.
+                        'domain_has_ip': int(bool(re.fullmatch(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', domain))),
                         'domain_has_hyphen': int('-' in domain),
                         'domain_has_at_symbol': int('@' in url),
                         'domain_dots_count': domain.count('.'),
