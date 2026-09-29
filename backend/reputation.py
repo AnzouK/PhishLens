@@ -50,7 +50,7 @@ try:
     _HTTPX_AVAILABLE = True
 except ImportError:
     _HTTPX_AVAILABLE = False
-    print("⚠ httpx not installed — reputation lookups disabled. "
+    logger.warning("httpx not installed — reputation lookups disabled. "
           "pip install httpx>=0.27")
 
 
@@ -69,7 +69,7 @@ ENABLE_PHISHTANK    = os.environ.get("REPUTATION_ENABLE_PHISHTANK", "1") != "0"
 ENABLE_GSB          = os.environ.get("REPUTATION_ENABLE_GSB", "1") != "0"
 HTTP_TIMEOUT        = float(os.environ.get("REPUTATION_HTTP_TIMEOUT", "3.0"))
 
-USER_AGENT = "PhishLens/1.6 (+https://github.com/AnzouK/PhishLens)"
+USER_AGENT = "PhishLens/1.10 (+https://github.com/AnzouK/PhishLens)"
 
 
 # =====================================================================
@@ -280,7 +280,7 @@ class GoogleSafeBrowsing:
             r.raise_for_status()
             body = r.json()
         except Exception as e:
-            logger.warning("GSB request failed: {e}")
+            logger.warning(f"GSB request failed: {e}")
             return {}
 
         # Opt-in debug — set GSB_DEBUG=1 to log every GSB call and its
@@ -288,9 +288,9 @@ class GoogleSafeBrowsing:
         # diagnosing why an expected phishing URL isn't being flagged.
         if os.environ.get("GSB_DEBUG", "0") != "0":
             n_matches = len(body.get("matches", []))
-            logger.debug("[GSB] sent {len(urls)} URL(s), got {n_matches} match(es). URLs={urls}")
+            logger.debug(f"[GSB] sent {len(urls)} URL(s), got {n_matches} match(es). URLs={urls}")
             if n_matches == 0:
-                logger.debug("[GSB] full response body: {body}")
+                logger.debug(f"[GSB] full response body: {body}")
 
         results: dict[str, dict[str, Any]] = {}
         for match in body.get("matches", []):
@@ -342,7 +342,7 @@ class PhishTank:
                 r.raise_for_status()
                 data = r.json()
         except Exception as e:
-            logger.warning("PhishTank refresh failed: {e}")
+            logger.warning(f"PhishTank refresh failed: {e}")
             return 0
 
         urls, domains = set(), set()
@@ -369,9 +369,9 @@ class PhishTank:
             try:
                 n = await self.refresh()
                 if n:
-                    logger.info("PhishTank feed refreshed: {n} entries")
+                    logger.info(f"PhishTank feed refreshed: {n} entries")
             except Exception as e:
-                logger.warning("PhishTank loop error: {e}")
+                logger.warning(f"PhishTank loop error: {e}")
             await asyncio.sleep(PHISHTANK_REFRESH_S)
 
     def check(self, url: str) -> dict[str, Any] | None:
@@ -491,7 +491,7 @@ async def _spamhaus_dbl(domain: str) -> dict[str, Any] | None:
     if resp.startswith(_POLICY_ERROR_PREFIX):
         # Log once so we know DBL is effectively disabled on this host.
         if not _spamhaus_policy_logged["done"]:
-            print(f"⚠ Spamhaus DBL policy response ({resp}) — the DNS resolver "
+            logger.warning(f"Spamhaus DBL policy response ({resp}) — the DNS resolver "
                   "used by this host is blocked by Spamhaus. DBL lookups will "
                   "be treated as unavailable. Use a private recursive resolver "
                   "or the Spamhaus DQS commercial feed to enable DBL.")
@@ -572,7 +572,7 @@ class ReputationEngine:
         if self.phishtank and _HTTPX_AVAILABLE:
             n = await self.phishtank.refresh()
             if n:
-                logger.info("PhishTank initial load: {n} entries")
+                logger.info(f"PhishTank initial load: {n} entries")
             # Fire-and-forget refresh loop
             self.phishtank._refresh_task = asyncio.create_task(
                 self.phishtank.start_refresh_loop()

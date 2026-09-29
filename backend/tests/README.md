@@ -1,21 +1,27 @@
 # PhishLens backend tests
 
-Pure-function pytest suite for the modules that don't touch the model
-(loading DistilBERT is ~3 s and blows the CI budget). Currently covers:
+Offline pytest suite. Nothing here loads DistilBERT or touches the
+network: `conftest.py` stubs torch / transformers / lime when they are
+not installed, the endpoint tests patch the text agent with a fixed
+score, and the reputation tests replace every threat-intel tier with an
+in-process fake.
 
-- `test_auth_headers.py` — RFC 7489 SPF/DKIM/DMARC parsing, org-domain
-  alignment, and the spoof rejection that used to slip past the old
-  static allowlist.
-- `test_attachment_analysis.py` — MIME sniffing, size cap enforcement,
-  HTML feature-flag extraction, plain-text and unsupported-type paths.
+| File | What it pins |
+| --- | --- |
+| `test_auth_headers.py` | RFC 7489 SPF/DKIM/DMARC parsing, org-domain alignment, spoof rejection |
+| `test_attachment_analysis.py` | MIME sniffing, size cap, HTML feature flags, unsupported types |
+| `test_feature_extraction.py` | URL and metadata features consumed by the Random Forest agents (names and semantics) |
+| `test_reputation.py` | SQLite cache and TTL, GSB daily quota, cascade scoring, cache reuse |
+| `test_extension_backend.py` | `/health`, `/analyse`, `/analyse_attachment`, `/metrics`, the four trust paths, heuristic agents |
 
 Run locally:
 
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt pytest
-pytest -q
+pip install pytest pytest-cov beautifulsoup4 numpy fastapi httpx prometheus-fastapi-instrumentator
+pytest -q --cov=. --cov-config=.coveragerc
 ```
 
-Or via the CI workflow (`.github/workflows/ci.yml`) on every push.
+CI (`.github/workflows/ci.yml`) runs the same command on every push and
+pull request and prints the coverage table in the job log.

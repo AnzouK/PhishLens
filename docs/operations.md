@@ -1,0 +1,123 @@
+# Operations guide
+
+How to deploy, observe and load-test a PhishLens backend. The examples
+match the reference deployment (Oracle Cloud ARM VM, Docker, Caddy in
+front); adapt names and paths for your own host.
+
+## Deploy or update
+
+```bash
+cd ~/PhishLens
+git fetch origin && git reset --hard origin/main
+cd backend
+docker build -f Dockerfile.cloud -t phishlens .
+docker rm -f phishlens            # "docker restart" would keep the old image
+docker run -d --restart=always \
+  --network web \
+  --env-file ~/.phishlens.env \
+  -v ~/phishlens_data:/data \
+  --name phishlens phishlens
+docker logs -f phishlens          # wait for "Model loaded on device=cpu"
+```
+
+`~/.phishlens.env` holds the secrets and tuning knobs (`GSB_API_KEY`,
+`REPUTATION_CACHE_DB=/data/reputation.db`, rate limits). It is never
+committed. The landing page is static and deployed separately:
+`rsync -avz --delete site/ <vm>:~/phishlens-site/`.
+
+## Health and status endpoints
+
+| Endpoint | Use |
+| --- | --- |
+| `GET /health` | Liveness. Also used by the extension as a warm-up ping. |
+| `GET /reputation/stats` | Cache hit rate, GSB quota consumed and remaining, PhishTank feed size. |
+| `GET /metrics` | Prometheus metrics (see below). Internal only. |
+
+## Logging
+
+All runtime modules log through `logging.getLogger("phishlens.<module>")`
+to stdout, so `docker logs phishlens` shows everything. Format:
+`2026-09-29 10:00:00,000 WARNING phishlens.reputation: GSB request failed: ...`.
+Set `LOG_LEVEL=DEBUG` (or `WARNING` to quieten it) in the env file.
+Email content is never logged.
+
+## Metrics
+
+Enabled by default when `prometheus-fastapi-instrumentator` is installed
+(it is in `requirements.txt`). Disable with `METRICS_ENABLED=0`.
+
+| Metric | Meaning |
+| --- | --- |
+| `http_requests_total{handler, method, status}` | Request count per endpoint and status code (429s show rate limiting at work) |
+| `http_request_duration_seconds{handler}` | Latency histogram per endpoint |
+| `http_requests_inprogress` | Requests currently being served |
+| `phishlens_verdicts_total{endpoint, verdict, trust_path}` | Final verdicts, split by `/analyse` or `/analyse_attachment` and by scoring path |
+
+The ratio `phishing / (phishing + safe)` over time is the number to watch:
+a sudden jump means an attack wave or a model regression, a drop to zero
+means something upstream (Gmail DOM change, extension bug) broke.
+
+Read them on the VM without exposing anything:
+
+```bash
+docker exec phishlens python3 -c \
+  "import urllib.request as u; print(u.urlopen('http://127.0.0.1:7860/metrics').read().decode())" \
+  | grep -E '^(phishlens_|http_requests_total)'
+```
+
+### Keep `/metrics` private
+
+On the main domain Caddy only forwards the API paths (`/analyse*`,
+`/explain*`, `/health`, `/reputation*`), so `/metrics` is already not
+reachable there. The raw-IP compatibility block forwards everything,
+so add a rule to it:
+
+```caddy
+http://130.61.146.213 {
+        @metrics path /metrics
+        respond @metrics 404
+        reverse_proxy phishlens:7860
+}
+```
+
+Then `docker exec caddy caddy reload --config /etc/caddy/Caddyfile`.
+If you run a Prometheus server, scrape `phishlens:7860/metrics` from
+inside the `web` Docker network.
+
+## Load testing
+
+`scripts/locustfile.py` replays the extension's traffic mix: text scans
+(most of it), full `.eml` scans, HTML attachment scans and health pings.
+`/explain` is excluded because it measures LIME, not the service.
+
+Rules: never aim it at the public demo (it would burn the shared Google
+Safe Browsing quota), and raise the per-IP rate limits for the test
+container, otherwise you are only measuring the limiter.
+
+```bash
+# 1. Throwaway container on the VM, localhost only, limits lifted,
+#    external intel off so the test measures PhishLens itself
+docker run -d --rm --name phishlens-load -p 127.0.0.1:8001:7860 \
+  -e RATE_LIMIT_ANALYSE=100000/minute \
+  -e RATE_LIMIT_ATTACHMENT=100000/minute \
+  -e REPUTATION_ENABLE_GSB=0 -e REPUTATION_ENABLE_DBL=0 \
+  -e REPUTATION_ENABLE_URLHAUS=0 -e REPUTATION_ENABLE_PHISHTANK=0 \
+  phishlens
+sleep 60                                   # model download + load
+
+# 2. Run the test (from the repo root)
+python3 -m pip install --user locust
+python3 -m locust -f scripts/locustfile.py --host http://127.0.0.1:8001 \
+  --headless -u 10 -r 2 -t 2m --csv loadtest
+
+# 3. Clean up
+docker stop phishlens-load
+```
+
+`loadtest_stats.csv` has the median, p95 and p99 latency and the
+throughput per endpoint. Record the numbers in the table below with the
+date and hardware so regressions are visible.
+
+| Date | Host | Users | Endpoint | Median | p95 | Req/s | Failures |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| *to fill* | Oracle A1, 4 OCPU, 24 GB | 10 | `/analyse [text]` | | | | |

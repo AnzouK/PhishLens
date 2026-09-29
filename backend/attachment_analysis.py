@@ -37,14 +37,14 @@ try:
     _PDFPLUMBER_OK = True
 except Exception as _e:
     _PDFPLUMBER_OK = False
-    logger.warning("pdfplumber not available ({_e}); PDF attachments will be rejected.")
+    logger.warning(f"pdfplumber not available ({_e}); PDF attachments will be rejected.")
 
 try:
     from bs4 import BeautifulSoup             # type: ignore
     _BS4_OK = True
 except Exception as _e:
     _BS4_OK = False
-    logger.warning("beautifulsoup4 not available ({_e}); HTML attachments will be rejected.")
+    logger.warning(f"beautifulsoup4 not available ({_e}); HTML attachments will be rejected.")
 
 
 # ---------------------------------------------------------------------
