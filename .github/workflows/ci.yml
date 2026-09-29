@@ -31,6 +31,25 @@ permissions:
   contents: read
 
 jobs:
+  # Resolves backend/requirements.txt on the same Python as the Docker
+  # base image (python:3.11-slim) without installing anything. Catches
+  # Dependabot bumps that CI would otherwise pass blindly because the
+  # test job only installs a handful of packages (e.g. a numpy release
+  # that no longer ships wheels for 3.11).
+  requirements:
+    name: Requirements resolve (Python 3.11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: pip resolve (dry run)
+        run: |
+          python -m pip install --upgrade pip
+          pip install --dry-run --ignore-installed --quiet -r backend/requirements.txt
+
   python:
     name: Python lint + tests
     runs-on: ubuntu-latest

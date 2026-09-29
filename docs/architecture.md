@@ -59,7 +59,7 @@ sequenceDiagram
     participant M as Agents
 
     G->>B: raw_text + sender_email + client_context
-    B->>B: parse body, URLs, headers; synthesize Authentication-Results from Gmail hints
+    B->>B: parse body, URLs and headers, synthesize Authentication-Results from Gmail hints
     par started in parallel
         B->>A: build_metadata_auth_signal(headers)
         B->>R: check_urls(urls)
@@ -70,7 +70,7 @@ sequenceDiagram
     B->>B: merge reputation into URL score, auth delta into metadata score
     B->>B: pick trust path, weighted fusion, threshold
     B-->>G: verdict, per-agent scores, sender_auth, url_reputation, trust_path
-    G->>B: POST /explain (only when the user opens "Why?")
+    G->>B: POST /explain (only when the user opens the Why panel)
 ```
 
 The LIME explanation is a separate call because it costs about 100 forward

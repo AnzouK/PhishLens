@@ -5,6 +5,24 @@ All notable changes to PhishLens are listed here. The format follows
 uses [Semantic Versioning](https://semver.org/). The extension and the
 backend share one version number.
 
+## [Unreleased]
+
+### Added
+- CI job that resolves `backend/requirements.txt` on Python 3.11 (the
+  Docker base) with `pip install --dry-run`, so dependency bumps that
+  cannot install in the image fail in CI instead of at deploy time.
+- DistilBERT checkpoint and Random Forest joblibs persisted on host
+  volumes (see `docs/operations.md`), so re-creating the container no
+  longer re-downloads them.
+
+### Changed
+- Dependabot ignores major versions of transformers, huggingface-hub
+  and scikit-learn; those are upgraded by hand after a real model test.
+
+### Fixed
+- Mermaid sequence diagram in `docs/architecture.md` did not render on
+  GitHub.
+
 ## [1.10.1] - 2026-09-29
 
 ### Fixed
