@@ -85,3 +85,11 @@ updates:
     commit-message:
       prefix: chore(docker)
       include: scope
+    # Keep patch bumps (3.11.x security fixes). A Python minor bump
+    # (3.11 -> 3.14) changes which wheels exist for torch, lime and
+    # scikit-image, and CI neither builds the image nor runs that
+    # Python, so it is done by hand: build a test container, then move
+    # the CI python-version to match.
+    ignore:
+      - dependency-name: python
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
