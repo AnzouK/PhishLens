@@ -5,7 +5,7 @@ All notable changes to PhishLens are listed here. The format follows
 uses [Semantic Versioning](https://semver.org/). The extension and the
 backend share one version number.
 
-## [Unreleased]
+## [1.10.2] - 2026-09-29
 
 ### Added
 - CI job that resolves `backend/requirements.txt` on Python 3.11 (the
@@ -22,9 +22,22 @@ backend share one version number.
   ignores minor and major ones (3.11 to 3.14 changes which wheels exist
   for torch, lime and scikit-image).
 
+- Dependency minimums raised (Dependabot, all within the current major
+  except prometheus-fastapi-instrumentator 7 to 8, which the `/metrics`
+  test already runs against): transformers 4.57.6, scikit-learn 1.9.1,
+  beautifulsoup4 4.15.0, pdfplumber 0.11.10, slowapi 0.1.10.
+- README latency figure updated from the old "3 to 5 s" (Render era) to
+  the measured value.
+
 ### Fixed
 - Mermaid sequence diagram in `docs/architecture.md` did not render on
   GitHub.
+
+### Measured
+- First load test on the Oracle A1 VM: 454 requests, 0 failures,
+  `/analyse` text median 77 ms and p95 280 ms, all endpoints p99 under
+  0.5 s at about 4 requests per second. Details in
+  `docs/operations.md`.
 
 ## [1.10.1] - 2026-09-29
 
@@ -165,6 +178,7 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[1.10.2]: https://github.com/AnzouK/PhishLens/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/AnzouK/PhishLens/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/AnzouK/PhishLens/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/AnzouK/PhishLens/compare/v1.8.0...v1.9.0

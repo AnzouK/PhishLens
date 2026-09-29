@@ -131,7 +131,9 @@ Cloud Always Free VM (ARM Ampere A1, 4 OCPU / 24 GB RAM) running the same
 FastAPI Docker image as Option 1, behind Caddy with a Let's Encrypt
 certificate auto-renewed.
 
-Caveats: CPU-only inference (~3–5 s per `/analyse`); **this is a
+Caveats: CPU-only inference (about 80 ms median per `/analyse` in the
+[load test](docs/operations.md#load-testing), plus the reputation lookups on a
+cache miss); **this is a
 shared open backend** with permissive CORS (`allow_origins=["*"]`) and
 per-IP rate limits — anyone can query it, so **don't paste sensitive
 email content**. The VM runs continuously (no cold start). For a
