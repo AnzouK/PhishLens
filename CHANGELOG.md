@@ -18,6 +18,9 @@ backend share one version number.
 ### Changed
 - Dependabot ignores major versions of transformers, huggingface-hub
   and scikit-learn; those are upgraded by hand after a real model test.
+- Dependabot keeps patch updates of the `python` Docker base image but
+  ignores minor and major ones (3.11 to 3.14 changes which wheels exist
+  for torch, lime and scikit-image).
 
 ### Fixed
 - Mermaid sequence diagram in `docs/architecture.md` did not render on
