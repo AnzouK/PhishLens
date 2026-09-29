@@ -11,7 +11,7 @@ pydantic>=2.13.5,<3.0
 # Dockerfile so pip doesn't pull the ~3.5 GB of NVIDIA CUDA runtime packages
 # that torch 2.14+ declares as hard dependencies (useless on ARM CPU hosts).
 transformers>=4.57.6,<5.0
-huggingface_hub>=0.20,<1.0
+huggingface_hub>=0.36.2,<1.0
 numpy>=2.4.6,<3.0
 
 # ML: URL & metadata Random Forest agents (opt-in, no-op if joblibs are absent)
