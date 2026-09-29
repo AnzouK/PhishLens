@@ -208,6 +208,30 @@ class TestAnalyse:
         assert j["trust_path"] == "trusted_sender"
         assert j["verdict"] == "safe"
 
+    def test_gsb_hit_overrides_allowlist(self, client, monkeypatch):
+        # Regression (v1.11.0): an allowlisted sender carrying a Safe
+        # Browsing-listed link used to stay "safe" because the trusted
+        # path disabled every override.
+        import types
+
+        async def fake_check_urls(urls):
+            return [{"url": u, "malicious": True, "score": 1.0,
+                     "sources": ["google_safe_browsing"],
+                     "threat_types": ["SOCIAL_ENGINEERING"]} for u in urls]
+        monkeypatch.setattr(eb, "_REPUTATION_AVAILABLE", True)
+        monkeypatch.setattr(eb, "_reputation",
+                            types.SimpleNamespace(check_urls=fake_check_urls),
+                            raising=False)
+        text_score(monkeypatch, 0.10)
+        r = client.post("/analyse", json={
+            "raw_text": "Your statement: https://gtbank-secure.example/login",
+            "sender_email": "alerts@gtbank.com",
+        })
+        j = r.json()
+        assert j["trust_path"] == "trusted_sender"
+        assert j["url_reputation"]["sources_hit"] == ["google_safe_browsing"]
+        assert j["verdict"] == "phishing"
+
     def test_gmail_inbox_soft_path(self, client, monkeypatch):
         text_score(monkeypatch, 0.90)
         r = client.post("/analyse", json={
