@@ -40,4 +40,4 @@ slowapi>=0.1.9,<1.0
 
 # Observability (v1.10+): Prometheus metrics on GET /metrics. Optional;
 # the backend boots without it and simply skips the endpoint.
-prometheus-fastapi-instrumentator>=7.0,<8.0
+prometheus-fastapi-instrumentator>=8.1.0,<9.0
