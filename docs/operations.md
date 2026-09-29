@@ -133,4 +133,21 @@ date and hardware so regressions are visible.
 
 | Date | Host | Users | Endpoint | Median | p95 | Req/s | Failures |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| *to fill* | Oracle A1, 4 OCPU, 24 GB | 10 | `/analyse [text]` | | | | |
+| 2026-09-29 | Oracle A1, 4 OCPU, 24 GB | 10 | `/analyse [text]` | 77 ms | 280 ms | 2.4 | 0 / 283 |
+| 2026-09-29 | Oracle A1, 4 OCPU, 24 GB | 10 | `/analyse [eml]` | 150 ms | 360 ms | 0.7 | 0 / 85 |
+| 2026-09-29 | Oracle A1, 4 OCPU, 24 GB | 10 | `/analyse_attachment` | 4 ms | 210 ms | 0.3 | 0 / 35 |
+| 2026-09-29 | Oracle A1, 4 OCPU, 24 GB | 10 | all endpoints | 84 ms | 300 ms | 3.8 | 0 / 454 |
+
+Reading the 2026-09-29 run: 2 minutes, CPU inference in FP32, threat
+intel switched off, live backend running on the same VM. Ten users with
+a 1 to 4 second think time offer about 4 requests per second, and the
+server kept up with zero failures and a p99 under 0.5 s, so this
+measures latency under realistic load, not the saturation point. The
+attachment median is low because the test page has no visible text, so
+the text agent is skipped. In production, a cache miss on the URL
+reputation cascade adds the network round-trip of the intel APIs on top
+of these numbers; `/explain` (LIME) is excluded and is much slower.
+
+To find the saturation point, raise the offered load, for example
+`-u 50 -r 5` and a shorter `wait_time`, and watch for p95 growth and
+failures.

@@ -91,3 +91,6 @@ extension/dist/        # the legacy React build from Tariq — keep extension/ph
 .coverage.*
 htmlcov/
 .pytest_cache/
+
+# ---- Load test output (scripts/locustfile.py --csv loadtest) ----
+loadtest_*.csv
