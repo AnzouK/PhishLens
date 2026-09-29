@@ -4,7 +4,7 @@
 # Web framework
 fastapi>=0.110,<1.0
 uvicorn[standard]>=0.54.0,<1.0
-pydantic>=2.0,<3.0
+pydantic>=2.13.5,<3.0
 
 # ML: text agent
 # NB: torch is installed separately from the CPU-only PyPI index in the
