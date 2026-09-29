@@ -1,0 +1,147 @@
+# Architecture
+
+PhishLens has two runtime parts: a Chrome MV3 extension that lives inside
+Gmail, and a FastAPI backend that does all the scoring. The extension
+never classifies anything itself; it collects what it can see (body text,
+sender, Gmail's own authentication hints, attachments) and renders the
+backend's answer.
+
+## Components
+
+```mermaid
+flowchart LR
+    subgraph Browser["Chrome extension (MV3)"]
+        CS["Gmail content script<br/>gmail.js"]
+        PU["Popup<br/>.eml / paste / file"]
+        BG["Service worker<br/>fetch proxy + warm-up"]
+        ST[("chrome.storage.local<br/>history, LIME cache, settings")]
+        CS --> BG
+        PU --> BG
+        PU <--> ST
+        CS <--> ST
+    end
+
+    subgraph Server["FastAPI backend (Docker)"]
+        API["extension_backend.py<br/>/analyse /analyse_attachment /explain"]
+        TXT["Text agent<br/>DistilBERT"]
+        URL["URL agent<br/>Random Forest or heuristic"]
+        META["Metadata agent<br/>Random Forest or heuristic"]
+        AUTH["auth_headers.py<br/>SPF / DKIM / DMARC + Spamhaus DBL"]
+        REP["reputation.py<br/>cache, GSB, PhishTank, URLhaus, DBL"]
+        ATT["attachment_analysis.py<br/>PDF + HTML"]
+        API --> TXT & URL & META & AUTH & REP & ATT
+    end
+
+    BG -- "HTTPS JSON" --> Caddy["Caddy<br/>TLS, reverse proxy"] --> API
+    HF[("Hugging Face Hub<br/>model + agents")] -. "startup download" .-> API
+    REP -. "lookups" .-> Intel["Threat intel<br/>GSB, PhishTank, URLhaus, Spamhaus"]
+```
+
+| Module | Responsibility |
+| --- | --- |
+| `extension/content_scripts/gmail.js` | Injects the scan buttons and verdict banner into Gmail, scrapes body, sender, `mailed-by` / `signed-by`, Inbox state, attachments |
+| `extension/background.js` | Proxies requests to the backend (Gmail's CSP blocks direct fetches) and pings `/health` to keep the backend warm |
+| `extension/lib/history.js`, `lime_cache.js` | Local scan history and analytics; SHA-256 keyed LIME cache |
+| `backend/extension_backend.py` | HTTP API, request parsing, the three agents, fusion and trust paths, rate limiting, metrics |
+| `backend/auth_headers.py` | RFC 7489 parsing of `Authentication-Results`, organisational-domain alignment, Spamhaus DBL on the From: domain |
+| `backend/reputation.py` | URL reputation cascade with a SQLite cache and a daily Google Safe Browsing quota |
+| `backend/attachment_analysis.py` | MIME sniffing, PDF and HTML text/URL extraction, risky-feature flags |
+| `backend/feature_extraction.py` | Feature engineering shared with the training repo (the Random Forests depend on its exact output) |
+
+## Request flow: `POST /analyse`
+
+```mermaid
+sequenceDiagram
+    participant G as Gmail content script
+    participant B as Backend
+    participant A as auth_headers
+    participant R as reputation
+    participant M as Agents
+
+    G->>B: raw_text + sender_email + client_context
+    B->>B: parse body, URLs, headers; synthesize Authentication-Results from Gmail hints
+    par started in parallel
+        B->>A: build_metadata_auth_signal(headers)
+        B->>R: check_urls(urls)
+        B->>M: text, URL, metadata scores
+    end
+    A-->>B: spf/dkim/dmarc, alignment, score delta
+    R-->>B: per-URL verdicts (cached or fresh)
+    B->>B: merge reputation into URL score, auth delta into metadata score
+    B->>B: pick trust path, weighted fusion, threshold
+    B-->>G: verdict, per-agent scores, sender_auth, url_reputation, trust_path
+    G->>B: POST /explain (only when the user opens "Why?")
+```
+
+The LIME explanation is a separate call because it costs about 100 forward
+passes. The verdict shows in a few seconds and the explanation streams in
+afterwards; the extension caches it so reopening the same email is instant.
+
+## Scoring and trust paths
+
+```mermaid
+flowchart TD
+    S["Agent scores<br/>p_text, p_url, p_meta"] --> T{"Sender domain in<br/>TRUSTED_DOMAINS?"}
+    T -- yes --> P1["trusted_sender<br/>text x0.5, no override, threshold 0.65"]
+    T -- no --> C{"DKIM aligned<br/>with From:?"}
+    C -- yes --> P2["crypto_verified<br/>text x0.5, override only on GSB hit, threshold 0.65"]
+    C -- no --> I{"Gmail delivered to Inbox<br/>and no DKIM/DMARC fail?"}
+    I -- yes --> P3["gmail_inbox_soft<br/>text x0.6, override only on GSB hit, threshold 0.62"]
+    I -- no --> P4["default<br/>weights 0.34 / 0.33 / 0.33, override if any agent >= 0.85, threshold 0.5"]
+```
+
+Before the paths apply, two external signals are folded in: a Google Safe
+Browsing hit lifts the URL score to at least 0.95, a hit from another
+intel source blends into it, and the SPF/DKIM/DMARC result shifts the
+metadata score (down by up to 0.3 for an aligned, fully passing sender;
+up for each failure and by 0.6 for a Spamhaus-listed domain, clamped to
+the 0 to 1 range). The chosen path is returned as
+`trust_path` in the response and counted in the `phishlens_verdicts_total`
+metric.
+
+Attachments (`/analyse_attachment`) use a simpler rule: text and URL
+agents at 0.5 each, plus a bonus for risky features (password field, PDF
+auto-execute, and so on, capped at 0.7), threshold 0.55. If the parent
+email was trusted, the text weight is halved and the threshold rises to
+0.72, but a Safe Browsing hit still forces phishing.
+
+## Key design decisions
+
+**DistilBERT rather than BERT-base.** About 40% smaller and 60% faster for
+a few points of accuracy. The public demo runs on a CPU-only ARM VM, and
+the extension needs a verdict in seconds, not tens of seconds.
+
+**Three agents plus fusion rather than one bigger model.** Text, URLs and
+headers fail in different ways. Separate agents keep each one small,
+explainable, and replaceable (the URL and metadata agents fall back to
+heuristics when the trained models are unavailable), and the per-agent
+scores are shown to the user.
+
+**Cryptographic sender checks over a pure allowlist.** An allowlist alone
+trusts whatever the From: header claims. DKIM alignment proves the sender
+domain, so a spoofed `From: paypal.com` signed by another domain stays on
+the strict path. The allowlist is kept as a fallback for regional senders
+with broken DKIM, and it is documented as such.
+
+**Gmail's own verdict as a soft signal.** When the extension cannot read
+the headers, the fact that Gmail delivered the message to Inbox (after its
+own SPF/DKIM/DMARC checks) is used as a weak trust hint. It only softens
+the text weight; it never overrides threat intelligence.
+
+**Threat-intel cascade ordered by quality and cost.** Local cache first
+(free), then Google Safe Browsing (best coverage, 10k/day quota tracked
+in process), then PhishTank, URLhaus and Spamhaus DBL (free, weaker
+coverage). Lookups run in parallel with model inference so they add
+almost no latency.
+
+**LIME on demand, cached client side.** Explanations are the slowest
+operation. Making them a second request keeps verdicts fast, and the
+SHA-256 keyed cache turns a repeat explanation into a local read.
+
+**Two repositories.** Training code and notebooks change rarely and pull
+heavy dependencies; the runtime should stay small and installable. The
+models are the contract between the two, published on Hugging Face.
+
+**No accounts, no server-side storage of emails.** The backend is
+stateless apart from the URL reputation cache (URLs and verdicts only).
+Scan history lives in the user's browser.

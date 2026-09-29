@@ -47,10 +47,11 @@ jobs:
       - name: Install lint + test dependencies
         run: |
           python -m pip install --upgrade pip
-          # Only what auth_headers + attachment_analysis need at test time.
-          # NB: no torch / transformers / pdfplumber — we keep CI fast by
-          # not exercising the model path here.
-          pip install pytest ruff beautifulsoup4
+          # Only what the tests need. NB: no torch / transformers / lime /
+          # pdfplumber. tests/conftest.py stubs the heavy imports and the
+          # endpoint tests patch the text agent, so the model never loads.
+          pip install pytest pytest-cov ruff beautifulsoup4 numpy \
+                      fastapi httpx prometheus-fastapi-instrumentator
 
       - name: Compile every backend .py to catch SyntaxError
         run: python -m compileall -q backend/
@@ -67,4 +68,7 @@ jobs:
         working-directory: backend
         env:
           PYTHONPATH: .
-        run: pytest tests/ -q --tb=short
+        run: |
+          pytest tests/ -q --tb=short \
+            --cov=. --cov-config=.coveragerc \
+            --cov-report=term-missing:skip-covered

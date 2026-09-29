@@ -47,6 +47,12 @@ from pydantic import BaseModel
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 import logging
+# Root config for the "phishlens.*" loggers. uvicorn configures its own
+# loggers but leaves ours without a handler, which silently drops INFO.
+logging.basicConfig(
+    level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
 # Sender authentication + Spamhaus DBL — real cryptographic signals to
@@ -57,7 +63,7 @@ try:
     _AUTH_HEADERS_AVAILABLE = True
 except Exception as _e:
     _AUTH_HEADERS_AVAILABLE = False
-    print(f"⚠ auth_headers module not loaded ({_e}); "
+    logger.warning(f"auth_headers module not loaded ({_e}); "
           "SPF/DKIM/DMARC + Spamhaus DBL disabled.")
 
 # URL reputation cascade — GSB → PhishTank → URLhaus → Spamhaus DBL.
@@ -67,7 +73,7 @@ try:
     _REPUTATION_AVAILABLE = True
 except Exception as _e:
     _REPUTATION_AVAILABLE = False
-    print(f"⚠ reputation module not loaded ({_e}); "
+    logger.warning(f"reputation module not loaded ({_e}); "
           "GSB / PhishTank / URLhaus disabled.")
 
 # Email attachment analysis — PDF / HTML in v1.8 (Phase 1). DOCX/XLSX
@@ -77,7 +83,7 @@ try:
     _ATTACHMENTS_AVAILABLE = True
 except Exception as _e:
     _ATTACHMENTS_AVAILABLE = False
-    print(f"⚠ attachment_analysis module not loaded ({_e}); "
+    logger.warning(f"attachment_analysis module not loaded ({_e}); "
           "the /analyse_attachment endpoint will 501.")
 
 # ---------------------------------------------------------------------------
@@ -211,7 +217,7 @@ def _ensure_model_available() -> Path:
     if MODEL_DIR.exists() and must_have.issubset({p.name for p in MODEL_DIR.iterdir()}):
         return MODEL_DIR
 
-    print(f"Local model not found at {MODEL_DIR} — falling back to "
+    logger.info(f"Local model not found at {MODEL_DIR} — falling back to "
           f"Hugging Face Hub repo {HF_MODEL_REPO!r}.")
     try:
         from huggingface_hub import snapshot_download
@@ -227,14 +233,14 @@ def _ensure_model_available() -> Path:
         local_dir=str(MODEL_DIR),
         local_dir_use_symlinks=False,
     )
-    print(f"Downloaded {HF_MODEL_REPO} -> {MODEL_DIR}")
+    logger.info(f"Downloaded {HF_MODEL_REPO} -> {MODEL_DIR}")
     return MODEL_DIR
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     model_dir = _ensure_model_available()
-    print(f"Loading DistilBERT from {model_dir} ...")
+    logger.info(f"Loading DistilBERT from {model_dir} ...")
     device = _pick_device()
     tok = AutoTokenizer.from_pretrained(str(model_dir))
     # FP32 loading — CPUs don't have great FP16 support and inference is ~2×
@@ -251,7 +257,7 @@ async def lifespan(_app: FastAPI):
     STATE["model"] = model
     STATE["device"] = device
     STATE["lime"] = LimeTextExplainer(class_names=CLASS_NAMES, bow=False)
-    print(f"Model loaded on device={device}. Ready on port {PORT}.")
+    logger.info(f"Model loaded on device={device}. Ready on port {PORT}.")
 
     # Start the reputation cascade (PhishTank feed download, cache warm-up).
     # Runs after model load so a slow PhishTank fetch doesn't block startup
@@ -260,7 +266,7 @@ async def lifespan(_app: FastAPI):
         try:
             await _reputation.startup()
         except Exception as _e:
-            logger.warning("reputation.startup() failed: {_e}")
+            logger.warning(f"reputation.startup() failed: {_e}")
 
     yield
 
@@ -317,13 +323,55 @@ try:
     RATE_LIMIT_EXPLAIN    = os.environ.get("RATE_LIMIT_EXPLAIN",    "15/minute")
     _RATE_LIMIT_OK = True
 except Exception as _e:
-    logger.warning("slowapi not available ({_e}); rate limiting disabled.")
+    logger.warning(f"slowapi not available ({_e}); rate limiting disabled.")
     _limiter = None
     _RATE_LIMIT_OK = False
     def _noop_decorator(*_a, **_k):
         def _wrap(fn): return fn
         return _wrap
     RATE_LIMIT_ANALYSE = RATE_LIMIT_ATTACHMENT = RATE_LIMIT_EXPLAIN = None
+
+
+# ---------------------------------------------------------------------------
+# Observability (v1.10+): Prometheus metrics on GET /metrics.
+# ---------------------------------------------------------------------------
+# prometheus-fastapi-instrumentator adds the standard HTTP metrics
+# (request count, latency histogram, in-flight requests) per handler.
+# On top of that we count final verdicts per endpoint and trust path,
+# which is the number that actually matters for a detector: a sudden
+# swing in the phishing ratio means either an attack wave or a model
+# regression.
+#
+# Set METRICS_ENABLED=0 to turn it off. On a public deployment, block
+# /metrics at the reverse proxy (see docs/operations.md); the numbers
+# are not secret but there is no reason to publish them.
+# Degrades to a no-op if the package is not installed.
+# ---------------------------------------------------------------------------
+_VERDICTS = None
+if os.environ.get("METRICS_ENABLED", "1") != "0":
+    try:
+        from prometheus_client import Counter
+        from prometheus_fastapi_instrumentator import Instrumentator
+
+        Instrumentator(
+            excluded_handlers=["/metrics", "/health"],
+        ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+        _VERDICTS = Counter(
+            "phishlens_verdicts_total",
+            "Final verdicts returned by the scoring endpoints.",
+            ["endpoint", "verdict", "trust_path"],
+        )
+    except Exception as _e:
+        logger.warning(f"Prometheus metrics disabled ({_e}).")
+
+
+def _count_verdict(endpoint: str, is_phishing: bool, trust_path: str) -> None:
+    if _VERDICTS is None:
+        return
+    try:
+        _VERDICTS.labels(endpoint, "phishing" if is_phishing else "safe", trust_path).inc()
+    except Exception:
+        pass
 
 
 class AnalyseRequest(BaseModel):
@@ -461,7 +509,7 @@ def _try_download_agents() -> tuple[Path | None, Path | None]:
         )
         return Path(url_path), Path(meta_path)
     except Exception as e:
-        logger.warning("Could not fetch agents from {HF_AGENTS_REPO}: {e}")
+        logger.warning(f"Could not fetch agents from {HF_AGENTS_REPO}: {e}")
         return None, None
 
 
@@ -485,18 +533,18 @@ try:
         from url_agent import URLAgent  # noqa: E402
         _URL_AGENT = URLAgent()
         _URL_AGENT.load_model(str(url_path))
-        logger.info("Loaded trained URL agent from {url_path}")
+        logger.info(f"Loaded trained URL agent from {url_path}")
 
     if meta_path and meta_path.exists():
         from metadata_agent import MetadataAgent  # noqa: E402
         _METADATA_AGENT = MetadataAgent()
         _METADATA_AGENT.load_model(str(meta_path))
-        logger.info("Loaded trained metadata agent from {meta_path}")
+        logger.info(f"Loaded trained metadata agent from {meta_path}")
 
     if not _URL_AGENT and not _METADATA_AGENT:
         logger.info("No trained agents loaded — using heuristic fallbacks.")
 except Exception as e:
-    logger.warning("Trained-agents init failed, falling back to heuristics: {e}")
+    logger.warning(f"Trained-agents init failed, falling back to heuristics: {e}")
 
 
 def url_agent(urls: list[str], body_text: str = "") -> float:
@@ -508,7 +556,7 @@ def url_agent(urls: list[str], body_text: str = "") -> float:
             pred  = _URL_AGENT.get_prediction_with_confidence(feats)
             return float(pred["phishing_probability"])
         except Exception as e:
-            print(f"  url_agent trained path failed ({e}); falling back to heuristic")
+            logger.warning(f"url_agent trained path failed ({e}); falling back to heuristic")
     if not urls:
         return 0.05  # almost no risk with no URLs
     bad = 0.0
@@ -534,7 +582,7 @@ def metadata_agent(headers: dict[str, str], raw_email: bytes | None = None) -> f
             pred  = _METADATA_AGENT.get_prediction_with_confidence(feats)
             return float(pred["phishing_probability"])
         except Exception as e:
-            print(f"  metadata_agent trained path failed ({e}); falling back to heuristic")
+            logger.warning(f"metadata_agent trained path failed ({e}); falling back to heuristic")
     score = 0.0
     sender = headers.get("from", "").lower()
     reply_to = headers.get("reply-to", "").lower()
@@ -783,7 +831,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         try:
             auth_signal = await auth_signal_task
         except Exception as e:
-            logger.warning("auth_signal task failed: {e}")
+            logger.warning(f"auth_signal task failed: {e}")
 
     # Collect the URL reputation verdicts (or an empty list if disabled)
     reputation_verdicts: list[dict[str, Any]] = []
@@ -791,7 +839,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         try:
             reputation_verdicts = await reputation_task
         except Exception as e:
-            logger.warning("reputation task failed: {e}")
+            logger.warning(f"reputation task failed: {e}")
 
     # Apply reputation to the URL agent score. Any tier flagging a URL is
     # very strong evidence — much better than a RF trained on lexical
@@ -855,6 +903,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         fused = (W_TEXT * 0.5) * p_text + W_URL * p_url + W_META * p_meta
         high_conf = False              # disable single-agent override for trusted senders
         threshold = 0.65               # raise the bar for flagging a trusted sender
+        trust_path = "trusted_sender"
     elif crypto_verified:
         # DKIM-aligned to the visible From: — cryptographic proof of the
         # sender identity. Apply the same discount as the static allowlist:
@@ -871,6 +920,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         fused = (W_TEXT * 0.5) * p_text + W_URL * p_url + W_META * p_meta
         high_conf = gsb_hit   # only real threat-intel forces the override
         threshold = 0.65
+        trust_path = "crypto_verified"
     elif gmail_inbox_soft:
         # Gmail delivered this message to Inbox — its own SPF/DKIM/DMARC
         # verification passed even though our scraping couldn't recover
@@ -888,17 +938,23 @@ async def analyse(request: Request, req: AnalyseRequest):
         fused = (W_TEXT * 0.6) * p_text + W_URL * p_url + W_META * p_meta
         high_conf = gsb_hit
         threshold = 0.62
+        trust_path = "gmail_inbox_soft"
     else:
         fused = W_TEXT * p_text + W_URL * p_url + W_META * p_meta
         high_conf = max(p_text, p_url, p_meta) >= HIGH_CONF_OVERRIDE
         threshold = FUSION_THRESHOLD
+        trust_path = "default"
 
     is_phishing = (fused >= threshold) or high_conf
+    _count_verdict("/analyse", is_phishing, trust_path)
 
     return {
         "verdict": "phishing" if is_phishing else "safe",
         "fused_score": float(fused),
         "high_confidence_override": bool(high_conf),
+        # Which of the four scoring paths was applied (additive field, v1.10):
+        #   trusted_sender > crypto_verified > gmail_inbox_soft > default
+        "trust_path": trust_path,
         "trusted_sender": bool(trusted_sender),
         "sender_domain": sender_domain,
         "sender_auth": {
@@ -980,13 +1036,13 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         try:
             p_text = float(text_agent(text))
         except Exception as e:
-            logger.warning("text_agent failed on attachment: {e}")
+            logger.warning(f"text_agent failed on attachment: {e}")
 
     # URL agent — trained RF when available, heuristic fallback otherwise.
     try:
         p_url = float(url_agent(urls, body_text=text))
     except Exception as e:
-        logger.warning("url_agent failed on attachment: {e}")
+        logger.warning(f"url_agent failed on attachment: {e}")
         p_url = 0.0
 
     # Reputation cascade in parallel — same tiers as /analyse.
@@ -995,7 +1051,7 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         try:
             reputation_verdicts = await _reputation.check_urls(urls)
         except Exception as e:
-            logger.warning("reputation check failed on attachment: {e}")
+            logger.warning(f"reputation check failed on attachment: {e}")
 
     rep_max_score = 0.0
     rep_hit_sources: set[str] = set()
@@ -1090,6 +1146,8 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
 
     fused = min(1.0, fused)
     is_phishing = fused >= threshold or high_conf
+    _count_verdict("/analyse_attachment", is_phishing,
+                   "parent_trusted" if parent_trusted else "default")
 
     return {
         "verdict": "phishing" if is_phishing else "safe",

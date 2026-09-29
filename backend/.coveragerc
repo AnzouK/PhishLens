@@ -1,0 +1,13 @@
+[run]
+# Measure the runtime code only. url_agent.py and metadata_agent.py are
+# the training-side wrappers copied from PhishingDetector; at inference
+# they only load a pickled model, which CI does not download.
+omit =
+    tests/*
+    url_agent.py
+    metadata_agent.py
+
+[report]
+precision = 1
+show_missing = True
+skip_empty = True

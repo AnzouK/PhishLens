@@ -19,6 +19,7 @@ directly into Gmail.
 [![Chrome](https://img.shields.io/badge/Chrome-MV3-4285F4?logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/AnzouK/PhishLens?color=blueviolet)](https://github.com/AnzouK/PhishLens/releases/latest)
+[![CI](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml/badge.svg)](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml)
 [![Live demo](https://img.shields.io/badge/Oracle%20Cloud-Live%20demo-F80000?logo=oracle&logoColor=white)](https://anzouk.duckdns.org)
 [![HF Model](https://img.shields.io/badge/🤗-Model-yellow)](https://huggingface.co/AnzouKiona/phishlens-distilbert)
 [![HF Agents](https://img.shields.io/badge/🤗-Agents-yellow)](https://huggingface.co/AnzouKiona/phishlens-agents)
@@ -220,6 +221,9 @@ Default is to follow your OS dark-mode preference.
 | `REPUTATION_ENABLE_DBL`        | `1`                             | Toggle Spamhaus DBL DNS lookups                                                                            |
 | `PHISHTANK_REFRESH_S`          | `3600`                          | Background refresh interval for the PhishTank feed                                                         |
 | `PHISHTANK_API_KEY`            | *(empty)*                       | Optional — bumps the rate limit for the PhishTank feed download                                            |
+| `RATE_LIMIT_ANALYSE`           | `30/minute`                     | Per-IP limit on `/analyse` (also `RATE_LIMIT_ATTACHMENT` 20/min, `RATE_LIMIT_EXPLAIN` 15/min)             |
+| `METRICS_ENABLED`              | `1`                             | Expose Prometheus metrics on `/metrics` (keep it private, see `docs/operations.md`)                       |
+| `LOG_LEVEL`                    | `INFO`                          | Level for the `phishlens.*` loggers (`DEBUG`, `INFO`, `WARNING`)                                           |
 
 ### Sender authentication (RFC 7489)
 
@@ -299,7 +303,7 @@ PhishLens/
 │   ├── Dockerfile.cloud          # cloud image — model pulled from HF at boot, port 7860, non-root
 │   ├── docker-compose.yml        # uses Dockerfile.local by default
 │   ├── requirements.txt
-│   ├── tests/                    # pytest suite for the pure-logic modules
+│   ├── tests/                    # offline pytest suite (agents, trust paths, endpoints, reputation, features)
 │   └── model/                    # DistilBERT — NOT tracked by git (populated by huggingface-cli)
 ├── extension/
 │   ├── manifest.json             # MV3 manifest
@@ -310,7 +314,9 @@ PhishLens/
 │   │   ├── history.js            # scan history + analytics (chrome.storage.local)
 │   │   └── lime_cache.js         # SHA-256-keyed LIME response cache
 │   └── icons/                    # PNG + SVG
-├── docs/                         # screenshots, UML diagrams
+├── docs/                         # architecture, threat model, operations guide, project overview, screenshots
+├── scripts/locustfile.py         # load test
+├── CHANGELOG.md · CONTRIBUTING.md · SECURITY.md
 └── README.md
 ```
 
@@ -322,6 +328,21 @@ PhishLens/
 - **Model:** DistilBERT fine-tuned on a multi-source phishing email corpus
 - **Extension:** Vanilla HTML/CSS/JS · Chrome MV3 · no build step
 - **Inference acceleration:** Apple Silicon MPS · CUDA · CPU fallback
+- **Quality and operations:** pytest · GitHub Actions · CodeQL · Dependabot · Prometheus · Locust
+
+---
+
+## 📚 Documentation
+
+Start at the [project overview](docs/project-overview.md): it links both repositories, the models, the report and every guide.
+
+| | |
+| --- | --- |
+| [Architecture](docs/architecture.md) | Components, request flow, trust paths, design decisions |
+| [Threat model](docs/threat-model.md) | STRIDE analysis, mitigations, residual risks |
+| [Operations](docs/operations.md) | Deploy, logs, metrics, load testing |
+| [Changelog](CHANGELOG.md) | Version history |
+| [Contributing](CONTRIBUTING.md) | Setup, checks, guidelines |
 
 ---
 
@@ -374,6 +395,12 @@ Department of Cybersecurity, session 2025–2026.
 - [x] **Test suite** — pytest coverage for `auth_headers` (spoof rejection, org-domain alignment) and `attachment_analysis` (MIME sniffing, size cap, HTML feature flags).
 - [x] **CI** — GitHub Actions pipeline running ruff + compile-all + pytest on every push and PR.
 - [x] **Logging** — replaced ad-hoc `print()` calls in the runtime modules with `logging.getLogger("phishlens.…")` so uvicorn's log stack picks levels up correctly.
+
+### ✅ Shipped in v1.10.0: engineering process
+- [x] **Tests** for the endpoints, all four trust paths, attachment trust inheritance, the reputation cascade and the RF feature extraction; coverage reported in CI
+- [x] **Observability**: Prometheus `/metrics` with a `phishlens_verdicts_total{endpoint, verdict, trust_path}` counter, and log calls that actually print their errors
+- [x] **Load test** (`scripts/locustfile.py`) and an [operations guide](docs/operations.md)
+- [x] **Docs**: [project overview](docs/project-overview.md), [architecture and design decisions](docs/architecture.md), [STRIDE threat model](docs/threat-model.md), [CHANGELOG](CHANGELOG.md), [CONTRIBUTING](CONTRIBUTING.md)
 
 ### 🚧 Planned for next release — Phase 2 and 3
 - [ ] **DOCX / XLSX support** — extract text + hyperlinks via `python-docx` and `openpyxl`; macro presence flagged as a hard red flag

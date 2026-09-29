@@ -37,3 +37,7 @@ beautifulsoup4>=4.12,<5.0
 # burning through the 10 k/day GSB quota) without adding auth. In-memory
 # by default; swap to Redis via SLOWAPI_STORAGE_URI when needed.
 slowapi>=0.1.9,<1.0
+
+# Observability (v1.10+): Prometheus metrics on GET /metrics. Optional;
+# the backend boots without it and simply skips the endpoint.
+prometheus-fastapi-instrumentator>=7.0,<8.0
