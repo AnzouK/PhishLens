@@ -904,10 +904,16 @@ async def analyse(request: Request, req: AnalyseRequest):
     # When the sender domain is trusted, the metadata agent reports a low
     # score and the text agent's contribution to the fused score is halved
     # (DistilBERT often false-positives on transactional bank/hospital tone).
+    # A Google Safe Browsing match on any link means the sending account is
+    # compromised, whoever it belongs to: it forces the phishing verdict on
+    # every trust path, including the allowlist (fixed in v1.11.0; before,
+    # an allowlisted sender could carry a GSB-listed link and stay "safe").
+    gsb_hit = "google_safe_browsing" in rep_hit_sources
+
     if trusted_sender:
         p_meta = min(p_meta, 0.05)
         fused = (W_TEXT * 0.5) * p_text + W_URL * p_url + W_META * p_meta
-        high_conf = False              # disable single-agent override for trusted senders
+        high_conf = gsb_hit            # only real threat intel overrides the allowlist
         threshold = 0.65               # raise the bar for flagging a trusted sender
         trust_path = "trusted_sender"
     elif crypto_verified:
@@ -922,7 +928,6 @@ async def analyse(request: Request, req: AnalyseRequest):
         # override this: a real threat-intel match on a link means the
         # sender's account was compromised, so we let the phishing verdict
         # through even for a signed message.
-        gsb_hit = "google_safe_browsing" in rep_hit_sources
         fused = (W_TEXT * 0.5) * p_text + W_URL * p_url + W_META * p_meta
         high_conf = gsb_hit   # only real threat-intel forces the override
         threshold = 0.65
@@ -940,7 +945,6 @@ async def analyse(request: Request, req: AnalyseRequest):
         # still contribute at full weight: if a URL is actually malicious
         # (RF or reputation cascade), the fused score can still cross the
         # threshold. GSB match still forces phishing regardless.
-        gsb_hit = "google_safe_browsing" in rep_hit_sources
         fused = (W_TEXT * 0.6) * p_text + W_URL * p_url + W_META * p_meta
         high_conf = gsb_hit
         threshold = 0.62

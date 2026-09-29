@@ -82,7 +82,7 @@ afterwards; the extension caches it so reopening the same email is instant.
 ```mermaid
 flowchart TD
     S["Agent scores<br/>p_text, p_url, p_meta"] --> T{"Sender domain in<br/>TRUSTED_DOMAINS?"}
-    T -- yes --> P1["trusted_sender<br/>text x0.5, no override, threshold 0.65"]
+    T -- yes --> P1["trusted_sender<br/>text x0.5, override only on GSB hit, threshold 0.65"]
     T -- no --> C{"DKIM aligned<br/>with From:?"}
     C -- yes --> P2["crypto_verified<br/>text x0.5, override only on GSB hit, threshold 0.65"]
     C -- no --> I{"Gmail delivered to Inbox<br/>and no DKIM/DMARC fail?"}
@@ -98,6 +98,42 @@ up for each failure and by 0.6 for a Spamhaus-listed domain, clamped to
 the 0 to 1 range). The chosen path is returned as
 `trust_path` in the response and counted in the `phishlens_verdicts_total`
 metric.
+
+### Scoring reference
+
+Base weights on the default path (constants in `extension_backend.py`):
+
+| Knob | Value |
+| --- | --- |
+| `W_TEXT` / `W_URL` / `W_META` | 0.34 / 0.33 / 0.33 |
+| `FUSION_THRESHOLD` | 0.5 |
+| `HIGH_CONF_OVERRIDE` (any single agent) | 0.85 |
+
+How each trust path changes them:
+
+| Path | Text weight | Single-agent override | Threshold | Extra |
+| --- | --- | --- | --- | --- |
+| `trusted_sender` | x0.5 | only on a Safe Browsing hit | 0.65 | metadata score floored at 0.05 |
+| `crypto_verified` | x0.5 | only on a Safe Browsing hit | 0.65 | |
+| `gmail_inbox_soft` | x0.6 | only on a Safe Browsing hit | 0.62 | |
+| `default` | x1.0 | any agent >= 0.85 | 0.5 | |
+
+A Google Safe Browsing match on any link forces the phishing verdict on
+every path: a trusted or signed sender carrying a blocklisted link means
+the sending account is compromised.
+
+**Precedence:** `trusted_sender > crypto_verified > gmail_inbox_soft >
+default`. The allowlist (`TRUSTED_DOMAINS`) wins over DKIM alignment
+because it covers institutions whose DKIM setup is sometimes broken. It
+is Nigerian-centric by default (banks, telcos, universities); extend it
+for your region. An empty allowlist is safe, just less forgiving on
+legitimate transactional templates.
+
+**Why the discounts exist:** DistilBERT learned that "verify your
+account" wording means phishing, and real bank, hospital and university
+messages use the same templates. Discounting the text agent only when the
+sender is proven (DKIM) or curated (allowlist) removes those false
+positives without trusting whatever the From: header claims.
 
 Attachments (`/analyse_attachment`) use a simpler rule: text and URL
 agents at 0.5 each, plus a bonus for risky features (password field, PDF

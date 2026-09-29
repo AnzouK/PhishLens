@@ -52,6 +52,13 @@ updates:
       # stop them from loading. Same rule.
       - dependency-name: scikit-learn
         update-types: ["version-update:semver-major"]
+      # pandas and numpy objects end up inside the pickled agents and in
+      # their feature pipeline; a major version can change dtypes or break
+      # unpickling. Same rule.
+      - dependency-name: pandas
+        update-types: ["version-update:semver-major"]
+      - dependency-name: numpy
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions used by the CI workflow
   - package-ecosystem: github-actions

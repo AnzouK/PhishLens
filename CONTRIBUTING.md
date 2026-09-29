@@ -19,6 +19,7 @@ false-negative samples, and pull requests are all welcome.
 git clone https://github.com/AnzouK/PhishLens.git
 cd PhishLens/backend
 python3 -m venv .venv && source .venv/bin/activate
+pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt pytest pytest-cov ruff
 uvicorn extension_backend:app --host 127.0.0.1 --port 8000
 ```

@@ -5,7 +5,14 @@ All notable changes to PhishLens are listed here. The format follows
 uses [Semantic Versioning](https://semver.org/). The extension and the
 backend share one version number.
 
-## [Unreleased]
+## [1.11.0] - 2026-09-29
+
+### Security
+- A Google Safe Browsing hit now forces the phishing verdict on the
+  `trusted_sender` path too. Before, an allowlisted sender (for example
+  a compromised bank account) carrying a blocklisted link stayed "safe"
+  because that path disabled every override; the README and the threat
+  model already claimed otherwise. Regression test added.
 
 ### Added
 - CI job for the Chrome extension: `node --check` on every script, then
@@ -13,15 +20,27 @@ backend share one version number.
   duplicate keys, assignment to a const, broken `typeof` checks) fail
   the job; hygiene rules (undefined names, unused variables) annotate
   without blocking.
+- Branch protection on `main`: the three CI jobs must pass before a
+  pull request can merge.
+- "Scoring reference" section in `docs/architecture.md` (weights, trust
+  paths, allowlist precedence, why the discounts exist).
 
 ### Changed
+- README rewritten: 435 to about 190 lines, results (accuracy, F1,
+  latency) up front, a small diagram instead of the ASCII art, scoring
+  details moved to the architecture doc, release history left to this
+  changelog.
 - Em dashes removed from the whole repository (code comments, docs, UI
-  strings); sentences rewritten with colons, commas or parentheses.
+  strings).
+- Dependabot also ignores major versions of pandas and numpy (their
+  objects live inside the pickled Random Forest agents).
 
 ### Fixed
 - `.gitignore` had two patterns followed by inline comments, which git
   does not support: `.phishlens.env` and `extension/dist/` were not
-  actually ignored. Comments moved to their own lines.
+  actually ignored.
+- Manual install instructions (README, CONTRIBUTING) now install the
+  CPU build of torch, which `requirements.txt` deliberately leaves out.
 
 ## [1.10.2] - 2026-09-29
 
@@ -196,6 +215,7 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[1.11.0]: https://github.com/AnzouK/PhishLens/compare/v1.10.2...v1.11.0
 [1.10.2]: https://github.com/AnzouK/PhishLens/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/AnzouK/PhishLens/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/AnzouK/PhishLens/compare/v1.9.0...v1.10.0
