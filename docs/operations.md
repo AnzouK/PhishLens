@@ -16,9 +16,19 @@ docker run -d --restart=always \
   --network web \
   --env-file ~/.phishlens.env \
   -v ~/phishlens_data:/data \
+  -v ~/phishlens_model:/home/user/app/model \
+  -v ~/phishlens_agents:/home/user/app/agents \
   --name phishlens phishlens
 docker logs -f phishlens          # wait for "Model loaded on device=cpu"
 ```
+
+The two extra volumes keep the DistilBERT checkpoint and the Random
+Forest joblibs across container re-creations, so only the first boot
+downloads them from Hugging Face. Create them once with
+`mkdir -p ~/phishlens_model ~/phishlens_agents` (the container runs as
+uid 1000, the same uid as the `opc` user). To pick up a new model
+version published on Hugging Face, empty the folder
+(`rm -rf ~/phishlens_model/*`) and re-create the container.
 
 `~/.phishlens.env` holds the secrets and tuning knobs (`GSB_API_KEY`,
 `REPUTATION_CACHE_DB=/data/reputation.db`, rate limits). It is never
@@ -98,24 +108,27 @@ container, otherwise you are only measuring the limiter.
 # 1. Throwaway container on the VM, localhost only, limits lifted,
 #    external intel off so the test measures PhishLens itself
 docker run -d --rm --name phishlens-load -p 127.0.0.1:8001:7860 \
+  -v ~/phishlens_model:/home/user/app/model:ro \
   -e RATE_LIMIT_ANALYSE=100000/minute \
   -e RATE_LIMIT_ATTACHMENT=100000/minute \
   -e REPUTATION_ENABLE_GSB=0 -e REPUTATION_ENABLE_DBL=0 \
   -e REPUTATION_ENABLE_URLHAUS=0 -e REPUTATION_ENABLE_PHISHTANK=0 \
   phishlens
-sleep 60                                   # model download + load
+sleep 30                                   # model load (agents download)
 
-# 2. Run the test (from the repo root)
-python3 -m pip install --user locust
-python3 -m locust -f scripts/locustfile.py --host http://127.0.0.1:8001 \
-  --headless -u 10 -r 2 -t 2m --csv loadtest
+# 2. Run the test from the repo root, with Locust in a container
+cd ~/PhishLens
+docker run --rm --network host -v "$PWD":/mnt/locust locustio/locust \
+  -f /mnt/locust/scripts/locustfile.py --host http://127.0.0.1:8001 \
+  --headless -u 10 -r 2 -t 2m --csv /mnt/locust/loadtest
 
 # 3. Clean up
 docker stop phishlens-load
 ```
 
 `loadtest_stats.csv` has the median, p95 and p99 latency and the
-throughput per endpoint. Record the numbers in the table below with the
+throughput per endpoint. The test container shares the VM's CPU with
+the live backend, so the demo is slower for those two minutes. Record the numbers in the table below with the
 date and hardware so regressions are visible.
 
 | Date | Host | Users | Endpoint | Median | p95 | Req/s | Failures |

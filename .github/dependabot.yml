@@ -38,6 +38,20 @@ updates:
     ignore:
       - dependency-name: torch
       - dependency-name: nvidia-*
+      # Major versions of the model stack change loading APIs (e.g.
+      # torch_dtype, snapshot_download arguments) and CI never loads the
+      # real model, so a green CI proves nothing for them. Upgrade these
+      # by hand after testing on a throwaway container.
+      - dependency-name: transformers
+        update-types: ["version-update:semver-major"]
+      - dependency-name: huggingface_hub
+        update-types: ["version-update:semver-major"]
+      - dependency-name: huggingface-hub
+        update-types: ["version-update:semver-major"]
+      # The Random Forest joblibs are pickled: a scikit-learn major can
+      # stop them from loading. Same rule.
+      - dependency-name: scikit-learn
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions used by the CI workflow
   - package-ecosystem: github-actions
