@@ -5,6 +5,24 @@ All notable changes to PhishLens are listed here. The format follows
 uses [Semantic Versioning](https://semver.org/). The extension and the
 backend share one version number.
 
+## [Unreleased]
+
+### Added
+- CI job for the Chrome extension: `node --check` on every script, then
+  ESLint (`eslint.config.mjs`). Bug-class rules (unreachable code,
+  duplicate keys, assignment to a const, broken `typeof` checks) fail
+  the job; hygiene rules (undefined names, unused variables) annotate
+  without blocking.
+
+### Changed
+- Em dashes removed from the whole repository (code comments, docs, UI
+  strings); sentences rewritten with colons, commas or parentheses.
+
+### Fixed
+- `.gitignore` had two patterns followed by inline comments, which git
+  does not support: `.phishlens.env` and `extension/dist/` were not
+  actually ignored. Comments moved to their own lines.
+
 ## [1.10.2] - 2026-09-29
 
 ### Added

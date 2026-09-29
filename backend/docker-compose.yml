@@ -1,5 +1,5 @@
 # =====================================================================
-# PhishLens — local docker-compose
+# PhishLens: local docker-compose
 # =====================================================================
 #  Usage:
 #    1. Unzip phishing_model.zip into ./model/   (one-time)

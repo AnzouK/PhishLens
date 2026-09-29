@@ -1,10 +1,10 @@
 # =====================================================================
-# PhishLens backend — cloud deployment image (Oracle Cloud / any Docker host).
+# PhishLens backend: cloud deployment image (Oracle Cloud / any Docker host).
 # =====================================================================
 # Differences from the local backend Dockerfile:
 #   - listens on $PORT (HF Spaces inject 7860 by default)
 #   - runs as a non-root user (HF requirement)
-#   - does NOT bundle the DistilBERT checkpoint into the image — it is
+#   - does NOT bundle the DistilBERT checkpoint into the image; it is
 #     downloaded from HF Hub on first run (HF_MODEL_REPO).
 # =====================================================================
 
@@ -23,7 +23,7 @@ ENV HF_HOME=/home/user/.cache/huggingface \
 
 # Install Python dependencies.
 COPY --chown=user:user requirements.txt .
-# torch first, from the CPU-only wheel index — skips ~3.5 GB of NVIDIA CUDA
+# torch first, from the CPU-only wheel index: skips ~3.5 GB of NVIDIA CUDA
 # runtime packages that ship as hard deps of the default torch 2.14+ wheels.
 # The Oracle Cloud ARM VM has no GPU, so those packages are pure bloat.
 RUN pip install --no-cache-dir --upgrade pip \
@@ -31,7 +31,7 @@ RUN pip install --no-cache-dir --upgrade pip \
         "torch>=2.0,<3.0" \
  && pip install --no-cache-dir -r requirements.txt
 
-# Application code — kept identical to the local backend so both paths
+# Application code: kept identical to the local backend so both paths
 # produce the same behaviour. feature_extraction.py + url_agent.py +
 # metadata_agent.py are optional at inference (the heuristic fallbacks
 # still work when the trained joblibs are absent), but they let the

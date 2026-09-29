@@ -40,7 +40,7 @@ class TestSniffType:
         assert sniff_type("", b"<!doctype html>\n<html>", None) == "text/html"
 
     def test_zip_prefix_recognised_as_zip(self):
-        # DOCX / XLSX are ZIP files under the hood — we return the zip
+        # DOCX / XLSX are ZIP files under the hood; we return the zip
         # MIME here; analyse_attachment turns it into a 400.
         assert sniff_type("", b"PK\x03\x04garbage", None) == "application/zip"
 
@@ -111,7 +111,7 @@ class TestAnalyseHtml:
 
 
 # ---------------------------------------------------------------------
-# Dispatcher — size + type errors
+# Dispatcher: size + type errors
 # ---------------------------------------------------------------------
 class TestAnalyseAttachment:
     def _b64(self, s: bytes) -> str:
@@ -124,7 +124,7 @@ class TestAnalyseAttachment:
     def test_empty_base64_rejected(self):
         # base64.b64encode(b"") returns "" which is falsy, so the
         # dispatcher hits the "Empty attachment" guard before the
-        # decode step. Either way, we get a ValueError — that's what
+        # decode step. Either way, we get a ValueError: that's what
         # we're asserting.
         with pytest.raises(ValueError):
             analyse_attachment(self._b64(b""), filename="x.pdf")

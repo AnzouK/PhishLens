@@ -1,5 +1,5 @@
 """
-PhishLens — email attachment analysis.
+PhishLens: email attachment analysis.
 =====================================================================
 Extract text and URLs from email attachments (PDF, HTML for Phase 1;
 DOCX / XLSX planned for Phase 2; images with OCR + steg heuristics for
@@ -21,7 +21,7 @@ import logging
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
 # ---------------------------------------------------------------------
-# Limits — enforced BEFORE decoding to protect the process.
+# Limits: enforced BEFORE decoding to protect the process.
 # ---------------------------------------------------------------------
 MAX_ATTACHMENT_BYTES  = 10 * 1024 * 1024      # 10 MB hard cap
 MAX_EXTRACTED_TEXT    = 20_000                # chars fed to the text agent
@@ -29,7 +29,7 @@ MAX_EXTRACTED_URLS    = 200                   # URLs sent to reputation cascade
 PDF_PAGE_LIMIT        = 50                    # abort text extraction past this
 
 # ---------------------------------------------------------------------
-# Optional deps — graceful fallback (endpoint still responds, but
+# Optional deps: graceful fallback (endpoint still responds, but
 # returns a clear error) if the module isn't in the runtime image.
 # ---------------------------------------------------------------------
 try:
@@ -48,7 +48,7 @@ except Exception as _e:
 
 
 # ---------------------------------------------------------------------
-# MIME sniffing — trust the extension of the filename first, fall back
+# MIME sniffing: trust the extension of the filename first, fall back
 # to content sniffing. Client sends its own mime_type as a hint but we
 # don't trust it blindly.
 # ---------------------------------------------------------------------
@@ -78,7 +78,7 @@ def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> s
     if head.lstrip().lower().startswith((b"<!doctype html", b"<html", b"<!--", b"<head")):
         return "text/html"
     if head[:2] == b"PK":
-        # ZIP-based (docx, xlsx, pptx, jar, ...) — Phase 2 territory
+        # ZIP-based (docx, xlsx, pptx, jar, ...): Phase 2 territory
         return "application/zip"
 
     # Fall back to whatever the client claimed, sanitized.
@@ -88,7 +88,7 @@ def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> s
 
 
 # ---------------------------------------------------------------------
-# URL extraction — same regex the /analyse endpoint uses, plus we also
+# URL extraction: same regex the /analyse endpoint uses, plus we also
 # pick up bare-domain "click here" style links (missing scheme).
 # ---------------------------------------------------------------------
 _URL_RE      = re.compile(r"https?://[^\s\"'<>)\]}]+", re.IGNORECASE)
@@ -110,7 +110,7 @@ def extract_urls(text: str) -> list[str]:
 # =====================================================================
 # PDF analysis
 # =====================================================================
-# Suspicious PDF markers — presence of any of these is worth surfacing
+# Suspicious PDF markers: presence of any of these is worth surfacing
 # to the user, they're the classic phishing / malware droppers.
 _PDF_SUSPICIOUS_MARKERS = {
     b"/JavaScript":    "contains_javascript",
@@ -129,7 +129,7 @@ _PDF_SUSPICIOUS_MARKERS = {
 def _pdf_scan_markers(raw: bytes) -> list[str]:
     """
     Cheap pattern scan on the raw PDF bytes. Doesn't attempt to parse
-    object streams — it just looks for the well-known feature tags.
+    object streams; it just looks for the well-known feature tags.
     Zero cost, high signal for phishing PDFs.
     """
     flags = []
@@ -172,11 +172,11 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
 
     text = "\n".join(text_chunks)[:MAX_EXTRACTED_TEXT]
 
-    # URLs — extracted text can miss link annotations (clickable button
+    # URLs: extracted text can miss link annotations (clickable button
     # with no visible URL text). We also parse /URI markers directly.
     urls = extract_urls(text)
     if len(urls) < MAX_EXTRACTED_URLS:
-        # Cheap annotation URI scan — grabs (/URI (https://…)).
+        # Cheap annotation URI scan: grabs (/URI (https://…)).
         # The inner class is length-capped (2048 bytes) to close a
         # polynomial-ReDoS surface that CodeQL flagged: a crafted PDF
         # with a very long /URI( body and no closing paren could push
@@ -212,7 +212,7 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     """
     Extract visible text + href / action URLs from an HTML attachment.
     HTML phishing attachments typically render a login form styled as
-    a well-known brand, with an <form action="attacker.tld"> — we grab
+    a well-known brand, with a <form action="attacker.tld">. We grab
     all such URLs regardless of visible text.
     """
     if not _BS4_OK:
@@ -265,7 +265,7 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
 
 
 # =====================================================================
-# Dispatcher — the public entry point.
+# Dispatcher: the public entry point.
 # =====================================================================
 def analyse_attachment(content_b64: str,
                        filename: str = "",
@@ -274,7 +274,7 @@ def analyse_attachment(content_b64: str,
     Decode the base64 payload, dispatch by MIME, return a
     JSON-serialisable dict.
 
-    Does NOT call the model agents itself — that's the /analyse_attachment
+    Does NOT call the model agents itself: that's the /analyse_attachment
     endpoint's job (it wires the extracted text + URLs into text_agent /
     url_agent / reputation cascade the same way /analyse does for emails).
 
@@ -300,7 +300,7 @@ def analyse_attachment(content_b64: str,
     if mime in ("text/html", "application/xhtml+xml"):
         return analyse_html(raw, filename)
     if mime == "text/plain":
-        # trivial — treat as plain text
+        # trivial: treat as plain text
         text = raw.decode("utf-8", errors="ignore")[:MAX_EXTRACTED_TEXT]
         return {
             "kind": "text",

@@ -1,5 +1,5 @@
 // =====================================================================
-// PhishLens popup logic — vanilla JS, no build step.
+// PhishLens popup logic: vanilla JS, no build step.
 // =====================================================================
 
 // Backend choices (persisted in chrome.storage under "backend").
@@ -46,8 +46,8 @@ const explainStatus = $("explain-status");
 let activeTab = "file";          // "file" | "paste"
 let selectedFile = null;
 let pastedText = "";
-let lastPayload = null;          // {raw_email_b64} or {raw_text} — for /explain
-let runId = 0;                   // bumped on each Analyze click — old fetches that finish after a new run are ignored
+let lastPayload = null;          // {raw_email_b64} or {raw_text}: for /explain
+let runId = 0;                   // bumped on each Analyze click: old fetches that finish after a new run are ignored
 let explainData = null;          // resolved features or null
 let explainError = null;         // string error message or null
 
@@ -234,7 +234,7 @@ analyzeBtn.addEventListener("click", async () => {
         if (activeTab === "file") {
             if (!selectedFile) throw new Error("Pick a .eml, .pdf or .html file first.");
             if (selectedFile.size > 10 * 1024 * 1024)
-                throw new Error("File too large — 10 MB max.");
+                throw new Error("File too large: 10 MB max.");
             const ext = (selectedFile.name.split(".").pop() || "").toLowerCase();
             const b64 = await fileToB64(selectedFile);
             if (ext === "pdf" || ext === "html" || ext === "htm") {
@@ -300,7 +300,7 @@ analyzeBtn.addEventListener("click", async () => {
             currentHistoryId = null;
         }
 
-        // fire LIME explanation in the background — tagged with the run id.
+        // fire LIME explanation in the background: tagged with the run id.
         // Skip LIME for attachment payloads: /explain only accepts
         // raw_text / raw_email_b64, and the DistilBERT explanation isn't
         // that meaningful on extracted PDF/HTML text anyway.
@@ -327,7 +327,7 @@ function renderResult(data) {
     const isPhishing = data.verdict === "phishing";
     const isAttachment = !!data.attachment;
 
-    // Hide the LIME "Why?" panel entirely for attachment scans — /explain
+    // Hide the LIME "Why?" panel entirely for attachment scans: /explain
     // doesn't accept attachment payloads and DistilBERT explanations on
     // extracted PDF/HTML text aren't very meaningful anyway.
     if (explainPanel) explainPanel.hidden = isAttachment;
@@ -340,8 +340,8 @@ function renderResult(data) {
         ? "This email looks like phishing"
         : "This email looks safe";
 
-    // Verified-sender pill — three tiers:
-    //   1. Trusted allowlist (static list, highest trust — kept for legacy)
+    // Verified-sender pill: three tiers:
+    //   1. Trusted allowlist (static list, highest trust: kept for legacy)
     //   2. DKIM-aligned (cryptographic proof the sender is who they claim)
     //   3. Neither → hidden
     const trustedEl = $("verdict-trusted");
@@ -406,7 +406,7 @@ function renderResult(data) {
              : "The sender appears legitimate."
     );
 
-    // v1.6+ — reputation & auth badges
+    // v1.6+: reputation & auth badges
     renderUrlBadges(data.url_reputation);
     renderMetaBadges(data.sender_auth);
 
@@ -457,13 +457,13 @@ function renderUrlBadges(rep) {
                                   "good",
                                   "URL reputation cascade returned clean"));
     } else {
-        // Per-source badges — one per intel source that fired
+        // Per-source badges: one per intel source that fired
         for (const src of rep.sources_hit || []) {
             const label = _SOURCE_LABEL[src] || src;
             host.appendChild(_mkBadge(`🔴 ${label}`, "bad",
                                       `${label} flagged ${rep.malicious_count} URL(s)`));
         }
-        // Threat-type badges — collapse enum values into words
+        // Threat-type badges: collapse enum values into words
         for (const tt of rep.threat_types || []) {
             const label = _THREAT_LABEL[tt] || tt.toLowerCase();
             host.appendChild(_mkBadge(label, "bad", `Threat type reported: ${tt}`));
@@ -480,7 +480,7 @@ function renderMetaBadges(auth) {
     const badges = [];
     if (auth.cryptographically_verified) {
         badges.push(_mkBadge("🛡 DKIM aligned", "good",
-                             "DKIM signature aligned with the From: domain — sender proven"));
+                             "DKIM signature aligned with the From: domain; sender proven"));
     }
     const results = {
         SPF:   auth.spf,
@@ -492,10 +492,10 @@ function renderMetaBadges(auth) {
             badges.push(_mkBadge(`${name} pass`, "good", `${name} check passed`));
         } else if (verdict === "fail") {
             badges.push(_mkBadge(`${name} fail`, "bad",
-                                 `${name} check FAILED — possible spoofing`));
+                                 `${name} check FAILED: possible spoofing`));
         } else if (verdict === "softfail") {
             badges.push(_mkBadge(`${name} softfail`, "warn",
-                                 `${name} soft-failed — sender not authorised but not blocked`));
+                                 `${name} soft-failed: sender not authorised but not blocked`));
         }
         // "none" / "neutral" / "temperror" → no badge (silent)
     }
@@ -506,7 +506,7 @@ function renderMetaBadges(auth) {
     // Explicit signal that the message didn't ship with auth headers at all
     if ((auth.reasons || []).includes("no_auth_header") && badges.length === 0) {
         badges.push(_mkBadge("no auth header", "warn",
-                             "Message shipped without SPF/DKIM/DMARC — origin unverifiable"));
+                             "Message shipped without SPF/DKIM/DMARC: origin unverifiable"));
     }
 
     if (badges.length === 0) { host.hidden = true; return; }
@@ -517,7 +517,7 @@ function renderMetaBadges(auth) {
 // ---------- LIME explain (background pre-fire) ----------
 async function fetchExplain(payload, thisRun) {
     const base = getApiBase();
-    // Client-side cache — LIME output only depends on {backend, text},
+    // Client-side cache: LIME output only depends on {backend, text},
     // both stable enough for a 30-day TTL. Re-opening the same email
     // returns instantly instead of eating 8-15 s of CPU on the server.
     try {
@@ -525,7 +525,7 @@ async function fetchExplain(payload, thisRun) {
         if (cached && thisRun === runId) {
             explainData = cached.features;
             if (explainPanel.open) renderExplain(explainData);
-            // Skip the network call entirely — history token attach below
+            // Skip the network call entirely: history token attach below
             // still runs so we don't lose the analytics signal.
             if (currentHistoryId && Array.isArray(explainData)) {
                 const tokens = explainData.slice(0, 5).map((f) => ({
@@ -545,13 +545,13 @@ async function fetchExplain(payload, thisRun) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
         });
-        if (thisRun !== runId) return;        // stale — discard
+        if (thisRun !== runId) return;        // stale: discard
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
             throw new Error(err.detail || `Server returned ${resp.status}`);
         }
         const data = await resp.json();
-        if (thisRun !== runId) return;        // stale — discard
+        if (thisRun !== runId) return;        // stale: discard
         explainData = data.features || [];
         if (explainPanel.open) renderExplain(explainData);
 
@@ -570,7 +570,7 @@ async function fetchExplain(payload, thisRun) {
             catch {}
         }
     } catch (e) {
-        if (thisRun !== runId) return;        // stale — discard
+        if (thisRun !== runId) return;        // stale: discard
         explainError = e?.message || String(e);
         if (explainPanel.open) showExplainError();
     }
@@ -580,7 +580,7 @@ explainPanel.addEventListener("toggle", () => {
     if (!explainPanel.open) return;
     if (explainData) { renderExplain(explainData); return; }
     if (explainError) { showExplainError(); return; }
-    // not done yet — show waiting state
+    // not done yet: show waiting state
     explainTokens.innerHTML =
         `<span class="explain__status">Computing LIME explanation… (~5-10s)</span>`;
 });
@@ -720,7 +720,7 @@ async function renderInsights() {
         const safeH  = h - phishH;
         const short = d.date.slice(5);   // MM-DD
         return `
-          <div class="dc-col" title="${d.date}: ${tot} scan(s) — ${d.phishing} phishing / ${d.safe} safe">
+          <div class="dc-col" title="${d.date}: ${tot} scan(s), ${d.phishing} phishing / ${d.safe} safe">
             <div class="dc-stack" style="height:${h}%">
               <span class="dc-phishing" style="height:${phishH}%"></span>
               <span class="dc-safe"     style="height:${safeH}%"></span>
@@ -732,7 +732,7 @@ async function renderInsights() {
     // Top phishing tokens
     if (stats.topTokens.length === 0) {
         topTokensEl.innerHTML =
-            `<div class="empty-hint">No phishing tokens recorded yet — LIME data will accumulate as you scan.</div>`;
+            `<div class="empty-hint">No phishing tokens recorded yet: LIME data will accumulate as you scan.</div>`;
     } else {
         const maxW = Math.max(...stats.topTokens.map((t) => t.weight));
         topTokensEl.innerHTML = stats.topTokens.map((t) => {
@@ -745,7 +745,7 @@ async function renderInsights() {
         }).join("");
     }
 
-    // Recent history — last 20
+    // Recent history: last 20
     historyList.innerHTML = list.slice(0, 20).map((e) => {
         const dot = e.verdict === "phishing" ? "🚩" : "✅";
         const when = timeAgo(e.ts);
@@ -797,7 +797,7 @@ insightsBack.addEventListener("click", () => {
     showView(previousView === "insights" ? "upload" : previousView);
 });
 
-// Export handlers — trigger a client-side download using a Blob URL.
+// Export handlers: trigger a client-side download using a Blob URL.
 function downloadBlob(name, mime, text) {
     const blob = new Blob([text], { type: mime });
     const url = URL.createObjectURL(blob);
@@ -855,7 +855,7 @@ testConnBtn.addEventListener("click", async () => {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json().catch(() => null);
         connStatus.className = "conn-status conn-status--ok";
-        connStatus.textContent = `✓ Backend reachable — model: ${data?.model || "unknown"}`;
+        connStatus.textContent = `✓ Backend reachable (model: ${data?.model || "unknown"})`;
     } catch (e) {
         connStatus.className = "conn-status conn-status--err";
         const msg = String(e?.message || e);

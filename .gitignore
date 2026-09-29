@@ -1,5 +1,5 @@
 # =====================================================================
-# PhishLens — .gitignore
+# PhishLens: .gitignore
 # =====================================================================
 
 # ---- Python ----
@@ -76,13 +76,15 @@ Thumbs.db
 
 # ---- Chrome extension build artefacts ----
 extension/*.zip
-extension/dist/        # the legacy React build from Tariq — keep extension/phishlens/
+# legacy React build output (the extension itself has no build step)
+extension/dist/
 
 # ---- Local secrets ----
 .env
 .env.local
 *.secret
-.phishlens.env       # holds GSB_API_KEY etc. on the Oracle VM — never commit
+# holds GSB_API_KEY etc. on the Oracle VM, never commit it
+.phishlens.env
 **/.venv/
 **/.DS_Store
 
@@ -94,3 +96,6 @@ htmlcov/
 
 # ---- Load test output (scripts/locustfile.py --csv loadtest) ----
 loadtest_*.csv
+
+# ---- Node (ESLint installed on the fly, no package.json) ----
+node_modules/

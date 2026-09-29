@@ -4,10 +4,10 @@
 # Runs on every push to main + every pull request.
 #
 #   1. Compile every backend Python file to catch SyntaxErrors
-#   2. Lint the backend with ruff (fatal errors only — we're not enforcing
+#   2. Lint the backend with ruff (fatal errors only: we're not enforcing
 #      house style, just catching bugs like unused imports, undefined
 #      names, syntax issues)
-#   3. Run the backend/tests/ pytest suite — pure-function tests, no
+#   3. Run the backend/tests/ pytest suite: pure-function tests, no
 #      model loading, no network, no heavy deps (torch/transformers/
 #      pdfplumber are deliberately NOT installed here to keep runs
 #      under a minute)
@@ -31,6 +31,29 @@ permissions:
   contents: read
 
 jobs:
+  # Chrome extension: syntax check every script with Node, then ESLint
+  # (config in eslint.config.mjs: bug-class rules fail the job, hygiene
+  # rules only annotate). No package.json on purpose, the extension has
+  # no build step, so the linter is installed on the fly.
+  extension:
+    name: Extension lint (ESLint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax check (node --check)
+        run: |
+          for f in $(git ls-files 'extension/*.js'); do
+            node --check "$f"
+          done
+      - name: ESLint
+        run: |
+          npm install --no-save --no-package-lock --silent eslint@9 globals@15
+          npx eslint extension/
+
   # Resolves backend/requirements.txt on the same Python as the Docker
   # base image (python:3.11-slim) without installing anything. Catches
   # Dependabot bumps that CI would otherwise pass blindly because the
@@ -75,7 +98,7 @@ jobs:
       - name: Compile every backend .py to catch SyntaxError
         run: python -m compileall -q backend/
 
-      - name: Ruff (fatal errors only — E9, F63, F7, F82)
+      - name: Ruff, fatal errors only (E9, F63, F7, F82)
         run: |
           # Narrow rule set on purpose. We're not enforcing style here,
           # just catching things that would 500 the app: syntax errors

@@ -1,15 +1,15 @@
 """
-PhishLens — URL reputation cascade.
+PhishLens: URL reputation cascade.
 =====================================================================
 
 Cascaded lookup against multiple threat-intel feeds so we never rely on
 a single source of truth. Order:
 
-    1. Local SQLite cache (24h TTL)                   — sub-millisecond
-    2. Google Safe Browsing v4 (10,000 lookups/day)   — Google's flagship
-    3. PhishTank verified phishing feed (in-memory)   — community-verified
-    4. URLhaus (abuse.ch)                             — malware URLs
-    5. Spamhaus DBL (DNS)                             — domain-level
+    1. Local SQLite cache (24h TTL)                  : sub-millisecond
+    2. Google Safe Browsing v4 (10,000 lookups/day)  : Google's flagship
+    3. PhishTank verified phishing feed (in-memory)  : community-verified
+    4. URLhaus (abuse.ch)                            : malware URLs
+    5. Spamhaus DBL (DNS)                            : domain-level
 
 When the GSB daily quota runs out, tiers 2-4 all run in parallel and
 their verdicts are OR-fused. The cache absorbs the vast majority of
@@ -21,9 +21,9 @@ shared backend.
 
 Public API:
     ReputationEngine
-        .startup()                — download PhishTank feed, warm cache
-        .check_urls(urls) -> list — cascade lookup
-        .stats()                  — quota + cache hit rate for debug/health
+        .startup()               : download PhishTank feed, warm cache
+        .check_urls(urls) -> list: cascade lookup
+        .stats()                 : quota + cache hit rate for debug/health
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ try:
     _HTTPX_AVAILABLE = True
 except ImportError:
     _HTTPX_AVAILABLE = False
-    logger.warning("httpx not installed — reputation lookups disabled. "
+    logger.warning("httpx not installed: reputation lookups disabled. "
           "pip install httpx>=0.27")
 
 
@@ -73,7 +73,7 @@ USER_AGENT = "PhishLens/1.10 (+https://github.com/AnzouK/PhishLens)"
 
 
 # =====================================================================
-# SQLite cache — persistent across restarts, thread-safe via lock.
+# SQLite cache: persistent across restarts, thread-safe via lock.
 # =====================================================================
 class Cache:
     """Tiny SQLite cache with TTL. One row per URL."""
@@ -112,7 +112,7 @@ class Cache:
                     (url, cutoff),
                 ).fetchone()
         except sqlite3.OperationalError as e:
-            # Defensive self-heal — if the DB file was deleted / corrupted
+            # Defensive self-heal: if the DB file was deleted / corrupted
             # since we opened it (or the volume was remounted), re-create
             # the schema and treat this lookup as a miss.
             if "no such table" in str(e).lower():
@@ -146,7 +146,7 @@ class Cache:
         except sqlite3.OperationalError as e:
             if "no such table" in str(e).lower():
                 # Re-create schema and retry once. If it still fails after
-                # the retry there's a real filesystem issue — surface it.
+                # the retry there's a real filesystem issue: surface it.
                 self._init_db()
                 with sqlite3.connect(self.path) as db:
                     db.execute(
@@ -179,7 +179,7 @@ class Cache:
 
 
 # =====================================================================
-# Google Safe Browsing v4 — quota-tracked client.
+# Google Safe Browsing v4: quota-tracked client.
 # =====================================================================
 class GsbQuota:
     """
@@ -187,7 +187,7 @@ class GsbQuota:
 
     Kept in-process (not Redis) because a single Oracle Cloud VM handles
     all backend traffic. If we ever scale to N replicas, swap this for
-    a Redis INCR with EX=86400 — same interface.
+    a Redis INCR with EX=86400: same interface.
     """
 
     def __init__(self, limit: int, buffer: int):
@@ -256,7 +256,7 @@ class GoogleSafeBrowsing:
         Query GSB for a batch of URLs. Returns {url: verdict} for URLs that
         matched a threat; URLs not in the dict are assumed clean.
 
-        On quota exhaustion or transport error, returns an empty dict —
+        On quota exhaustion or transport error, returns an empty dict:
         callers must treat that as "GSB unavailable, use fallbacks".
         """
         if not self.api_key or not urls:
@@ -283,7 +283,7 @@ class GoogleSafeBrowsing:
             logger.warning(f"GSB request failed: {e}")
             return {}
 
-        # Opt-in debug — set GSB_DEBUG=1 to log every GSB call and its
+        # Opt-in debug: set GSB_DEBUG=1 to log every GSB call and its
         # match count. Off by default in production; useful when you're
         # diagnosing why an expected phishing URL isn't being flagged.
         if os.environ.get("GSB_DEBUG", "0") != "0":
@@ -308,7 +308,7 @@ class GoogleSafeBrowsing:
 
 
 # =====================================================================
-# PhishTank — verified phishing feed, in-memory set.
+# PhishTank: verified phishing feed, in-memory set.
 # =====================================================================
 class PhishTank:
     """
@@ -364,7 +364,7 @@ class PhishTank:
         return len(urls)
 
     async def start_refresh_loop(self):
-        """Background task — refresh every PHISHTANK_REFRESH_S seconds."""
+        """Background task: refresh every PHISHTANK_REFRESH_S seconds."""
         while True:
             try:
                 n = await self.refresh()
@@ -375,7 +375,7 @@ class PhishTank:
             await asyncio.sleep(PHISHTANK_REFRESH_S)
 
     def check(self, url: str) -> dict[str, Any] | None:
-        """O(1) lookup — returns a verdict dict if listed, None otherwise."""
+        """O(1) lookup: returns a verdict dict if listed, None otherwise."""
         if url in self._urls:
             return {"source": "phishtank", "match": "url", "threat_types": ["PHISHING"]}
         try:
@@ -395,11 +395,11 @@ class PhishTank:
 
 
 # =====================================================================
-# URLhaus — abuse.ch malware URL feed.
+# URLhaus: abuse.ch malware URL feed.
 # =====================================================================
 class URLhaus:
     """
-    URLhaus lookup API — free, no key required, generous rate limit.
+    URLhaus lookup API: free, no key required, generous rate limit.
     https://urlhaus.abuse.ch/api/
     """
     LOOKUP_URL = "https://urlhaus-api.abuse.ch/v1/url/"
@@ -439,14 +439,14 @@ class URLhaus:
 
 
 # =====================================================================
-# Spamhaus DBL — domain-level DNS lookup.
+# Spamhaus DBL: domain-level DNS lookup.
 # =====================================================================
 async def _spamhaus_dbl(domain: str) -> dict[str, Any] | None:
     """
     Query domain.dbl.spamhaus.org. If it resolves to a 127.0.1.x code,
     the domain is listed. NXDOMAIN = clean.
 
-    IMPORTANT: 127.255.255.x codes are NOT listings — they are Spamhaus
+    IMPORTANT: 127.255.255.x codes are NOT listings; they are Spamhaus
     policy responses telling us the query was rejected (open/public
     resolver, anonymous query, rate limit). If we see one of those, we
     treat the check as "unavailable" and return None. Counting them as
@@ -455,7 +455,7 @@ async def _spamhaus_dbl(domain: str) -> dict[str, Any] | None:
     See https://www.spamhaus.org/faq/section/DNSBL%20Usage#365 for the
     full code table.
     """
-    # Real listings — dbl.spamhaus.org threat classifications.
+    # Real listings: dbl.spamhaus.org threat classifications.
     _CODES = {
         "127.0.1.2":   ("SPAM",               "spam"),
         "127.0.1.4":   ("SOCIAL_ENGINEERING", "phish"),
@@ -467,7 +467,7 @@ async def _spamhaus_dbl(domain: str) -> dict[str, Any] | None:
         "127.0.1.105": ("MALWARE",            "abused_legit_malware"),
         "127.0.1.106": ("BOTNET_CC",          "abused_legit_botnet_cc"),
     }
-    # Policy / error codes — the query was NOT answered. Treat as
+    # Policy / error codes: the query was NOT answered. Treat as
     # "check unavailable", NOT as "domain malicious".
     _POLICY_ERROR_PREFIX = "127.255.255."
 
@@ -485,22 +485,22 @@ async def _spamhaus_dbl(domain: str) -> dict[str, Any] | None:
     except Exception:
         return None
 
-    # Policy error — Spamhaus refused to answer (open resolver, rate
+    # Policy error: Spamhaus refused to answer (open resolver, rate
     # limit, anonymous query). NOT a listing. Return None so the caller
     # treats the tier as "no signal" rather than "malicious".
     if resp.startswith(_POLICY_ERROR_PREFIX):
         # Log once so we know DBL is effectively disabled on this host.
         if not _spamhaus_policy_logged["done"]:
-            logger.warning(f"Spamhaus DBL policy response ({resp}) — the DNS resolver "
+            logger.warning(f"Spamhaus DBL policy response ({resp}): the DNS resolver "
                   "used by this host is blocked by Spamhaus. DBL lookups will "
                   "be treated as unavailable. Use a private recursive resolver "
                   "or the Spamhaus DQS commercial feed to enable DBL.")
             _spamhaus_policy_logged["done"] = True
         return None
 
-    # Real listing — 127.0.1.x range.
+    # Real listing: 127.0.1.x range.
     if resp not in _CODES:
-        # Unknown but 127.0.1.x-shaped response — probably a new threat
+        # Unknown but 127.0.1.x-shaped response: probably a new threat
         # code we don't map yet. Still treat as SUSPICIOUS.
         if resp.startswith("127.0.1."):
             return {
@@ -509,7 +509,7 @@ async def _spamhaus_dbl(domain: str) -> dict[str, Any] | None:
                 "dbl_code": resp,
                 "category": "listed_unknown_code",
             }
-        # Anything else — not a documented DBL response, ignore.
+        # Anything else is not a documented DBL response: ignore it.
         return None
 
     threat_type, category = _CODES[resp]
@@ -599,7 +599,7 @@ class ReputationEngine:
         return url
 
     async def check_urls(self, urls: Iterable[str]) -> list[dict[str, Any]]:
-        """Cascade lookup — returns one verdict dict per input URL."""
+        """Cascade lookup: returns one verdict dict per input URL."""
         if not _HTTPX_AVAILABLE:
             return [{"url": u, "malicious": False, "score": 0.0,
                      "sources": [], "threat_types": [],
@@ -641,7 +641,7 @@ class ReputationEngine:
         gsb_used = False
         if self.gsb:
             gsb_hits = await self.gsb.check_batch(uncached)
-            gsb_used = True  # even if empty result — we consumed the quota
+            gsb_used = True  # even if empty result, we consumed the quota
 
         # ---- 3. Fallback cascade for URLs GSB didn't flag ----
         # (also for the case where GSB is disabled / quota exhausted)
@@ -716,7 +716,7 @@ class ReputationEngine:
 
 
 # =====================================================================
-# Module-level singleton — the FastAPI app pulls this in lifespan.
+# Module-level singleton: the FastAPI app pulls this in lifespan.
 # =====================================================================
 _ENGINE: ReputationEngine | None = None
 

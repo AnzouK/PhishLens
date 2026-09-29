@@ -484,7 +484,7 @@ class FeatureExtractor:
         """
         Convenience wrapper for raw .eml input. Parses the message once,
         extracts the body via the MIME walker, and returns a flat dict
-        combining text, URL, and metadata features — ready to feed into
+        combining text, URL, and metadata features: ready to feed into
         a single DataFrame row.
 
         Parameters

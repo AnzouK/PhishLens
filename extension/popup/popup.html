@@ -65,7 +65,7 @@
       <div class="tab-panel" data-panel="paste">
         <div class="hint">
           <span class="hint__icon">💡</span>
-          <span>Paste the raw text of an email — useful when you only have the message body, no <code>.eml</code> file.</span>
+          <span>Paste the raw text of an email: useful when you only have the message body, no <code>.eml</code> file.</span>
         </div>
 
         <textarea id="paste-input"
@@ -92,7 +92,7 @@
     <section id="view-loading" class="view">
       <div class="spinner"></div>
       <p class="loading-text">Analyzing email…</p>
-      <p class="loading-sub">DistilBERT inference — this may take up to 30 seconds on CPU.</p>
+      <p class="loading-sub">DistilBERT inference. This may take up to 30 seconds on CPU.</p>
     </section>
 
     <!-- ===== result view ===== -->
@@ -114,7 +114,7 @@
         <div class="agent" data-agent="text">
           <div class="agent__head">
             <span class="agent__name">Message content</span>
-            <span class="agent__score" id="text-score">—</span>
+            <span class="agent__score" id="text-score">…</span>
           </div>
           <div class="agent__bar"><span class="agent__bar-fill" id="text-bar"></span></div>
           <div class="agent__hint" id="text-hint">DistilBERT reads the body text.</div>
@@ -123,7 +123,7 @@
         <div class="agent" data-agent="url">
           <div class="agent__head">
             <span class="agent__name">Links in the email</span>
-            <span class="agent__score" id="url-score">—</span>
+            <span class="agent__score" id="url-score">…</span>
           </div>
           <div class="agent__bar"><span class="agent__bar-fill" id="url-bar"></span></div>
           <div class="agent__hint" id="url-hint">URL-level heuristics on the embedded links.</div>
@@ -133,7 +133,7 @@
         <div class="agent" data-agent="metadata">
           <div class="agent__head">
             <span class="agent__name">Sender &amp; headers</span>
-            <span class="agent__score" id="meta-score">—</span>
+            <span class="agent__score" id="meta-score">…</span>
           </div>
           <div class="agent__bar"><span class="agent__bar-fill" id="meta-bar"></span></div>
           <div class="agent__hint" id="meta-hint">From / Reply-To / Authentication-Results.</div>
@@ -144,7 +144,7 @@
       <!-- explainability panel -->
       <details class="explain" id="explain-panel">
         <summary class="explain__head">
-          <span>🔍 Why? — LIME explanation</span>
+          <span>🔍 Why? (LIME explanation)</span>
           <span class="explain__caret">▾</span>
         </summary>
         <div class="explain__body">
@@ -246,7 +246,7 @@
           <span class="backend-option__icon">🖥</span>
           <div class="backend-option__main">
             <div class="backend-option__title">Local backend (Docker)</div>
-            <div class="backend-option__sub"><code>http://127.0.0.1:8000</code> — private, no setup once Docker runs.</div>
+            <div class="backend-option__sub"><code>http://127.0.0.1:8000</code>: private, no setup once Docker runs.</div>
           </div>
         </label>
       </div>
@@ -257,7 +257,7 @@
           <span class="backend-option__icon">☁</span>
           <div class="backend-option__main">
             <div class="backend-option__title">Cloud demo (Oracle Cloud)</div>
-            <div class="backend-option__sub"><code>anzouk.duckdns.org</code> — HTTPS, works without setup, no cold start.</div>
+            <div class="backend-option__sub"><code>anzouk.duckdns.org</code>: HTTPS, works without setup, no cold start.</div>
           </div>
         </label>
       </div>
@@ -284,7 +284,7 @@
   <footer class="app-footer">
     <span>Powered by DistilBERT + LIME</span>
     <span class="footer__dot">·</span>
-    <span>Nile University — CYB 499</span>
+    <span>Nile University, CYB 499</span>
   </footer>
 
   <script src="../lib/history.js"></script>

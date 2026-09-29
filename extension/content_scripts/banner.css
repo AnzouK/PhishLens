@@ -1,5 +1,5 @@
 /* =====================================================================
-   PhishLens — Gmail-injected UI
+   PhishLens: Gmail-injected UI
    All selectors prefixed with pll- to avoid collisions with Gmail's CSS.
    ===================================================================== */
 
@@ -193,7 +193,7 @@ html[data-phishlens-theme="dark"] .pll-tok--safe     { color: #56d364; }
 html[data-phishlens-theme="dark"] .pll-trusted { color: #56d364; }
 
 /* ==================================================================
-   v1.6 — threat-intel signal chips (URL reputation + sender auth)
+   v1.6: threat-intel signal chips (URL reputation + sender auth)
    Live under the score line inside the banner. Themed for both
    light/dark, using the popup's badge palette semantics.
    ================================================================== */
@@ -233,7 +233,7 @@ html[data-phishlens-theme="dark"]  .pll-chip--good { color: #6ee7a8; background:
 html[data-phishlens-theme="dark"]  .pll-chip--warn { color: #ffc46b; background: rgba(216, 138, 0, 0.2);  }
 html[data-phishlens-theme="dark"]  .pll-chip--bad  { color: #ff9494; background: rgba(200, 40, 40, 0.18); }
 
-/* v1.6.1 — cached-explanation hint next to the LIME tokens */
+/* v1.6.1: cached-explanation hint next to the LIME tokens */
 .pll-cache-hint {
     display: inline-block;
     margin-left: 6px;
@@ -244,7 +244,7 @@ html[data-phishlens-theme="dark"]  .pll-chip--bad  { color: #ff9494; background:
 }
 
 /* ==================================================================
-   v1.8 — attachment scan button + mini banner per attachment
+   v1.8: attachment scan button + mini banner per attachment
    ================================================================== */
 
 /* Small "🛡 Scan" pill injected next to each attachment tile.
@@ -269,7 +269,7 @@ html[data-phishlens-theme="dark"]  .pll-chip--bad  { color: #ff9494; background:
 .pll-att-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .pll-att-btn__icon { font-size: 12px !important; }
 
-/* Modifier for the header "Scan N attachments" button — same shape as
+/* Modifier for the header "Scan N attachments" button: same shape as
    pll-scan-btn but with a slightly muted colour so it doesn't compete
    with the main "Scan with PhishLens" pill. */
 .pll-scan-btn.pll-scan-btn--all {

@@ -35,7 +35,14 @@ ruff check . --select E9,F63,F7,F82
 pytest -q --cov=. --cov-config=.coveragerc
 ```
 
-CI runs the same commands, plus CodeQL. A pull request needs a green CI.
+For extension changes, lint the JavaScript too (from the repo root):
+
+```bash
+npm install --no-save --no-package-lock eslint@9 globals@15
+npx eslint extension/
+```
+
+CI runs all of the above, plus CodeQL. A pull request needs a green CI.
 
 ## Guidelines
 
