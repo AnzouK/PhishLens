@@ -7,7 +7,7 @@
 # image small and lets you swap models without rebuilding.
 # =====================================================================
 
-FROM python:3.11-slim AS base
+FROM python:3.14-slim AS base
 
 # System dependencies
 #   - build-essential: needed by some pip packages with C extensions

@@ -8,7 +8,7 @@
 #     downloaded from HF Hub on first run (HF_MODEL_REPO).
 # =====================================================================
 
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # Required by HF Spaces: run as user 1000, not root.
 RUN useradd -m -u 1000 user
