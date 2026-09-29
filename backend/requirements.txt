@@ -31,7 +31,7 @@ httpx>=0.27,<1.0
 # small (~5 MB total). BeautifulSoup gets a permissive parser for the
 # HTML attachments.
 pdfplumber>=0.11,<1.0
-beautifulsoup4>=4.12,<5.0
+beautifulsoup4>=4.15.0,<5.0
 
 # Rate limiting (v1.9+) — protects the public backend from abuse (e.g.
 # burning through the 10 k/day GSB quota) without adding auth. In-memory
