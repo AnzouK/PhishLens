@@ -1,5 +1,5 @@
 # =====================================================================
-# PhishLens — Dependabot version updates
+# PhishLens: Dependabot version updates
 # =====================================================================
 # Dependabot alerts + security updates are managed in the repo Security
 # settings (they run without a config file). This file adds weekly
@@ -11,7 +11,7 @@
 version: 2
 updates:
 
-  # Python backend — pip requirements
+  # Python backend: pip requirements
   - package-ecosystem: pip
     directory: /backend
     schedule:
@@ -34,7 +34,7 @@ updates:
         applies-to: security-updates
         update-types: [patch, minor, major]
     # Torch is installed from the CPU-only PyPI index at Dockerfile
-    # build time, not from requirements.txt — ignore it here.
+    # build time, not from requirements.txt: ignore it here.
     ignore:
       - dependency-name: torch
       - dependency-name: nvidia-*

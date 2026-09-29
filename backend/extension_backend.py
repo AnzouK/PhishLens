@@ -1,5 +1,5 @@
 """
-Smart Phishing Detector — minimal FastAPI backend for the Chrome extension.
+Smart Phishing Detector: minimal FastAPI backend for the Chrome extension.
 
 Exposes  POST /analyse  with the exact JSON contract the popup expects:
 
@@ -55,7 +55,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
-# Sender authentication + Spamhaus DBL — real cryptographic signals to
+# Sender authentication + Spamhaus DBL: real cryptographic signals to
 # replace the static allowlist. Optional: if the module isn't present the
 # backend still boots and the heuristic path takes over.
 try:
@@ -66,7 +66,7 @@ except Exception as _e:
     logger.warning(f"auth_headers module not loaded ({_e}); "
           "SPF/DKIM/DMARC + Spamhaus DBL disabled.")
 
-# URL reputation cascade — GSB → PhishTank → URLhaus → Spamhaus DBL.
+# URL reputation cascade: GSB → PhishTank → URLhaus → Spamhaus DBL.
 # Same graceful-fallback pattern as auth_headers: missing module → heuristics.
 try:
     import reputation as _reputation
@@ -76,7 +76,7 @@ except Exception as _e:
     logger.warning(f"reputation module not loaded ({_e}); "
           "GSB / PhishTank / URLhaus disabled.")
 
-# Email attachment analysis — PDF / HTML in v1.8 (Phase 1). DOCX/XLSX
+# Email attachment analysis: PDF / HTML in v1.8 (Phase 1). DOCX/XLSX
 # and image OCR + steg heuristics are planned for later phases.
 try:
     import attachment_analysis as _attachments
@@ -106,7 +106,7 @@ PORT = int(os.environ.get("PORT", "8000"))
 MAX_LEN = 256                                   # match the training value
 CLASS_NAMES = ["Safe", "Phishing"]
 
-# fusion weights — kept identical to the academic document
+# fusion weights: kept identical to the academic document
 W_TEXT, W_URL, W_META = 0.34, 0.33, 0.33
 FUSION_THRESHOLD = 0.5
 # Any single agent above this confidence forces the overall verdict to
@@ -120,17 +120,17 @@ HIGH_CONF_OVERRIDE = 0.85
 # Corporate / institutional domains whose only legitimate senders are the
 # organisation itself. When the sender's email domain matches one of these,
 # the metadata agent reports a very low score, the text-agent weight in the
-# fusion is reduced, and the high-confidence override is disabled — because
+# fusion is reduced, and the high-confidence override is disabled, because
 # DistilBERT's transactional-template wording often false-positives on real
 # bank / hospital / telco / government messages.
 #
 # Personal email providers (gmail.com, yahoo.com, outlook.com, ...) are
-# deliberately NOT in this set — they are used by phishers as much as by
+# deliberately NOT in this set; they are used by phishers as much as by
 # legitimate senders, so they carry no trust signal.
 #
 # REGION NOTE: the default list is Nigerian-centric because PhishLens is
 # a Nile University project. If you fork this for a different region,
-# extend the list with your local banks / telcos / gov domains — an
+# extend the list with your local banks / telcos / gov domains: an
 # empty allowlist is safe (the crypto path still runs), just less
 # forgiving on legit transactional templates from those senders.
 # Priority order at scan time:
@@ -217,7 +217,7 @@ def _ensure_model_available() -> Path:
     if MODEL_DIR.exists() and must_have.issubset({p.name for p in MODEL_DIR.iterdir()}):
         return MODEL_DIR
 
-    logger.info(f"Local model not found at {MODEL_DIR} — falling back to "
+    logger.info(f"Local model not found at {MODEL_DIR}: falling back to "
           f"Hugging Face Hub repo {HF_MODEL_REPO!r}.")
     try:
         from huggingface_hub import snapshot_download
@@ -243,7 +243,7 @@ async def lifespan(_app: FastAPI):
     logger.info(f"Loading DistilBERT from {model_dir} ...")
     device = _pick_device()
     tok = AutoTokenizer.from_pretrained(str(model_dir))
-    # FP32 loading — CPUs don't have great FP16 support and inference is ~2×
+    # FP32 loading: CPUs don't have great FP16 support and inference is ~2×
     # slower in FP16 on typical CPU targets. With a ~256MB footprint this
     # fits comfortably in any host that can run a Docker container, so we
     # prefer the speed. Set MODEL_DTYPE=float16 in the env to opt into FP16
@@ -261,7 +261,7 @@ async def lifespan(_app: FastAPI):
 
     # Start the reputation cascade (PhishTank feed download, cache warm-up).
     # Runs after model load so a slow PhishTank fetch doesn't block startup
-    # health checks — the model is already serving by then.
+    # health checks: the model is already serving by then.
     if _REPUTATION_AVAILABLE:
         try:
             await _reputation.startup()
@@ -281,11 +281,11 @@ async def lifespan(_app: FastAPI):
 # ---------------------------------------------------------------------------
 # FastAPI app
 # ---------------------------------------------------------------------------
-app = FastAPI(title="Smart Phishing Detector — extension backend",
+app = FastAPI(title="Smart Phishing Detector: extension backend",
               lifespan=lifespan)
 
 # Chrome extensions have origin chrome-extension://<id>. The Cloud demo
-# is a shared open backend, so we allow any origin — self-hosted deploys
+# is a shared open backend, so we allow any origin: self-hosted deploys
 # should tighten this via CORS_ALLOW_ORIGINS if they don't need it open.
 app.add_middleware(
     CORSMiddleware,
@@ -296,7 +296,7 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# Rate limiting (v1.9+) — protects the public backend from abuse. The
+# Rate limiting (v1.9+): protects the public backend from abuse. The
 # heavy endpoints (/analyse, /explain, /analyse_attachment) are limited
 # to a few dozen requests per minute per client IP. /health and
 # /reputation/stats are cheap and left unlimited so uptime probes and
@@ -387,8 +387,8 @@ class AnalyseRequest(BaseModel):
     Gmail this includes the visible "mailed-by" / "signed-by" values and
     whether the message is in Inbox (Gmail already ran SPF/DKIM/DMARC on
     every delivered message; surfacing that avoids a false-positive gap
-    between raw_email_b64 scans — full headers — and raw_text scans —
-    body only). Structure is intentionally loose (dict) so we can add new
+    between raw_email_b64 scans (full headers) and raw_text scans
+    (body only)). Structure is intentionally loose (dict) so we can add new
     hints without a breaking API bump.
     """
     raw_email_b64: str | None = None
@@ -401,10 +401,10 @@ class AttachmentRequest(BaseModel):
     """
     Payload for POST /analyse_attachment (v1.8+).
 
-    content_b64  — base64-encoded attachment bytes, 10 MB hard cap
-    filename     — original filename (only used for MIME sniffing and UX)
-    mime_type    — client hint, not trusted (we sniff for real)
-    parent_email — optional context: {sender_email, subject} of the mail
+    content_b64 : base64-encoded attachment bytes, 10 MB hard cap
+    filename    : original filename (only used for MIME sniffing and UX)
+    mime_type   : client hint, not trusted (we sniff for real)
+    parent_email: optional context: {sender_email, subject} of the mail
                    the attachment came from. Not required for /analyse_attachment
                    to work, but nice to attach in the response for the UI.
     """
@@ -455,7 +455,7 @@ def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
 # Agents
 # ---------------------------------------------------------------------------
 def predict_proba_batch(texts: list[str]) -> np.ndarray:
-    """Return Nx2 array of [P(Safe), P(Phishing)] — needed by LIME."""
+    """Return Nx2 array of [P(Safe), P(Phishing)]: needed by LIME."""
     tok = STATE["tokenizer"]
     model = STATE["model"]
     device = STATE["device"]
@@ -487,7 +487,7 @@ SUSPICIOUS_TLDS = {"zip", "review", "click", "country", "kim", "cricket",
 # env vars.
 #
 # The upstream training pipeline lives at
-# https://github.com/AnzouK/PhishingDetector — the URLAgent and
+# https://github.com/AnzouK/PhishingDetector: the URLAgent and
 # MetadataAgent classes ship in this folder (copied verbatim from the
 # training repo) so we can load their pickled state directly.
 HF_AGENTS_REPO = os.environ.get("HF_AGENTS_REPO", "AnzouKiona/phishlens-agents")
@@ -514,7 +514,7 @@ def _try_download_agents() -> tuple[Path | None, Path | None]:
 
 
 try:
-    # Feature extractor (always available — trained agents need it).
+    # Feature extractor (always available: trained agents need it).
     from feature_extraction import FeatureExtractor  # noqa: E402
     _FEATURE_EXTRACT = FeatureExtractor()
 
@@ -542,13 +542,13 @@ try:
         logger.info(f"Loaded trained metadata agent from {meta_path}")
 
     if not _URL_AGENT and not _METADATA_AGENT:
-        logger.info("No trained agents loaded — using heuristic fallbacks.")
+        logger.info("No trained agents loaded: using heuristic fallbacks.")
 except Exception as e:
     logger.warning(f"Trained-agents init failed, falling back to heuristics: {e}")
 
 
 def url_agent(urls: list[str], body_text: str = "") -> float:
-    """URL score — trained RF on the full body text when available,
+    """URL score: trained RF on the full body text when available,
     heuristic on the extracted URL list otherwise."""
     # No links, no URL risk. Checked before the trained path on purpose:
     # the Random Forest was trained on emails that carry URLs, and on an
@@ -580,7 +580,7 @@ def url_agent(urls: list[str], body_text: str = "") -> float:
 
 
 def metadata_agent(headers: dict[str, str], raw_email: bytes | None = None) -> float:
-    """Metadata score — trained RF on the raw email when available,
+    """Metadata score: trained RF on the raw email when available,
     heuristic on the parsed header dict otherwise."""
     if _METADATA_AGENT is not None and _FEATURE_EXTRACT is not None and raw_email:
         try:
@@ -641,7 +641,7 @@ def health():
 @app.get("/reputation/stats")
 def reputation_stats():
     """
-    Debug endpoint — cache hit rate, GSB quota consumption, PhishTank feed
+    Debug endpoint: cache hit rate, GSB quota consumption, PhishTank feed
     size. Handy for monitoring how close we get to the 10k/day GSB limit
     and whether the cache is doing its job. Not exposed to end users.
     """
@@ -673,7 +673,7 @@ def explain(request: Request, req: AnalyseRequest):
         )
         # Build the feature list. We keep tokens whose absolute weight is
         # meaningful, but we ALWAYS guarantee at least 5 tokens so the user
-        # never sees an empty 'Why?' panel — even when DistilBERT is so
+        # never sees an empty 'Why?' panel, even when DistilBERT is so
         # confident that LIME spreads contributions thinly across many words.
         all_feats = []
         for word, w in exp.as_list(label=1):
@@ -703,7 +703,7 @@ def _synthesize_auth_results(ctx: dict, sender_email: str | None) -> str:
     Gmail content script scrapes those and passes them to us in
     client_context, we forge a header that looks like what a real MTA
     would produce. parse_authentication_results() then handles it the
-    same way it handles a real one — and the alignment check makes sure
+    same way it handles a real one, and the alignment check makes sure
     a spoofed "signed-by" that doesn't align with From: is still caught.
 
     Returns "" when there's not enough signal to synthesize anything.
@@ -721,7 +721,7 @@ def _synthesize_auth_results(ctx: dict, sender_email: str | None) -> str:
     if not (signed_by or mailed_by or via):
         return ""
 
-    # From: domain — used by parse_authentication_results to check alignment.
+    # From: domain: used by parse_authentication_results to check alignment.
     from_addr = (sender_email or "").strip()
     m = re.search(r"@([^>\s,]+)", from_addr)
     from_domain = m.group(1).lower() if m else ""
@@ -734,7 +734,7 @@ def _synthesize_auth_results(ctx: dict, sender_email: str | None) -> str:
         parts.append(f"spf=pass smtp.mailfrom={spf_domain}")
     # DMARC pass only when the signed-by aligns with From: at the org level.
     if signed_by and from_domain:
-        # cheap org-domain compare — mirrors auth_headers._org_domain
+        # cheap org-domain compare: mirrors auth_headers._org_domain
         def _od(d):
             ps = d.split(".")
             return ".".join(ps[-2:]) if len(ps) >= 2 else d
@@ -799,25 +799,25 @@ async def analyse(request: Request, req: AnalyseRequest):
     trusted_sender = is_trusted_domain(sender_domain)
 
     # NEW: SPF/DKIM/DMARC + Spamhaus DBL. This runs in parallel with the
-    # model inference below — the DNS lookup is ~50ms and the header parse
+    # model inference below: the DNS lookup is ~50ms and the header parse
     # is <1ms, so we kick it off first and gather the result later.
     auth_signal_task = None
     if _AUTH_HEADERS_AVAILABLE:
-        # Toggle DBL via env — set REPUTATION_ENABLE_DBL=0 to skip the DNS
+        # Toggle DBL via env: set REPUTATION_ENABLE_DBL=0 to skip the DNS
         # lookup entirely (useful in isolated dev environments).
         enable_dbl = os.environ.get("REPUTATION_ENABLE_DBL", "1") != "0"
         auth_signal_task = asyncio.create_task(
             build_metadata_auth_signal(headers, enable_dbl=enable_dbl)
         )
 
-    # NEW: URL reputation cascade. Same pattern — kick it off in parallel so
+    # NEW: URL reputation cascade. Same pattern: kick it off in parallel so
     # its latency (mostly one GSB HTTP round-trip on cache miss) overlaps
     # with the model inference on the CPU.
     reputation_task = None
     if _REPUTATION_AVAILABLE and urls:
         reputation_task = asyncio.create_task(_reputation.check_urls(urls))
 
-    # run agents — pass the extra context so the trained models can take
+    # run agents: pass the extra context so the trained models can take
     # over when they're loaded; the heuristic fallback still works with
     # just the parsed urls/headers.
     try:
@@ -848,7 +848,7 @@ async def analyse(request: Request, req: AnalyseRequest):
             logger.warning(f"reputation task failed: {e}")
 
     # Apply reputation to the URL agent score. Any tier flagging a URL is
-    # very strong evidence — much better than a RF trained on lexical
+    # very strong evidence: much better than a RF trained on lexical
     # features alone. We take the max score across all URLs.
     rep_max_score = 0.0
     rep_hit_sources: set[str] = set()
@@ -876,18 +876,18 @@ async def analyse(request: Request, req: AnalyseRequest):
     p_meta_raw = p_meta
     p_meta = max(0.0, min(1.0, p_meta + float(auth_signal.get("score_delta", 0.0))))
 
-    # Alignment override — if the message is DKIM-aligned to a well-known
+    # Alignment override: if the message is DKIM-aligned to a well-known
     # institutional domain, we trust the crypto signal over any allowlist.
     crypto_verified = bool(auth_signal.get("auth", {}).get("cryptographically_verified"))
 
     # Softer signal: Gmail delivered this message to Inbox. Gmail already
-    # ran SPF/DKIM/DMARC on every message it delivers — a spoofed message
+    # ran SPF/DKIM/DMARC on every message it delivers: a spoofed message
     # from an unauthenticated sender lands in Spam. So Inbox delivery is
     # itself a weak verification signal. We use it only when:
     #   (a) the message came from the Gmail content script (client_context)
     #   (b) crypto_verified is FALSE (we always prefer the real crypto path)
     #   (c) the strong signal path can't be built (mailed-by/signed-by
-    #       scraping failed — Gmail lazy-loads them behind an overlay)
+    #       scraping failed: Gmail lazy-loads them behind an overlay)
     #   (d) the strong signal we DO have doesn't fail DMARC
     #
     # When these all hold, we apply a much softer discount than crypto_verified
@@ -911,7 +911,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         threshold = 0.65               # raise the bar for flagging a trusted sender
         trust_path = "trusted_sender"
     elif crypto_verified:
-        # DKIM-aligned to the visible From: — cryptographic proof of the
+        # DKIM-aligned to the visible From: header, which is cryptographic proof of the
         # sender identity. Apply the same discount as the static allowlist:
         # halve the text weight (DistilBERT often false-positives on
         # "verify your account" transactional templates) and disable the
@@ -919,7 +919,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         # flip an authenticated message to phishing).
         #
         # Exception: URL reputation hits (Google Safe Browsing, etc.)
-        # override this — a real threat-intel match on a link means the
+        # override this: a real threat-intel match on a link means the
         # sender's account was compromised, so we let the phishing verdict
         # through even for a signed message.
         gsb_hit = "google_safe_browsing" in rep_hit_sources
@@ -928,7 +928,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         threshold = 0.65
         trust_path = "crypto_verified"
     elif gmail_inbox_soft:
-        # Gmail delivered this message to Inbox — its own SPF/DKIM/DMARC
+        # Gmail delivered this message to Inbox, so its own SPF/DKIM/DMARC
         # verification passed even though our scraping couldn't recover
         # the exact identifiers. Discount text agent contribution and
         # disable the single-agent override so a confident DistilBERT call
@@ -937,7 +937,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         #
         # Gmail's spam filter catches >99% of phishing before Inbox delivery,
         # so we can be aggressive with this discount. URL / metadata agents
-        # still contribute at full weight — if a URL is actually malicious
+        # still contribute at full weight: if a URL is actually malicious
         # (RF or reputation cascade), the fused score can still cross the
         # threshold. GSB match still forces phishing regardless.
         gsb_hit = "google_safe_browsing" in rep_hit_sources
@@ -995,12 +995,12 @@ async def analyse(request: Request, req: AnalyseRequest):
 
 
 # ---------------------------------------------------------------------------
-# /analyse_attachment — v1.8+
+# /analyse_attachment: v1.8+
 # ---------------------------------------------------------------------------
 # Runs the same text-agent + URL-agent + reputation-cascade pipeline as
 # /analyse, but on content extracted from an uploaded attachment (PDF or
 # HTML in Phase 1). The response shape mirrors /analyse so the extension
-# and landing widgets can share their rendering code — with an extra
+# and landing widgets can share their rendering code, with an extra
 # `attachment` object carrying the extracted metadata (kind, size, page
 # count, notable features like /JavaScript in PDFs, etc).
 # ---------------------------------------------------------------------------
@@ -1021,10 +1021,10 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
             mime_type=req.mime_type,
         )
     except ValueError as e:
-        # Client-side error — unsupported type, oversized, bad base64.
+        # Client-side error: unsupported type, oversized, bad base64.
         raise HTTPException(400, str(e))
     except RuntimeError as e:
-        # Server-side extraction failed (corrupt PDF, etc). Not a 500 —
+        # Server-side extraction failed (corrupt PDF, etc). Not a 500:
         # the request was valid, the file just doesn't parse.
         raise HTTPException(422, str(e))
     except Exception as e:
@@ -1035,7 +1035,7 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
 
     # If we couldn't extract any text (image-only PDF for instance),
     # we skip the text agent and only rely on the URL agent + reputation.
-    # This still catches most malicious PDFs — they usually carry a link
+    # This still catches most malicious PDFs; they usually carry a link
     # to a credential-harvesting page.
     p_text = 0.0
     if text.strip():
@@ -1044,14 +1044,14 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         except Exception as e:
             logger.warning(f"text_agent failed on attachment: {e}")
 
-    # URL agent — trained RF when available, heuristic fallback otherwise.
+    # URL agent: trained RF when available, heuristic fallback otherwise.
     try:
         p_url = float(url_agent(urls, body_text=text))
     except Exception as e:
         logger.warning(f"url_agent failed on attachment: {e}")
         p_url = 0.0
 
-    # Reputation cascade in parallel — same tiers as /analyse.
+    # Reputation cascade in parallel: same tiers as /analyse.
     reputation_verdicts: list[dict[str, Any]] = []
     if _REPUTATION_AVAILABLE and urls:
         try:
@@ -1068,14 +1068,14 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
             rep_hit_sources.update(v.get("sources", []))
             rep_threat_types.update(v.get("threat_types", []))
 
-    # Fusion between RF and reputation — same rule as /analyse.
+    # Fusion between RF and reputation: same rule as /analyse.
     p_url_raw = p_url
     if rep_max_score >= 0.99:
         p_url = max(p_url, 0.95)
     elif rep_max_score > 0:
         p_url = max(p_url, 0.7 * rep_max_score + 0.3 * p_url)
 
-    # PDF / HTML notable features carry weight — an unsolicited HTML
+    # PDF / HTML notable features carry weight: an unsolicited HTML
     # attachment carrying a password field is basically a phishing
     # template, and a PDF that auto-executes JavaScript on open is a
     # malware dropper. These features often ARE the whole signal on
@@ -1101,29 +1101,29 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
     }
     for f in notable:
         feature_bonus += _RISK.get(f, 0.0)
-    # Combo bump — a form + password field together is a full login page
+    # Combo bump: a form + password field together is a full login page
     if "contains_form" in notable and "contains_password_field" in notable:
         feature_bonus += 0.10
     feature_bonus = min(feature_bonus, 0.7)
 
     # Attachments have no From:/DKIM to check, so the metadata agent is
-    # effectively N/A — we still expose it as 0 for consistent shape.
+    # effectively N/A; we still expose it as 0 for consistent shape.
     p_meta = 0.0
 
     # Inherit trust context from the parent email. If the extension told
     # us the message is Gmail-delivered (soft SPF/DKIM/DMARC pass) or
     # cryptographically DKIM-aligned, we know a phishing attachment
-    # requires a compromised legitimate account — much rarer than a
+    # requires a compromised legitimate account: much rarer than a
     # random attacker. We apply softer weights and a higher threshold
     # in that case to avoid false-positives on legit documents (INTERPOL
     # checklists, HR onboarding kits, bank T&Cs) whose text vocabulary
     # overlaps with real phishing.
     #
     # EXCEPTION: a Google Safe Browsing hit on any URL in the attachment
-    # still forces phishing regardless — a signed message pointing to a
+    # still forces phishing regardless: a signed message pointing to a
     # blocklisted URL means the sender's account is compromised.
     # SECURITY NOTE: parent_email is a client-supplied hint we can't
-    # independently verify from a raw /analyse_attachment call — a caller
+    # independently verify from a raw /analyse_attachment call: a caller
     # can trivially claim `gmail_delivered=true` in curl. The impact of
     # a false claim is limited: it only softens THAT caller's own scoring,
     # never anyone else's. A Google Safe Browsing hit still overrides the

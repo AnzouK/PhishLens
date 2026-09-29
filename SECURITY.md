@@ -1,6 +1,6 @@
 # Security policy
 
-PhishLens is a cybersecurity research project — please help keep it
+PhishLens is a cybersecurity research project: please help keep it
 honest by reporting anything that looks off.
 
 ## Reporting a vulnerability
@@ -17,25 +17,25 @@ before we've had a chance to fix them.
 
 ## What's in scope
 
-- The FastAPI backend (`backend/`) — API endpoints, model loading,
+- The FastAPI backend (`backend/`): API endpoints, model loading,
   attachment parsing, URL reputation cascade.
-- The Chrome extension (`extension/`) — content script running inside
+- The Chrome extension (`extension/`): content script running inside
   Gmail, popup, background service worker.
-- The landing page (`site/`) — anything that lets an attacker execute
+- The landing page (`site/`): anything that lets an attacker execute
   code or persist data in another visitor's browser.
 - Any pipe from an untrusted input (email body, attachment, URL, DOM
   scrape) to code execution, arbitrary file read/write, or SSRF.
 
 ## What's not in scope
 
-- The static allowlist (`TRUSTED_DOMAINS`) — it's a curated set of
+- The static allowlist (`TRUSTED_DOMAINS`): it's a curated set of
   well-known senders and giving it a wider trust radius is a product
   decision, not a security bug.
 - The public Cloud demo (`https://anzouk.duckdns.org`) is intentionally
   a shared open backend with permissive CORS. Rate-limiting bypass is
   a bug, but "someone can query the API without signing up" is not.
 - Model-quality issues (false positives / false negatives on specific
-  emails) — those go in regular issues, not security.
+  emails): those go in regular issues, not security.
 - Attachments larger than 10 MB being rejected is intentional (defense
   against CPU-exhaustion attacks).
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PhishLens — Detect and explain phishing emails in real time</title>
+<title>PhishLens: Detect and explain phishing emails in real time</title>
 <meta name="description" content="Chrome extension + FastAPI backend that detects phishing emails inside Gmail and explains why with DistilBERT, LIME, sender authentication and a URL reputation cascade.">
 <meta name="theme-color" content="#0d1117">
 
@@ -252,7 +252,7 @@
   <img class="hero__icon" src="/icon.png" alt="PhishLens" width="96" height="96"
        onerror="this.src='https://raw.githubusercontent.com/AnzouK/PhishLens/main/extension/icons/128.png'">
   <h1>PhishLens</h1>
-  <p class="hero__tagline">Detect and explain phishing emails in real time — inside Gmail.</p>
+  <p class="hero__tagline">Detect and explain phishing emails in real time, inside Gmail.</p>
 
   <div class="status" id="status">
     <span class="status__dot"></span>
@@ -293,7 +293,7 @@
           <li>Clone the <a href="https://github.com/AnzouK/PhishLens" target="_blank" rel="noopener">GitHub repo</a></li>
           <li>Open <code>chrome://extensions</code> → Developer mode</li>
           <li>Click <strong>Load unpacked</strong> → pick <code>extension/</code></li>
-          <li>Open Gmail — a <strong>🛡 Scan with PhishLens</strong> pill appears next to the subject</li>
+          <li>Open Gmail: a <strong>🛡 Scan with PhishLens</strong> pill appears next to the subject</li>
         </ol>
       </div>
       <div class="card">
@@ -312,7 +312,7 @@
   <!-- =============== LIVE DEMO =============== -->
   <section>
     <h2>Try it live</h2>
-    <p>Paste an email body or upload a <code>.eml</code> file — this page calls the same <code>/analyse</code> endpoint the extension uses.</p>
+    <p>Paste an email body or upload a <code>.eml</code> file. This page calls the same <code>/analyse</code> endpoint the extension uses.</p>
     <div class="demo">
       <div class="demo__tabs" role="tablist">
         <button class="demo__tab" id="tab-paste" role="tab" aria-selected="true"  data-target="pane-paste">📝 Paste text</button>
@@ -327,7 +327,7 @@
         <label class="drop" id="drop-zone">
           <span class="drop__icon">📥</span>
           <span class="drop__title" id="drop-title">Drop a .eml, .pdf or .html file here, or click to browse</span>
-          <span class="drop__sub">Anything you upload stays in your browser except for the raw bytes sent to /analyse or /analyse_attachment — nothing is logged server-side. 10 MB max.</span>
+          <span class="drop__sub">Anything you upload stays in your browser except for the raw bytes sent to /analyse or /analyse_attachment. Nothing is logged server-side. 10 MB max.</span>
           <input type="file" id="file-input" accept=".eml,message/rfc822,.pdf,application/pdf,.html,.htm,text/html,.txt,text/plain">
         </label>
       </div>
@@ -345,11 +345,11 @@
   <!-- =============== LIVE STATS =============== -->
   <section>
     <h2>Live backend stats</h2>
-    <p>Pulled from <code>/reputation/stats</code> — refreshed on page load.</p>
+    <p>Pulled from <code>/reputation/stats</code>: refreshed on page load.</p>
     <div class="stats-grid" id="stats-grid">
-      <div class="stat"><div class="stat__label">Loading…</div><div class="stat__value">—</div></div>
-      <div class="stat"><div class="stat__label">Loading…</div><div class="stat__value">—</div></div>
-      <div class="stat"><div class="stat__label">Loading…</div><div class="stat__value">—</div></div>
+      <div class="stat"><div class="stat__label">Loading…</div><div class="stat__value">…</div></div>
+      <div class="stat"><div class="stat__label">Loading…</div><div class="stat__value">…</div></div>
+      <div class="stat"><div class="stat__label">Loading…</div><div class="stat__value">…</div></div>
     </div>
   </section>
 
@@ -371,21 +371,21 @@
       if (!r.ok) throw new Error("HTTP " + r.status);
       const d = await r.json();
       el.classList.add("status--up");
-      label.textContent = "Backend online — " + (d.model || "DistilBERT") + " ready";
+      label.textContent = "Backend online: " + (d.model || "DistilBERT") + " ready";
     } catch (e) {
       el.classList.add("status--down");
       label.textContent = "Backend offline (" + (e.message || "unreachable") + ")";
     }
   })();
 
-  // Version pill — try to fetch from GitHub releases API (public, no auth needed)
+  // Version pill: try to fetch from GitHub releases API (public, no auth needed)
   (async () => {
     const el = document.getElementById("version");
     try {
       const r = await fetch("https://api.github.com/repos/AnzouK/PhishLens/releases/latest", { cache: "no-store" });
       if (!r.ok) throw 0;
       const d = await r.json();
-      el.textContent = d.tag_name || "—";
+      el.textContent = d.tag_name || "latest";
     } catch { el.textContent = "v1.10.0"; }
   })();
 
@@ -562,7 +562,7 @@
         ? '<span class="verdict__pill" style="color: var(--bad)">🔴 ' + escapeHtml(d.url_reputation.sources_hit.join(", ")) + '</span>'
         : '';
 
-      // Attachment-specific chips — kind, page count, notable features
+      // Attachment-specific chips: kind, page count, notable features
       let attachmentPills = "";
       if (d.attachment) {
         const a = d.attachment;
@@ -587,7 +587,7 @@
           ${attachmentPills ? `<div class="verdict__scores" style="margin-top: 10px">${attachmentPills}</div>` : ""}
           ${endpoint === "/analyse" ? `
             <details class="lime" id="lime-panel">
-              <summary class="lime__head">🔍 Why? — LIME token explanation</summary>
+              <summary class="lime__head">🔍 Why? (LIME token explanation)</summary>
               <div class="lime__body">
                 <p class="lime__intro">The tokens below influenced the DistilBERT verdict most.
                 Orange pushed toward <em>phishing</em>, green toward <em>safe</em>.</p>

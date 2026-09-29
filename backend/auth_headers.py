@@ -2,7 +2,7 @@
 Email authentication header parsing + Spamhaus DBL DNS lookup.
 
 Adds a real sender-authentication signal to the metadata pipeline. Where the
-old code relied on a static TRUSTED_DOMAINS allowlist (which is spoofable —
+old code relied on a static TRUSTED_DOMAINS allowlist (which is spoofable:
 "paypal.com" in the From: line means nothing on its own), this module reads
 the Authentication-Results header that Gmail (and most modern MTAs) adds to
 every message, and reports whether SPF / DKIM / DMARC actually passed.
@@ -13,7 +13,7 @@ aligned SPF/DKIM). That's the RFC-7489 alignment rule; it's what stops a
 spoofer from putting "From: paypal.com" on a message that was actually
 signed by attacker.tld.
 
-We also expose a Spamhaus DBL (Domain Block List) lookup — a DNS query
+We also expose a Spamhaus DBL (Domain Block List) lookup: a DNS query
 against dbl.spamhaus.org. If the sender domain (or any URL domain) has a
 record there, it's a known spam / malware / phish source.
 
@@ -78,7 +78,7 @@ class AuthVerdict:
     cryptographically_verified: bool = False   # aligned AND at least DKIM pass
     header_present: bool = False   # Authentication-Results was actually there
 
-    # Extras — the raw header for debug / logging
+    # Extras: the raw header for debug / logging
     raw: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -97,7 +97,7 @@ def _domain_of(addr: str) -> str:
 
 def _org_domain(domain: str) -> str:
     """
-    Best-effort organizational-domain reduction — 'mail.paypal.com' -> 'paypal.com'.
+    Best-effort organizational-domain reduction: 'mail.paypal.com' -> 'paypal.com'.
     Proper eTLD+1 extraction would need the Public Suffix List, but for our
     alignment check the last-two-labels heuristic is right in >95% of cases
     and doesn't add a runtime dependency.
@@ -120,13 +120,13 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     """
     Parse the Authentication-Results header into a structured verdict.
 
-    `headers` should be the parsed header dict from parse_eml() — keys
+    `headers` should be the parsed header dict from parse_eml(): keys
     lowercased. Missing header -> AuthVerdict(header_present=False) with
     all verdicts defaulting to "none".
     """
     verdict = AuthVerdict()
 
-    # Pull out From: domain first — needed for the alignment check.
+    # Pull out From: domain first: needed for the alignment check.
     from_raw = headers.get("from", "")
     m = re.search(r"@([^>\s,]+)", from_raw)
     if m:
@@ -164,7 +164,7 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     )
 
     # Alignment: the visible From: domain must match an authenticated one at
-    # the organizational-domain level — AND that method must have passed.
+    # the organizational-domain level, AND that method must have passed.
     # An attacker who DKIM-signs their own attacker.tld would otherwise pass
     # this check just because their spoofed header.from=paypal.com happens
     # to appear in the DMARC identifier field (which is copied from From:,
@@ -181,7 +181,7 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
         _org_domain(d) == fod for d in aligned_domains
     )
 
-    # Cryptographic verification requires DKIM (the only crypto method — SPF
+    # Cryptographic verification requires DKIM (the only crypto method: SPF
     # is envelope-only, DMARC is a policy layer on top of the other two) to
     # have passed AND the DKIM-signing domain to align with From:.
     dkim_aligned = (
@@ -195,7 +195,7 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
 
 
 # =====================================================================
-# Spamhaus DBL — Domain Block List (DNS-based)
+# Spamhaus DBL: Domain Block List (DNS-based)
 # =====================================================================
 
 DBL_ZONE = "dbl.spamhaus.org"
@@ -226,7 +226,7 @@ async def check_spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any
     A domain resolving to a 127.0.1.x code in dbl.spamhaus.org means
     Spamhaus has flagged it. NXDOMAIN means clean.
 
-    IMPORTANT: 127.255.255.x codes are Spamhaus *policy errors* — the
+    IMPORTANT: 127.255.255.x codes are Spamhaus *policy errors*: the
     query was rejected because the DNS resolver used by this host is
     public/open, anonymous, or rate-limited. Those are NOT listings;
     treating them as such would false-positive every domain we ever
@@ -248,7 +248,7 @@ async def check_spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any
         )
         result["response"] = response
         if response.startswith("127.255.255."):
-            # Policy response — DBL didn't answer. Treat as unavailable.
+            # Policy response: DBL didn't answer. Treat as unavailable.
             result["error"] = "policy_error"
             result["category"] = "spamhaus_refused_query"
         elif response.startswith("127.0.1."):
@@ -265,7 +265,7 @@ async def check_spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any
 
 
 # =====================================================================
-# High-level convenience — one call, everything you need
+# High-level convenience: one call, everything you need
 # =====================================================================
 
 async def build_metadata_auth_signal(headers: dict[str, str],
@@ -326,7 +326,7 @@ async def build_metadata_auth_signal(headers: dict[str, str],
 
 
 # =====================================================================
-# Sync wrapper — for callers not in an async context.
+# Sync wrapper: for callers not in an async context.
 # =====================================================================
 
 def build_metadata_auth_signal_sync(headers: dict[str, str],
@@ -338,7 +338,7 @@ def build_metadata_auth_signal_sync(headers: dict[str, str],
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
-            # Rare but possible — called from inside an event loop.
+            # Rare but possible: called from inside an event loop.
             # Schedule in a fresh loop on a helper thread instead of deadlocking.
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:

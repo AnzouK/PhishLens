@@ -1,7 +1,7 @@
 // =====================================================================
-// PhishLens — client-side LIME cache.
+// PhishLens: client-side LIME cache.
 // =====================================================================
-// LIME on the backend runs 100 model forward passes per /explain — that's
+// LIME on the backend runs 100 model forward passes per /explain: that's
 // ~8-15 seconds on the CPU-only Oracle VM. If you re-open the same email
 // (or two users at the same org scan the same phishing template), the
 // server does the same expensive work again.
@@ -14,7 +14,7 @@
 // Cap: LRU by timestamp. Bytes stay well under the 5 MB chrome.storage cap.
 //
 // This whole file is wrapped in an IIFE so that internals (constants,
-// helpers) don't leak to the global scope — popup.html loads history.js
+// helpers) don't leak to the global scope: popup.html loads history.js
 // alongside us as classic <script>, and both defined _get/_set/etc.
 // The only symbol we export is window.PhishLensLimeCache.
 // =====================================================================
@@ -26,7 +26,7 @@ const MAX_ENTRIES = 200;
 const TTL_MS      = 30 * 24 * 3600 * 1000;    // 30 days
 
 // ---------------------------------------------------------------------
-// Payload hash — SHA-256 over a canonical representation of the input.
+// Payload hash: SHA-256 over a canonical representation of the input.
 // The backend uses the same body text for /analyse and /explain, so
 // keying on the payload gets us cache hits across re-opens of the same
 // email even without a stable email id.
@@ -86,7 +86,7 @@ async function put(backendBase, payload, features) {
         const key = await hashPayload(backendBase, payload);
         const store = await _get();
         store[key] = { features, ts: Date.now() };
-        // LRU eviction — sort by ts asc, keep last MAX_ENTRIES.
+        // LRU eviction: sort by ts asc, keep last MAX_ENTRIES.
         const entries = Object.entries(store).sort((a, b) => a[1].ts - b[1].ts);
         while (entries.length > MAX_ENTRIES) {
             const [k] = entries.shift();
@@ -106,7 +106,7 @@ async function stats() {
 }
 
 // ---------------------------------------------------------------------
-// Export — works in popup, content scripts, service worker.
+// Export: works in popup, content scripts, service worker.
 // ---------------------------------------------------------------------
 const PhishLensLimeCache = { get, put, clear, stats, hashPayload };
 

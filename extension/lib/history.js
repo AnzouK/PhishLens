@@ -1,11 +1,11 @@
 // =====================================================================
-// PhishLens — scan history & analytics module.
+// PhishLens: scan history & analytics module.
 // =====================================================================
 // Single source of truth for the local scan history. Used by:
-//   • popup.js         — saves file / paste scans
-//   • gmail.js         — saves Gmail-injected scans (via background message)
-//   • background.js    — bridges gmail.js -> chrome.storage
-//   • popup views      — read the history for the History & Analytics tabs
+//   • popup.js        : saves file / paste scans
+//   • gmail.js        : saves Gmail-injected scans (via background message)
+//   • background.js   : bridges gmail.js -> chrome.storage
+//   • popup views     : read the history for the History & Analytics tabs
 //
 // Storage design
 //   Key:   "scanHistory"  in chrome.storage.local
@@ -28,7 +28,7 @@ const STORAGE_KEY = "scanHistory";
 const MAX_ENTRIES = 500;   // ~50 KB, well below the 5 MB chrome.storage cap
 
 // ---------------------------------------------------------------------
-// Chrome storage helpers — Promise-based wrappers so we can await them.
+// Chrome storage helpers: Promise-based wrappers so we can await them.
 // ---------------------------------------------------------------------
 function _get(key) {
     return new Promise((resolve) => {
@@ -90,7 +90,7 @@ async function deleteScan(id) {
 }
 
 // ---------------------------------------------------------------------
-// Analytics — aggregated stats for the dashboard view.
+// Analytics: aggregated stats for the dashboard view.
 // ---------------------------------------------------------------------
 async function getStats() {
     const list = await getHistory();
@@ -189,7 +189,7 @@ async function exportCSV() {
 }
 
 // ---------------------------------------------------------------------
-// Global export — works in popup, content scripts, service worker.
+// Global export: works in popup, content scripts, service worker.
 // ---------------------------------------------------------------------
 const PhishLensHistory = {
     saveScan, attachTokens, getHistory, getStats,

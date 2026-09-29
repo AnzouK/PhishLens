@@ -1,8 +1,8 @@
 # =====================================================================
-# PhishLens backend — Docker image
+# PhishLens backend: Docker image
 # =====================================================================
 # Builds a self-contained image that runs `uvicorn extension_backend:app`
-# on port 8000. The DistilBERT model is NOT baked in — it is mounted as
+# on port 8000. The DistilBERT model is NOT baked in; it is mounted as
 # a read-only volume at /app/model (see docker-compose.yml). Keeps the
 # image small and lets you swap models without rebuilding.
 # =====================================================================
@@ -21,7 +21,7 @@ RUN apt-get update \
 WORKDIR /app
 
 # Install Python dependencies first (better layer caching).
-# torch is installed from the CPU-only index — the default wheels ship
+# torch is installed from the CPU-only index: the default wheels ship
 # with ~3.5 GB of NVIDIA CUDA runtime that's useless on CPU hosts.
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
@@ -29,7 +29,7 @@ RUN pip install --no-cache-dir --upgrade pip \
         "torch>=2.0,<3.0" \
  && pip install --no-cache-dir -r requirements.txt
 
-# App code — extension_backend.py + optional trained-agent runtime.
+# App code: extension_backend.py + optional trained-agent runtime.
 # feature_extraction.py / url_agent.py / metadata_agent.py are only
 # needed when the corresponding joblibs are present (either mounted or
 # downloaded from HF); when they're absent the heuristic path takes over.

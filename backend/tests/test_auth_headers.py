@@ -1,6 +1,6 @@
 """
 Tests for auth_headers.parse_authentication_results and the derived
-alignment / crypto-verified logic. These are pure-function tests — no
+alignment / crypto-verified logic. These are pure-function tests, no
 network, no I/O, so they run in ~10 ms.
 """
 from __future__ import annotations
@@ -28,7 +28,7 @@ class TestOrgDomain:
         assert _org_domain("smtp.eu.mail.paypal.com") == "paypal.com"
 
     def test_two_part_tld_kept(self):
-        # co.uk is a two-part TLD — keep 3 labels
+        # co.uk is a two-part TLD: keep 3 labels
         assert _org_domain("bank.co.uk") == "bank.co.uk"
         assert _org_domain("service.bank.co.uk") == "bank.co.uk"
 
@@ -52,7 +52,7 @@ class TestParseAuthResults:
 
     def test_legit_all_pass_aligned(self):
         # PayPal signs with @paypal.com, mailfrom @paypal.com,
-        # header.from paypal.com — canonical happy path.
+        # header.from paypal.com: canonical happy path.
         ar = ("mx.google.com; "
               "dkim=pass header.i=@paypal.com header.s=s1; "
               "spf=pass smtp.mailfrom=service@paypal.com; "
@@ -66,7 +66,7 @@ class TestParseAuthResults:
         assert v.cryptographically_verified is True
 
     def test_spoof_dkim_by_attacker_domain(self):
-        # This is the case that broke the old static allowlist —
+        # This is the case that broke the old static allowlist:
         # attacker DKIM-signs their own domain but puts From: paypal.com.
         # The alignment check must reject this.
         ar = ("mx.google.com; "
@@ -81,7 +81,7 @@ class TestParseAuthResults:
 
     def test_subdomain_alignment(self):
         # DKIM signed by mail.paypal.com must count as aligned with
-        # From: paypal.com — that's the organisational-domain rule.
+        # From: paypal.com: that's the organisational-domain rule.
         ar = ("mx.google.com; "
               "dkim=pass header.i=@mail.paypal.com; "
               "spf=pass smtp.mailfrom=x@mail.paypal.com; "
@@ -93,7 +93,7 @@ class TestParseAuthResults:
 
     def test_dkim_fail_disables_crypto_verified_even_when_spf_passes(self):
         # SPF passing on an aligned domain is not enough for
-        # cryptographically_verified — DKIM is the crypto piece.
+        # cryptographically_verified: DKIM is the crypto piece.
         ar = ("mx.google.com; "
               "spf=pass smtp.mailfrom=x@paypal.com; "
               "dkim=fail header.i=@paypal.com; "
@@ -104,7 +104,7 @@ class TestParseAuthResults:
 
     def test_alignment_requires_pass_not_just_matching_domain(self):
         # A dmarc=fail with header.from=paypal.com must NOT count as
-        # aligned even if the domains happen to match — the verdict is
+        # aligned even if the domains happen to match: the verdict is
         # what matters.
         ar = ("mx.google.com; "
               "dkim=none; spf=none; "
