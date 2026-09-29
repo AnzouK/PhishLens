@@ -550,6 +550,12 @@ except Exception as e:
 def url_agent(urls: list[str], body_text: str = "") -> float:
     """URL score — trained RF on the full body text when available,
     heuristic on the extracted URL list otherwise."""
+    # No links, no URL risk. Checked before the trained path on purpose:
+    # the Random Forest was trained on emails that carry URLs, and on an
+    # all-zero feature vector it outputs a high phishing probability,
+    # which fired the single-agent override on plain link-free text.
+    if not urls:
+        return 0.05
     if _URL_AGENT is not None and _FEATURE_EXTRACT is not None and body_text:
         try:
             feats = _FEATURE_EXTRACT.extract_url_features(body_text)

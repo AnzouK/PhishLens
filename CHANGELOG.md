@@ -5,6 +5,16 @@ All notable changes to PhishLens are listed here. The format follows
 uses [Semantic Versioning](https://semver.org/). The extension and the
 backend share one version number.
 
+## [1.10.1] - 2026-09-29
+
+### Fixed
+- Link-free emails could be flagged as phishing on the default path.
+  The trained URL Random Forest ran even when the body had no URL and
+  returned about 0.9 on the all-zero feature vector, which fired the
+  single-agent override (seen on "Hi team, the meeting moved to 3pm.").
+  The URL agent now returns 0.05 when there are no links, before the
+  trained model is consulted. Regression tests added.
+
 ## [1.10.0] - 2026-09-29
 
 Engineering-process release: tests, observability and documentation.
@@ -134,6 +144,7 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[1.10.1]: https://github.com/AnzouK/PhishLens/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/AnzouK/PhishLens/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/AnzouK/PhishLens/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/AnzouK/PhishLens/compare/v1.7.0...v1.8.0
