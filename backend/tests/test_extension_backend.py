@@ -98,6 +98,31 @@ class TestHeuristicAgents:
         monkeypatch.setattr(eb, "_URL_AGENT", None)
         assert eb.url_agent(["http://10.0.0.1/login"]) >= 0.7
 
+    def test_trained_url_agent_skipped_without_urls(self, monkeypatch):
+        # Regression (v1.10.1): the trained RF returned ~0.9 on link-free
+        # text and forced a phishing verdict on "meeting moved to 3pm".
+        class AlwaysPhishy:
+            def get_prediction_with_confidence(self, _feats):
+                return {"phishing_probability": 0.9}
+        monkeypatch.setattr(eb, "_URL_AGENT", AlwaysPhishy())
+        monkeypatch.setattr(eb, "_FEATURE_EXTRACT", object())
+        assert eb.url_agent([], body_text="Meeting moved to 3pm.") == pytest.approx(0.05)
+
+    def test_link_free_text_is_safe_with_trained_url_agent(self, client, monkeypatch):
+        class AlwaysPhishy:
+            def get_prediction_with_confidence(self, _feats):
+                return {"phishing_probability": 0.9}
+
+        class NoFeatures:
+            def extract_url_features(self, _text):
+                return {}
+        monkeypatch.setattr(eb, "_URL_AGENT", AlwaysPhishy())
+        monkeypatch.setattr(eb, "_FEATURE_EXTRACT", NoFeatures())
+        r = client.post("/analyse", json={"raw_text": "Hi team, the meeting moved to 3pm."})
+        j = r.json()
+        assert j["agents"]["url"]["phishing_probability"] == pytest.approx(0.05)
+        assert j["verdict"] == "safe"
+
     def test_metadata_display_name_impersonation(self, monkeypatch):
         monkeypatch.setattr(eb, "_METADATA_AGENT", None)
         score = eb.metadata_agent({"from": "PayPal Support <support@evil.tld>"})
