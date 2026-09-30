@@ -449,3 +449,8 @@ class TestV114:
         assert j["attachment"]["kind"] == "archive"
         assert j["attachment"]["dropper_techniques"] == ["script_in_archive"]
         assert j["verdict"] == "phishing"
+
+
+def test_forwarded_sender_parsing_is_bounded():
+    body = "---------- Forwarded message ---------\nFrom: " + "a" * 200_000
+    assert eb.detect_forwarded(body) == {"detected": True, "original_sender": None}

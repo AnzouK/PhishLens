@@ -793,15 +793,28 @@ MIN_TEXT_WORDS = 3
 # discounts (allowlist, DKIM, Gmail inbox) must not apply to the content.
 # ---------------------------------------------------------------------
 _FORWARD_MARKERS = re.compile(
-    r"^\s*(?:-{2,}\s*(?:forwarded message|original message|message transf[ée]r[ée]|"
-    r"message d'origine|mensaje reenviado|mensaje original)\s*-{2,}"
+    r"^[ \t]*(?:-{2,}[ \t]*(?:forwarded message|original message|message transf[ée]r[ée]|"
+    r"message d'origine|mensaje reenviado|mensaje original)[ \t]*-{2,}"
     r"|begin forwarded message\s*:"
     r"|d[ée]but du message (?:r[ée]exp[ée]di[ée]|transf[ée]r[ée])\s*:)",
     re.IGNORECASE | re.MULTILINE,
 )
 _FORWARD_SUBJECT = re.compile(r"^\s*(?:fwd?|tr|wg|rv|enc)\s*:", re.IGNORECASE)
-_FORWARD_FROM = re.compile(r"^\s*(?:from|de|von)\s*:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
-_EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+_FORWARD_FROM_KEYS = ("from", "de", "von")
+
+
+def _forwarded_sender(tail: str) -> str | None:
+    """First "From:" / "De :" line of the forwarded block, parsed without a
+    regex (CodeQL flagged the regex versions as polynomial on crafted
+    input). Only the first 40 lines and 300 characters per line are read."""
+    for line in tail.splitlines()[:40]:
+        key, sep, value = line[:300].partition(":")
+        if sep and key.strip().lower() in _FORWARD_FROM_KEYS:
+            _name, addr = parseaddr(value.strip())
+            if "@" in addr and " " not in addr and "." in addr.rsplit("@", 1)[-1]:
+                return addr.lower()
+            return None
+    return None
 
 
 def detect_forwarded(body: str, subject: str | None = None) -> dict[str, Any]:
@@ -817,10 +830,7 @@ def detect_forwarded(body: str, subject: str | None = None) -> dict[str, Any]:
     original = None
     if detected:
         tail = body[m.end():] if m else body
-        fm = _FORWARD_FROM.search(tail[:2000])
-        if fm:
-            em = _EMAIL_RE.search(fm.group(1))
-            original = em.group(0).lower() if em else None
+        original = _forwarded_sender(tail[:5000])
     return {"detected": detected, "original_sender": original}
 
 
