@@ -203,6 +203,18 @@ def analyse_uninspectable_archive(raw: bytes, filename: str, fmt: str) -> dict[s
 # ---------------------------------------------------------------------
 # Calendar invites (.ics)
 # ---------------------------------------------------------------------
+def _strip_tags(html: str) -> str:
+    """Drop <...> tags without a regex (linear, safe on crafted input)."""
+    out = []
+    for i, chunk in enumerate(html[:20_000].split("<")):
+        if i == 0:
+            out.append(chunk)
+        else:
+            _tag, sep, rest = chunk.partition(">")
+            out.append(" " + rest if sep else "")
+    return "".join(out)
+
+
 _ICS_FIELDS = ("SUMMARY", "DESCRIPTION", "LOCATION", "URL", "ATTACH", "ORGANIZER", "X-ALT-DESC")
 
 
@@ -221,7 +233,7 @@ def analyse_ics(raw: bytes, filename: str, extract_urls: Callable[[str], list[st
                 organizer = value.replace("mailto:", "").replace("MAILTO:", "").strip()
                 continue
             if key == "X-ALT-DESC":
-                value = re.sub(r"<[^>]+>", " ", value)
+                value = _strip_tags(value)
             kept.append(value)
     body = "\n".join(kept)[:20_000]
     urls = extract_urls(body)

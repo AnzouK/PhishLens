@@ -5,6 +5,16 @@ All notable changes to PhishLens are listed here. The format follows
 uses [Semantic Versioning](https://semver.org/). The extension and the
 backend share one version number.
 
+## [Unreleased]
+
+### Security
+- **CodeQL alerts #9 to #11 (polynomial regular expressions):** the
+  forwarded-sender lookup and the HTML stripping of calendar invites
+  used regexes that could backtrack badly on crafted input. They are
+  replaced by linear, bounded parsing (`email.utils.parseaddr` on the
+  first "From:" line, and a split-based tag stripper); the forward
+  markers only match spaces and tabs, not newlines.
+
 ## [1.14.0] - 2026-09-30
 
 Real-inbox release: conversations, forwarded and image-only emails,

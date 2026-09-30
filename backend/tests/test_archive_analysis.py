@@ -107,3 +107,8 @@ class TestOtherTypes:
         r = analyse_attachment(b64(raw), filename="statement.pdf")
         assert r["kind"] == "pdf"
         assert "encrypted_document" in r["notable_features"]
+
+
+def test_strip_tags_is_linear_on_crafted_input():
+    assert archives._strip_tags("<p>Hi <b>there</b></p>").split() == ["Hi", "there"]
+    assert archives._strip_tags("<" * 50_000) == ""
