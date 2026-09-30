@@ -20,7 +20,9 @@ pytest.importorskip("httpx")          # TestClient transport
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-import extension_backend as eb  # noqa: E402  (conftest stubs heavy deps first)
+from tests.conftest import import_extension_backend  # noqa: E402
+
+eb = import_extension_backend()
 
 
 def b64(data: bytes) -> str:
