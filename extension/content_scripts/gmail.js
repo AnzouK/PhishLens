@@ -116,10 +116,27 @@ async function runScan(emailView, btn) {
     const subject = emailView.querySelector(SUBJECT_SEL)?.textContent?.trim() || "";
 
     if (!body || body.length < 20) {
-        showBanner(emailView, {
-            verdict: "error",
-            error: "Could not read the email body. Try opening the email fully.",
-        });
+        // No text to score. Common case: an email that only carries an
+        // attachment (an attachment-only email is also a classic phishing
+        // lure). Scan the attachments instead of giving up.
+        const hasAttachments = !!emailView.querySelector(ATT_STRIP_SEL);
+        const attBtn = emailView.querySelector(".pll-scan-btn--all");
+        if (hasAttachments) {
+            showBanner(emailView, {
+                verdict: "error",
+                title: "This email has no text, only attachments",
+                error: (attBtn ? "PhishLens is scanning the attachments instead: see the results below. "
+                               : "See the attachment results below. ") +
+                       "Attachment-only emails are a common phishing trick: open the file only if you were expecting it.",
+            });
+            if (attBtn && !attBtn.disabled) attBtn.click();
+        } else {
+            showBanner(emailView, {
+                verdict: "error",
+                title: "Nothing to scan in this email",
+                error: "The body is empty or too short to analyse. If the email is still loading, open it fully and scan again.",
+            });
+        }
         return;
     }
 
@@ -144,6 +161,9 @@ async function runScan(emailView, btn) {
                 gmail_mailed_by: gmailAuth.mailedBy,
                 gmail_via:       gmailAuth.via,
                 gmail_in_inbox:  gmailAuth.inInbox,
+                // Real link targets: innerText only has the visible link
+                // text ("Click here"), not where the link goes.
+                link_urls:       linkTargetsOf(emailView.querySelector(BODY_SEL)),
             },
         };
 
@@ -287,7 +307,7 @@ function showBanner(emailView, data) {
         banner.innerHTML = `
             <span class="pll-banner__icon">${PLL_ICON.alert}</span>
             <div class="pll-banner__main">
-              <div class="pll-banner__title">PhishLens could not scan this email</div>
+              <div class="pll-banner__title">${escapeHTML(data.title || "PhishLens could not scan this email")}</div>
               <div class="pll-banner__lead">${escapeHTML(data.error || "")}</div>
             </div>
             <button type="button" class="pll-banner__close" title="Dismiss" aria-label="Dismiss">${PLL_ICON.close}</button>`;
@@ -381,6 +401,17 @@ function attachExplanation(emailView, features, cached = false) {
 function textOf(el) {
     if (!el) return "";
     return el.innerText.replace(/\s+\n/g, "\n").trim();
+}
+// http(s) targets of the links in the message body, deduplicated, max 50.
+function linkTargetsOf(el) {
+    if (!el) return [];
+    const out = new Set();
+    for (const a of el.querySelectorAll("a[href]")) {
+        const href = a.href || "";
+        if (/^https?:\/\//i.test(href) && href.length <= 2048) out.add(href);
+        if (out.size >= 50) break;
+    }
+    return [...out];
 }
 function pct(p) { return p == null ? "n/a" : Math.round(p * 100); }
 
@@ -846,6 +877,24 @@ async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn }
         // Mark the tile as scanned so the MutationObserver doesn't
         // resurrect a Scan pill on the next DOM tick.
         if (tile) tile.dataset.pllScanned = "1";
+
+        // Attachment scans go to the local history too, like email scans.
+        chrome.runtime.sendMessage({
+            type: "phishlens.history.save",
+            entry: {
+                source:  "gmail-attachment",
+                subject: filename,
+                sender:  senderEl?.getAttribute("email") || senderEl?.textContent?.trim() || "",
+                verdict: r.data.verdict,
+                score:   Number(r.data.fused_score) || 0,
+                agents: {
+                    text: Number(r.data.agents?.text?.phishing_probability) || 0,
+                    url:  Number(r.data.agents?.url?.phishing_probability)  || 0,
+                    metadata: 0,
+                },
+                trusted: !!r.data.parent_trusted,
+            },
+        }).catch(() => {});
     } catch (e) {
         banner.className = "pll-att-banner pll-att-banner--error";
         banner.innerHTML = `

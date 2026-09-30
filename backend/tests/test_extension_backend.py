@@ -362,3 +362,35 @@ class TestMetrics:
         r = client.get("/metrics")
         assert r.status_code == 200
         assert "phishlens_verdicts_total" in r.text
+
+
+# ---------------------------------------------------------------------
+# Link targets sent by the Gmail extension (client_context.link_urls)
+# ---------------------------------------------------------------------
+class TestLinkUrls:
+    def test_merge_filters_and_dedupes(self):
+        out = eb._merge_link_urls(
+            ["https://a.example/x"],
+            ["https://a.example/x", "javascript:alert(1)", "mailto:x@y.z",
+             42, "http://b.example/" + "p" * 3000, " https://c.example/login "],
+        )
+        assert out == ["https://a.example/x", "https://c.example/login"]
+
+    def test_merge_caps_and_ignores_non_lists(self):
+        many = [f"https://h{i}.example/" for i in range(200)]
+        assert len(eb._merge_link_urls([], many)) == eb.MAX_LINK_URLS
+        assert eb._merge_link_urls(["https://a.example/"], "https://b.example/") == ["https://a.example/"]
+
+    def test_hidden_link_reaches_url_agent(self, client, monkeypatch):
+        seen = {}
+
+        def fake_url_agent(urls, body_text=""):
+            seen["urls"] = list(urls)
+            return 0.0
+        monkeypatch.setattr(eb, "url_agent", fake_url_agent)
+        client.post("/analyse", json={
+            "raw_text": "Your parcel is waiting. Click here to schedule delivery.",
+            "client_context": {"origin": "gmail",
+                               "link_urls": ["https://parcel-redelivery.example/track"]},
+        })
+        assert seen["urls"] == ["https://parcel-redelivery.example/track"]

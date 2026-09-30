@@ -5,6 +5,21 @@ All notable changes to PhishLens are listed here. The format follows
 uses [Semantic Versioning](https://semver.org/). The extension and the
 backend share one version number.
 
+## [Unreleased]
+
+### Fixed
+- **Hidden links in Gmail:** the Gmail scan sent only the visible text,
+  so a link written as "Click here" was never checked. The extension now
+  sends the real link targets (`client_context.link_urls`, max 50) and
+  the backend adds them to the URL agent and the threat-intel lookups.
+- **Attachment-only emails:** scanning an email with no body text no
+  longer ends in "could not read the email body". PhishLens now says the
+  email only carries attachments, scans them automatically and warns
+  that attachment-only emails are a common phishing trick.
+- **History:** attachment scans run from Gmail are now saved in the
+  scan history (source "Gmail attachment"), and attachments dropped in
+  the popup are labelled "attachment" instead of ".eml file".
+
 ## [1.13.0] - 2026-09-30
 
 Interface release: new landing page, Gmail UI and popup polish.

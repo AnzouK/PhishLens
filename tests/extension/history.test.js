@@ -80,3 +80,13 @@ test("deleteScan and clearHistory", async () => {
     await H.clearHistory();
     assert.equal((await H.getHistory()).length, 0);
 });
+
+test("attachment scans are counted by source", async () => {
+    const H = fresh();
+    await H.saveScan({ source: "gmail-attachment", subject: "invoice.pdf", verdict: "phishing", score: 0.9 });
+    await H.saveScan({ source: "attachment", subject: "scan.png", verdict: "safe", score: 0.1 });
+    const stats = await H.getStats();
+    assert.equal(stats.bySource["gmail-attachment"], 1);
+    assert.equal(stats.bySource.attachment, 1);
+    assert.equal((await H.getHistory())[1].source, "gmail-attachment");
+});

@@ -13,7 +13,7 @@
 //   Entry: {
 //     id:        string       // uuid-ish
 //     ts:        number       // Date.now()
-//     source:    "gmail" | "file" | "paste"
+//     source:    "gmail" | "gmail-attachment" | "file" | "attachment" | "paste"
 //     subject:   string       // truncated to 120 chars
 //     sender:    string       // sender email/domain when available
 //     verdict:   "phishing" | "safe"
@@ -130,7 +130,7 @@ async function getStats() {
         .map(([token, weight]) => ({ token, weight }));
 
     // By source breakdown
-    const bySource = { gmail: 0, file: 0, paste: 0, unknown: 0 };
+    const bySource = { gmail: 0, "gmail-attachment": 0, file: 0, attachment: 0, paste: 0, unknown: 0 };
     for (const e of list) bySource[e.source] = (bySource[e.source] || 0) + 1;
 
     // Average score

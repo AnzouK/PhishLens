@@ -287,7 +287,8 @@ analyzeBtn.addEventListener("click", async () => {
         // Persist this scan in the local history via the shared module.
         try {
             const entry = {
-                source:  (payload.raw_email_b64 ? "file" : "paste"),
+                source:  payload.content_b64 ? "attachment"
+                       : payload.raw_email_b64 ? "file" : "paste",
                 subject: (selectedFile?.name || "").slice(0, 120),
                 sender:  data.sender_domain || "",
                 verdict: data.verdict,
@@ -759,7 +760,10 @@ async function renderInsights() {
         const dot = icon(e.verdict === "phishing" ? "alert" : "shield-check");
         const when = timeAgo(e.ts);
         const subj = e.subject || "(no subject)";
-        const src = ({ gmail: "Gmail", file: ".eml file", paste: "pasted text" })[e.source] || e.source;
+        const src = ({
+            gmail: "Gmail", "gmail-attachment": "Gmail attachment",
+            file: ".eml file", attachment: "attachment", paste: "pasted text",
+        })[e.source] || e.source;
         return `
           <div class="history-item" data-verdict="${e.verdict}" data-id="${e.id}">
             <div class="history-item__dot">${dot}</div>

@@ -775,6 +775,32 @@ def _synthesize_auth_results(ctx: dict, sender_email: str | None) -> str:
     return " ".join(parts)
 
 
+MAX_LINK_URLS = 50
+
+
+def _merge_link_urls(urls: list[str], extra: Any) -> list[str]:
+    """Add client-supplied link targets to the URLs found in the text.
+
+    Untrusted input: only http(s) strings under 2048 characters are kept,
+    at most MAX_LINK_URLS of them, and duplicates are dropped (order kept).
+    """
+    out = list(dict.fromkeys(urls))
+    if not isinstance(extra, list):
+        return out
+    seen = set(out)
+    for u in extra:
+        if len(out) >= MAX_LINK_URLS:
+            break
+        if not isinstance(u, str) or len(u) > 2048:
+            continue
+        u = u.strip()
+        if not re.match(r"https?://", u, re.I) or u in seen:
+            continue
+        seen.add(u)
+        out.append(u)
+    return out
+
+
 def _get_body_urls_headers(req: AnalyseRequest):
     """Resolve the request into (body, urls, headers, raw_bytes).
 
@@ -787,6 +813,11 @@ def _get_body_urls_headers(req: AnalyseRequest):
     if req.raw_text:
         body = req.raw_text.strip()
         urls = re.findall(r"https?://[^\s\"'<>)]+", body)
+        # The visible text of an HTML email hides where its links go
+        # ("Click here"). The Gmail extension sends the real href targets
+        # in client_context.link_urls so the URL agent and the threat-intel
+        # cascade see them too.
+        urls = _merge_link_urls(urls, (req.client_context or {}).get("link_urls"))
         headers: dict[str, str] = {}
         if req.sender_email:
             headers["from"] = req.sender_email
