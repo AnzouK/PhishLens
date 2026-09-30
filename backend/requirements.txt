@@ -47,7 +47,7 @@ prometheus-fastapi-instrumentator>=8.1.0,<9.0
 # pypdfium2 renders PDF pages; it is already pulled in by pdfplumber.
 pillow>=12.3.0,<13.0
 pytesseract>=0.3.13,<1.0
-opencv-python-headless>=4.8,<6.0
+opencv-python-headless>=5.0.0.93,<6.0
 pypdfium2>=5.13.0,<6.0
 
 # Random Forest agents without pickle (v1.12): skops files are loaded
