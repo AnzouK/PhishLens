@@ -312,11 +312,11 @@
   <!-- =============== LIVE DEMO =============== -->
   <section>
     <h2>Try it live</h2>
-    <p>Paste an email body or upload a <code>.eml</code> file. This page calls the same <code>/analyse</code> endpoint the extension uses.</p>
+    <p>Paste an email body, or upload a <code>.eml</code> file or an attachment (PDF, image, Word, Excel, PowerPoint, HTML). This page calls the same endpoints the extension uses.</p>
     <div class="demo">
       <div class="demo__tabs" role="tablist">
         <button class="demo__tab" id="tab-paste" role="tab" aria-selected="true"  data-target="pane-paste">📝 Paste text</button>
-        <button class="demo__tab" id="tab-file"  role="tab" aria-selected="false" data-target="pane-file">📂 Upload .eml</button>
+        <button class="demo__tab" id="tab-file"  role="tab" aria-selected="false" data-target="pane-file">📂 Upload a file</button>
       </div>
 
       <div class="demo__pane" id="pane-paste" data-active="true" role="tabpanel">
@@ -326,9 +326,9 @@
       <div class="demo__pane" id="pane-file" role="tabpanel">
         <label class="drop" id="drop-zone">
           <span class="drop__icon">📥</span>
-          <span class="drop__title" id="drop-title">Drop a .eml, .pdf or .html file here, or click to browse</span>
+          <span class="drop__title" id="drop-title">Drop an email (.eml) or an attachment (PDF, image, Office, HTML) here, or click to browse</span>
           <span class="drop__sub">Anything you upload stays in your browser except for the raw bytes sent to /analyse or /analyse_attachment. Nothing is logged server-side. 10 MB max.</span>
-          <input type="file" id="file-input" accept=".eml,message/rfc822,.pdf,application/pdf,.html,.htm,text/html,.txt,text/plain">
+          <input type="file" id="file-input" accept=".eml,.pdf,.html,.htm,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff,.docx,.docm,.doc,.xlsx,.xlsm,.xls,.pptx,.pptm,.ppt,.txt">
         </label>
       </div>
 
@@ -455,7 +455,7 @@
       const kb = (file.size / 1024).toFixed(1);
       dropTitle.innerHTML = `Selected: <span class="drop__file">${escapeHtml(file.name)}</span> (${kb} KB)`;
     } else {
-      dropTitle.textContent = "Drop a .eml file here, or click to browse";
+      dropTitle.textContent = "Drop an email (.eml) or an attachment here, or click to browse";
     }
   }
   function escapeHtml(s) {
@@ -500,7 +500,7 @@
   // --- Analyze click ------------------------------------------------
   demoBtn.addEventListener("click", async () => {
     // Build the payload from whichever pane is active. We route to
-    // /analyse_attachment for PDF / HTML and to /analyse for .eml
+    // /analyse_attachment for attachments and to /analyse for .eml
     // and plain text, based on the filename extension.
     let payload, endpoint = "/analyse";
     if (activeTab === "file") {
@@ -513,7 +513,8 @@
         return;
       }
       const ext = (selectedFile.name.split(".").pop() || "").toLowerCase();
-      const isAttachment = ["pdf", "html", "htm"].includes(ext);
+      const isAttachment = ["pdf", "html", "htm", "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff",
+                            "docx", "docm", "doc", "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt"].includes(ext);
       try {
         const b64 = await fileToBase64(selectedFile);
         if (isAttachment) {

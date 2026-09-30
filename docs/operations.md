@@ -35,6 +35,25 @@ version published on Hugging Face, empty the folder
 committed. The landing page is static and deployed separately:
 `rsync -avz --delete site/ <vm>:~/phishlens-site/`.
 
+### Random Forest agents without pickle (one-time, v1.12)
+
+The backend prefers `url_agent.skops` / `metadata_agent.skops` and only
+falls back to the old joblib files, with a warning in the logs. Convert
+and publish them once, from inside the running container so the same
+scikit-learn version reads the originals:
+
+```bash
+docker exec -it phishlens python convert_agents_to_skops.py            # convert and verify
+docker exec -it phishlens python convert_agents_to_skops.py --upload   # then publish
+```
+
+The script checks that the skops copy gives exactly the same
+probabilities as the original on 200 random inputs before writing
+anything. `--upload` asks for a Hugging Face write token (not echoed).
+Afterwards add `AGENTS_ALLOW_PICKLE=0` to `~/.phishlens.env`, re-create
+the container, and check that the logs say `Loaded trained url_agent
+from agents/url_agent.skops`.
+
 ## Health and status endpoints
 
 | Endpoint | Use |

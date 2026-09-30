@@ -1,12 +1,10 @@
 // ESLint config for the Chrome extension (flat config, ESLint 9).
 //
-// Two tiers on purpose:
-//   error: rules that only fire on real bugs (dead code, duplicate keys,
-//          assigning to a const, broken typeof checks...). These fail CI.
-//   warn:  rules that are useful but noisy on existing code (undefined
-//          names across script files, unused variables). They show up as
-//          annotations on the pull request without blocking it. Promote
-//          them to "error" once the warnings are cleaned up.
+// Every rule fails CI (v1.12: the hygiene rules were promoted from
+// "warn" once the existing warnings were fixed).
+//   bug-class rules: dead code, duplicate keys, assigning to a const,
+//                    broken typeof checks...
+//   hygiene rules:   undefined names, unused variables, loose equality.
 import globals from "globals";
 
 const bugRules = {
@@ -30,10 +28,10 @@ const bugRules = {
 };
 
 const hygieneRules = {
-  "no-undef": "warn",
-  "no-unused-vars": ["warn", { args: "none", caughtErrors: "none" }],
-  "no-empty": ["warn", { allowEmptyCatch: true }],
-  eqeqeq: ["warn", "smart"],
+  "no-undef": "error",
+  "no-unused-vars": ["error", { args: "none", caughtErrors: "none" }],
+  "no-empty": ["error", { allowEmptyCatch: true }],
+  eqeqeq: ["error", "smart"],
 };
 
 export default [

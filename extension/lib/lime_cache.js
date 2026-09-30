@@ -114,5 +114,6 @@ if (typeof globalThis !== "undefined") globalThis.PhishLensLimeCache = PhishLens
 if (typeof window     !== "undefined") window.PhishLensLimeCache     = PhishLensLimeCache;
 if (typeof self       !== "undefined") self.PhishLensLimeCache       = PhishLensLimeCache;
 
+// eslint-disable-next-line no-undef
 if (typeof module !== "undefined" && module.exports) module.exports = PhishLensLimeCache;
 })();

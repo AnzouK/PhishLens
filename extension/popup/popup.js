@@ -33,7 +33,6 @@ const views = {
 // tokens to the history entry once /explain resolves.
 let currentHistoryId = null;
 const dropZone = $("drop-zone");
-const fileInput = $("file-input");
 const analyzeBtn = $("analyze-btn");
 const status = $("status");
 const backBtn = $("back-btn");
@@ -42,11 +41,17 @@ const explainPanel = $("explain-panel");
 const explainTokens = $("explain-tokens");
 const explainStatus = $("explain-status");
 
+// ---------- accepted files ----------
+// .eml goes to /analyse; everything in ATTACHMENT_EXTS goes to
+// /analyse_attachment (v1.12: images and Office documents added).
+const ATTACHMENT_EXTS = ["pdf", "html", "htm", "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff", "docx", "docm", "doc", "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt"];
+const FILE_ACCEPT = [".eml", ...ATTACHMENT_EXTS.map((e) => "." + e)].join(",");
+const fileExt = (name) => ((name || "").split(".").pop() || "").toLowerCase();
+
 // ---------- state ----------
 let activeTab = "file";          // "file" | "paste"
 let selectedFile = null;
 let pastedText = "";
-let lastPayload = null;          // {raw_email_b64} or {raw_text}: for /explain
 let runId = 0;                   // bumped on each Analyze click: old fetches that finish after a new run are ignored
 let explainData = null;          // resolved features or null
 let explainError = null;         // string error message or null
@@ -122,9 +127,9 @@ function setSelectedFile(file) {
     if (!file) {
         dropZone.classList.remove("drop-zone--filled");
         dropZone.innerHTML = `
-            <input id="file-input" type="file" accept=".eml" hidden />
+            <input id="file-input" type="file" accept="${FILE_ACCEPT}" hidden />
             <div class="drop-zone__icon">📧</div>
-            <div class="drop-zone__label">Drag &amp; drop your <code>.eml</code> file</div>
+            <div class="drop-zone__label">Drag &amp; drop an email or an attachment</div>
             <div class="drop-zone__hint">or click to browse</div>`;
         rewireFileInput();
         updateAnalyzeEnabled();
@@ -132,7 +137,7 @@ function setSelectedFile(file) {
     }
     dropZone.classList.add("drop-zone--filled");
     dropZone.innerHTML = `
-        <input id="file-input" type="file" accept=".eml" hidden />
+        <input id="file-input" type="file" accept="${FILE_ACCEPT}" hidden />
         <div class="drop-zone__icon">📨</div>
         <div class="drop-zone__filename">${escapeHTML(file.name)}</div>
         <div class="drop-zone__hint">Click to change file</div>`;
@@ -190,12 +195,11 @@ dropZone.addEventListener("drop", (e) => {
     dropZone.classList.remove("drop-zone--active");
     const f = e.dataTransfer.files?.[0];
     if (!f) return;
-    const name = (f.name || "").toLowerCase();
-    if (name.endsWith(".eml") || name.endsWith(".pdf") ||
-        name.endsWith(".html") || name.endsWith(".htm")) {
+    const ext = fileExt(f.name);
+    if (ext === "eml" || ATTACHMENT_EXTS.includes(ext)) {
         setSelectedFile(f);
     } else {
-        showStatus("Please drop a .eml, .pdf or .html file.");
+        showStatus("Please drop a .eml file, a PDF, an image or an Office document.");
     }
 });
 
@@ -225,19 +229,18 @@ analyzeBtn.addEventListener("click", async () => {
     hideStatus();
     showView("loading");
 
-    // build payload depending on active tab. Files ending in .pdf / .html
-    // are routed to /analyse_attachment; .eml (and everything else) stays
-    // on /analyse.
+    // build payload depending on active tab. Attachments (see
+    // ATTACHMENT_EXTS) go to /analyse_attachment; .eml stays on /analyse.
     let payload;
     let endpointPath = "/analyse";
     try {
         if (activeTab === "file") {
-            if (!selectedFile) throw new Error("Pick a .eml, .pdf or .html file first.");
+            if (!selectedFile) throw new Error("Pick an email (.eml) or an attachment first.");
             if (selectedFile.size > 10 * 1024 * 1024)
                 throw new Error("File too large: 10 MB max.");
-            const ext = (selectedFile.name.split(".").pop() || "").toLowerCase();
+            const ext = fileExt(selectedFile.name);
             const b64 = await fileToB64(selectedFile);
-            if (ext === "pdf" || ext === "html" || ext === "htm") {
+            if (ATTACHMENT_EXTS.includes(ext)) {
                 endpointPath = "/analyse_attachment";
                 payload = {
                     content_b64: b64,
@@ -260,7 +263,6 @@ analyzeBtn.addEventListener("click", async () => {
 
     // bump the run id so any in-flight /explain from a previous run is ignored
     const thisRun = ++runId;
-    lastPayload = payload;
     explainData = null;
     explainError = null;
 
@@ -615,7 +617,6 @@ backBtn.addEventListener("click", () => {
     pastedText = "";
     pasteInput.value = "";
     pasteCounter.textContent = "0";
-    lastPayload = null;
     explainData = null;
     explainError = null;
     setSelectedFile(null);

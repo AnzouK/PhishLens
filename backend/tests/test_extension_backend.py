@@ -330,6 +330,26 @@ class TestAnalyseAttachment:
         assert trusted["verdict"] == "safe"
 
 
+    def test_macro_document_forces_phishing_even_from_trusted_parent(self, client, monkeypatch):
+        import io
+        import zipfile
+        text_score(monkeypatch, 0.05)
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("[Content_Types].xml", "<Types/>")
+            z.writestr("word/document.xml",
+                       '<w:document xmlns:w="x"><w:body><w:p><w:r><w:t>Enable content</w:t>'
+                       '</w:r></w:p></w:body></w:document>')
+            z.writestr("word/vbaProject.bin", b"x")
+        r = client.post("/analyse_attachment", json={
+            "content_b64": b64(buf.getvalue()), "filename": "invoice.docm",
+            "parent_email": {"gmail_delivered": True}})
+        assert r.status_code == 200
+        j = r.json()
+        assert j["attachment"]["dropper_techniques"] == ["contains_macros"]
+        assert j["verdict"] == "phishing"
+
+
 # ---------------------------------------------------------------------
 # /metrics (only when the Prometheus instrumentator is installed)
 # ---------------------------------------------------------------------

@@ -8,9 +8,16 @@
 #     downloaded from HF Hub on first run (HF_MODEL_REPO).
 # =====================================================================
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-# Required by HF Spaces: run as user 1000, not root.
+# System packages for attachment analysis (v1.12):
+#   - tesseract-ocr: OCR for images and scanned PDFs (English data included)
+# Installed as root, before switching to the unprivileged user.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tesseract-ocr \
+ && rm -rf /var/lib/apt/lists/*
+
+# Run as user 1000, not root.
 RUN useradd -m -u 1000 user
 USER user
 ENV PATH=/home/user/.local/bin:$PATH
@@ -31,18 +38,9 @@ RUN pip install --no-cache-dir --upgrade pip \
         "torch>=2.0,<3.0" \
  && pip install --no-cache-dir -r requirements.txt
 
-# Application code: kept identical to the local backend so both paths
-# produce the same behaviour. feature_extraction.py + url_agent.py +
-# metadata_agent.py are optional at inference (the heuristic fallbacks
-# still work when the trained joblibs are absent), but they let the
-# runtime load the real Random Forest agents when they are.
-COPY --chown=user:user extension_backend.py .
-COPY --chown=user:user feature_extraction.py .
-COPY --chown=user:user url_agent.py .
-COPY --chown=user:user metadata_agent.py .
-COPY --chown=user:user auth_headers.py .
-COPY --chown=user:user reputation.py .
-COPY --chown=user:user attachment_analysis.py .
+# Application code: every top-level module of backend/ (tests/ and
+# scripts are not copied). Same set as Dockerfile.local.
+COPY --chown=user:user *.py ./
 
 # HF Spaces sets PORT=7860 by default; honour it.
 ENV PORT=7860

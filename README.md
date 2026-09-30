@@ -23,8 +23,10 @@ email as safe or phishing and show why. Three agents score each message
 (a fine-tuned DistilBERT on the text, and two Random Forests on the links
 and the headers), then the verdict is adjusted with real evidence:
 SPF/DKIM/DMARC alignment and four threat-intelligence sources. A LIME
-panel highlights the words that drove the decision. PDF and HTML
-attachments are scanned too.
+panel highlights the words that drove the decision. Attachments are
+scanned too: PDFs (including scanned ones, through OCR), images, HTML
+pages and Word / Excel / PowerPoint files, with QR codes decoded and
+macros, remote templates and other dropper tricks flagged.
 
 <div align="center">
   <img src="docs/gmail-banner.png" alt="PhishLens verdict banner injected in Gmail" width="850">
@@ -90,7 +92,7 @@ huggingface-cli download AnzouKiona/phishlens-distilbert --local-dir backend/mod
 cd backend && docker compose up --build
 ```
 
-Local Python (3.11):
+Local Python (3.12), with Tesseract installed for OCR (`brew install tesseract` or `apt install tesseract-ocr`):
 
 ```bash
 cd backend
@@ -106,10 +108,10 @@ The backend is ready when the logs show `Model loaded on device=cpu`.
 
 - **In Gmail:** open an email and click **Scan with PhishLens** next to
   the subject. The verdict appears above the body with per-agent scores,
-  sender-authentication chips and a "Why?" panel. Emails with PDF or HTML
-  attachments get a **Scan N attachments** button.
-- **In the popup:** drop a `.eml`, `.pdf` or `.html` file, or paste the
-  text of an email.
+  sender-authentication chips and a "Why?" panel. Emails with attachments
+  get a **Scan N attachments** button.
+- **In the popup:** drop a `.eml` file or an attachment (PDF, image,
+  Word, Excel, PowerPoint, HTML), or paste the text of an email.
 - **History:** every scan is kept locally in the browser, with a small
   analytics view and CSV / JSON export.
 
@@ -131,6 +133,8 @@ The backend is configured with environment variables. The most useful:
 | `REPUTATION_CACHE_DB` | `/tmp/phishlens_reputation.db` | SQLite cache for URL verdicts (24 h TTL) |
 | `RATE_LIMIT_ANALYSE` | `30/minute` | Per-IP limit (also `RATE_LIMIT_ATTACHMENT`, `RATE_LIMIT_EXPLAIN`) |
 | `LIME_NUM_SAMPLES` | `100` | Forward passes per explanation: higher is sharper and slower |
+| `OCR_MAX_PAGES` / `OCR_TIMEOUT_S` | `3` / `10` | Pages of a scanned PDF sent to OCR, and the time limit per page |
+| `AGENTS_ALLOW_PICKLE` | `1` | Set to `0` once the `.skops` agents are published, to refuse pickle files |
 | `MODEL_DIR` / `HF_MODEL_REPO` | `./model` / `AnzouKiona/phishlens-distilbert` | Where the model is loaded from, or downloaded from if missing |
 | `METRICS_ENABLED` | `1` | Prometheus metrics on `/metrics` (keep it private) |
 | `LOG_LEVEL` | `INFO` | Log level for the `phishlens.*` loggers |
@@ -147,9 +151,13 @@ backend/               FastAPI app, agents, sender auth, threat intel, attachmen
   extension_backend.py   API and fusion
   auth_headers.py        SPF / DKIM / DMARC and Spamhaus DBL
   reputation.py          threat-intel cascade with SQLite cache
-  attachment_analysis.py PDF and HTML extraction
+  attachment_analysis.py attachment dispatcher (PDF, HTML, text)
+  ocr.py                 OCR for images and scanned PDFs, QR decoding
+  office_analysis.py     Word / Excel / PowerPoint: text, links, macros
+  agent_io.py            loads the Random Forests without pickle (skops)
   tests/                 offline pytest suite
 extension/             Chrome MV3 extension (plain JS, no build step)
+tests/                 extension unit tests (node:test) and popup UI tests (Playwright)
 site/                  landing page of the live demo
 docs/                  architecture, threat model, operations, overview
 scripts/locustfile.py  load test
@@ -171,13 +179,13 @@ both repositories, the models, the report and every guide.
 
 ## Roadmap
 
-- **Attachments, phase 2:** DOCX and XLSX (text, links, macro detection),
-  OCR on images so a screenshot of a login page is still read.
 - **More mail clients:** Outlook Web and Yahoo Mail.
 - **Automatic scanning** of new Gmail messages with a browser notification.
 - **Multilingual model:** French, Hausa and Yoruba phishing.
+- **Attachments:** archives (ZIP, RAR, 7z) and calendar invites (`.ics`),
+  both used to smuggle links past scanners; OCR in French.
 - **Research:** evaluation on a live inbox stream, SHAP as a comparison for
-  LIME, Random Forests exported to a non-pickle format.
+  LIME, retraining the agents on OCR text and QR-code phishing.
 
 ## Academic context
 

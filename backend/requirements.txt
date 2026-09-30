@@ -41,3 +41,16 @@ slowapi>=0.1.10,<1.0
 # Observability (v1.10+): Prometheus metrics on GET /metrics. Optional;
 # the backend boots without it and simply skips the endpoint.
 prometheus-fastapi-instrumentator>=8.1.0,<9.0
+
+# Attachment analysis, phase 2 (v1.12): images, scanned PDFs, QR codes.
+# The tesseract binary itself comes from the OS package (see Dockerfiles).
+# pypdfium2 renders PDF pages; it is already pulled in by pdfplumber.
+pillow>=10.1,<13.0
+pytesseract>=0.3.10,<1.0
+opencv-python-headless>=4.8,<6.0
+pypdfium2>=4.0,<6.0
+
+# Random Forest agents without pickle (v1.12): skops files are loaded
+# with a type allowlist (agent_io.py). joblib stays for the one-time
+# conversion and as a fallback until the .skops files are published.
+skops>=0.10,<1.0
