@@ -8,6 +8,10 @@ Supported (v1.12): PDF (with OCR for scanned pages and QR decoding),
 HTML, plain text, images (OCR + QR), Word / Excel / PowerPoint in both
 modern and legacy formats (text, links and macro-style flags; see
 office_analysis.py). OCR and QR live in ocr.py.
+v1.14: ZIP archives (listed, risky entries flagged, supported files
+inside analysed one level deep), RAR / 7z (recognised only), calendar
+invites (.ics), encrypted PDFs, and executable / script / shortcut /
+disk-image files (flagged by type). See archive_analysis.py.
 
 The dispatcher (analyse_attachment) returns a JSON-serialisable dict
 whose shape mirrors /analyse as closely as possible so the extension
@@ -23,6 +27,7 @@ from typing import Any
 import logging
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
+import archive_analysis as archives
 import ocr
 import office_analysis as office
 
@@ -67,6 +72,11 @@ _MIME_BY_EXT = {
     ".htm":  "text/html",
     ".xhtml":"application/xhtml+xml",
     ".txt":  "text/plain",
+    # Archives and calendar invites (v1.14)
+    ".zip":  "application/zip",
+    ".rar":  "application/vnd.rar",
+    ".7z":   "application/x-7z-compressed",
+    ".ics":  "text/calendar",
     # Office, modern (zip + xml)
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".docm": "application/vnd.ms-word.document.macroenabled.12",
@@ -214,6 +224,20 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
                 except Exception:
                     continue
     except Exception as e:
+        if b"/Encrypt" in raw:
+            # Password-protected PDF: nothing to read, which is the point
+            # when the password travels in the email body.
+            return {
+                "kind":              "pdf",
+                "filename":          filename,
+                "size_bytes":        len(raw),
+                "page_count":        0,
+                "pages_read":        0,
+                "extracted_text":    "",
+                "extracted_text_chars": 0,
+                "extracted_urls":    [],
+                "notable_features":  markers + ["encrypted_document"],
+            }
         raise RuntimeError(f"PDF parse failed: {e}")
 
     text = "\n".join(text_chunks)[:MAX_EXTRACTED_TEXT]
@@ -402,12 +426,60 @@ def analyse_attachment(content_b64: str,
     if not raw:
         raise ValueError("Attachment is empty after decode.")
 
-    mime = sniff_type(filename or "", raw[:16], mime_type)
+    return dispatch_raw(raw, filename or "", mime_type)
+
+
+def _dangerous_type(raw: bytes, filename: str) -> dict[str, Any] | None:
+    """Executables, scripts, shortcuts and disk images are flagged by
+    type alone: there is nothing to read, and opening them is the attack."""
+    name_flags = archives.classify_names([filename])
+    ext = archives._ext(filename)
+    if ext in archives.DISK_IMAGE_EXTS:
+        flags = ["disk_image_attachment"]
+    elif set(name_flags) & archives.DROPPER_FLAGS:
+        flags = ["dangerous_file_type"]
+        if "double_extension" in name_flags:
+            flags.append("double_extension")
+    else:
+        return None
+    return {
+        "kind":              "executable" if flags[0] == "dangerous_file_type" else "disk_image",
+        "filename":          filename,
+        "size_bytes":        len(raw),
+        "extracted_text":    "",
+        "extracted_text_chars": 0,
+        "extracted_urls":    [],
+        "notable_features":  flags,
+    }
+
+
+def dispatch_raw(raw: bytes, filename: str, mime_type: str | None = None,
+                 depth: int = 0) -> dict[str, Any]:
+    """Analyse decoded bytes. depth > 0 inside an archive (nested
+    archives are flagged, not opened)."""
+    danger = _dangerous_type(raw, filename)
+    if danger:
+        return danger
+
+    mime = sniff_type(filename, raw[:16], mime_type)
+
+    # Archives that are not Office documents, and calendar invites (v1.14).
+    fmt = archives.is_rar_or_7z(raw)
+    if fmt:
+        if depth:
+            raise ValueError("Nested archive.")
+        return archives.analyse_uninspectable_archive(raw, filename, fmt)
+    if mime == "text/calendar" or raw.lstrip()[:15].upper().startswith(b"BEGIN:VCALENDAR"):
+        return archives.analyse_ics(raw, filename, extract_urls)
 
     # Office documents: modern ones are ZIPs, legacy / encrypted ones OLE2.
     if mime == "application/zip":
         if office.detect_ooxml_kind(raw) is None:
-            raise ValueError("Unsupported ZIP attachment: not a Word, Excel or PowerPoint document.")
+            if depth:
+                raise ValueError("Nested archive.")
+            return archives.analyse_zip(
+                raw, filename,
+                inner=lambda data, name: dispatch_raw(data, name, None, depth + 1))
         return office.analyse_ooxml(raw, filename)
     if mime in office.OOXML_MIMES:
         if raw.startswith(office.OLE2_MAGIC):
@@ -439,5 +511,6 @@ def analyse_attachment(content_b64: str,
     raise ValueError(
         f"Unsupported attachment type: {mime}. "
         "Supported: PDF, HTML, plain text, images (PNG, JPEG, GIF, WebP, BMP, TIFF), "
-        "Word, Excel and PowerPoint (modern and legacy formats)."
+        "Word, Excel and PowerPoint (modern and legacy formats), ZIP archives "
+        "and calendar invites (.ics)."
     )

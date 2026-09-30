@@ -7,7 +7,39 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Added
+- **Conversations:** in a Gmail thread, the scan reads the last
+  expanded message only (body, sender, links, mailed-by / signed-by),
+  so text and sender can no longer come from two different emails. The
+  banner says "Latest message of N".
+- **Forwarded emails:** a forward marker ("Forwarded message", "Begin
+  forwarded message:", "Message transféré", ...) or a Fwd:/TR: subject
+  switches off the sender-trust discounts, since the forwarder is not
+  the author. Response field `forwarded` with the original sender, and
+  a "Forwarded" chip in Gmail.
+- **Image-only emails:** with fewer than 5 words the text agent is left
+  out of the fusion (`text_agent_used: false`) and the verdict rests on
+  the links and the sender; Gmail scans the links of such emails
+  instead of stopping.
+- **Shared-file links:** links to Google Drive / Docs / Forms, OneDrive,
+  SharePoint, Dropbox, WeTransfer and similar services are listed in
+  `shared_links` and shown as a warning (no score change).
+- **Attachments:** ZIP archives (entries listed, password protection,
+  executables, scripts, shortcuts, disk images and double extensions
+  flagged, supported files inside analysed one level deep, zip-bomb
+  guard), RAR / 7z (recognised, reported as not inspectable), calendar
+  invites (`.ics`: text, links, organizer), attached emails (`.eml`,
+  full email pipeline), password-protected PDFs, and executables /
+  disk images attached directly. Executables, scripts, shortcuts and
+  double extensions force the phishing verdict. When PhishLens cannot
+  look inside a file (encrypted, disk image, RAR / 7z), Gmail and the
+  popup show "Could not look inside" instead of "Looks safe", and
+  unknown file types get a "Not checked" notice.
+
 ### Fixed
+- **Trained URL agent and hidden links:** the Random Forest extracts its
+  features from text, so link targets and QR-code URLs that were not in
+  the visible text are now appended to it before scoring.
 - **Hidden links in Gmail:** the Gmail scan sent only the visible text,
   so a link written as "Click here" was never checked. The extension now
   sends the real link targets (`client_context.link_urls`, max 50) and

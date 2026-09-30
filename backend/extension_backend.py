@@ -589,7 +589,12 @@ def url_agent(urls: list[str], body_text: str = "") -> float:
         return 0.05
     if _URL_AGENT is not None and _FEATURE_EXTRACT is not None and body_text:
         try:
-            feats = _FEATURE_EXTRACT.extract_url_features(body_text)
+            # The trained features are extracted from text, so URLs that
+            # are not in the visible text (Gmail link targets, QR codes)
+            # are appended to it; otherwise the RF would never see them.
+            missing = [u for u in urls if u not in body_text]
+            text = body_text + ("\n" + "\n".join(missing) if missing else "")
+            feats = _FEATURE_EXTRACT.extract_url_features(text)
             pred  = _URL_AGENT.get_prediction_with_confidence(feats)
             return float(pred["phishing_probability"])
         except Exception as e:
@@ -777,6 +782,92 @@ def _synthesize_auth_results(ctx: dict, sender_email: str | None) -> str:
 
 MAX_LINK_URLS = 50
 
+# Below this many words the text agent has nothing meaningful to read
+# (image-only emails, a bare link). Its score is then left out of the
+# fusion and the verdict rests on the links and the sender.
+MIN_TEXT_WORDS = 5
+
+# ---------------------------------------------------------------------
+# Forwarded emails (v1.14). The From: of a forwarded email is the person
+# who forwarded it, not the author of the content, so the sender-trust
+# discounts (allowlist, DKIM, Gmail inbox) must not apply to the content.
+# ---------------------------------------------------------------------
+_FORWARD_MARKERS = re.compile(
+    r"^\s*(?:-{2,}\s*(?:forwarded message|original message|message transf[ée]r[ée]|"
+    r"message d'origine|mensaje reenviado|mensaje original)\s*-{2,}"
+    r"|begin forwarded message\s*:"
+    r"|d[ée]but du message (?:r[ée]exp[ée]di[ée]|transf[ée]r[ée])\s*:)",
+    re.IGNORECASE | re.MULTILINE,
+)
+_FORWARD_SUBJECT = re.compile(r"^\s*(?:fwd?|tr|wg|rv|enc)\s*:", re.IGNORECASE)
+_FORWARD_FROM = re.compile(r"^\s*(?:from|de|von)\s*:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
+_EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+
+
+def detect_forwarded(body: str, subject: str | None = None) -> dict[str, Any]:
+    """Return {"detected": bool, "original_sender": str | None}.
+
+    A forward marker in the body is required when there is one; the
+    subject prefix (Fwd:, TR:, ...) alone also counts, since mail clients
+    that inline the forwarded text do not always add a marker line.
+    """
+    body = body or ""
+    m = _FORWARD_MARKERS.search(body)
+    detected = bool(m) or bool(subject and _FORWARD_SUBJECT.match(subject))
+    original = None
+    if detected:
+        tail = body[m.end():] if m else body
+        fm = _FORWARD_FROM.search(tail[:2000])
+        if fm:
+            em = _EMAIL_RE.search(fm.group(1))
+            original = em.group(0).lower() if em else None
+    return {"detected": detected, "original_sender": original}
+
+
+# ---------------------------------------------------------------------
+# Links to file-sharing and form services (v1.14). The domain is
+# legitimate (Google, Microsoft, Dropbox), so the URL agent and threat
+# intel rarely flag it, but the shared file or form is often the lure.
+# Informational: surfaced to the user, not added to the score.
+# ---------------------------------------------------------------------
+_SHARE_SERVICES = [
+    (re.compile(r"(?:^|\.)docs\.google\.com$"), r"^/forms/", "Google Forms"),
+    (re.compile(r"(?:^|\.)forms\.gle$"), None, "Google Forms"),
+    (re.compile(r"(?:^|\.)drive\.google\.com$"), None, "Google Drive"),
+    (re.compile(r"(?:^|\.)docs\.google\.com$"), None, "Google Docs"),
+    (re.compile(r"(?:^|\.)(?:firebasestorage|storage)\.googleapis\.com$"), None, "Google Cloud Storage"),
+    (re.compile(r"(?:^|\.)(?:1drv\.ms|onedrive\.live\.com)$"), None, "OneDrive"),
+    (re.compile(r"(?:^|\.)sharepoint\.com$"), None, "SharePoint"),
+    (re.compile(r"(?:^|\.)forms\.(?:office|microsoft)\.com$"), None, "Microsoft Forms"),
+    (re.compile(r"(?:^|\.)(?:dropbox\.com|dropboxusercontent\.com|db\.tt)$"), None, "Dropbox"),
+    (re.compile(r"(?:^|\.)(?:wetransfer\.com|we\.tl)$"), None, "WeTransfer"),
+    (re.compile(r"(?:^|\.)box\.com$"), None, "Box"),
+    (re.compile(r"(?:^|\.)mega\.nz$"), None, "MEGA"),
+    (re.compile(r"(?:^|\.)mediafire\.com$"), None, "MediaFire"),
+    (re.compile(r"(?:^|\.)docsend\.com$"), None, "DocSend"),
+    (re.compile(r"(?:^|\.)icloud\.com$"), r"^/iclouddrive/", "iCloud Drive"),
+]
+
+
+def detect_shared_links(urls: list[str]) -> dict[str, Any]:
+    """Return {"count": int, "services": [names], "urls": [first 10]}."""
+    from urllib.parse import urlsplit
+    services: list[str] = []
+    hits: list[str] = []
+    for u in urls:
+        try:
+            parts = urlsplit(u)
+        except ValueError:
+            continue
+        host = (parts.hostname or "").lower()
+        for host_re, path_re, name in _SHARE_SERVICES:
+            if host_re.search(host) and (path_re is None or re.match(path_re, parts.path or "/")):
+                hits.append(u)
+                if name not in services:
+                    services.append(name)
+                break
+    return {"count": len(hits), "services": services, "urls": hits[:10]}
+
 
 def _merge_link_urls(urls: list[str], extra: Any) -> list[str]:
     """Add client-supplied link targets to the URLs found in the text.
@@ -955,8 +1046,20 @@ async def analyse(request: Request, req: AnalyseRequest):
     # When these all hold, we apply a much softer discount than crypto_verified
     # (text weight * 0.75, keep single-agent override, threshold 0.6).
     ctx = req.client_context or {}
+
+    # v1.14: forwarded emails and near-empty bodies.
+    subject = headers.get("subject") or ctx.get("subject")
+    forwarded = detect_forwarded(body, subject if isinstance(subject, str) else None)
+    shared_links = detect_shared_links(urls)
+    text_used = len(body.split()) >= MIN_TEXT_WORDS
+    if forwarded["detected"]:
+        # The sender vouches for the forward, not for the forwarded content.
+        trusted_sender = False
+        crypto_verified = False
+
     gmail_inbox_soft = (
         not crypto_verified
+        and not forwarded["detected"]
         and ctx.get("origin") == "gmail"
         and bool(ctx.get("gmail_in_inbox"))
         and auth_signal.get("auth", {}).get("dmarc") != "fail"
@@ -972,9 +1075,17 @@ async def analyse(request: Request, req: AnalyseRequest):
     # an allowlisted sender could carry a GSB-listed link and stay "safe").
     gsb_hit = "google_safe_browsing" in rep_hit_sources
 
+    def _fuse(text_factor: float) -> float:
+        # Without usable text, the URL and metadata agents share the
+        # whole weight (renormalised) instead of the text agent's score
+        # on two words deciding a third of the verdict.
+        if text_used:
+            return (W_TEXT * text_factor) * p_text + W_URL * p_url + W_META * p_meta
+        return (W_URL * p_url + W_META * p_meta) / (W_URL + W_META)
+
     if trusted_sender:
         p_meta = min(p_meta, 0.05)
-        fused = (W_TEXT * 0.5) * p_text + W_URL * p_url + W_META * p_meta
+        fused = _fuse(0.5)
         high_conf = gsb_hit            # only real threat intel overrides the allowlist
         threshold = 0.65               # raise the bar for flagging a trusted sender
         trust_path = "trusted_sender"
@@ -990,7 +1101,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         # override this: a real threat-intel match on a link means the
         # sender's account was compromised, so we let the phishing verdict
         # through even for a signed message.
-        fused = (W_TEXT * 0.5) * p_text + W_URL * p_url + W_META * p_meta
+        fused = _fuse(0.5)
         high_conf = gsb_hit   # only real threat-intel forces the override
         threshold = 0.65
         trust_path = "crypto_verified"
@@ -1007,13 +1118,13 @@ async def analyse(request: Request, req: AnalyseRequest):
         # still contribute at full weight: if a URL is actually malicious
         # (RF or reputation cascade), the fused score can still cross the
         # threshold. GSB match still forces phishing regardless.
-        fused = (W_TEXT * 0.6) * p_text + W_URL * p_url + W_META * p_meta
+        fused = _fuse(0.6)
         high_conf = gsb_hit
         threshold = 0.62
         trust_path = "gmail_inbox_soft"
     else:
-        fused = W_TEXT * p_text + W_URL * p_url + W_META * p_meta
-        high_conf = max(p_text, p_url, p_meta) >= HIGH_CONF_OVERRIDE
+        fused = _fuse(1.0)
+        high_conf = max(p_text if text_used else 0.0, p_url, p_meta) >= HIGH_CONF_OVERRIDE
         threshold = FUSION_THRESHOLD
         trust_path = "default"
 
@@ -1029,6 +1140,11 @@ async def analyse(request: Request, req: AnalyseRequest):
         "trust_path": trust_path,
         "trusted_sender": bool(trusted_sender),
         "sender_domain": sender_domain,
+        # v1.14 (additive): forwarded detection, shared-file links, and
+        # whether the text agent counted (False when the body is too short).
+        "forwarded": forwarded,
+        "shared_links": shared_links,
+        "text_agent_used": text_used,
         "sender_auth": {
             "cryptographically_verified": crypto_verified,
             "gmail_inbox_soft_verified":  bool(gmail_inbox_soft),
@@ -1178,6 +1294,16 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         "encrypted_document":      0.30,   # password in the email body blinds scanners
         "legacy_office_format":    0.10,
         "suspicious_xml_doctype":  0.20,
+        # Archives, calendar invites, risky file types (v1.14)
+        "encrypted_archive":       0.35,   # scanners can't open it: classic evasion
+        "uninspectable_archive":   0.20,   # RAR / 7z: not opened here
+        "nested_archive":          0.10,
+        "zip_bomb_suspected":      0.30,
+        "disk_image_in_archive":   0.40,
+        "disk_image_attachment":   0.40,
+        "oversized_inner_file":    0.00,
+        "calendar_invite":         0.00,
+        "calendar_with_links":     0.10,
     }
     for f in notable:
         feature_bonus += _RISK.get(f, 0.0)
@@ -1221,7 +1347,12 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
     # says nothing about what a macro will do once enabled, and compromised
     # accounts are exactly how these documents travel, so they force the
     # phishing verdict on every path, like a Safe Browsing hit.
-    dropper = sorted(set(notable) & {"contains_macros", "remote_template", "dde_field"})
+    dropper = sorted(set(notable) & {
+        "contains_macros", "remote_template", "dde_field",
+        # v1.14: executables, scripts and shortcuts, directly or in an archive
+        "dangerous_file_type", "executable_in_archive", "script_in_archive",
+        "shortcut_in_archive", "double_extension",
+    })
 
     if parent_trusted and not gsb_hit and not dropper:
         # text agent halved, url weight kept, feature bonus intact.
@@ -1259,6 +1390,13 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
             "ocr_used":            bool(extracted.get("ocr_used")),
             "capabilities":        extracted.get("capabilities"),
             "dropper_techniques":  dropper,
+            # v1.14: archives and calendar invites (None for other kinds)
+            "archive_format":      extracted.get("archive_format"),
+            "entries":             extracted.get("entries"),
+            "entry_count":         extracted.get("entry_count"),
+            "encrypted":           extracted.get("encrypted"),
+            "inner_files":         extracted.get("inner_files"),
+            "organizer":           extracted.get("organizer"),
         },
         "parent_email": req.parent_email or None,
         "parent_trusted": bool(parent_trusted),

@@ -108,19 +108,33 @@ function installScanButton(subjectEl, emailView) {
 // ---------------------------------------------------------------------
 // Extract email data + run /analyse
 // ---------------------------------------------------------------------
+// In a conversation, several messages can be expanded at once. The one
+// to scan is the last expanded message (the newest one Gmail opened);
+// body, sender, links and auth rows are all read from that message so
+// they cannot come from two different emails.
+function currentMessage(emailView) {
+    const msgs = [...emailView.querySelectorAll(".adn")]
+        .filter((m) => m.querySelector(BODY_SEL));
+    return { msg: msgs.length ? msgs[msgs.length - 1] : emailView, count: msgs.length };
+}
+
 async function runScan(emailView, btn) {
-    const body   = textOf(emailView.querySelector(BODY_SEL));
-    const sender = emailView.querySelector(SENDER_SEL);
+    const { msg, count } = currentMessage(emailView);
+    const bodyEl = msg.querySelector(BODY_SEL);
+    const body   = textOf(bodyEl);
+    const sender = msg.querySelector(SENDER_SEL) || emailView.querySelector(SENDER_SEL);
     const senderEmail = sender?.getAttribute("email") || "";
     const senderName  = sender?.textContent?.trim() || "";
     const subject = emailView.querySelector(SUBJECT_SEL)?.textContent?.trim() || "";
+    const links   = linkTargetsOf(bodyEl);
+    const hasAttachments = !!msg.querySelector(ATT_STRIP_SEL) || !!emailView.querySelector(ATT_STRIP_SEL);
+    const attBtn = emailView.querySelector(".pll-scan-btn--all");
+    const shortBody = !body || body.length < 20;
 
-    if (!body || body.length < 20) {
-        // No text to score. Common case: an email that only carries an
-        // attachment (an attachment-only email is also a classic phishing
-        // lure). Scan the attachments instead of giving up.
-        const hasAttachments = !!emailView.querySelector(ATT_STRIP_SEL);
-        const attBtn = emailView.querySelector(".pll-scan-btn--all");
+    if (shortBody && !links.length) {
+        // No text and no links to score. Common case: an email that only
+        // carries an attachment (itself a classic phishing lure). Scan the
+        // attachments instead of giving up.
         if (hasAttachments) {
             showBanner(emailView, {
                 verdict: "error",
@@ -139,31 +153,35 @@ async function runScan(emailView, btn) {
         }
         return;
     }
+    // Almost no text but some links (image-only emails): scan the links
+    // and the sender; the backend leaves the text model out. Attachments,
+    // if any, are scanned too.
+    if (shortBody && hasAttachments && attBtn && !attBtn.disabled) attBtn.click();
 
     setBtnLoading(btn, true);
     try {
         // Gmail already ran SPF/DKIM/DMARC before delivering: surface its
         // verdict from the DOM so the backend can apply the crypto_verified
         // discount even when we only have raw_text (no Authentication-Results
-        // header to parse). Gmail lazy-loads the mailed-by / signed-by rows,
-        // so we have to programmatically toggle the "details" panel to get
-        // them into the DOM before scraping.
-        const gmailAuth = await extractGmailAuthSignals(emailView);
+        // header to parse).
+        const gmailAuth = await extractGmailAuthSignals(emailView, msg);
 
         // Send the body as raw_text and the sender separately so the backend
         // can run the trusted-domain check.
         const payload = {
-            raw_text: body.slice(0, 4000),
+            raw_text: (shortBody ? [subject, body].filter(Boolean).join("\n") || "(no text)" : body).slice(0, 4000),
             sender_email: senderEmail || null,
             client_context: {
                 origin: "gmail",
+                subject,
                 gmail_signed_by: gmailAuth.signedBy,
                 gmail_mailed_by: gmailAuth.mailedBy,
                 gmail_via:       gmailAuth.via,
                 gmail_in_inbox:  gmailAuth.inInbox,
                 // Real link targets: innerText only has the visible link
                 // text ("Click here"), not where the link goes.
-                link_urls:       linkTargetsOf(emailView.querySelector(BODY_SEL)),
+                link_urls:       links,
+                thread_messages: count,
             },
         };
 
@@ -171,7 +189,7 @@ async function runScan(emailView, btn) {
             type: "phishlens.analyse", payload,
         });
         if (!r?.ok) throw new Error(r?.error || "Unknown error");
-        showBanner(emailView, r.data);
+        showBanner(emailView, { ...r.data, _threadMessages: count });
 
         // Persist this scan in the local history: background.js writes it
         // via the shared history module. We remember the returned id so we
@@ -199,6 +217,12 @@ async function runScan(emailView, btn) {
         // ran /explain on this exact payload (same email re-opened, same
         // backend), we skip the ~10 s server round-trip entirely.
         (async () => {
+            // Too little text for the text model: no word-level explanation.
+            if (r.data.text_agent_used === false) {
+                const slot = emailView.querySelector(".pll-banner .pll-banner__tokens");
+                if (slot) slot.textContent = "This email has almost no text, so the verdict rests on its links and sender.";
+                return;
+            }
             let features = null;
             let cached = false;
 
@@ -237,12 +261,12 @@ async function runScan(emailView, btn) {
             }
         })();
     } catch (e) {
-        const msg = String(e?.message || e);
+        const errMsg = String(e?.message || e);
         // Friendlier message when the extension was reloaded while this Gmail
         // tab was already open: the only fix is a page refresh.
-        const friendly = /context invalidated|message port closed/i.test(msg)
+        const friendly = /context invalidated|message port closed/i.test(errMsg)
             ? "PhishLens was just reloaded: please refresh this Gmail tab to reconnect."
-            : msg;
+            : errMsg;
         showBanner(emailView, { verdict: "error", error: friendly });
     } finally {
         setBtnLoading(btn, false);
@@ -263,6 +287,16 @@ function setBtnLoading(btn, on) {
 function bannerLead(data, phishing) {
     if (phishing) {
         return "Don't click its links, open its attachments or reply until you have checked the sender another way.";
+    }
+    if (data.forwarded?.detected) {
+        return "This is a forwarded email: the person who forwarded it is not the author, so their trust was not applied to the content.";
+    }
+    if (data.shared_links?.count) {
+        const svc = (data.shared_links.services || []).join(", ");
+        return `No strong phishing signals, but it links to a shared file or form (${svc}). Open it only if you expected it, and never sign in from it.`;
+    }
+    if (data.text_agent_used === false) {
+        return "This email has almost no text, so only its links and sender were checked. Stay careful with image-only emails.";
     }
     const high = ["text", "url", "metadata"].some((k) => (data.agents?.[k]?.phishing_probability || 0) >= 0.7);
     if (high) {
@@ -427,7 +461,7 @@ function pct(p) { return p == null ? "n/a" : Math.round(p * 100); }
 //
 // Robust to Gmail's obfuscated class names, we match on visible text
 // rather than a specific class, so this survives Gmail redesigns.
-async function extractGmailAuthSignals(emailView) {
+async function extractGmailAuthSignals(emailView, msg = null) {
     const out = { signedBy: null, mailedBy: null, via: null, inInbox: false };
 
     // 1. Detect "in inbox" by looking at the URL: Gmail routes inbox to
@@ -446,15 +480,18 @@ async function extractGmailAuthSignals(emailView) {
     //    tried but is visually intrusive (the panel visibly spawns every
     //    time the user hits Scan), so we don't do it anymore. If the user
     //    happens to have the details open, we'll catch it here.
+    //    In a conversation, the rows of the scanned message are preferred
+    //    so another message's details cannot be picked up.
     try {
-        _scrapeAuthRows(document.body, out);
+        if (msg) _scrapeAuthRows(msg, out);
+        if (!out.signedBy && !out.mailedBy) _scrapeAuthRows(document.body, out);
     } catch {}
 
     // 3. The inline "via <domain>" indicator shown when SPF path differs
     //    from From:. Structure varies but we can look for a span whose text
     //    is "via" followed by a text node with the domain.
     try {
-        const viaCandidates = emailView.querySelectorAll("span");
+        const viaCandidates = (msg || emailView).querySelectorAll("span");
         for (const el of viaCandidates) {
             const t = (el.textContent || "").trim().toLowerCase();
             const m = t.match(/^via\s+([a-z0-9.-]+\.[a-z]{2,})$/i);
@@ -511,6 +548,18 @@ const _SOURCE_LABEL_GMAIL = {
 
 function renderBannerSignals(data) {
     const chips = [];
+
+    // v1.14: forwarded email, shared-file links, thread position.
+    if (data.forwarded?.detected) {
+        const orig = data.forwarded.original_sender;
+        chips.push(`<span class="pll-chip pll-chip--warn" title="${escapeHTML(orig ? "Original sender: " + orig : "Original sender not found")}">Forwarded${orig ? ": " + escapeHTML(orig) : ""}</span>`);
+    }
+    if (data.shared_links?.count) {
+        chips.push(`<span class="pll-chip pll-chip--warn" title="${escapeHTML((data.shared_links.urls || []).join("\n"))}">Shared file: ${escapeHTML((data.shared_links.services || []).join(", "))}</span>`);
+    }
+    if (data._threadMessages > 1) {
+        chips.push(`<span class="pll-chip" title="In a conversation, PhishLens scans the last expanded message">Latest message of ${data._threadMessages}</span>`);
+    }
     const rep = data.url_reputation || {};
     const auth = data.sender_auth || {};
 
@@ -566,7 +615,15 @@ function escapeHTML(s) {
 const ATT_MAX          = 15;                   // hard limit per mail
 const ATT_MAX_SIZE_MB  = 10;
 // v1.12: images (OCR + QR) and Office documents (macros, links) too.
-const ATT_SUPPORTED    = new Set(["pdf", "html", "htm", "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff", "docx", "docm", "doc", "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt"]);
+// v1.14: archives, calendar invites, attached emails and plain text too.
+const ATT_SUPPORTED    = new Set(["pdf", "html", "htm", "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff", "docx", "docm", "doc", "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt",
+                                  "zip", "rar", "7z", "ics", "eml", "txt"]);
+// Any "name.ext" (for attachments PhishLens cannot read, to say so).
+const ATT_ANY_EXT_RE   = /([\w \-.()]+\.([a-z0-9]{1,5}))(?=\s|$)/i;
+// Attachment flags meaning "we could not look inside": a safe score is
+// not reassuring, so these get a caution banner instead of "Looks safe".
+const ATT_CAUTION_FLAGS = new Set(["encrypted_archive", "encrypted_document", "uninspectable_archive",
+                                   "disk_image_attachment", "disk_image_in_archive", "zip_bomb_suspected"]);
 // Longest extensions first so "html" wins over "htm" in the regex.
 const ATT_EXT_RE       = new RegExp(
     "([\\w \\-.()]+\\.(" + [...ATT_SUPPORTED].sort((a, b) => b.length - a.length).join("|") + "))",
@@ -662,12 +719,22 @@ function installAttachmentButtons(emailView) {
 
         const info = _extractAttachmentInfo(tile);
         if (!info) return;
-        if (!ATT_SUPPORTED.has(info.ext)) return;
+        if (!ATT_SUPPORTED.has(info.ext)) {
+            // Only report unreadable types for real attachment tiles, so a
+            // stray element in the strip never produces a notice.
+            const strong = tile.matches?.(".aZo, [data-attachmentid]") || tile.querySelector("a[download]");
+            if (!strong) return;
+            info.unsupported = true;
+        }
         ATT_HOOKED.add(tile);
         found.push({ tile, ...info, emailView });
     });
 
-    if (!found.length) return;
+    if (!found.some((t) => !t.unsupported)) {
+        // Only unreadable attachments: say so once, without a scan button.
+        found.forEach((t) => renderAttachmentNotice(t));
+        return;
+    }
 
     // Single central button, no per-tile pills. Way cleaner visually,
     // no alignment mismatch between the tile row and the banner grid.
@@ -721,11 +788,11 @@ function _extractAttachmentInfo(tile) {
 
     // Strip trailing size text: Gmail sometimes suffixes tile text with
     // "Checklist.pdf 320 KB". Keep only the first .ext-ending chunk.
-    const extMatch = filename.match(ATT_EXT_RE);
+    const extMatch = filename.match(ATT_EXT_RE) || filename.match(ATT_ANY_EXT_RE);
     if (extMatch) filename = extMatch[1].trim();
 
     const ext = (filename.split(".").pop() || "").toLowerCase();
-    if (!ATT_SUPPORTED.has(ext)) return null;
+    if (!ext || ext === filename.toLowerCase()) return null;
 
     // 2. Anchor: anything inside the tile with an href we can fetch.
     const anchor = dlAnchor
@@ -799,7 +866,29 @@ function installScanAllButton(emailView, targets) {
 
 // Fetch the attachment, base64-encode it, POST to /analyse_attachment
 // via the background service worker (CSP-bypass proxy).
-async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn }) {
+// Attachments PhishLens cannot read (unknown type): a neutral notice so
+// the user knows it was not checked, instead of silence.
+function renderAttachmentNotice({ filename, tile, emailView }) {
+    const stack = _getAttachmentBannerStack(tile, emailView);
+    const id = "pll-att-" + _fileKey(filename);
+    if (stack.querySelector(`#${CSS.escape(id)}`)) return;
+    const banner = document.createElement("div");
+    banner.id = id;
+    banner.className = "pll-att-banner pll-att-banner--error";
+    banner.innerHTML = `
+        <div class="pll-att-banner__row"><span class="pll-att-banner__icon">${PLL_ICON.alert}</span>
+        <div class="pll-att-banner__main"><div class="pll-att-banner__title">Not checked</div>
+        <div class="pll-att-banner__file" title="${escapeHTML(filename)}">${escapeHTML(filename)}</div></div></div>
+        <div class="pll-att-banner__sub">PhishLens cannot read this file type. Open it only if you were expecting it from this sender.</div>`;
+    stack.appendChild(banner);
+    if (tile) tile.dataset.pllScanned = "1";
+}
+
+async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn, unsupported }) {
+    if (unsupported) {
+        renderAttachmentNotice({ filename, tile, emailView });
+        return;
+    }
     // Banner placement: Gmail's attachment tiles have their own font
     // scaling and flex layout that mangle anything appended inside. We
     // instead find (or create) a dedicated stack container placed AFTER
@@ -851,7 +940,11 @@ async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn }
 
         // Route through background for CSP-bypass + backend selection.
         const senderEl = emailView.querySelector(SENDER_SEL);
-        const r = await chrome.runtime.sendMessage({
+        // An email attached to an email (.eml): run the full email
+        // pipeline on it, headers included.
+        const r = ext === "eml"
+            ? await chrome.runtime.sendMessage({ type: "phishlens.analyse", payload: { raw_email_b64: b64 } })
+            : await chrome.runtime.sendMessage({
             type: "phishlens.analyse_attachment",
             payload: {
                 content_b64: b64,
@@ -912,7 +1005,9 @@ async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn }
 
 function renderAttachmentBanner(banner, data, filename) {
     const bad = data.verdict === "phishing";
-    banner.className = "pll-att-banner " + (bad ? "pll-att-banner--danger" : "pll-att-banner--safe");
+    const flags = data.attachment?.notable_features || [];
+    const caution = !bad && flags.some((f) => ATT_CAUTION_FLAGS.has(f));
+    banner.className = "pll-att-banner " + (bad ? "pll-att-banner--danger" : caution ? "pll-att-banner--error" : "pll-att-banner--safe");
     const pct = (v) => Math.round((Number(v) || 0) * 100);
     const chips = [];
     if (data.parent_trusted) {
@@ -925,27 +1020,32 @@ function renderAttachmentBanner(banner, data, filename) {
         chips.push(`<span class="pll-att-chip pll-att-chip--bad">${escapeHTML(_SOURCE_LABEL_GMAIL[s] || s)}</span>`);
     });
     const a = data.attachment || {};
+    const isEmail = !data.attachment && !!data.agents?.metadata;   // attached .eml
     const meta = [
-        a.kind ? a.kind.toUpperCase() : "",
+        isEmail ? "EMAIL" : a.kind ? a.kind.toUpperCase() : "",
         a.size_bytes ? `${(a.size_bytes / 1024).toFixed(0)} KB` : "",
         a.page_count ? `${a.pages_read || a.page_count} / ${a.page_count} pages` : "",
+        a.entry_count ? `${a.entry_count} file${a.entry_count > 1 ? "s" : ""} inside` : "",
+        a.organizer ? `from ${a.organizer}` : "",
         a.extracted_urls_count ? `${a.extracted_urls_count} URL${a.extracted_urls_count > 1 ? "s" : ""}` : "",
     ].filter(Boolean).join(" · ");
 
     banner.innerHTML = `
         <div class="pll-att-banner__row">
-            <span class="pll-att-banner__icon">${bad ? PLL_ICON.alert : PLL_ICON.shieldCheck}</span>
+            <span class="pll-att-banner__icon">${bad || caution ? PLL_ICON.alert : PLL_ICON.shieldCheck}</span>
             <div class="pll-att-banner__main">
                 <div class="pll-att-banner__title" title="${escapeHTML(filename)}">
-                    ${bad ? "Looks like phishing" : "Looks safe"}
+                    ${bad ? "Looks like phishing" : caution ? "Could not look inside" : "Looks safe"}
                 </div>
                 <div class="pll-att-banner__file" title="${escapeHTML(filename)}">${escapeHTML(filename)}</div>
             </div>
         </div>
         <div class="pll-att-banner__sub">
             ${meta ? `${escapeHTML(meta)}<br>` : ""}
+            ${caution ? "PhishLens could not read the content (password-protected, disk image or unsupported archive). Attackers use this to get past scanners: open it only if you expected it.<br>" : ""}
             Wording <strong>${pct(data.agents?.text?.phishing_probability)}%</strong> ·
             Links <strong>${pct(data.agents?.url?.phishing_probability)}%</strong>
+            ${isEmail ? ` · Sender <strong>${pct(data.agents?.metadata?.phishing_probability)}%</strong>` : ""}
         </div>
         ${chips.length ? `<div class="pll-att-banner__chips">${chips.join("")}</div>` : ""}
     `;

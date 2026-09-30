@@ -47,7 +47,12 @@ const icon = (name) => `<svg class="i" aria-hidden="true"><use href="#i-${name}"
 // ---------- accepted files ----------
 // .eml goes to /analyse; everything in ATTACHMENT_EXTS goes to
 // /analyse_attachment (v1.12: images and Office documents added).
-const ATTACHMENT_EXTS = ["pdf", "html", "htm", "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff", "docx", "docm", "doc", "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt"];
+const ATTACHMENT_EXTS = ["pdf", "html", "htm", "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff", "docx", "docm", "doc", "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt",
+                         // v1.14: archives, calendar invites, plain text
+                         "zip", "rar", "7z", "ics", "txt"];
+// Attachment flags meaning "could not look inside" (see gmail.js).
+const CAUTION_FLAGS = ["encrypted_archive", "encrypted_document", "uninspectable_archive",
+                       "disk_image_attachment", "disk_image_in_archive", "zip_bomb_suspected"];
 const FILE_ACCEPT = [".eml", ...ATTACHMENT_EXTS.map((e) => "." + e)].join(",");
 const fileExt = (name) => ((name || "").split(".").pop() || "").toLowerCase();
 
@@ -342,9 +347,12 @@ function renderResult(data) {
     const card = $("verdict-card");
     card.classList.toggle("verdict-card--danger", isPhishing);
     $("verdict-icon").innerHTML = icon(isPhishing ? "alert" : "shield-check");
+    const flags = data.attachment?.notable_features || [];
+    const caution = isAttachment && !isPhishing && flags.some((f) => CAUTION_FLAGS.includes(f));
+    const what = isAttachment ? "file" : "email";
     $("verdict-label").textContent = isPhishing
-        ? "This email looks like phishing"
-        : "This email looks safe";
+        ? `This ${what} looks like phishing`
+        : caution ? "Could not look inside this file" : `This ${what} looks safe`;
 
     // Verified-sender pill: three tiers:
     //   1. Trusted allowlist (static list, highest trust: kept for legacy)
@@ -373,8 +381,15 @@ function renderResult(data) {
         trustedEl.hidden = true;
     }
 
+    const flagText = flags.length ? " Found: " + flags.map((f) => f.replace(/_/g, " ")).join(", ") + "." : "";
     $("verdict-sub").textContent = isPhishing
-        ? "We recommend not clicking any links."
+        ? "We recommend not clicking any links." + flagText
+        : caution
+        ? "It is password-protected, a disk image or an archive PhishLens cannot open: attackers use this to get past scanners. Open it only if you expected it." + flagText
+        : data.forwarded?.detected
+        ? "Forwarded email: the forwarder's trust was not applied to the content."
+        : data.shared_links?.count
+        ? `Links to a shared file or form (${(data.shared_links.services || []).join(", ")}): open it only if you expected it.`
         : (data.trusted_sender
             ? "Sender domain is in the verified allowlist."
             : cryptoVerified

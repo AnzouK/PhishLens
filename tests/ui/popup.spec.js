@@ -128,7 +128,7 @@ test("an Office attachment is sent to /analyse_attachment", async ({ page }) => 
         name: "invoice.docm", mimeType: "application/octet-stream", buffer: Buffer.from("PK fake"),
     });
     await page.click("#analyze-btn");
-    await expect(page.locator("#verdict-label")).toHaveText("This email looks like phishing");
+    await expect(page.locator("#verdict-label")).toHaveText("This file looks like phishing");
     expect(sent.filename).toBe("invoice.docm");
     expect(typeof sent.content_b64).toBe("string");
 });
@@ -137,5 +137,23 @@ test("the file picker accepts attachments after a first selection", async ({ pag
     await page.goto(`${base}/popup/popup.html`);
     await page.setInputFiles("#file-input", { name: "a.eml", mimeType: "message/rfc822", buffer: Buffer.from("x") });
     const accept = await page.locator("#file-input").getAttribute("accept");
-    for (const ext of [".eml", ".pdf", ".png", ".docx", ".xlsx"]) expect(accept).toContain(ext);
+    for (const ext of [".eml", ".pdf", ".png", ".docx", ".xlsx", ".zip", ".ics"]) expect(accept).toContain(ext);
+});
+
+test("an encrypted archive gets a caution verdict, not \"looks safe\"", async ({ page }) => {
+    await page.route(`${API}/analyse_attachment`, async (route) => {
+        const body = analyseResponse("safe");
+        body.attachment = {
+            filename: "invoice.zip", kind: "archive", size_bytes: 12,
+            notable_features: ["encrypted_archive"], feature_bonus: 0.35,
+            extracted_urls_count: 0, entry_count: 1, encrypted: true,
+        };
+        await route.fulfill({ json: body });
+    });
+    await page.goto(`${base}/popup/popup.html`);
+    await page.setInputFiles("#file-input", {
+        name: "invoice.zip", mimeType: "application/zip", buffer: Buffer.from("PK fake"),
+    });
+    await page.click("#analyze-btn");
+    await expect(page.locator("#verdict-label")).toHaveText("Could not look inside this file");
 });

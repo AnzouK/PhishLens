@@ -129,6 +129,27 @@ is Nigerian-centric by default (banks, telcos, universities); extend it
 for your region. An empty allowlist is safe, just less forgiving on
 legitimate transactional templates.
 
+**Forwarded emails (v1.14):** when the body carries a forward marker
+("Forwarded message", "Begin forwarded message:", "Message transféré",
+...) or the subject starts with Fwd:/TR:, the sender only vouches for
+the forward, not for the content. The allowlist, DKIM and Gmail-inbox
+discounts are then switched off (default path), and the original sender
+found in the forwarded block is returned in `forwarded`.
+
+**Near-empty bodies (v1.14):** with fewer than 5 words (image-only
+emails, a bare link) the text agent is left out: the URL and metadata
+scores share the whole weight, and a confident text score cannot fire
+the override. `text_agent_used` says which case applied.
+
+**Link targets and shared files (v1.14):** the Gmail extension sends the
+real `href` of every link in `client_context.link_urls` (the visible
+text of "Click here" has no URL), so hidden links reach the URL agent
+and the threat-intel cascade. Links to file-sharing and form services
+(Google Drive / Docs / Forms, OneDrive, SharePoint, Dropbox, WeTransfer,
+...) are listed in `shared_links` and shown as a warning, without
+changing the score: the domain is legitimate, the shared file is the
+lure.
+
 **Why the discounts exist:** DistilBERT learned that "verify your
 account" wording means phishing, and real bank, hospital and university
 messages use the same templates. Discounting the text agent only when the
@@ -155,7 +176,9 @@ flowchart TD
     M -->|HTML| H["visible text, form / script / iframe flags"]
     M -->|DOCX XLSX PPTX| X["zip + XML parts: text, external links,<br/>macros, remote template, DDE, OLE, ActiveX"]
     M -->|DOC XLS PPT, encrypted| L["OLE2 marker scan:<br/>macros, encryption, URLs"]
-    QR & I & H & X & L & P --> A["text agent + URL agent + threat intel<br/>+ feature bonus"]
+    M -->|ZIP| Z["list entries: encryption, executables,<br/>scripts, shortcuts, disk images;<br/>supported files inside analysed once"]
+    M -->|ICS| C["invite fields: text, links, organizer"]
+    QR & I & H & X & L & P & Z & C --> A["text agent + URL agent + threat intel<br/>+ feature bonus"]
 ```
 
 | Flag | Bonus | Why it matters |
@@ -171,9 +194,16 @@ flowchart TD
 | `embedded_ole_object`, `external_data_connection` | 0.20 | Hidden payloads or remote data |
 | `image_only_pdf` | 0.10 | No text layer: an evasion trick, but real scans exist too |
 | `legacy_office_format` | 0.10 | Pre-2007 binary format |
+| `disk_image_attachment`, `disk_image_in_archive` | 0.40 | ISO / IMG / VHD mount as a drive and skip the "downloaded file" warning |
+| `encrypted_archive` | 0.35 | Password-protected ZIP: scanners cannot open it |
+| `zip_bomb_suspected` | 0.30 | Compression ratio above 100 |
+| `uninspectable_archive` | 0.20 | RAR / 7z, recognised but not opened |
+| `nested_archive`, `calendar_with_links` | 0.10 | Archive in an archive; invite carrying links |
 
 Macros, remote templates and DDE fields force the phishing verdict on
-every path, even when the parent email is trusted: Gmail delivering the
+every path, and so (v1.14) do executables, scripts and shortcut files
+(`.exe`, `.js`, `.lnk`, ...) attached directly or inside a ZIP, and
+double extensions such as `invoice.pdf.exe`. They force the verdict even when the parent email is trusted: Gmail delivering the
 email says nothing about what a macro does once enabled, and hijacked
 accounts are how these documents usually travel.
 

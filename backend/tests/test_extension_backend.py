@@ -394,3 +394,58 @@ class TestLinkUrls:
                                "link_urls": ["https://parcel-redelivery.example/track"]},
         })
         assert seen["urls"] == ["https://parcel-redelivery.example/track"]
+
+
+# ---------------------------------------------------------------------
+# v1.14: forwarded emails, near-empty bodies, shared-file links,
+# archives through the endpoint
+# ---------------------------------------------------------------------
+class TestV114:
+    def test_forwarded_from_trusted_sender_gets_no_discount(self, client, monkeypatch):
+        text_score(monkeypatch, 0.95)
+        body = ("FYI, is this real?\n\n---------- Forwarded message ---------\n"
+                "From: GTBank <alerts@gtbank-secure.xyz>\n"
+                "Your account is suspended, verify your identity immediately.")
+        j = client.post("/analyse", json={
+            "raw_text": body, "sender_email": "colleague@gtbank.com",
+            "client_context": {"origin": "gmail", "gmail_in_inbox": True},
+        }).json()
+        assert j["forwarded"] == {"detected": True, "original_sender": "alerts@gtbank-secure.xyz"}
+        assert j["trust_path"] == "default"
+        assert j["trusted_sender"] is False
+        assert j["verdict"] == "phishing"
+
+    def test_detect_forwarded_variants(self):
+        assert eb.detect_forwarded("-------- Message transféré --------\nDe : <a@b.fr>")["original_sender"] == "a@b.fr"
+        assert eb.detect_forwarded("Begin forwarded message:\n\nFrom: x@y.io")["detected"]
+        assert eb.detect_forwarded("hello", "TR: facture")["detected"]
+        assert not eb.detect_forwarded("hello", "Re: meeting")["detected"]
+
+    def test_short_text_is_left_out_of_fusion(self, client, monkeypatch):
+        text_score(monkeypatch, 0.99)          # would trigger the override alone
+        j = client.post("/analyse", json={"raw_text": "Invoice attached"}).json()
+        assert j["text_agent_used"] is False
+        assert j["high_confidence_override"] is False
+        assert j["verdict"] == "safe"
+
+    def test_shared_links_reported(self, client):
+        j = client.post("/analyse", json={
+            "raw_text": "Please review the document I shared with you today, thanks.",
+            "client_context": {"link_urls": ["https://docs.google.com/forms/d/e/x/viewform",
+                                             "https://www.dropbox.com/s/abc/file.pdf"]},
+        }).json()
+        assert j["shared_links"]["services"] == ["Google Forms", "Dropbox"]
+
+    def test_encrypted_zip_scored(self, client, monkeypatch):
+        import io
+        import zipfile
+        text_score(monkeypatch, 0.05)
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("run.js", "x")
+        j = client.post("/analyse_attachment", json={
+            "content_b64": b64(buf.getvalue()), "filename": "invoice.zip",
+            "parent_email": {"gmail_delivered": True}}).json()
+        assert j["attachment"]["kind"] == "archive"
+        assert j["attachment"]["dropper_techniques"] == ["script_in_archive"]
+        assert j["verdict"] == "phishing"

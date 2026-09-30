@@ -57,8 +57,10 @@ class TestDetection:
         with zipfile.ZipFile(buf, "w") as zf:
             zf.writestr("readme.txt", "hello")
         assert office.detect_ooxml_kind(buf.getvalue()) is None
-        with pytest.raises(ValueError, match="Unsupported"):
-            analyse_attachment(b64(buf.getvalue()), filename="archive.zip")
+        # v1.14: a plain ZIP is analysed as an archive, not rejected.
+        r = analyse_attachment(b64(buf.getvalue()), filename="archive.zip")
+        assert r["kind"] == "archive"
+        assert r["entries"] == ["readme.txt"]
 
     def test_docx_without_extension_is_sniffed(self):
         r = analyse_attachment(b64(docx(para("Invoice attached"))), filename="noext")
