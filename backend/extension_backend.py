@@ -785,7 +785,7 @@ MAX_LINK_URLS = 50
 # Below this many words the text agent has nothing meaningful to read
 # (image-only emails, a bare link). Its score is then left out of the
 # fusion and the verdict rests on the links and the sender.
-MIN_TEXT_WORDS = 5
+MIN_TEXT_WORDS = 3
 
 # ---------------------------------------------------------------------
 # Forwarded emails (v1.14). The From: of a forwarded email is the person

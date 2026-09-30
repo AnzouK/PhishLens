@@ -17,7 +17,7 @@ backend share one version number.
   switches off the sender-trust discounts, since the forwarder is not
   the author. Response field `forwarded` with the original sender, and
   a "Forwarded" chip in Gmail.
-- **Image-only emails:** with fewer than 5 words the text agent is left
+- **Image-only emails:** with fewer than 3 words the text agent is left
   out of the fusion (`text_agent_used: false`) and the verdict rests on
   the links and the sender; Gmail scans the links of such emails
   instead of stopping.

@@ -136,7 +136,7 @@ the forward, not for the content. The allowlist, DKIM and Gmail-inbox
 discounts are then switched off (default path), and the original sender
 found in the forwarded block is returned in `forwarded`.
 
-**Near-empty bodies (v1.14):** with fewer than 5 words (image-only
+**Near-empty bodies (v1.14):** with fewer than 3 words (image-only
 emails, a bare link) the text agent is left out: the URL and metadata
 scores share the whole weight, and a confident text score cannot fire
 the override. `text_agent_used` says which case applied.
