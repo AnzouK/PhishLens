@@ -7,6 +7,25 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
+  <!-- Icon set (inline SVG sprite; no emoji, they render differently on every OS) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/></symbol>
+    <symbol id="i-contrast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 000 18z" fill="currentColor"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6"/></symbol>
+    <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1"/></symbol>
+    <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.5-6.9A2 2 0 0016.8 4H7.2a2 2 0 00-1.7 1.1z"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M18 10a6 6 0 00-11.6-1.5A4.5 4.5 0 007 19h11a4.5 4.5 0 000-9z"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 10a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+  </svg>
 
   <!-- ============ HEADER ============ -->
   <header class="app-header">
@@ -19,13 +38,13 @@
     </div>
     <div class="header-actions">
       <button id="insights-btn" class="theme-toggle" title="Scan history &amp; stats" aria-label="Scan history and stats">
-        <span>📊</span>
+        <svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>
       </button>
       <button id="settings-btn" class="theme-toggle" title="Backend settings" aria-label="Backend settings">
-        <span>⚙</span>
+        <svg class="i" aria-hidden="true"><use href="#i-gear"/></svg>
       </button>
       <button id="theme-toggle" class="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
-        <span class="theme-icon">◐</span>
+        <svg class="i" aria-hidden="true"><use href="#i-contrast"/></svg>
       </button>
     </div>
   </header>
@@ -39,23 +58,23 @@
       <!-- Tab switcher: File / Paste -->
       <div class="tabs" role="tablist">
         <button class="tab tab--active" data-tab="file" role="tab">
-          <span class="tab__icon">📂</span> File
+          <svg class="i tab__icon" aria-hidden="true"><use href="#i-file"/></svg> File
         </button>
         <button class="tab" data-tab="paste" role="tab">
-          <span class="tab__icon">📝</span> Paste
+          <svg class="i tab__icon" aria-hidden="true"><use href="#i-text"/></svg> Paste
         </button>
       </div>
 
       <!-- ===== File tab ===== -->
       <div class="tab-panel tab-panel--active" data-panel="file">
         <div class="hint">
-          <span class="hint__icon">💡</span>
+          <svg class="i hint__icon" aria-hidden="true"><use href="#i-info"/></svg>
           <span>In Gmail, open an email → menu <strong>⋮</strong> → <em>Download message</em> to get a <code>.eml</code> file.</span>
         </div>
 
         <label id="drop-zone" class="drop-zone" for="file-input">
           <input id="file-input" type="file" accept=".eml,.pdf,.html,.htm,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff,.docx,.docm,.doc,.xlsx,.xlsm,.xls,.pptx,.pptm,.ppt" hidden />
-          <div class="drop-zone__icon">📧</div>
+          <div class="drop-zone__icon"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg></div>
           <div class="drop-zone__label">Drag &amp; drop an email (<code>.eml</code>) or an attachment (PDF, image, Word, Excel, PowerPoint, HTML)</div>
           <div class="drop-zone__hint">or click to browse · 10 MB max</div>
         </label>
@@ -64,7 +83,7 @@
       <!-- ===== Paste tab ===== -->
       <div class="tab-panel" data-panel="paste">
         <div class="hint">
-          <span class="hint__icon">💡</span>
+          <svg class="i hint__icon" aria-hidden="true"><use href="#i-info"/></svg>
           <span>Paste the raw text of an email: useful when you only have the message body, no <code>.eml</code> file.</span>
         </div>
 
@@ -75,7 +94,7 @@
                   rows="9"></textarea>
         <div class="paste-footer">
           <button id="paste-clipboard-btn" class="btn btn--ghost" type="button" title="Paste from clipboard">
-            📋 Paste from clipboard
+            <svg class="i" aria-hidden="true"><use href="#i-clipboard"/></svg> Paste from clipboard
           </button>
           <span class="paste-counter"><span id="paste-counter">0</span> characters</span>
         </div>
@@ -99,11 +118,11 @@
     <section id="view-result" class="view">
       <!-- big verdict card -->
       <div id="verdict-card" class="verdict-card">
-        <div class="verdict-card__icon" id="verdict-icon">✅</div>
+        <div class="verdict-card__icon" id="verdict-icon"><svg class="i" aria-hidden="true"><use href="#i-shield-check"/></svg></div>
         <div class="verdict-card__text">
           <div class="verdict-card__label">
             <span id="verdict-label">This email looks safe</span>
-            <span id="verdict-trusted" class="verdict-trusted" hidden>✓ Verified sender</span>
+            <span id="verdict-trusted" class="verdict-trusted" hidden>Trusted sender</span>
           </div>
           <div class="verdict-card__sub" id="verdict-sub">Unlikely to be a phishing attempt</div>
         </div>
@@ -144,13 +163,13 @@
       <!-- explainability panel -->
       <details class="explain" id="explain-panel">
         <summary class="explain__head">
-          <span>🔍 Why? (LIME explanation)</span>
+          <span>Why this verdict?</span>
           <span class="explain__caret">▾</span>
         </summary>
         <div class="explain__body">
           <p class="explain__intro">
-            The tokens highlighted below influenced the verdict most. Orange tokens
-            pushed toward <em>phishing</em>; green tokens pushed toward <em>safe</em>.
+            The words that influenced the text model most. A stronger colour means a
+            stronger influence; orange points to <em>phishing</em>, green to <em>safe</em>.
           </p>
           <div id="explain-tokens" class="explain__tokens"></div>
           <p id="explain-status" class="explain__status" hidden></p>
@@ -163,13 +182,13 @@
     <!-- ===== insights view (scan history + analytics) ===== -->
     <section id="view-insights" class="view">
       <div class="settings-header">
-        <button id="insights-back" class="btn--icon" title="Back" aria-label="Back">←</button>
+        <button id="insights-back" class="btn--icon" title="Back" aria-label="Back"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></button>
         <h2 class="settings-title">Insights</h2>
       </div>
 
       <!-- Empty state -->
       <div id="insights-empty" class="insights-empty" hidden>
-        <div class="insights-empty__icon">📭</div>
+        <div class="insights-empty__icon"><svg class="i" aria-hidden="true"><use href="#i-inbox"/></svg></div>
         <div class="insights-empty__title">No scans yet</div>
         <div class="insights-empty__sub">Once you analyse a few emails, you'll see stats and a history here.</div>
       </div>
@@ -193,8 +212,8 @@
       <!-- Ratio bar (Safe vs Phishing) -->
       <div class="ratio-block" id="ratio-block">
         <div class="ratio-block__label">
-          <span class="ratio-safe-label">✓ Safe (<span id="ratio-safe-count">0</span>)</span>
-          <span class="ratio-phishing-label"><span id="ratio-phishing-count">0</span> Phishing ⚠</span>
+          <span class="ratio-safe-label">Safe (<span id="ratio-safe-count">0</span>)</span>
+          <span class="ratio-phishing-label"><span id="ratio-phishing-count">0</span> phishing</span>
         </div>
         <div class="ratio-bar">
           <span class="ratio-bar__safe" id="ratio-safe-fill"></span>
@@ -231,7 +250,7 @@
     <!-- ===== settings view ===== -->
     <section id="view-settings" class="view">
       <div class="settings-header">
-        <button id="settings-back" class="btn--icon" title="Back" aria-label="Back">←</button>
+        <button id="settings-back" class="btn--icon" title="Back" aria-label="Back"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></button>
         <h2 class="settings-title">Backend settings</h2>
       </div>
 
@@ -243,7 +262,7 @@
       <div class="backend-option">
         <input type="radio" id="opt-local" name="backend" value="local" />
         <label for="opt-local" class="backend-option__label">
-          <span class="backend-option__icon">🖥</span>
+          <span class="backend-option__icon"><svg class="i" aria-hidden="true"><use href="#i-monitor"/></svg></span>
           <div class="backend-option__main">
             <div class="backend-option__title">Local backend (Docker)</div>
             <div class="backend-option__sub"><code>http://127.0.0.1:8000</code>: private, no setup once Docker runs.</div>
@@ -254,7 +273,7 @@
       <div class="backend-option">
         <input type="radio" id="opt-cloud" name="backend" value="cloud" />
         <label for="opt-cloud" class="backend-option__label">
-          <span class="backend-option__icon">☁</span>
+          <span class="backend-option__icon"><svg class="i" aria-hidden="true"><use href="#i-cloud"/></svg></span>
           <div class="backend-option__main">
             <div class="backend-option__title">Cloud demo (Oracle Cloud)</div>
             <div class="backend-option__sub"><code>anzouk.duckdns.org</code>: HTTPS, works without setup, no cold start.</div>
@@ -265,7 +284,7 @@
       <div class="backend-option">
         <input type="radio" id="opt-custom" name="backend" value="custom" />
         <label for="opt-custom" class="backend-option__label">
-          <span class="backend-option__icon">🔧</span>
+          <span class="backend-option__icon"><svg class="i" aria-hidden="true"><use href="#i-link"/></svg></span>
           <div class="backend-option__main">
             <div class="backend-option__title">Custom URL</div>
             <div class="backend-option__sub">For self-hosted backends.</div>
@@ -282,7 +301,7 @@
   </main>
 
   <footer class="app-footer">
-    <span>Powered by DistilBERT + LIME</span>
+    <span>DistilBERT, Random Forests, LIME</span>
     <span class="footer__dot">·</span>
     <span>Nile University, CYB 499</span>
   </footer>

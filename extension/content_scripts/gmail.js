@@ -3,13 +3,23 @@
 // =====================================================================
 // Gmail is a single-page app whose DOM constantly changes. We:
 //   1. Observe document.body for the appearance of an open email.
-//   2. Inject a floating "🛡 Scan with PhishLens" button next to the subject.
+//   2. Inject a "Scan with PhishLens" button next to the subject.
 //   3. On click, extract the visible message body + sender, send to the
 //      background worker which calls the local backend, and render a
 //      verdict banner above the email.
 // =====================================================================
 
 const TAG = "[PhishLens]";
+
+// Inline SVG icons (no emoji: they render differently on every OS).
+const PLL_ICON = {
+    shield: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z"/></svg>',
+    shieldCheck: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>',
+    alert: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
+    clip: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11l-8.6 8.6a5 5 0 01-7-7L14 4a3.5 3.5 0 015 5l-8.6 8.6a2 2 0 01-2.8-2.8L15 7.5"/></svg>',
+    close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    spinner: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 109 9"/></svg>',
+};
 
 // ---------------------------------------------------------------------
 // Theme: read the popup's saved choice and apply to injected UI.
@@ -84,7 +94,8 @@ function installScanButton(subjectEl, emailView) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "pll-scan-btn";
-    btn.innerHTML = `<span class="pll-scan-btn__icon">🛡</span><span class="pll-scan-btn__label">Scan with PhishLens</span>`;
+    btn.innerHTML = `<span class="pll-scan-btn__icon">${PLL_ICON.shield}</span><span class="pll-scan-btn__label">Scan with PhishLens</span>`;
+    btn.title = "Check this email for phishing";
     wrap.appendChild(btn);
 
     btn.addEventListener("click", (ev) => {
@@ -150,7 +161,7 @@ async function runScan(emailView, btn) {
             subject: subject,
             sender:  senderEmail || senderName,
             verdict: r.data.verdict,
-            score:   Number(r.data.agents?.text?.phishing_probability) || 0,
+            score:   Number(r.data.fused_score) || 0,
             agents: {
                 text:     Number(r.data.agents?.text?.phishing_probability)     || 0,
                 url:      Number(r.data.agents?.url?.phishing_probability)      || 0,
@@ -221,8 +232,20 @@ async function runScan(emailView, btn) {
 function setBtnLoading(btn, on) {
     btn.disabled = on;
     btn.classList.toggle("pll-scan-btn--loading", on);
+    btn.querySelector(".pll-scan-btn__icon").innerHTML = on ? PLL_ICON.spinner : PLL_ICON.shield;
     btn.querySelector(".pll-scan-btn__label").textContent =
-        on ? "Analyzing…" : "Scan with PhishLens";
+        on ? "Scanning…" : "Scan again";
+}
+
+// One compact meter per agent: label, bar, percentage.
+function pllMeter(label, value) {
+    const p = Math.max(0, Math.min(100, Number(value) || 0));
+    const level = p >= 70 ? "high" : p >= 40 ? "mid" : "low";
+    return `<div class="pll-meter" title="${escapeHTML(label)}: ${p}% phishing">
+        <span class="pll-meter__l">${escapeHTML(label)}</span>
+        <span class="pll-meter__track"><span class="pll-meter__fill pll-meter__fill--${level}" style="width:${p}%"></span></span>
+        <span class="pll-meter__v">${p}%</span>
+    </div>`;
 }
 
 // ---------------------------------------------------------------------
@@ -239,11 +262,12 @@ function showBanner(emailView, data) {
     if (data.verdict === "error") {
         banner.classList.add("pll-banner--error");
         banner.innerHTML = `
-            <span class="pll-banner__icon">⚠</span>
+            <span class="pll-banner__icon">${PLL_ICON.alert}</span>
             <div class="pll-banner__main">
               <div class="pll-banner__title">PhishLens could not scan this email</div>
-              <div class="pll-banner__sub">${escapeHTML(data.error || "")}</div>
-            </div>`;
+              <div class="pll-banner__lead">${escapeHTML(data.error || "")}</div>
+            </div>
+            <button type="button" class="pll-banner__close" title="Dismiss" aria-label="Dismiss">${PLL_ICON.close}</button>`;
     } else {
         const phishing = data.verdict === "phishing";
         banner.classList.add(phishing ? "pll-banner--danger" : "pll-banner--safe");
@@ -255,37 +279,41 @@ function showBanner(emailView, data) {
         const gmailSoftVerified = !!data.sender_auth?.gmail_inbox_soft_verified;
         let trustedBadge = "";
         if (data.trusted_sender) {
-            trustedBadge = `<span class="pll-trusted" title="Sender domain is in the verified allowlist (${escapeHTML(data.sender_domain || "")})">✓ Verified sender</span>`;
+            trustedBadge = `<span class="pll-trusted" title="Sender domain is in the verified allowlist (${escapeHTML(data.sender_domain || "")})">Trusted sender</span>`;
         } else if (cryptoVerified) {
             const spf = data.sender_auth?.spf || "none";
             const dkim = data.sender_auth?.dkim || "none";
             const dmarc = data.sender_auth?.dmarc || "none";
-            trustedBadge = `<span class="pll-trusted" title="DKIM signature aligned with From: ${escapeHTML(data.sender_domain || "")}, SPF=${escapeHTML(spf)} DKIM=${escapeHTML(dkim)} DMARC=${escapeHTML(dmarc)}">🛡 DKIM verified</span>`;
+            trustedBadge = `<span class="pll-trusted" title="DKIM signature aligned with From: ${escapeHTML(data.sender_domain || "")}, SPF=${escapeHTML(spf)} DKIM=${escapeHTML(dkim)} DMARC=${escapeHTML(dmarc)}">DKIM verified</span>`;
         } else if (gmailSoftVerified) {
-            trustedBadge = `<span class="pll-trusted" title="Gmail delivered this to Inbox, so its own SPF/DKIM/DMARC verification passed. Softer signal than a full crypto verification.">📬 Gmail-delivered</span>`;
+            trustedBadge = `<span class="pll-trusted" title="Gmail delivered this to Inbox, so its own SPF/DKIM/DMARC verification passed. Softer signal than a full crypto verification.">Delivered by Gmail</span>`;
         }
 
         // v1.6: threat-intel signals under the score line.
         const signalChips = renderBannerSignals(data);
         banner.innerHTML = `
-            <span class="pll-banner__icon">${phishing ? "⚠" : "✓"}</span>
+            <span class="pll-banner__icon">${phishing ? PLL_ICON.alert : PLL_ICON.shieldCheck}</span>
             <div class="pll-banner__main">
-              <div class="pll-banner__title">
-                ${phishing ? "This email looks like phishing" : "This email looks safe"}
+              <div class="pll-banner__head">
+                <span class="pll-banner__title">${phishing ? "This email looks like phishing" : "This email looks safe"}</span>
                 ${trustedBadge}
               </div>
-              <div class="pll-banner__sub">
-                Content <strong>${text}%</strong> &nbsp;·&nbsp;
-                Links <strong>${url}%</strong> &nbsp;·&nbsp;
-                Sender <strong>${meta}%</strong>
+              <div class="pll-banner__lead">${phishing
+                ? "Don't click its links, open its attachments or reply until you have checked the sender another way."
+                : "No strong phishing signals. Stay careful with unexpected requests for money or passwords."}</div>
+              <div class="pll-meters">
+                ${pllMeter("Wording", text)}
+                ${pllMeter("Links", url)}
+                ${pllMeter("Sender", meta)}
               </div>
               ${signalChips}
               <details class="pll-banner__why">
-                <summary>Why?</summary>
-                <div class="pll-banner__tokens">Loading LIME explanation…</div>
+                <summary>Why this verdict?</summary>
+                <p class="pll-banner__hint">Words that pushed the text model the most. Stronger colour means stronger influence; orange points to phishing, green to safe.</p>
+                <div class="pll-banner__tokens"><span class="pll-banner__loading">Computing the explanation…</span></div>
               </details>
             </div>
-            <button type="button" class="pll-banner__close" title="Dismiss">×</button>`;
+            <button type="button" class="pll-banner__close" title="Dismiss" aria-label="Dismiss">${PLL_ICON.close}</button>`;
     }
 
     const headerBar = emailView.querySelector(HEADER_BAR);
@@ -306,13 +334,19 @@ function attachExplanation(emailView, features, cached = false) {
         slot.textContent = "No salient tokens returned.";
         return;
     }
+    // LIME weights are tiny (often < 0.01), so printing them shows "0.00".
+    // Show relative influence instead: colour strength scales with the
+    // token's weight compared with the strongest one.
+    const max = Math.max(...features.map((f) => Math.abs(Number(f.weight) || 0))) || 1;
     const chips = features.map((f) => {
+        const w = Number(f.weight) || 0;
+        const rel = Math.abs(w) / max;
         const cls = f.supports === "phishing" ? "pll-tok--phishing" : "pll-tok--safe";
-        const w = Math.abs(f.weight).toFixed(2);
-        return `<span class="pll-tok ${cls}" title="${f.supports}: ${w}">${escapeHTML(f.token)}<span class="pll-tok__w">${w}</span></span>`;
+        return `<span class="pll-tok ${cls}" style="--pll-a:${(0.10 + rel * 0.35).toFixed(2)}" ` +
+               `title="Pushes toward ${escapeHTML(f.supports)} (${Math.round(rel * 100)}% of the strongest word)">${escapeHTML(f.token)}</span>`;
     }).join("");
     slot.innerHTML = cached
-        ? chips + '<span class="pll-cache-hint" title="Explanation served from local cache, no server call needed">⚡ cached</span>'
+        ? chips + '<span class="pll-cache-hint" title="Explanation served from the local cache, no server call">cached</span>'
         : chips;
 }
 
@@ -428,10 +462,10 @@ function renderBannerSignals(data) {
     if (rep.malicious_count > 0) {
         for (const src of rep.sources_hit || []) {
             const label = _SOURCE_LABEL_GMAIL[src] || src;
-            chips.push(`<span class="pll-chip pll-chip--bad" title="${escapeHTML(label)} flagged ${rep.malicious_count} URL(s)">🔴 ${escapeHTML(label)}</span>`);
+            chips.push(`<span class="pll-chip pll-chip--bad" title="${escapeHTML(label)} flagged ${rep.malicious_count} URL(s)">Flagged by ${escapeHTML(label)}</span>`);
         }
     } else if (rep.checked > 0) {
-        chips.push(`<span class="pll-chip pll-chip--good" title="URL reputation cascade returned clean">✓ Links checked</span>`);
+        chips.push(`<span class="pll-chip pll-chip--good" title="Every link was checked against the threat-intelligence sources">Links checked, none flagged</span>`);
     }
 
     // Sender-auth failures worth surfacing prominently.
@@ -444,7 +478,7 @@ function renderBannerSignals(data) {
     }
 
     if (auth.spamhaus_dbl_listed) {
-        chips.push(`<span class="pll-chip pll-chip--bad" title="Sender domain is on the Spamhaus block list">🔴 Spamhaus listed</span>`);
+        chips.push(`<span class="pll-chip pll-chip--bad" title="Sender domain is on the Spamhaus block list">Sender on Spamhaus list</span>`);
     }
 
     if (!chips.length) return "";
@@ -465,7 +499,7 @@ function escapeHTML(s) {
 // service worker just to authenticate.
 //
 // UX:
-//   - one "🛡 Scan" pill per supported attachment, injected next to the
+//   - one "Scan" pill per supported attachment, injected next to the
 //     download control
 //   - if the mail has >1 supported attachment we ALSO inject a header
 //     button that scans all of them sequentially
@@ -670,7 +704,7 @@ function installScanAllButton(emailView, targets) {
     btn.type = "button";
     btn.className = "pll-scan-btn pll-scan-btn--all";
     btn._pllTargets = targets;
-    btn.innerHTML = `<span class="pll-scan-btn__icon">📎</span>` +
+    btn.innerHTML = `<span class="pll-scan-btn__icon">${PLL_ICON.clip}</span>` +
                     `<span class="pll-scan-btn__label">${
                         targets.length > 1
                             ? `Scan ${targets.length} attachments`
@@ -701,7 +735,7 @@ function installScanAllButton(emailView, targets) {
                 : "Scanning…";
             try { await scanOneAttachment(currentTargets[i]); } catch {}
         }
-        labelEl.textContent = "✓ Scanned";
+        labelEl.textContent = "Attachments scanned";
         setTimeout(() => btn.remove(), 2500);
     });
     wrap.appendChild(btn);
@@ -725,7 +759,9 @@ async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn }
         stack.appendChild(banner);
     }
     banner.className = "pll-att-banner pll-att-banner--loading";
-    banner.innerHTML = `<span>⏳ Downloading and analyzing <strong>${escapeHTML(filename)}</strong>…</span>`;
+    banner.innerHTML = `<div class="pll-att-banner__row"><span class="pll-att-banner__icon pll-spin">${PLL_ICON.spinner}</span>` +
+        `<div class="pll-att-banner__main"><div class="pll-att-banner__title">Scanning…</div>` +
+        `<div class="pll-att-banner__file">${escapeHTML(filename)}</div></div></div>`;
     // Drop the Scan pill immediately when the loading banner shows:
     // the banner itself is the ongoing feedback. On error we'll offer
     // a Retry inside the banner rather than resurrect the pill.
@@ -788,8 +824,11 @@ async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn }
     } catch (e) {
         banner.className = "pll-att-banner pll-att-banner--error";
         banner.innerHTML = `
-            <span>❌ ${escapeHTML(filename)}: ${escapeHTML(e.message || String(e))}</span>
-            <button type="button" class="pll-att-btn" style="margin-left:8px">Retry</button>
+            <div class="pll-att-banner__row"><span class="pll-att-banner__icon">${PLL_ICON.alert}</span>
+            <div class="pll-att-banner__main"><div class="pll-att-banner__title">Could not scan</div>
+            <div class="pll-att-banner__file" title="${escapeHTML(filename)}">${escapeHTML(filename)}</div></div></div>
+            <div class="pll-att-banner__sub">${escapeHTML(e.message || String(e))}</div>
+            <button type="button" class="pll-att-btn">Retry</button>
         `;
         banner.querySelector("button")?.addEventListener("click", () => {
             scanOneAttachment({ anchor, filename, ext, tile, emailView });
@@ -803,13 +842,13 @@ function renderAttachmentBanner(banner, data, filename) {
     const pct = (v) => Math.round((Number(v) || 0) * 100);
     const chips = [];
     if (data.parent_trusted) {
-        chips.push(`<span class="pll-att-chip pll-att-chip--good" title="Parent email is Gmail-delivered: softer weights applied">📬 Parent trusted</span>`);
+        chips.push(`<span class="pll-att-chip pll-att-chip--good" title="Parent email is Gmail-delivered: softer weights applied">Trusted email</span>`);
     }
     (data.attachment?.notable_features || []).forEach((f) => {
         chips.push(`<span class="pll-att-chip pll-att-chip--warn">${escapeHTML(f.replace(/_/g, " "))}</span>`);
     });
     (data.url_reputation?.sources_hit || []).forEach((s) => {
-        chips.push(`<span class="pll-att-chip pll-att-chip--bad">🔴 ${escapeHTML(s)}</span>`);
+        chips.push(`<span class="pll-att-chip pll-att-chip--bad">${escapeHTML(_SOURCE_LABEL_GMAIL[s] || s)}</span>`);
     });
     const a = data.attachment || {};
     const meta = [
@@ -821,17 +860,17 @@ function renderAttachmentBanner(banner, data, filename) {
 
     banner.innerHTML = `
         <div class="pll-att-banner__row">
-            <span class="pll-att-banner__icon">${bad ? "⚠" : "✓"}</span>
+            <span class="pll-att-banner__icon">${bad ? PLL_ICON.alert : PLL_ICON.shieldCheck}</span>
             <div class="pll-att-banner__main">
                 <div class="pll-att-banner__title" title="${escapeHTML(filename)}">
-                    ${bad ? "Phishing" : "Safe"}
+                    ${bad ? "Looks like phishing" : "Looks safe"}
                 </div>
                 <div class="pll-att-banner__file" title="${escapeHTML(filename)}">${escapeHTML(filename)}</div>
             </div>
         </div>
         <div class="pll-att-banner__sub">
             ${meta ? `${escapeHTML(meta)}<br>` : ""}
-            Content <strong>${pct(data.agents?.text?.phishing_probability)}%</strong> ·
+            Wording <strong>${pct(data.agents?.text?.phishing_probability)}%</strong> ·
             Links <strong>${pct(data.agents?.url?.phishing_probability)}%</strong>
         </div>
         ${chips.length ? `<div class="pll-att-banner__chips">${chips.join("")}</div>` : ""}

@@ -41,6 +41,9 @@ const explainPanel = $("explain-panel");
 const explainTokens = $("explain-tokens");
 const explainStatus = $("explain-status");
 
+// Inline SVG icon from the sprite in popup.html.
+const icon = (name) => `<svg class="i" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+
 // ---------- accepted files ----------
 // .eml goes to /analyse; everything in ATTACHMENT_EXTS goes to
 // /analyse_attachment (v1.12: images and Office documents added).
@@ -128,7 +131,7 @@ function setSelectedFile(file) {
         dropZone.classList.remove("drop-zone--filled");
         dropZone.innerHTML = `
             <input id="file-input" type="file" accept="${FILE_ACCEPT}" hidden />
-            <div class="drop-zone__icon">📧</div>
+            <div class="drop-zone__icon">${icon("upload")}</div>
             <div class="drop-zone__label">Drag &amp; drop an email or an attachment</div>
             <div class="drop-zone__hint">or click to browse</div>`;
         rewireFileInput();
@@ -138,7 +141,7 @@ function setSelectedFile(file) {
     dropZone.classList.add("drop-zone--filled");
     dropZone.innerHTML = `
         <input id="file-input" type="file" accept="${FILE_ACCEPT}" hidden />
-        <div class="drop-zone__icon">📨</div>
+        <div class="drop-zone__icon">${icon("file")}</div>
         <div class="drop-zone__filename">${escapeHTML(file.name)}</div>
         <div class="drop-zone__hint">Click to change file</div>`;
     rewireFileInput();
@@ -257,7 +260,7 @@ analyzeBtn.addEventListener("click", async () => {
         }
     } catch (e) {
         showView("upload");
-        showStatus(`❌ ${e.message || e}`);
+        showStatus(String(e.message || e));
         return;
     }
 
@@ -288,7 +291,7 @@ analyzeBtn.addEventListener("click", async () => {
                 subject: (selectedFile?.name || "").slice(0, 120),
                 sender:  data.sender_domain || "",
                 verdict: data.verdict,
-                score:   Number(data.agents?.text?.phishing_probability) || 0,
+                score:   Number(data.fused_score) || 0,
                 agents: {
                     text:     Number(data.agents?.text?.phishing_probability)     || 0,
                     url:      Number(data.agents?.url?.phishing_probability)      || 0,
@@ -318,8 +321,8 @@ analyzeBtn.addEventListener("click", async () => {
         showView("upload");
         showStatus(
             String(e?.message || e).startsWith("Failed to fetch")
-                ? "❌ Could not reach the backend. Is uvicorn running on port 8000?"
-                : `❌ ${e.message || e}`
+                ? "Could not reach the backend. Check the backend in the settings (gear icon)."
+                : String(e.message || e)
         );
     }
 });
@@ -337,7 +340,7 @@ function renderResult(data) {
     // verdict card
     const card = $("verdict-card");
     card.classList.toggle("verdict-card--danger", isPhishing);
-    $("verdict-icon").textContent = isPhishing ? "⚠️" : "✅";
+    $("verdict-icon").innerHTML = icon(isPhishing ? "alert" : "shield-check");
     $("verdict-label").textContent = isPhishing
         ? "This email looks like phishing"
         : "This email looks safe";
@@ -351,17 +354,17 @@ function renderResult(data) {
     const gmailSoftVerified = !!data.sender_auth?.gmail_inbox_soft_verified;
     if (data.trusted_sender) {
         trustedEl.hidden = false;
-        trustedEl.textContent = "✓ Verified sender";
+        trustedEl.textContent = "Trusted sender";
         trustedEl.title = `Sender domain in allowlist: ${data.sender_domain || ""}`;
     } else if (cryptoVerified) {
         trustedEl.hidden = false;
-        trustedEl.textContent = "🛡 DKIM verified";
+        trustedEl.textContent = "DKIM verified";
         trustedEl.title =
             `DKIM signature aligned with From: ${data.sender_domain || ""}\n` +
             `SPF=${data.sender_auth.spf} DKIM=${data.sender_auth.dkim} DMARC=${data.sender_auth.dmarc}`;
     } else if (gmailSoftVerified) {
         trustedEl.hidden = false;
-        trustedEl.textContent = "📬 Gmail-delivered";
+        trustedEl.textContent = "Delivered by Gmail";
         trustedEl.title =
             "Gmail delivered this message to Inbox, so its own SPF/DKIM/DMARC checks passed. " +
             "This is a soft trust signal, weaker than a full DKIM verification.";
@@ -455,14 +458,14 @@ function renderUrlBadges(rep) {
     host.innerHTML = "";
     if (!rep || !rep.checked) { host.hidden = true; return; }
     if (rep.malicious_count === 0) {
-        host.appendChild(_mkBadge(`✓ ${rep.checked} link${rep.checked > 1 ? "s" : ""} checked`,
+        host.appendChild(_mkBadge(`${rep.checked} link${rep.checked > 1 ? "s" : ""} checked, none flagged`,
                                   "good",
                                   "URL reputation cascade returned clean"));
     } else {
         // Per-source badges: one per intel source that fired
         for (const src of rep.sources_hit || []) {
             const label = _SOURCE_LABEL[src] || src;
-            host.appendChild(_mkBadge(`🔴 ${label}`, "bad",
+            host.appendChild(_mkBadge(`Flagged by ${label}`, "bad",
                                       `${label} flagged ${rep.malicious_count} URL(s)`));
         }
         // Threat-type badges: collapse enum values into words
@@ -481,7 +484,7 @@ function renderMetaBadges(auth) {
 
     const badges = [];
     if (auth.cryptographically_verified) {
-        badges.push(_mkBadge("🛡 DKIM aligned", "good",
+        badges.push(_mkBadge("DKIM aligned", "good",
                              "DKIM signature aligned with the From: domain; sender proven"));
     }
     const results = {
@@ -502,7 +505,7 @@ function renderMetaBadges(auth) {
         // "none" / "neutral" / "temperror" → no badge (silent)
     }
     if (auth.spamhaus_dbl_listed) {
-        badges.push(_mkBadge("🔴 Spamhaus listed", "bad",
+        badges.push(_mkBadge("Sender on Spamhaus list", "bad",
                              "Sender domain is on the Spamhaus DBL"));
     }
     // Explicit signal that the message didn't ship with auth headers at all
@@ -590,7 +593,7 @@ explainPanel.addEventListener("toggle", () => {
 function showExplainError() {
     explainTokens.innerHTML = "";
     explainStatus.hidden = false;
-    explainStatus.textContent = `❌ ${explainError}`;
+    explainStatus.textContent = `Explanation unavailable: ${explainError}`;
 }
 
 function renderExplain(features) {
@@ -600,12 +603,16 @@ function renderExplain(features) {
         explainStatus.textContent = "No salient tokens returned by the model.";
         return;
     }
+    // LIME weights are tiny (often < 0.01), so printing them showed "0.00".
+    // Colour strength now reflects each word's weight relative to the
+    // strongest one; the exact figure stays in the tooltip.
+    const max = Math.max(...features.map((f) => Math.abs(Number(f.weight) || 0))) || 1;
     explainTokens.innerHTML = features.map((f) => {
+        const w = Number(f.weight) || 0;
+        const rel = Math.abs(w) / max;
         const cls = f.supports === "phishing" ? "token--phishing" : "token--safe";
-        const w = Math.abs(f.weight).toFixed(2);
-        return `<span class="token ${cls}" title="${f.supports} contribution: ${w}">
-                    ${escapeHTML(f.token)}<span class="token__weight">${w}</span>
-                </span>`;
+        return `<span class="token ${cls}" style="--a:${(0.10 + rel * 0.35).toFixed(2)}"
+                      title="Pushes toward ${escapeHTML(f.supports)}: ${Math.round(rel * 100)}% of the strongest word">${escapeHTML(f.token)}</span>`;
     }).join("");
     explainStatus.hidden = true;
 }
@@ -748,7 +755,7 @@ async function renderInsights() {
 
     // Recent history: last 20
     historyList.innerHTML = list.slice(0, 20).map((e) => {
-        const dot = e.verdict === "phishing" ? "🚩" : "✅";
+        const dot = icon(e.verdict === "phishing" ? "alert" : "shield-check");
         const when = timeAgo(e.ts);
         const subj = e.subject || "(no subject)";
         const src = ({ gmail: "Gmail", file: ".eml file", paste: "pasted text" })[e.source] || e.source;
@@ -856,13 +863,13 @@ testConnBtn.addEventListener("click", async () => {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json().catch(() => null);
         connStatus.className = "conn-status conn-status--ok";
-        connStatus.textContent = `✓ Backend reachable (model: ${data?.model || "unknown"})`;
+        connStatus.textContent = `Connected (model: ${data?.model || "unknown"})`;
     } catch (e) {
         connStatus.className = "conn-status conn-status--err";
         const msg = String(e?.message || e);
         connStatus.textContent = msg.startsWith("Failed to fetch")
-            ? "❌ Backend unreachable. Check the URL and that the server is running."
-            : `❌ ${msg}`;
+            ? "Backend unreachable. Check the URL and that the server is running."
+            : msg;
     }
 });
 

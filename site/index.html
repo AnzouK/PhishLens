@@ -1,645 +1,662 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PhishLens: Detect and explain phishing emails in real time</title>
-<meta name="description" content="Chrome extension + FastAPI backend that detects phishing emails inside Gmail and explains why with DistilBERT, LIME, sender authentication and a URL reputation cascade.">
-<meta name="theme-color" content="#0d1117">
-
-<!-- Open Graph -->
+<title>PhishLens: catch phishing emails in Gmail, and see why</title>
+<meta name="description" content="Open-source Chrome extension and backend that flags phishing emails in Gmail and explains every verdict: DistilBERT, Random Forests, SPF/DKIM/DMARC, threat intelligence, attachment scanning with OCR and QR decoding.">
+<meta name="theme-color" content="#0b0e14">
 <meta property="og:title" content="PhishLens">
-<meta property="og:description" content="Detect and explain phishing emails in real time, inside Gmail.">
+<meta property="og:description" content="Catch phishing emails in Gmail, and see why.">
 <meta property="og:url" content="https://anzouk.duckdns.org">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://raw.githubusercontent.com/AnzouK/PhishLens/main/extension/icons/128.png">
-
 <link rel="icon" href="/icon.png" type="image/png">
 
 <style>
   :root {
-    --bg:       #0d1117;
-    --bg-elev:  #161b22;
-    --bg-elev2: #1c232c;
-    --border:   #30363d;
-    --border-soft: #21262d;
-    --text:     #e6edf3;
-    --text-mute:#8b949e;
-    --accent:   #ff6b35;
-    --accent-2: #ffa07a;
-    --good:     #56d364;
-    --warn:     #ffc46b;
-    --bad:      #ff8c5a;
-    --link:     #79c0ff;
+    --bg: #0b0e14;
+    --bg-1: #11151d;
+    --bg-2: #171c26;
+    --bg-3: #1e2430;
+    --line: #262d3a;
+    --line-soft: #1b212c;
+    --text: #e8edf4;
+    --text-2: #a4adbb;
+    --text-3: #6f7a8b;
+    --accent: #ff6b35;
+    --accent-2: #ff9a6b;
+    --accent-soft: rgba(255, 107, 53, 0.12);
+    --good: #3fcf8e;
+    --good-soft: rgba(63, 207, 142, 0.12);
+    --bad: #ff6b5b;
+    --bad-soft: rgba(255, 107, 91, 0.12);
+    --warn: #f5b84a;
+    --warn-soft: rgba(245, 184, 74, 0.12);
+    --radius: 14px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
-
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { animation: none !important; transition: none !important; } }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.55;
-    -webkit-font-smoothing: antialiased;
+    margin: 0;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
   }
-  a { color: var(--link); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  h1, h2, h3 { line-height: 1.25; margin: 0 0 12px; }
-  h1 { font-size: 44px; font-weight: 700; }
-  h2 { font-size: 22px; font-weight: 600; }
-  h3 { font-size: 15px; font-weight: 600; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.5px; }
-  p  { margin: 0 0 10px; color: var(--text-mute); }
-  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
-         background: var(--bg-elev); padding: 1px 6px; border-radius: 4px; }
-  hr { border: 0; border-top: 1px solid var(--border-soft); margin: 48px 0; }
+  a { color: inherit; }
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--bg-3); padding: 1px 6px; border-radius: 5px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  .muted { color: var(--text-2); }
+  .icon { width: 20px; height: 20px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+  /* ---------- nav ---------- */
+  .nav { position: sticky; top: 0; z-index: 10; background: rgba(11, 14, 20, 0.82);
+         backdrop-filter: saturate(160%) blur(12px); border-bottom: 1px solid var(--line-soft); }
+  .nav__in { display: flex; align-items: center; gap: 28px; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; text-decoration: none; letter-spacing: -0.01em; }
+  .brand img { width: 28px; height: 28px; border-radius: 7px; }
+  .nav__links { display: flex; gap: 22px; margin-left: auto; }
+  .nav__links a { color: var(--text-2); text-decoration: none; font-size: 14px; }
+  .nav__links a:hover { color: var(--text); }
+  .nav__gh { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; text-decoration: none;
+             padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; }
+  .nav__gh:hover { border-color: var(--text-3); }
+  @media (max-width: 760px) { .nav__links { display: none; } .nav__gh { margin-left: auto; } }
 
-  /* ================= HERO ================= */
-  .hero {
-    text-align: center;
-    padding: 64px 20px 40px;
-    background:
-      radial-gradient(ellipse at top, rgba(255, 107, 53, 0.10), transparent 60%),
-      var(--bg);
-    border-bottom: 1px solid var(--border-soft);
-  }
-  .hero__icon { display: block; margin: 0 auto 16px; border-radius: 20px;
-                box-shadow: 0 10px 40px rgba(255, 107, 53, 0.25); }
-  .hero h1 { margin: 0 0 8px;
-             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 60%, #fff 100%);
-             -webkit-background-clip: text; background-clip: text;
-             -webkit-text-fill-color: transparent; color: transparent; }
-  .hero__tagline { font-size: 18px; color: var(--text); max-width: 560px; margin: 0 auto 20px; }
-  .hero__meta { color: var(--text-mute); font-size: 14px; margin-bottom: 24px; }
-  .hero__meta a { color: var(--text-mute); border-bottom: 1px dotted var(--text-mute); }
-
-  .status {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: var(--bg-elev); border: 1px solid var(--border);
-    padding: 6px 14px; border-radius: 999px; font-size: 13px;
-    margin-bottom: 24px;
-  }
-  .status__dot { width: 8px; height: 8px; border-radius: 50%;
-                 background: var(--text-mute); box-shadow: 0 0 0 0 currentColor;
-                 animation: pulse 2s infinite; }
-  .status--up   .status__dot { background: var(--good); color: var(--good); }
-  .status--down .status__dot { background: var(--bad);  color: var(--bad);  animation: none; }
-  @keyframes pulse {
-    0%   { box-shadow: 0 0 0 0   rgba(86, 211, 100, 0.5); }
-    70%  { box-shadow: 0 0 0 8px rgba(86, 211, 100, 0); }
-    100% { box-shadow: 0 0 0 0   rgba(86, 211, 100, 0); }
-  }
-
-  .cta { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 8px; }
-  .btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 10px 18px; border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--bg-elev);
-    color: var(--text);
-    font-weight: 500; font-size: 14px;
-    transition: transform 0.1s ease, border-color 0.2s ease, background 0.2s ease;
-  }
-  .btn:hover { text-decoration: none; border-color: var(--accent); transform: translateY(-1px); }
-  .btn--primary { background: var(--accent); border-color: var(--accent); color: #1f2328; }
+  /* ---------- buttons ---------- */
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 10px;
+         font-weight: 600; font-size: 15px; text-decoration: none; border: 1px solid var(--line);
+         background: var(--bg-2); color: var(--text); cursor: pointer; font-family: inherit;
+         transition: transform .12s ease, background .2s ease, border-color .2s ease; }
+  .btn:hover { transform: translateY(-1px); border-color: var(--text-3); }
+  .btn--primary { background: var(--accent); border-color: var(--accent); color: #140a05; }
   .btn--primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+  .btn:disabled { opacity: .55; cursor: progress; transform: none; }
+  .btn--sm { padding: 7px 12px; font-size: 13px; font-weight: 500; border-radius: 8px; }
 
-  /* ================= SECTIONS ================= */
-  section { padding: 40px 0; }
-  .grid  { display: grid; gap: 16px; }
-  .grid--3 { grid-template-columns: repeat(3, 1fr); }
-  @media (max-width: 720px) { .grid--3 { grid-template-columns: 1fr; } }
+  /* ---------- hero ---------- */
+  .hero { position: relative; overflow: hidden; padding: 72px 0 56px; }
+  .hero::before { content: ""; position: absolute; inset: -40% -10% auto; height: 620px; pointer-events: none;
+                  background: radial-gradient(closest-side, rgba(255,107,53,0.16), transparent); }
+  .hero__grid { position: relative; display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: center; }
+  @media (max-width: 920px) { .hero__grid { grid-template-columns: 1fr; gap: 40px; } }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2);
+             padding: 5px 12px 5px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg-1); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); }
+  .dot--up { background: var(--good); box-shadow: 0 0 0 0 rgba(63,207,142,.6); animation: pulse 2s infinite; }
+  .dot--down { background: var(--bad); }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 7px rgba(63,207,142,0); } 100% { box-shadow: 0 0 0 0 rgba(63,207,142,0); } }
+  .hero h1 { font-size: clamp(38px, 5.2vw, 58px); line-height: 1.05; letter-spacing: -0.03em; margin: 20px 0 18px; }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero__lead { font-size: 18px; color: var(--text-2); max-width: 540px; margin: 0 0 28px; }
+  .hero__cta { display: flex; flex-wrap: wrap; gap: 12px; }
+  .hero__meta { margin-top: 22px; font-size: 13px; color: var(--text-3); }
+  .hero__meta a { color: var(--text-2); }
 
-  .card {
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 20px;
-  }
-  .card ul, .card ol { padding-left: 20px; margin: 0; color: var(--text-mute); }
-  .card li { margin-bottom: 6px; }
-  .card li strong { color: var(--text); font-weight: 500; }
+  /* mock Gmail verdict */
+  .mock { background: var(--bg-1); border: 1px solid var(--line); border-radius: 18px; padding: 18px;
+          box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+  .mock__bar { display: flex; gap: 6px; margin-bottom: 14px; }
+  .mock__bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+  .mock__mail { background: #f6f8fb; color: #1d2330; border-radius: 12px; padding: 16px 18px; }
+  .mock__subject { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 600; font-size: 16px; }
+  .mock__scanbtn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+                   padding: 4px 10px; border-radius: 999px; background: #fff; color: #c2410c;
+                   border: 1px solid #fed7aa; }
+  .mock__from { font-size: 13px; color: #5b6475; margin: 6px 0 12px; }
+  .banner { border-radius: 10px; padding: 12px 14px; background: #fff5f2; border: 1px solid #fecaca; }
+  .banner__title { display: flex; align-items: center; gap: 8px; font-weight: 700; color: #b42318; font-size: 14px; }
+  .banner__row { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: #5b6475; margin: 6px 0 8px; }
+  .banner__row b { color: #1d2330; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 11.5px; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
+  .chip--bad { background: #fee4e2; color: #b42318; }
+  .chip--warn { background: #fef0c7; color: #93370d; }
+  .tok { font-family: var(--mono); font-size: 11.5px; padding: 2px 7px; border-radius: 5px; background: rgba(255,107,53,.14); color: #c2410c; }
+  .mock__body { height: 10px; background: #e7ebf1; border-radius: 5px; margin-top: 14px; }
+  .mock__body + .mock__body { width: 78%; margin-top: 8px; }
 
-  /* ================= LIVE DEMO ================= */
-  .demo { background: var(--bg-elev); border: 1px solid var(--border);
-          border-radius: 10px; padding: 24px; }
-  .demo__tabs { display: flex; gap: 4px; margin-bottom: 12px; }
-  .demo__tab {
-    flex: 0 0 auto; padding: 8px 16px; border-radius: 8px 8px 0 0;
-    background: transparent; color: var(--text-mute); border: 1px solid transparent;
-    border-bottom: 0; cursor: pointer; font-size: 13px; font-weight: 500;
-    font-family: inherit;
-  }
-  .demo__tab:hover { color: var(--text); }
-  .demo__tab[aria-selected="true"] {
-    background: var(--bg); color: var(--text);
-    border-color: var(--border);
-  }
-  .demo__pane { display: none; }
-  .demo__pane[data-active="true"] { display: block; }
+  /* ---------- sections ---------- */
+  section { padding: 72px 0; border-top: 1px solid var(--line-soft); }
+  .sec__head { max-width: 660px; margin-bottom: 36px; }
+  .sec__kicker { color: var(--accent); font-weight: 600; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+  .sec__head h2 { font-size: clamp(26px, 3.2vw, 34px); letter-spacing: -0.02em; line-height: 1.15; margin: 8px 0 12px; }
+  .sec__head p { color: var(--text-2); margin: 0; font-size: 16px; }
 
-  .demo textarea {
-    width: 100%; min-height: 140px; resize: vertical;
-    background: var(--bg); color: var(--text);
-    border: 1px solid var(--border); border-radius: 8px;
-    padding: 12px; font-family: inherit; font-size: 14px; line-height: 1.5;
-  }
-  .demo textarea:focus { outline: none; border-color: var(--accent); }
+  /* results strip */
+  .results { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line-soft);
+             border: 1px solid var(--line-soft); border-radius: var(--radius); overflow: hidden; }
+  @media (max-width: 760px) { .results { grid-template-columns: repeat(2, 1fr); } }
+  .result { background: var(--bg-1); padding: 22px; }
+  .result__num { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; }
+  .result__lbl { font-size: 13px; color: var(--text-2); }
+  .result__note { margin-top: 12px; font-size: 13px; color: var(--text-3); }
 
-  .drop {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 8px; min-height: 140px; padding: 20px;
-    background: var(--bg); color: var(--text-mute);
-    border: 2px dashed var(--border); border-radius: 8px;
-    cursor: pointer; text-align: center; transition: border-color 0.2s, background 0.2s;
-  }
-  .drop:hover, .drop--hover { border-color: var(--accent); color: var(--text); }
-  .drop__icon { font-size: 24px; }
-  .drop__title { font-weight: 500; color: var(--text); }
-  .drop__sub { font-size: 12px; }
-  .drop__file { font-weight: 500; color: var(--accent); }
-  .drop input[type="file"] { display: none; }
+  /* steps */
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; counter-reset: s; }
+  @media (max-width: 920px) { .steps { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .steps { grid-template-columns: 1fr; } }
+  .step { background: var(--bg-1); border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 20px; }
+  .step::before { counter-increment: s; content: counter(s); display: grid; place-items: center;
+                  width: 28px; height: 28px; border-radius: 8px; background: var(--accent-soft); color: var(--accent);
+                  font-weight: 700; font-size: 14px; margin-bottom: 14px; }
+  .step h3 { margin: 0 0 6px; font-size: 16px; }
+  .step p { margin: 0; font-size: 14px; color: var(--text-2); }
 
-  .demo__row { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
-  .demo__hint { color: var(--text-mute); font-size: 12px; flex: 1; min-width: 200px; }
-  .demo__btn {
-    background: var(--accent); color: #1f2328; border: 0;
-    padding: 10px 24px; border-radius: 8px; font-weight: 600; cursor: pointer;
-    font-size: 14px;
-  }
-  .demo__btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .demo__btn:hover:not(:disabled) { background: var(--accent-2); }
+  /* features */
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 920px) { .features { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .features { grid-template-columns: 1fr; } }
+  .feature { background: var(--bg-1); border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 22px; }
+  .feature__ic { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px;
+                 background: var(--bg-3); color: var(--accent); margin-bottom: 14px; }
+  .feature h3 { margin: 0 0 6px; font-size: 16px; }
+  .feature p { margin: 0; font-size: 14px; color: var(--text-2); }
 
-  .verdict {
-    margin-top: 16px; padding: 16px; border-radius: 8px;
-    border: 1px solid var(--border);
-  }
-  .verdict--good { border-color: rgba(86, 211, 100, 0.4);  background: rgba(20, 128, 70, 0.10); }
-  .verdict--bad  { border-color: rgba(255, 140, 90, 0.5);  background: rgba(200, 40, 40, 0.10); }
-  .verdict__title { font-weight: 600; font-size: 16px; margin-bottom: 6px; }
-  .verdict--good .verdict__title { color: var(--good); }
-  .verdict--bad  .verdict__title { color: var(--bad); }
-  .verdict__scores { color: var(--text-mute); font-size: 13px; }
-  .verdict__scores strong { color: var(--text); }
-  .verdict__pill {
-    display: inline-block; margin-left: 8px; padding: 2px 8px;
-    border-radius: 999px; font-size: 11px; font-weight: 500;
-    background: rgba(255,255,255,0.06); color: var(--text-mute);
-  }
+  /* demo */
+  .demo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 920px) { .demo { grid-template-columns: 1fr; } }
+  .panel { background: var(--bg-1); border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 20px; }
+  .tabs { display: inline-flex; padding: 4px; background: var(--bg-2); border-radius: 10px; gap: 4px; margin-bottom: 14px; }
+  .tab { border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: 14px; font-weight: 500;
+         padding: 7px 14px; border-radius: 7px; cursor: pointer; }
+  .tab[aria-selected="true"] { background: var(--bg-3); color: var(--text); }
+  .pane[hidden] { display: none; }
+  textarea { width: 100%; min-height: 190px; resize: vertical; background: var(--bg); color: var(--text);
+             border: 1px solid var(--line); border-radius: 10px; padding: 14px; font-family: inherit; font-size: 14px; line-height: 1.55; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .samples { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; }
+  .drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+          min-height: 190px; padding: 20px; text-align: center; background: var(--bg); color: var(--text-2);
+          border: 1.5px dashed var(--line); border-radius: 10px; cursor: pointer; transition: border-color .2s, background .2s; }
+  .drop:hover, .drop--over { border-color: var(--accent); background: rgba(255,107,53,.04); }
+  .drop strong { color: var(--text); font-weight: 600; }
+  .drop small { color: var(--text-3); }
+  .drop input { display: none; }
+  .demo__foot { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  .demo__foot .muted { font-size: 12.5px; flex: 1; min-width: 180px; }
+  kbd { font-family: var(--mono); font-size: 11px; padding: 1px 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; color: var(--text-2); }
 
-  /* LIME token explanation */
-  .lime {
-    margin-top: 14px;
-    border-top: 1px solid var(--border-soft);
-    padding-top: 12px;
-  }
-  .lime__head {
-    cursor: pointer;
-    font-size: 13px;
-    color: var(--text-mute);
-    list-style: none;
-    user-select: none;
-  }
-  .lime__head::-webkit-details-marker { display: none; }
-  .lime__head:hover { color: var(--text); }
-  .lime[open] .lime__head { color: var(--text); margin-bottom: 8px; }
-  .lime__intro { font-size: 12px; color: var(--text-mute); margin: 0 0 10px; }
-  .lime__tokens { display: flex; flex-wrap: wrap; gap: 5px; }
-  .lime-tok {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 8px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1.2;
-    border: 1px solid transparent;
-  }
-  .lime-tok__w {
-    font-size: 10px;
-    opacity: 0.7;
-    font-weight: 400;
-  }
-  .lime-tok--phishing { color: #ff8c5a; background: rgba(255, 107, 53, 0.13); border-color: rgba(255, 107, 53, 0.35); }
-  .lime-tok--safe     { color: #6ee7a8; background: rgba(20, 128, 70, 0.13);  border-color: rgba(20, 128, 70, 0.35); }
+  .out { min-height: 100%; display: flex; flex-direction: column; }
+  .out__empty { flex: 1; display: grid; place-items: center; text-align: center; color: var(--text-3); font-size: 14px; padding: 30px; }
+  .verdict { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 12px; margin-bottom: 16px; }
+  .verdict--bad { background: var(--bad-soft); border: 1px solid rgba(255,107,91,.35); }
+  .verdict--good { background: var(--good-soft); border: 1px solid rgba(63,207,142,.35); }
+  .verdict__ic { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; flex: none; }
+  .verdict--bad .verdict__ic { background: rgba(255,107,91,.2); color: var(--bad); }
+  .verdict--good .verdict__ic { background: rgba(63,207,142,.2); color: var(--good); }
+  .verdict__t { font-weight: 700; font-size: 17px; }
+  .verdict__s { font-size: 13px; color: var(--text-2); }
+  .bars { display: grid; gap: 12px; margin-bottom: 16px; }
+  .bar__top { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+  .bar__top span:last-child { font-variant-numeric: tabular-nums; color: var(--text-2); }
+  .bar__track { height: 7px; background: var(--bg-3); border-radius: 99px; overflow: hidden; }
+  .bar__fill { height: 100%; border-radius: 99px; background: var(--good); width: 0; transition: width .5s ease; }
+  .bar__fill--mid { background: var(--warn); }
+  .bar__fill--high { background: var(--bad); }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .pill { font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 999px; background: var(--bg-3); color: var(--text-2); }
+  .pill--good { background: var(--good-soft); color: var(--good); }
+  .pill--bad { background: var(--bad-soft); color: var(--bad); }
+  .pill--warn { background: var(--warn-soft); color: var(--warn); }
+  .why { border-top: 1px solid var(--line-soft); padding-top: 14px; }
+  .why h4 { margin: 0 0 4px; font-size: 14px; }
+  .why p { margin: 0 0 10px; font-size: 12.5px; color: var(--text-3); }
+  .toks { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ltok { font-family: var(--mono); font-size: 12px; padding: 3px 8px; border-radius: 6px; border: 1px solid transparent; }
+  .ltok--p { color: #ffb199; background: rgba(255,107,53, var(--a, .15)); border-color: rgba(255,107,53,.35); }
+  .ltok--s { color: #8ff0c3; background: rgba(63,207,142, var(--a, .15)); border-color: rgba(63,207,142,.35); }
+  .skeleton { height: 22px; width: 70%; border-radius: 6px; background: linear-gradient(90deg, var(--bg-2), var(--bg-3), var(--bg-2)); background-size: 200% 100%; animation: sh 1.2s infinite; }
+  @keyframes sh { to { background-position: -200% 0; } }
 
-  /* ================= STATS ================= */
-  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  @media (max-width: 640px) { .stats-grid { grid-template-columns: 1fr; } }
-  .stat {
-    background: var(--bg-elev); border: 1px solid var(--border);
-    border-radius: 10px; padding: 16px;
-  }
-  .stat__label { color: var(--text-mute); font-size: 12px; text-transform: uppercase;
-                 letter-spacing: 0.5px; margin-bottom: 6px; }
-  .stat__value { font-size: 22px; font-weight: 600; color: var(--text); }
-  .stat__sub   { font-size: 11px; color: var(--text-mute); margin-top: 4px; }
+  /* stats */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media (max-width: 920px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  .stat { background: var(--bg-1); border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 18px; }
+  .stat__l { font-size: 12.5px; color: var(--text-2); }
+  .stat__v { font-size: 24px; font-weight: 700; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+  .stat__s { font-size: 12px; color: var(--text-3); }
+  .stat__v--off { color: var(--text-3); font-size: 18px; }
 
-  /* ================= FOOTER ================= */
-  footer {
-    text-align: center; padding: 32px 20px; color: var(--text-mute);
-    font-size: 13px; border-top: 1px solid var(--border-soft); margin-top: 40px;
-  }
-  footer a { color: var(--text-mute); border-bottom: 1px dotted var(--text-mute); }
+  /* install */
+  .install { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 820px) { .install { grid-template-columns: 1fr; } }
+  .install ol { margin: 10px 0 0; padding-left: 20px; color: var(--text-2); font-size: 14.5px; }
+  .install li { margin-bottom: 8px; }
+  .install li strong { color: var(--text); }
+  pre { background: var(--bg); border: 1px solid var(--line-soft); border-radius: 10px; padding: 14px; overflow-x: auto;
+        font-family: var(--mono); font-size: 13px; color: var(--text-2); margin: 10px 0 0; }
+
+  /* footer */
+  footer { border-top: 1px solid var(--line-soft); padding: 40px 0; color: var(--text-3); font-size: 13.5px; }
+  .foot { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .foot nav { display: flex; gap: 18px; flex-wrap: wrap; }
+  .foot a { color: var(--text-2); text-decoration: none; }
+  .foot a:hover { color: var(--text); }
 </style>
 </head>
 <body>
 
-<!-- =============== HERO =============== -->
-<header class="hero">
-  <img class="hero__icon" src="/icon.png" alt="PhishLens" width="96" height="96"
-       onerror="this.src='https://raw.githubusercontent.com/AnzouK/PhishLens/main/extension/icons/128.png'">
-  <h1>PhishLens</h1>
-  <p class="hero__tagline">Detect and explain phishing emails in real time, inside Gmail.</p>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2L20 3M16 7l3 3M14 9l2 2"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="M21 11l-8.6 8.6a5 5 0 01-7-7L14 4a3.5 3.5 0 015 5l-8.6 8.6a2 2 0 01-2.8-2.8L15 7.5"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></symbol>
+  <symbol id="i-github" viewBox="0 0 24 24"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 00-1.3-3.2 4.2 4.2 0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 00-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 00-.1 3.2A4.6 4.6 0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></symbol>
+</svg>
 
-  <div class="status" id="status">
-    <span class="status__dot"></span>
-    <span class="status__label">Checking backend…</span>
-  </div>
-
-  <div class="hero__meta">
-    Version <span id="version">…</span> · running on
-    <a href="https://www.oracle.com/cloud/free/" target="_blank" rel="noopener">Oracle Cloud Always Free</a>
-  </div>
-
-  <div class="cta">
-    <a class="btn btn--primary" href="https://github.com/AnzouK/PhishLens" target="_blank" rel="noopener">GitHub</a>
-    <a class="btn" href="https://huggingface.co/AnzouKiona/phishlens-distilbert" target="_blank" rel="noopener">🤗 Model</a>
-    <a class="btn" href="https://huggingface.co/AnzouKiona/phishlens-agents" target="_blank" rel="noopener">🤗 Agents</a>
-    <a class="btn" href="https://github.com/AnzouK/PhishLens/releases/latest" target="_blank" rel="noopener">Latest release</a>
+<header class="nav">
+  <div class="wrap nav__in">
+    <a class="brand" href="#top"><img src="/icon.png" alt="" width="28" height="28">PhishLens</a>
+    <nav class="nav__links" aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#try">Try it</a>
+      <a href="#install">Install</a>
+    </nav>
+    <a class="nav__gh" href="https://github.com/AnzouK/PhishLens" target="_blank" rel="noopener">
+      <svg class="icon" style="width:16px;height:16px"><use href="#i-github"/></svg>GitHub
+    </a>
   </div>
 </header>
 
-<main class="wrap">
+<main id="top">
 
-  <!-- =============== FEATURES =============== -->
-  <section>
-    <div class="grid grid--3">
-      <div class="card">
-        <h3>What it does</h3>
-        <ul>
-          <li>Fine-tuned <strong>DistilBERT</strong> text classifier (F1 ≈ 0.97)</li>
-          <li>Trained <strong>Random Forest</strong> agents for URLs (23 feats) and headers (37 feats)</li>
-          <li><strong>SPF / DKIM / DMARC</strong> parsing + organizational-domain alignment</li>
-          <li>URL <strong>reputation cascade</strong>: cache → Google Safe Browsing → PhishTank → URLhaus → Spamhaus DBL</li>
-          <li><strong>LIME</strong> token-level explanation for every verdict</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h3>How to try it</h3>
-        <ol>
-          <li>Clone the <a href="https://github.com/AnzouK/PhishLens" target="_blank" rel="noopener">GitHub repo</a></li>
-          <li>Open <code>chrome://extensions</code> → Developer mode</li>
-          <li>Click <strong>Load unpacked</strong> → pick <code>extension/</code></li>
-          <li>Open Gmail: a <strong>🛡 Scan with PhishLens</strong> pill appears next to the subject</li>
-        </ol>
-      </div>
-      <div class="card">
-        <h3>Tech stack</h3>
-        <ul>
-          <li>FastAPI · PyTorch · Transformers</li>
-          <li>scikit-learn · LIME · httpx</li>
-          <li>Chrome MV3 · vanilla JS · no build step</li>
-          <li>Docker · Caddy · Let's Encrypt</li>
-          <li>Deployed on Oracle ARM Ampere A1</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <!-- =============== LIVE DEMO =============== -->
-  <section>
-    <h2>Try it live</h2>
-    <p>Paste an email body, or upload a <code>.eml</code> file or an attachment (PDF, image, Word, Excel, PowerPoint, HTML). This page calls the same endpoints the extension uses.</p>
-    <div class="demo">
-      <div class="demo__tabs" role="tablist">
-        <button class="demo__tab" id="tab-paste" role="tab" aria-selected="true"  data-target="pane-paste">📝 Paste text</button>
-        <button class="demo__tab" id="tab-file"  role="tab" aria-selected="false" data-target="pane-file">📂 Upload a file</button>
-      </div>
-
-      <div class="demo__pane" id="pane-paste" data-active="true" role="tabpanel">
-        <textarea id="demo-input" placeholder="e.g. Your account has been suspended. Click here to verify: http://paypa1-verify.tld/login"></textarea>
-      </div>
-
-      <div class="demo__pane" id="pane-file" role="tabpanel">
-        <label class="drop" id="drop-zone">
-          <span class="drop__icon">📥</span>
-          <span class="drop__title" id="drop-title">Drop an email (.eml) or an attachment (PDF, image, Office, HTML) here, or click to browse</span>
-          <span class="drop__sub">Anything you upload stays in your browser except for the raw bytes sent to /analyse or /analyse_attachment. Nothing is logged server-side. 10 MB max.</span>
-          <input type="file" id="file-input" accept=".eml,.pdf,.html,.htm,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff,.docx,.docm,.doc,.xlsx,.xlsm,.xls,.pptx,.pptm,.ppt,.txt">
-        </label>
-      </div>
-
-      <div class="demo__row">
-        <div class="demo__hint">
-          Backend runs on CPU-only Oracle VM. First call warms DistilBERT (~3s).
+  <!-- ================= HERO ================= -->
+  <div class="hero">
+    <div class="wrap hero__grid">
+      <div>
+        <span class="eyebrow"><span class="dot" id="status-dot"></span><span id="status-label">Checking the live backend</span></span>
+        <h1>Catch phishing in Gmail, <em>and see why.</em></h1>
+        <p class="hero__lead">PhishLens reads the email, its links, its sender and its attachments, then tells you whether it is phishing and which words and signals gave it away.</p>
+        <div class="hero__cta">
+          <a class="btn btn--primary" href="#try">Try it on an email</a>
+          <a class="btn" href="#install">Install the extension</a>
         </div>
-        <button class="demo__btn" id="demo-btn">Analyze</button>
+        <div class="hero__meta">
+          Open source, MIT · <span id="version">latest release</span> ·
+          <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/project-overview.md" target="_blank" rel="noopener">Documentation</a>
+        </div>
       </div>
-      <div id="demo-result"></div>
+
+      <div class="mock" aria-hidden="true">
+        <div class="mock__bar"><i></i><i></i><i></i></div>
+        <div class="mock__mail">
+          <div class="mock__subject">Payment failed: action required
+            <span class="mock__scanbtn"><svg class="icon" style="width:13px;height:13px"><use href="#i-shield"/></svg>Scan with PhishLens</span>
+          </div>
+          <div class="mock__from">Cloud Billing &lt;support@cloud-billing-renew.tk&gt;</div>
+          <div class="banner">
+            <div class="banner__title"><svg class="icon" style="width:17px;height:17px"><use href="#i-alert"/></svg>This email looks like phishing</div>
+            <div class="banner__row"><span>Content <b>97%</b></span><span>Links <b>88%</b></span><span>Sender <b>74%</b></span></div>
+            <div class="chips" style="margin-bottom:8px">
+              <span class="chip chip--bad">Safe Browsing: phishing</span>
+              <span class="chip chip--warn">DMARC fail</span>
+              <span class="chip chip--warn">QR code in PDF</span>
+            </div>
+            <div class="chips"><span class="tok">verify</span><span class="tok">suspended</span><span class="tok">immediately</span><span class="tok">payment</span></div>
+          </div>
+          <div class="mock__body"></div><div class="mock__body"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= RESULTS ================= -->
+  <section style="border-top:0;padding-top:24px">
+    <div class="wrap">
+      <div class="results">
+        <div class="result"><div class="result__num">0.967</div><div class="result__lbl">F1, text agent (DistilBERT)</div></div>
+        <div class="result"><div class="result__num">0.991</div><div class="result__lbl">F1, link agent (Random Forest)</div></div>
+        <div class="result"><div class="result__num">77 ms</div><div class="result__lbl">median scan on a CPU-only server</div></div>
+        <div class="result"><div class="result__num">4</div><div class="result__lbl">threat-intelligence sources</div></div>
+      </div>
+      <p class="result__note">Offline test sets and a load test on the demo server. Real inboxes are harder: see the <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations" target="_blank" rel="noopener">known limitations</a>.</p>
     </div>
   </section>
 
-  <!-- =============== LIVE STATS =============== -->
-  <section>
-    <h2>Live backend stats</h2>
-    <p>Pulled from <code>/reputation/stats</code>: refreshed on page load.</p>
-    <div class="stats-grid" id="stats-grid">
-      <div class="stat"><div class="stat__label">Loading…</div><div class="stat__value">…</div></div>
-      <div class="stat"><div class="stat__label">Loading…</div><div class="stat__value">…</div></div>
-      <div class="stat"><div class="stat__label">Loading…</div><div class="stat__value">…</div></div>
+  <!-- ================= HOW ================= -->
+  <section id="how">
+    <div class="wrap">
+      <div class="sec__head">
+        <div class="sec__kicker">How it works</div>
+        <h2>Three models, real evidence, one clear answer</h2>
+        <p>A language model alone flags real bank emails, because they sound like phishing. PhishLens checks the facts before it decides.</p>
+      </div>
+      <div class="steps">
+        <div class="step"><h3>Read</h3><p>The extension takes the open email in Gmail: text, links, sender and Gmail's own authentication results.</p></div>
+        <div class="step"><h3>Score</h3><p>DistilBERT scores the wording, two Random Forests score the links and the headers.</p></div>
+        <div class="step"><h3>Verify</h3><p>SPF, DKIM and DMARC prove who sent it. Links are checked against Safe Browsing, PhishTank, URLhaus and Spamhaus.</p></div>
+        <div class="step"><h3>Explain</h3><p>You get a verdict, a score per agent and the words that pushed the decision, right above the email.</p></div>
+      </div>
     </div>
   </section>
 
+  <!-- ================= FEATURES ================= -->
+  <section id="features">
+    <div class="wrap">
+      <div class="sec__head">
+        <div class="sec__kicker">Features</div>
+        <h2>Built for how phishing actually arrives</h2>
+      </div>
+      <div class="features">
+        <div class="feature"><div class="feature__ic"><svg class="icon"><use href="#i-eye"/></svg></div><h3>Explainable verdicts</h3><p>LIME highlights the words that pushed the text model toward phishing or safe, so you can judge for yourself.</p></div>
+        <div class="feature"><div class="feature__ic"><svg class="icon"><use href="#i-key"/></svg></div><h3>Sender authentication</h3><p>DKIM alignment with the From: domain proves the sender. A spoofed PayPal signed by another domain stays under suspicion.</p></div>
+        <div class="feature"><div class="feature__ic"><svg class="icon"><use href="#i-globe"/></svg></div><h3>Threat intelligence</h3><p>Every link goes through Google Safe Browsing, PhishTank, URLhaus and Spamhaus, with a local cache.</p></div>
+        <div class="feature"><div class="feature__ic"><svg class="icon"><use href="#i-clip"/></svg></div><h3>Attachments</h3><p>PDFs (OCR for scanned ones), images, QR codes, HTML pages, and Word, Excel or PowerPoint files with macros or remote templates.</p></div>
+        <div class="feature"><div class="feature__ic"><svg class="icon"><use href="#i-lock"/></svg></div><h3>Private by design</h3><p>No account, no email stored on the server. Run your own backend with Docker and nothing leaves your machine.</p></div>
+        <div class="feature"><div class="feature__ic"><svg class="icon"><use href="#i-code"/></svg></div><h3>Open and tested</h3><p>MIT licensed, with a threat model, CI, CodeQL and more than a hundred automated tests.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TRY ================= -->
+  <section id="try">
+    <div class="wrap">
+      <div class="sec__head">
+        <div class="sec__kicker">Try it</div>
+        <h2>Scan an email right here</h2>
+        <p>Same backend as the extension. This is a shared demo server: please don't paste private emails.</p>
+      </div>
+      <div class="demo">
+        <div class="panel">
+          <div class="tabs" role="tablist">
+            <button class="tab" role="tab" id="tab-paste" aria-selected="true" aria-controls="pane-paste">Paste text</button>
+            <button class="tab" role="tab" id="tab-file" aria-selected="false" aria-controls="pane-file">Upload a file</button>
+          </div>
+          <div class="pane" id="pane-paste" role="tabpanel">
+            <textarea id="demo-input" aria-label="Email text" placeholder="Paste the body of an email..."></textarea>
+            <div class="samples">
+              <button class="btn btn--sm" data-sample="phish">Load a phishing example</button>
+              <button class="btn btn--sm" data-sample="safe">Load a normal email</button>
+            </div>
+          </div>
+          <div class="pane" id="pane-file" role="tabpanel" hidden>
+            <label class="drop" id="drop-zone">
+              <svg class="icon" style="width:26px;height:26px;color:var(--accent)"><use href="#i-upload"/></svg>
+              <strong id="drop-title">Drop a file or click to browse</strong>
+              <span>.eml email, PDF, image, Word, Excel, PowerPoint or HTML</span>
+              <small>10 MB max. The file is analysed, never stored.</small>
+              <input type="file" id="file-input" accept=".eml,.pdf,.html,.htm,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff,.docx,.docm,.doc,.xlsx,.xlsm,.xls,.pptx,.pptm,.ppt,.txt">
+            </label>
+          </div>
+          <div class="demo__foot">
+            <span class="muted"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to scan</span>
+            <button class="btn btn--primary" id="demo-btn">Scan</button>
+          </div>
+        </div>
+
+        <div class="panel out" id="demo-result" aria-live="polite">
+          <div class="out__empty">The verdict, the score of each agent and the explanation will appear here.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= STATS ================= -->
+  <section id="stats">
+    <div class="wrap">
+      <div class="sec__head">
+        <div class="sec__kicker">Live</div>
+        <h2>Demo server, right now</h2>
+        <p>Read from <code>/reputation/stats</code> when the page loads. Counters reset when the server restarts.</p>
+      </div>
+      <div class="stats" id="stats-grid">
+        <div class="stat"><div class="skeleton"></div></div><div class="stat"><div class="skeleton"></div></div>
+        <div class="stat"><div class="skeleton"></div></div><div class="stat"><div class="skeleton"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= INSTALL ================= -->
+  <section id="install">
+    <div class="wrap">
+      <div class="sec__head">
+        <div class="sec__kicker">Install</div>
+        <h2>Two minutes to set up</h2>
+        <p>The Chrome Web Store listing is on the way. Until then, load the extension from the repository.</p>
+      </div>
+      <div class="install">
+        <div class="panel">
+          <h3 style="margin:0">1. The extension</h3>
+          <ol>
+            <li>Download or clone <a href="https://github.com/AnzouK/PhishLens" target="_blank" rel="noopener">the repository</a>.</li>
+            <li>Open <code>chrome://extensions</code> and turn on <strong>Developer mode</strong>.</li>
+            <li>Click <strong>Load unpacked</strong> and select the <code>extension/</code> folder.</li>
+            <li>Open an email in Gmail and click <strong>Scan with PhishLens</strong>.</li>
+          </ol>
+        </div>
+        <div class="panel">
+          <h3 style="margin:0">2. A backend</h3>
+          <ol>
+            <li><strong>Cloud demo:</strong> nothing to do, pick it in the extension settings.</li>
+            <li><strong>Your own, private:</strong> run it with Docker, then pick "Local".</li>
+          </ol>
+<pre>huggingface-cli download AnzouKiona/phishlens-distilbert \
+  --local-dir backend/model
+cd backend && docker compose up --build</pre>
+        </div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer>
-  B.Sc. Cybersecurity final-year project ·
-  <a href="https://nileuniversity.edu.ng/" target="_blank" rel="noopener">Nile University of Nigeria</a> ·
-  2025–2026 · <a href="https://github.com/AnzouK/PhishLens/blob/main/LICENSE" target="_blank" rel="noopener">MIT license</a>
+  <div class="wrap foot">
+    <div>PhishLens · B.Sc. Cybersecurity final-year project, <a href="https://nileuniversity.edu.ng/" target="_blank" rel="noopener">Nile University of Nigeria</a>, 2025/2026 · MIT license</div>
+    <nav aria-label="Links">
+      <a href="https://github.com/AnzouK/PhishLens" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/architecture.md" target="_blank" rel="noopener">Architecture</a>
+      <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md" target="_blank" rel="noopener">Threat model</a>
+      <a href="https://github.com/AnzouK/PhishLens/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
+      <a href="https://huggingface.co/AnzouKiona/phishlens-distilbert" target="_blank" rel="noopener">Model</a>
+      <a href="https://github.com/dodi-ctrl/PhishingDetector" target="_blank" rel="noopener">Training code</a>
+    </nav>
+  </div>
 </footer>
 
 <script>
-  // ================ Live status ================
-  (async () => {
-    const el = document.getElementById("status");
-    const label = el.querySelector(".status__label");
-    try {
-      const r = await fetch("/health", { cache: "no-store" });
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      const d = await r.json();
-      el.classList.add("status--up");
-      label.textContent = "Backend online: " + (d.model || "DistilBERT") + " ready";
-    } catch (e) {
-      el.classList.add("status--down");
-      label.textContent = "Backend offline (" + (e.message || "unreachable") + ")";
-    }
-  })();
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c]));
+  const num = (n) => Number(n || 0).toLocaleString("en-US");
 
-  // Version pill: try to fetch from GitHub releases API (public, no auth needed)
-  (async () => {
-    const el = document.getElementById("version");
-    try {
-      const r = await fetch("https://api.github.com/repos/AnzouK/PhishLens/releases/latest", { cache: "no-store" });
-      if (!r.ok) throw 0;
-      const d = await r.json();
-      el.textContent = d.tag_name || "latest";
-    } catch { el.textContent = "v1.10.0"; }
-  })();
+  // ---------------- backend status + version ----------------
+  fetch("/health", { cache: "no-store" })
+    .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(() => { $("status-dot").classList.add("dot--up"); $("status-label").textContent = "Live demo online"; })
+    .catch(() => { $("status-dot").classList.add("dot--down"); $("status-label").textContent = "Live demo offline right now"; });
 
-  // ================ Live stats ================
-  (async () => {
-    const grid = document.getElementById("stats-grid");
-    try {
-      const r = await fetch("/reputation/stats", { cache: "no-store" });
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      const d = await r.json();
+  fetch("https://api.github.com/repos/AnzouK/PhishLens/releases/latest")
+    .then((r) => r.ok ? r.json() : Promise.reject())
+    .then((d) => { if (d.tag_name) $("version").textContent = d.tag_name; })
+    .catch(() => {});
 
-      const cache = d.cache || {};
-      const gsb   = d.gsb   || {};
-      const pt    = d.phishtank || {};
-
-      grid.innerHTML = `
-        <div class="stat">
-          <div class="stat__label">Google Safe Browsing quota</div>
-          <div class="stat__value">${(gsb.consumed ?? 0).toLocaleString()} / ${(gsb.limit ?? 10000).toLocaleString()}</div>
-          <div class="stat__sub">${(gsb.remaining ?? 0).toLocaleString()} lookups left today</div>
-        </div>
-        <div class="stat">
-          <div class="stat__label">URL reputation cache</div>
-          <div class="stat__value">${(cache.cache_entries ?? 0).toLocaleString()}</div>
-          <div class="stat__sub">Hit rate ${((cache.hit_rate ?? 0) * 100).toFixed(1)}% (${(cache.hits ?? 0).toLocaleString()} / ${((cache.hits ?? 0) + (cache.misses ?? 0)).toLocaleString()})</div>
-        </div>
-        <div class="stat">
-          <div class="stat__label">PhishTank feed</div>
-          <div class="stat__value">${(pt.phishtank_entries ?? 0).toLocaleString()}</div>
-          <div class="stat__sub">${(pt.phishtank_domains ?? 0).toLocaleString()} unique domains</div>
-        </div>
-      `;
-    } catch (e) {
-      grid.innerHTML = `<div class="stat" style="grid-column: 1 / -1">
-        <div class="stat__label">Stats unavailable</div>
-        <div class="stat__value" style="font-size: 14px; font-weight: 400; color: var(--text-mute)">${e.message || "backend unreachable"}</div>
-      </div>`;
-    }
-  })();
-
-  // ================ Live demo ================
-  const demoBtn    = document.getElementById("demo-btn");
-  const demoInput  = document.getElementById("demo-input");
-  const demoResult = document.getElementById("demo-result");
-  const fileInput  = document.getElementById("file-input");
-  const dropZone   = document.getElementById("drop-zone");
-  const dropTitle  = document.getElementById("drop-title");
-  const tabs       = document.querySelectorAll(".demo__tab");
-  const panes      = document.querySelectorAll(".demo__pane");
-  let activeTab    = "paste";       // "paste" | "file"
-  let selectedFile = null;          // File object when the user picks a .eml
-
-  // --- Tab switching -------------------------------------------------
-  tabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      activeTab = tab.id === "tab-file" ? "file" : "paste";
-      tabs.forEach((t) => t.setAttribute("aria-selected", t === tab ? "true" : "false"));
-      panes.forEach((p) => p.setAttribute("data-active",
-        p.id === tab.dataset.target ? "true" : "false"));
+  // ---------------- live stats ----------------
+  const stat = (label, value, sub, off) => `
+    <div class="stat"><div class="stat__l">${esc(label)}</div>
+      <div class="stat__v${off ? " stat__v--off" : ""}">${value}</div>
+      <div class="stat__s">${esc(sub)}</div></div>`;
+  fetch("/reputation/stats", { cache: "no-store" })
+    .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then((d) => {
+      if (d.enabled === false) throw new Error("threat intelligence disabled");
+      const c = d.cache || {}, g = d.gsb || {}, p = d.phishtank || {}, u = d.urlhaus || {};
+      const lookups = (c.hits || 0) + (c.misses || 0);
+      $("stats-grid").innerHTML =
+        (g.enabled === false
+          ? stat("Google Safe Browsing", "Off", "not configured on this server", true)
+          : stat("Google Safe Browsing", `${num(g.remaining)}`, `lookups left today (limit ${num(g.limit)})`))
+        + stat("URL checks", num(lookups), `${((c.hit_rate || 0) * 100).toFixed(0)}% served from cache, ${num(c.cache_entries)} cached`)
+        + (p.enabled === false || !p.phishtank_entries
+          ? stat("PhishTank", "Off", "feed not loaded on this server", true)
+          : stat("PhishTank", num(p.phishtank_entries), `${num(p.phishtank_domains)} domains in the feed`))
+        + (u.enabled
+          ? stat("URLhaus", "On", "malware URL lookups")
+          : stat("URLhaus", "Off", "disabled on this server", true));
+    })
+    .catch((e) => {
+      $("stats-grid").innerHTML = `<div class="stat" style="grid-column:1/-1">
+        <div class="stat__l">Stats unavailable</div><div class="stat__s">${esc(e.message || "backend unreachable")}</div></div>`;
     });
+
+  // ---------------- demo: tabs, samples, files ----------------
+  const SAMPLES = {
+    phish: "Dear customer,\n\nWe were unable to process your last payment and your account has been temporarily suspended. To avoid permanent closure, verify your billing details within 24 hours:\n\nhttp://secure-billing-verify.tk/login?id=48213\n\nFailure to act immediately will result in loss of access to all your files.\n\nBilling Department",
+    safe: "Hi team,\n\nQuick reminder that the sprint review moved to Thursday at 3pm in the usual room. I added the agenda to the shared doc; please add your items before Wednesday evening.\n\nThanks,\nAmina",
+  };
+  const ATTACHMENT_EXTS = ["pdf", "html", "htm", "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff",
+                           "docx", "docm", "doc", "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt"];
+  let mode = "paste";
+  let file = null;
+
+  document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => {
+    mode = tab.id === "tab-file" ? "file" : "paste";
+    document.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
+    $("pane-paste").hidden = mode !== "paste";
+    $("pane-file").hidden = mode !== "file";
+  }));
+  document.querySelectorAll("[data-sample]").forEach((b) => b.addEventListener("click", () => {
+    $("demo-input").value = SAMPLES[b.dataset.sample];
+    $("demo-input").focus();
+  }));
+
+  const drop = $("drop-zone");
+  const setFile = (f) => {
+    file = f || null;
+    $("drop-title").textContent = file ? `${file.name} (${(file.size / 1024).toFixed(0)} KB)` : "Drop a file or click to browse";
+  };
+  $("file-input").addEventListener("change", (e) => setFile(e.target.files[0]));
+  ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("drop--over"); }));
+  ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("drop--over"); }));
+  drop.addEventListener("drop", (e) => setFile(e.dataTransfer?.files?.[0]));
+
+  const toB64 = (f) => new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => { const s = String(r.result || ""); res(s.slice(s.indexOf(",") + 1)); };
+    r.onerror = () => rej(r.error || new Error("Could not read the file"));
+    r.readAsDataURL(f);
   });
 
-  // --- File picking + drag-and-drop ---------------------------------
-  function setFile(file) {
-    selectedFile = file || null;
-    if (file) {
-      const kb = (file.size / 1024).toFixed(1);
-      dropTitle.innerHTML = `Selected: <span class="drop__file">${escapeHtml(file.name)}</span> (${kb} KB)`;
-    } else {
-      dropTitle.textContent = "Drop an email (.eml) or an attachment here, or click to browse";
+  // ---------------- demo: rendering ----------------
+  const out = $("demo-result");
+  const pct = (v) => Math.round((v || 0) * 100);
+  const bar = (label, v) => {
+    const p = pct(v), cls = p >= 70 ? " bar__fill--high" : p >= 40 ? " bar__fill--mid" : "";
+    return `<div><div class="bar__top"><span>${label}</span><span>${p}%</span></div>
+      <div class="bar__track"><div class="bar__fill${cls}" data-w="${p}"></div></div></div>`;
+  };
+  const error = (title, msg) => {
+    out.innerHTML = `<div class="verdict verdict--bad"><div class="verdict__ic"><svg class="icon"><use href="#i-alert"/></svg></div>
+      <div><div class="verdict__t">${esc(title)}</div><div class="verdict__s">${esc(msg)}</div></div></div>`;
+  };
+
+  function render(d, isEmail) {
+    const bad = d.verdict === "phishing";
+    const pills = [];
+    const sa = d.sender_auth || {};
+    if (d.trusted_sender) pills.push(["good", "Trusted sender"]);
+    else if (sa.cryptographically_verified) pills.push(["good", "DKIM verified"]);
+    else if (sa.gmail_inbox_soft_verified) pills.push(["good", "Gmail-delivered"]);
+    for (const k of ["spf", "dkim", "dmarc"]) if (sa[k] === "fail") pills.push(["bad", `${k.toUpperCase()} fail`]);
+    (d.url_reputation?.sources_hit || []).forEach((s) => pills.push(["bad", s.replace(/_/g, " ")]));
+    const a = d.attachment;
+    if (a) {
+      pills.push(["", `${(a.kind || "file").toUpperCase()} · ${((a.size_bytes || 0) / 1024).toFixed(0)} KB`]);
+      (a.notable_features || []).forEach((f) => pills.push(["warn", f.replace(/_/g, " ")]));
+      (a.qr_urls || []).forEach((u) => pills.push(["warn", "QR: " + u]));
     }
-  }
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
-    }[c]));
-  }
-  fileInput.addEventListener("change", () => setFile(fileInput.files[0] || null));
-
-  ["dragenter", "dragover"].forEach((ev) =>
-    dropZone.addEventListener(ev, (e) => {
-      e.preventDefault(); e.stopPropagation();
-      dropZone.classList.add("drop--hover");
-    })
-  );
-  ["dragleave", "drop"].forEach((ev) =>
-    dropZone.addEventListener(ev, (e) => {
-      e.preventDefault(); e.stopPropagation();
-      dropZone.classList.remove("drop--hover");
-    })
-  );
-  dropZone.addEventListener("drop", (e) => {
-    const file = e.dataTransfer?.files?.[0];
-    if (file) setFile(file);
-  });
-
-  // --- Helpers ------------------------------------------------------
-  // Read a File as base64 (strips the data: URI prefix).
-  function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload  = () => {
-        const s = String(reader.result || "");
-        const idx = s.indexOf(",");
-        resolve(idx >= 0 ? s.slice(idx + 1) : s);
-      };
-      reader.onerror = () => reject(reader.error || new Error("File read failed"));
-      reader.readAsDataURL(file);
-    });
+    out.innerHTML = `
+      <div class="verdict verdict--${bad ? "bad" : "good"}">
+        <div class="verdict__ic"><svg class="icon"><use href="#${bad ? "i-alert" : "i-check"}"/></svg></div>
+        <div><div class="verdict__t">${bad ? "Looks like phishing" : "Looks safe"}</div>
+        <div class="verdict__s">Overall score ${pct(d.fused_score)}%${d.trust_path && d.trust_path !== "default" ? " · " + esc(d.trust_path.replace(/_/g, " ")) : ""}</div></div>
+      </div>
+      <div class="bars">
+        ${bar("Wording", d.agents?.text?.phishing_probability)}
+        ${bar("Links", d.agents?.url?.phishing_probability)}
+        ${a ? "" : bar("Sender and headers", d.agents?.metadata?.phishing_probability)}
+      </div>
+      ${pills.length ? `<div class="pills">${pills.map(([c, t]) => `<span class="pill${c ? " pill--" + c : ""}">${esc(t)}</span>`).join("")}</div>` : ""}
+      ${isEmail ? `<div class="why"><h4>Why?</h4><p>Words that pushed the text model the most. Orange toward phishing, green toward safe.</p>
+        <div class="toks" id="lime"><div class="skeleton"></div></div></div>` : ""}`;
+    requestAnimationFrame(() => out.querySelectorAll(".bar__fill").forEach((el) => { el.style.width = el.dataset.w + "%"; }));
   }
 
-  // --- Analyze click ------------------------------------------------
-  demoBtn.addEventListener("click", async () => {
-    // Build the payload from whichever pane is active. We route to
-    // /analyse_attachment for attachments and to /analyse for .eml
-    // and plain text, based on the filename extension.
+  function renderLime(features) {
+    const slot = $("lime");
+    if (!slot) return;
+    if (!features.length) { slot.textContent = "No strong words for this one."; return; }
+    const max = Math.max(...features.map((f) => Math.abs(f.weight))) || 1;
+    slot.innerHTML = features.map((f) => {
+      const rel = Math.abs(f.weight) / max;
+      const cls = f.supports === "phishing" ? "ltok--p" : "ltok--s";
+      return `<span class="ltok ${cls}" style="--a:${(0.08 + rel * 0.32).toFixed(2)}" title="weight ${f.weight.toFixed(4)}">${esc(f.token)}</span>`;
+    }).join("");
+  }
+
+  // ---------------- demo: scan ----------------
+  const btn = $("demo-btn");
+  async function scan() {
     let payload, endpoint = "/analyse";
-    if (activeTab === "file") {
-      if (!selectedFile) { dropZone.click(); return; }
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        demoResult.innerHTML = `<div class="verdict verdict--bad">
-          <div class="verdict__title">File too large</div>
-          <div class="verdict__scores">Max 10 MB. This file is ${(selectedFile.size / 1024 / 1024).toFixed(1)} MB.</div>
-        </div>`;
-        return;
-      }
-      const ext = (selectedFile.name.split(".").pop() || "").toLowerCase();
-      const isAttachment = ["pdf", "html", "htm", "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff",
-                            "docx", "docm", "doc", "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt"].includes(ext);
+    if (mode === "file") {
+      if (!file) { $("file-input").click(); return; }
+      if (file.size > 10 * 1024 * 1024) return error("File too large", "The limit is 10 MB.");
+      const ext = (file.name.split(".").pop() || "").toLowerCase();
       try {
-        const b64 = await fileToBase64(selectedFile);
-        if (isAttachment) {
+        const b64 = await toB64(file);
+        if (ATTACHMENT_EXTS.includes(ext)) {
           endpoint = "/analyse_attachment";
-          payload  = { content_b64: b64, filename: selectedFile.name, mime_type: selectedFile.type };
+          payload = { content_b64: b64, filename: file.name, mime_type: file.type || null };
         } else {
-          payload  = { raw_email_b64: b64 };
+          payload = { raw_email_b64: b64 };
         }
-      } catch (e) {
-        demoResult.innerHTML = `<div class="verdict verdict--bad">
-          <div class="verdict__title">Could not read the file</div>
-          <div class="verdict__scores">${escapeHtml(e.message || String(e))}</div>
-        </div>`;
-        return;
-      }
+      } catch (e) { return error("Could not read the file", e.message); }
     } else {
-      const text = demoInput.value.trim();
-      if (!text) { demoInput.focus(); return; }
+      const text = $("demo-input").value.trim();
+      if (text.length < 20) { $("demo-input").focus(); return error("A bit more text, please", "Paste at least a sentence or two of the email."); }
       payload = { raw_text: text };
     }
 
-    demoBtn.disabled = true;
-    demoBtn.textContent = "Analyzing…";
-    demoResult.innerHTML = "";
-
+    btn.disabled = true;
+    btn.textContent = "Scanning...";
+    out.innerHTML = `<div class="out__empty"><div style="width:100%"><div class="skeleton" style="margin:0 auto 10px"></div><div class="skeleton" style="width:50%;margin:0 auto"></div></div></div>`;
     try {
-      const r = await fetch(endpoint, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
-      });
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        throw new Error(err.detail || ("HTTP " + r.status));
-      }
-      const d = await r.json();
-      const bad = d.verdict === "phishing";
-      const pct = (v) => Math.round((v ?? 0) * 100);
-
-      const trustPill = d.trusted_sender ? '<span class="verdict__pill">✓ Verified sender</span>'
-                     : d.sender_auth?.cryptographically_verified ? '<span class="verdict__pill">🛡 DKIM verified</span>'
-                     : d.sender_auth?.gmail_inbox_soft_verified ? '<span class="verdict__pill">📬 Gmail-delivered</span>'
-                     : '';
-
-      const repHits = d.url_reputation?.sources_hit?.length
-        ? '<span class="verdict__pill" style="color: var(--bad)">🔴 ' + escapeHtml(d.url_reputation.sources_hit.join(", ")) + '</span>'
-        : '';
-
-      // Attachment-specific chips: kind, page count, notable features
-      let attachmentPills = "";
-      if (d.attachment) {
-        const a = d.attachment;
-        const size = ((a.size_bytes || 0) / 1024).toFixed(0);
-        attachmentPills += `<span class="verdict__pill">📎 ${escapeHtml(a.kind || "")} · ${size} KB</span>`;
-        if (a.page_count) attachmentPills += `<span class="verdict__pill">${a.pages_read || a.page_count} / ${a.page_count} pages</span>`;
-        (a.notable_features || []).forEach((f) => {
-          attachmentPills += `<span class="verdict__pill" style="color: var(--warn)">⚑ ${escapeHtml(f.replace(/_/g, " "))}</span>`;
-        });
-      }
-
-      demoResult.innerHTML = `
-        <div class="verdict verdict--${bad ? "bad" : "good"}">
-          <div class="verdict__title">
-            ${bad ? "⚠️ Phishing" : "✅ Safe"}${trustPill}${repHits}
-          </div>
-          <div class="verdict__scores">
-            Content <strong>${pct(d.agents?.text?.phishing_probability)}%</strong> ·
-            Links <strong>${pct(d.agents?.url?.phishing_probability)}%</strong> ·
-            Sender <strong>${pct(d.agents?.metadata?.phishing_probability)}%</strong>
-          </div>
-          ${attachmentPills ? `<div class="verdict__scores" style="margin-top: 10px">${attachmentPills}</div>` : ""}
-          ${endpoint === "/analyse" ? `
-            <details class="lime" id="lime-panel">
-              <summary class="lime__head">🔍 Why? (LIME token explanation)</summary>
-              <div class="lime__body">
-                <p class="lime__intro">The tokens below influenced the DistilBERT verdict most.
-                Orange pushed toward <em>phishing</em>, green toward <em>safe</em>.</p>
-                <div class="lime__tokens" id="lime-tokens">Loading (~8s on the CPU-only backend)…</div>
-              </div>
-            </details>
-          ` : ""}
-        </div>
-      `;
-
-      // Fire /explain in the background for email scans only
-      // (attachments don't have a text-agent-ready body).
-      if (endpoint === "/analyse") {
-        fetch("/explain", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify(payload),
-        })
-        .then((r) => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
-        .then((expl) => {
-          const slot = document.getElementById("lime-tokens");
-          if (!slot) return;
-          const feats = expl.features || [];
-          if (!feats.length) { slot.textContent = "No salient tokens returned."; return; }
-          slot.innerHTML = feats.map((f) => {
-            const cls = f.supports === "phishing" ? "lime-tok--phishing" : "lime-tok--safe";
-            const w   = Math.abs(f.weight).toFixed(2);
-            return `<span class="lime-tok ${cls}" title="${f.supports}: ${w}">${escapeHtml(f.token)}<span class="lime-tok__w">${w}</span></span>`;
-          }).join(" ");
-        })
-        .catch((err) => {
-          const slot = document.getElementById("lime-tokens");
-          if (slot) slot.textContent = "LIME unavailable: " + (err.message || err);
-        });
+      const r = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 429) throw new Error("Too many scans from your network, try again in a minute.");
+      if (!r.ok) throw new Error(d.detail || "HTTP " + r.status);
+      const isEmail = endpoint === "/analyse";
+      render(d, isEmail);
+      if (isEmail) {
+        fetch("/explain", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+          .then((x) => x.ok ? x.json() : Promise.reject(new Error("HTTP " + x.status)))
+          .then((e) => renderLime(e.features || []))
+          .catch((e) => { const s = $("lime"); if (s) s.textContent = "Explanation unavailable (" + e.message + ")."; });
       }
     } catch (e) {
-      demoResult.innerHTML = `<div class="verdict verdict--bad">
-        <div class="verdict__title">Analysis failed</div>
-        <div class="verdict__scores">${escapeHtml(e.message || String(e))}</div>
-      </div>`;
+      error("Scan failed", e.message || String(e));
     } finally {
-      demoBtn.disabled = false;
-      demoBtn.textContent = "Analyze";
+      btn.disabled = false;
+      btn.textContent = "Scan";
     }
+  }
+  btn.addEventListener("click", scan);
+  $("demo-input").addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); scan(); }
   });
-
-  // Ctrl/Cmd + Enter triggers analyze from the paste pane
-  demoInput.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); demoBtn.click(); }
-  });
+})();
 </script>
-
 </body>
 </html>

@@ -5,6 +5,40 @@ All notable changes to PhishLens are listed here. The format follows
 uses [Semantic Versioning](https://semver.org/). The extension and the
 backend share one version number.
 
+## [1.13.0] - 2026-09-30
+
+Interface release: new landing page, Gmail UI and popup polish.
+
+### Changed
+- **Landing page rewritten** (`site/index.html`): navigation, a hero
+  with a mock Gmail verdict, results up front, "how it works" and
+  feature sections, an install guide, and a better live demo (sample
+  emails, a score bar per agent, sender and threat-intel pills, LIME
+  words shaded by influence, rate-limit message). Live stats show
+  "Off" for threat-intel sources that are disabled instead of 0.
+- **Gmail UI redesigned** to match Gmail: outlined "Scan with
+  PhishLens" pill, a verdict card with a coloured edge, a meter per
+  agent, a plain-language recommendation, chips without emoji and a
+  "Why this verdict?" section. Light by default, dark with the OS or
+  the popup toggle, through a single set of colour variables.
+- **Popup**: emoji replaced by an SVG icon set, clearer labels and
+  error messages.
+- Roadmap: Chrome Web Store release, Outlook Web, automatic scanning,
+  live evaluation.
+
+### Fixed
+- LIME words showed a weight of "0.00" (the real weights are below
+  0.01). Colour intensity now reflects each word's influence relative
+  to the strongest one, in the popup, the Gmail banner and the site.
+- Attachment chips were unreadable in Gmail's light theme (dark-theme
+  colours were always applied).
+- The scan history stored the text-agent score as the overall score;
+  it now stores the fused score.
+
+### Security
+- Threat model: R4 (pickled models) and T1 marked closed, the
+  production backend runs with `AGENTS_ALLOW_PICKLE=0`.
+
 ## [1.12.0] - 2026-09-30
 
 Attachment analysis, phase 2, and the end of pickle.
@@ -267,6 +301,7 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[1.13.0]: https://github.com/AnzouK/PhishLens/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/AnzouK/PhishLens/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/AnzouK/PhishLens/compare/v1.10.2...v1.11.0
 [1.10.2]: https://github.com/AnzouK/PhishLens/compare/v1.10.1...v1.10.2

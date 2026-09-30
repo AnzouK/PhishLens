@@ -40,7 +40,7 @@ B4: the backend downloads and deserialises model files at startup.
 | S1 | **Spoofing** the sender: `From: paypal.com` sent from attacker infrastructure to borrow trust | B1 | Trust comes from DKIM alignment with the From: organisational domain, not from the header text. Misaligned `signed-by` stays on the strict path. Tested in `test_auth_headers.py` and `test_extension_backend.py` | Mitigated |
 | S2 | Spoofing the client context: a caller claims `gmail_in_inbox` or `gmail_delivered` to soften its own scan | B2 | The flags only soften the caller's own result, never shared state; a Safe Browsing hit still forces phishing; documented as a SECURITY NOTE in code | Accepted (limited impact) |
 | S3 | Trusted-domain abuse: a compromised account at an allowlisted bank sends phishing | B1 | A Safe Browsing hit forces phishing on every path, the allowlist included (regression test since v1.11.0); allowlist is small and documented as a regional fallback | Partially mitigated |
-| T1 | **Tampering** with the model: a malicious joblib on Hugging Face (pickle executes code on load) | B4 | Since v1.12 the agents load from skops files with a type allowlist (scikit-learn, NumPy, SciPy, builtins only); pickle is a fallback that `AGENTS_ALLOW_PICKLE=0` turns off | Mitigated once the skops files are published, see R4 |
+| T1 | **Tampering** with the model: a malicious joblib on Hugging Face (pickle executes code on load) | B4 | Since v1.12 the agents load from skops files with a type allowlist (scikit-learn, NumPy, SciPy, builtins only); pickle is a fallback that `AGENTS_ALLOW_PICKLE=0` turns off | Mitigated (skops files published and pickle disabled in production since 2026-09-30) |
 | T2 | Cache poisoning: a wrong verdict stored in the reputation cache | B3 | Cache key is the normalised URL, values only come from the cascade itself, 24 h TTL | Mitigated |
 | T3 | Adversarial text: wording crafted to push DistilBERT towards "safe" | B1 | Three independent agents plus threat intel; a clean text score does not hide a blocklisted URL or failed DMARC | Partially mitigated |
 | R1 | **Repudiation**: no record of what was scanned | B2 | By design: the backend keeps no email content. Aggregate verdict counts only (`/metrics`) | Accepted |
@@ -71,10 +71,12 @@ training distribution.
 **R3. Soft trust signals can be claimed by any API caller.** Accepted
 because the effect is confined to that caller's own response.
 
-**R4. Pickled model files.** Loading a joblib executes code by design.
-v1.12 adds the skops format with a type allowlist and a one-time
-converter. The residual risk disappears once the `.skops` files are on
-Hugging Face and `AGENTS_ALLOW_PICKLE=0` is set on the backend.
+**R4. Pickled model files. Closed.** Loading a joblib executes code by
+design. Since v1.12 the agents are published as `.skops` files, loaded
+with a type allowlist, and the production backend runs with
+`AGENTS_ALLOW_PICKLE=0`, so it refuses pickle entirely. A self-hosted
+backend that keeps the default (`1`) still falls back to joblib when no
+skops file is found.
 
 **R7. OCR and QR decoding are best effort.** Low-resolution scans,
 handwriting, stylised fonts or deliberately damaged QR codes can defeat

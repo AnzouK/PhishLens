@@ -1,405 +1,250 @@
 /* =====================================================================
    PhishLens: Gmail-injected UI
-   All selectors prefixed with pll- to avoid collisions with Gmail's CSS.
+   Every selector is prefixed with pll- and every custom property with
+   --pll- so nothing collides with Gmail's own CSS. Colours come from the
+   variables below: light by default (Gmail's default theme), dark when
+   the OS is dark or when the popup toggle forces it.
    ===================================================================== */
 
-/* subject row -> flex layout so we can sit the button next to the subject */
-.pll-subject-wrap {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+html {
+    --pll-font: "Google Sans", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --pll-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --pll-surface: #ffffff;
+    --pll-surface-2: #f6f8fc;
+    --pll-line: #dadce0;
+    --pll-text: #1f1f1f;
+    --pll-text-2: #5f6368;
+    --pll-accent: #e8590c;
+    --pll-accent-soft: #fff1e8;
+    --pll-bad: #c5221f;
+    --pll-bad-soft: #fce8e6;
+    --pll-bad-line: #f5c2bf;
+    --pll-good: #137333;
+    --pll-good-soft: #e6f4ea;
+    --pll-good-line: #b7dfc2;
+    --pll-warn: #b06000;
+    --pll-warn-soft: #fef7e0;
+    --pll-warn-line: #f6d68b;
+    --pll-track: #e8eaed;
+    --pll-shadow: 0 1px 2px rgba(60, 64, 67, .15), 0 2px 6px rgba(60, 64, 67, .08);
+}
+@media (prefers-color-scheme: dark) {
+    html:not([data-phishlens-theme="light"]) {
+        --pll-surface: #1f2329;
+        --pll-surface-2: #262b32;
+        --pll-line: #3a4049;
+        --pll-text: #e8eaed;
+        --pll-text-2: #a6adb7;
+        --pll-accent: #ff8a4c;
+        --pll-accent-soft: rgba(255, 138, 76, .14);
+        --pll-bad: #ff8a80;
+        --pll-bad-soft: rgba(242, 139, 130, .12);
+        --pll-bad-line: rgba(242, 139, 130, .35);
+        --pll-good: #81c995;
+        --pll-good-soft: rgba(129, 201, 149, .12);
+        --pll-good-line: rgba(129, 201, 149, .35);
+        --pll-warn: #fdd663;
+        --pll-warn-soft: rgba(253, 214, 99, .12);
+        --pll-warn-line: rgba(253, 214, 99, .35);
+        --pll-track: #3a4049;
+        --pll-shadow: 0 2px 10px rgba(0, 0, 0, .4);
+    }
+}
+html[data-phishlens-theme="dark"] {
+    --pll-surface: #1f2329;
+    --pll-surface-2: #262b32;
+    --pll-line: #3a4049;
+    --pll-text: #e8eaed;
+    --pll-text-2: #a6adb7;
+    --pll-accent: #ff8a4c;
+    --pll-accent-soft: rgba(255, 138, 76, .14);
+    --pll-bad: #ff8a80;
+    --pll-bad-soft: rgba(242, 139, 130, .12);
+    --pll-bad-line: rgba(242, 139, 130, .35);
+    --pll-good: #81c995;
+    --pll-good-soft: rgba(129, 201, 149, .12);
+    --pll-good-line: rgba(129, 201, 149, .35);
+    --pll-warn: #fdd663;
+    --pll-warn-soft: rgba(253, 214, 99, .12);
+    --pll-warn-line: rgba(253, 214, 99, .35);
+    --pll-track: #3a4049;
+    --pll-shadow: 0 2px 10px rgba(0, 0, 0, .4);
 }
 
-/* ---------- scan button ---------- */
+/* shared svg icon sizing */
+.pll-scan-btn svg, .pll-banner svg, .pll-att-banner svg {
+    width: 100%; height: 100%;
+    fill: none; stroke: currentColor; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* subject row: flex so the buttons sit next to the subject */
+.pll-subject-wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ---------- scan buttons (Gmail-style pill) ---------- */
 .pll-scan-btn {
     appearance: none;
-    border: none;
-    background: linear-gradient(180deg, #ff8c5a, #ff5722);
-    color: #fff;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    font-size: 12.5px;
-    font-weight: 600;
-    padding: 6px 12px;
-    border-radius: 999px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    box-shadow: 0 2px 6px rgba(255, 87, 34, 0.32);
-    transition: transform .12s, filter .15s, opacity .15s;
-    line-height: 1;
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 32px; padding: 0 14px 0 11px;
+    border: 1px solid var(--pll-line); border-radius: 999px;
+    background: var(--pll-surface); color: var(--pll-text);
+    font-family: var(--pll-font); font-size: 13px; font-weight: 500; line-height: 1;
+    cursor: pointer; white-space: nowrap;
+    transition: background .15s, border-color .15s, box-shadow .15s;
 }
-.pll-scan-btn:hover { filter: brightness(1.05); }
-.pll-scan-btn:active { transform: scale(.97); }
-.pll-scan-btn:disabled { opacity: .6; cursor: progress; }
-.pll-scan-btn__icon { font-size: 13.5px; }
-
-.pll-scan-btn--loading .pll-scan-btn__icon {
-    animation: pll-spin 1.05s linear infinite;
-    display: inline-block;
-}
+.pll-scan-btn:hover:not(:disabled) { background: var(--pll-accent-soft); border-color: var(--pll-accent); box-shadow: var(--pll-shadow); }
+.pll-scan-btn:focus-visible { outline: 2px solid var(--pll-accent); outline-offset: 2px; }
+.pll-scan-btn:disabled { cursor: progress; opacity: .8; }
+.pll-scan-btn__icon { display: inline-flex; width: 16px; height: 16px; color: var(--pll-accent); }
+.pll-scan-btn--loading .pll-scan-btn__icon, .pll-spin { animation: pll-spin .9s linear infinite; }
 @keyframes pll-spin { to { transform: rotate(360deg); } }
+.pll-scan-btn.pll-scan-btn--all .pll-scan-btn__icon { color: var(--pll-text-2); }
 
 /* ---------- verdict banner ---------- */
 .pll-banner {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    padding: 12px 14px;
-    margin: 0 0 12px 0;
-    border-radius: 12px;
-    border: 1px solid transparent;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    font-size: 13px;
-    line-height: 1.4;
-    box-shadow: 0 2px 10px rgba(0,0,0,.08);
-    background: #fff;
-    color: #1f2328;
-    animation: pll-slide-in .25s ease;
+    position: relative;
+    display: flex; gap: 12px; align-items: flex-start;
+    margin: 0 0 14px; padding: 14px 44px 14px 14px;
+    border: 1px solid var(--pll-line); border-left-width: 4px; border-radius: 12px;
+    background: var(--pll-surface); color: var(--pll-text);
+    box-shadow: var(--pll-shadow);
+    font-family: var(--pll-font); font-size: 13px; line-height: 1.45;
+    animation: pll-in .22s ease;
 }
-@keyframes pll-slide-in {
-    from { transform: translateY(-6px); opacity: 0; }
-    to   { transform: none; opacity: 1; }
-}
-.pll-banner__icon {
-    font-size: 22px; line-height: 1;
-    flex-shrink: 0;
-}
-.pll-banner__main { flex: 1; min-width: 0; }
-.pll-banner__title { font-weight: 700; font-size: 14px; }
-.pll-banner__sub   { color: #57606a; font-size: 12.5px; margin-top: 2px; }
-.pll-banner__sub strong { color: #1f2328; font-variant-numeric: tabular-nums; }
+@keyframes pll-in { from { transform: translateY(-4px); opacity: 0; } }
+.pll-banner--danger { border-color: var(--pll-bad-line); border-left-color: var(--pll-bad); background: linear-gradient(0deg, var(--pll-bad-soft), var(--pll-bad-soft)), var(--pll-surface); }
+.pll-banner--safe   { border-color: var(--pll-good-line); border-left-color: var(--pll-good); }
+.pll-banner--error  { border-color: var(--pll-warn-line); border-left-color: var(--pll-warn); }
 
-.pll-banner--safe   { background: rgba(63, 185, 80, .10);  border-color: rgba(63, 185, 80, .35); }
-.pll-banner--safe   .pll-banner__icon { color: #1a7f37; }
-.pll-banner--danger { background: rgba(248, 81, 73, .10); border-color: rgba(248, 81, 73, .35); }
-.pll-banner--danger .pll-banner__icon { color: #c0392b; }
-.pll-banner--error  { background: rgba(210, 153, 34, .10); border-color: rgba(210, 153, 34, .35); }
-.pll-banner--error  .pll-banner__icon { color: #8b6914; }
+.pll-banner__icon { flex: none; display: grid; place-items: center; width: 34px; height: 34px; padding: 7px; border-radius: 10px; box-sizing: border-box; }
+.pll-banner--danger .pll-banner__icon { color: var(--pll-bad); background: var(--pll-bad-soft); }
+.pll-banner--safe   .pll-banner__icon { color: var(--pll-good); background: var(--pll-good-soft); }
+.pll-banner--error  .pll-banner__icon { color: var(--pll-warn); background: var(--pll-warn-soft); }
+
+.pll-banner__main { flex: 1; min-width: 0; }
+.pll-banner__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pll-banner__title { font-size: 15px; font-weight: 600; }
+.pll-banner--danger .pll-banner__title { color: var(--pll-bad); }
+.pll-banner__lead { color: var(--pll-text-2); margin-top: 2px; }
+
+.pll-trusted {
+    font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
+    color: var(--pll-good); background: var(--pll-good-soft); border: 1px solid var(--pll-good-line);
+}
 
 .pll-banner__close {
-    appearance: none;
-    border: none;
-    background: transparent;
-    font-size: 18px;
-    color: #57606a;
-    cursor: pointer;
-    line-height: 1;
-    padding: 0 4px;
+    position: absolute; top: 10px; right: 10px;
+    appearance: none; border: 0; background: transparent; cursor: pointer;
+    width: 28px; height: 28px; padding: 6px; border-radius: 50%; color: var(--pll-text-2);
 }
-.pll-banner__close:hover { color: #1f2328; }
+.pll-banner__close:hover { background: var(--pll-surface-2); color: var(--pll-text); }
 
-/* Why? expandable */
-.pll-banner__why {
-    margin-top: 8px;
+/* agent meters */
+.pll-meters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 18px; margin: 10px 0 2px; max-width: 560px; }
+@media (max-width: 700px) { .pll-meters { grid-template-columns: 1fr; } }
+.pll-meter { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; font-size: 12px; }
+.pll-meter__l { color: var(--pll-text-2); }
+.pll-meter__track { height: 6px; border-radius: 99px; background: var(--pll-track); overflow: hidden; }
+.pll-meter__fill { display: block; height: 100%; border-radius: 99px; }
+.pll-meter__fill--low  { background: var(--pll-good); }
+.pll-meter__fill--mid  { background: var(--pll-warn); }
+.pll-meter__fill--high { background: var(--pll-bad); }
+.pll-meter__v { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 34px; text-align: right; }
+
+/* threat-intel and sender-auth chips */
+.pll-signals { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.pll-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11.5px; font-weight: 500; line-height: 1.3;
+    padding: 3px 9px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
 }
+.pll-chip--good { color: var(--pll-good); background: var(--pll-good-soft); border-color: var(--pll-good-line); }
+.pll-chip--warn { color: var(--pll-warn); background: var(--pll-warn-soft); border-color: var(--pll-warn-line); }
+.pll-chip--bad  { color: var(--pll-bad);  background: var(--pll-bad-soft);  border-color: var(--pll-bad-line); }
+
+/* "Why this verdict?" */
+.pll-banner__why { margin-top: 10px; }
 .pll-banner__why summary {
-    list-style: none;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 12px;
-    color: #57606a;
-    user-select: none;
+    display: inline-flex; align-items: center; gap: 4px;
+    list-style: none; cursor: pointer; user-select: none;
+    font-size: 12.5px; font-weight: 600; color: var(--pll-accent);
 }
 .pll-banner__why summary::-webkit-details-marker { display: none; }
-.pll-banner__why summary::before {
-    content: "▸ ";
-    display: inline-block;
-    transition: transform .15s;
-}
-.pll-banner__why[open] summary::before { transform: rotate(90deg); }
-
-.pll-banner__tokens {
-    display: flex; flex-wrap: wrap;
-    gap: 5px;
-    margin-top: 8px;
-    font-style: normal;
-    color: #57606a;
-    font-size: 12px;
-}
+.pll-banner__why summary::after { content: ""; width: 6px; height: 6px; margin-left: 2px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
+.pll-banner__why[open] summary::after { transform: rotate(-135deg) translateY(-1px); }
+.pll-banner__hint { margin: 6px 0 8px; font-size: 12px; color: var(--pll-text-2); }
+.pll-banner__tokens { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--pll-text-2); }
+.pll-banner__loading { font-style: italic; }
 
 .pll-tok {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-    font-size: 12px;
-    padding: 2px 7px;
-    border-radius: 6px;
-    border: 1px solid transparent;
-    white-space: nowrap;
+    font-family: var(--pll-mono); font-size: 12px;
+    padding: 2px 8px; border-radius: 6px; border: 1px solid transparent; white-space: nowrap;
 }
-.pll-tok--phishing {
-    background: rgba(255, 107, 53, .15);
-    border-color: rgba(255, 107, 53, .35);
-    color: #c34315;
-}
-.pll-tok--safe {
-    background: rgba(63, 185, 80, .15);
-    border-color: rgba(63, 185, 80, .35);
-    color: #1a7f37;
-}
-.pll-tok__w {
-    font-size: 9.5px;
-    opacity: 0.7;
-    margin-left: 4px;
-    vertical-align: 1px;
-}
+.pll-tok--phishing { color: var(--pll-bad);  background: rgba(232, 89, 12, var(--pll-a, .15)); border-color: rgba(232, 89, 12, .3); }
+.pll-tok--safe     { color: var(--pll-good); background: rgba(19, 115, 51, var(--pll-a, .15)); border-color: rgba(19, 115, 51, .3); }
+.pll-cache-hint { align-self: center; font-size: 11px; color: var(--pll-text-2); margin-left: 4px; }
 
-/* ---------- Verified sender badge ---------- */
-.pll-trusted {
-    display: inline-block;
-    margin-left: 8px;
-    padding: 1px 8px;
-    border-radius: 999px;
-    background: rgba(63, 185, 80, .15);
-    color: #1a7f37;
-    font-size: 10.5px;
-    font-weight: 700;
-    vertical-align: 2px;
-    border: 1px solid rgba(63, 185, 80, .35);
-}
-
-/* ---------- Theme handling ---------- */
-/* Default: follow OS dark mode. Overridden by data-phishlens-theme on <html>
-   which the popup toggle pushes through chrome.storage. */
-@media (prefers-color-scheme: dark) {
-    .pll-banner { background: #1e242b; color: #f0f6fc; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
-    .pll-banner__sub { color: #8b949e; }
-    .pll-banner__sub strong { color: #f0f6fc; }
-    .pll-banner__why summary { color: #8b949e; }
-    .pll-banner__close { color: #8b949e; }
-    .pll-banner__close:hover { color: #f0f6fc; }
-    .pll-tok--phishing { color: #ff8c5a; background: rgba(255, 107, 53, .15); }
-    .pll-tok--safe     { color: #56d364; background: rgba(63, 185, 80, .15); }
-    .pll-trusted { color: #56d364; }
-}
-/* Explicit override from popup toggle */
-html[data-phishlens-theme="light"] .pll-banner {
-    background: #fff; color: #1f2328; box-shadow: 0 2px 10px rgba(0,0,0,.08);
-}
-html[data-phishlens-theme="light"] .pll-banner__sub { color: #57606a; }
-html[data-phishlens-theme="light"] .pll-banner__sub strong { color: #1f2328; }
-html[data-phishlens-theme="light"] .pll-banner__close { color: #57606a; }
-html[data-phishlens-theme="light"] .pll-tok--phishing { color: #c34315; }
-html[data-phishlens-theme="light"] .pll-tok--safe     { color: #1a7f37; }
-html[data-phishlens-theme="light"] .pll-trusted { color: #1a7f37; }
-html[data-phishlens-theme="dark"]  .pll-banner {
-    background: #1e242b; color: #f0f6fc; box-shadow: 0 2px 10px rgba(0,0,0,.4);
-}
-html[data-phishlens-theme="dark"] .pll-banner__sub { color: #8b949e; }
-html[data-phishlens-theme="dark"] .pll-banner__sub strong { color: #f0f6fc; }
-html[data-phishlens-theme="dark"] .pll-banner__close { color: #8b949e; }
-html[data-phishlens-theme="dark"] .pll-tok--phishing { color: #ff8c5a; }
-html[data-phishlens-theme="dark"] .pll-tok--safe     { color: #56d364; }
-html[data-phishlens-theme="dark"] .pll-trusted { color: #56d364; }
-
-/* ==================================================================
-   v1.6: threat-intel signal chips (URL reputation + sender auth)
-   Live under the score line inside the banner. Themed for both
-   light/dark, using the popup's badge palette semantics.
-   ================================================================== */
-.pll-signals {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 6px;
-}
-.pll-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    line-height: 1.2;
-    padding: 3px 8px;
-    border-radius: 999px;
-    border: 1px solid transparent;
-    font-weight: 500;
-    white-space: nowrap;
-}
-.pll-chip--good { color: #0a7d3b; background: rgba(16, 132, 66, 0.10); border-color: rgba(16, 132, 66, 0.35); }
-.pll-chip--warn { color: #a15b00; background: rgba(216, 138, 0, 0.10); border-color: rgba(216, 138, 0, 0.35); }
-.pll-chip--bad  { color: #b02020; background: rgba(200, 40, 40, 0.10); border-color: rgba(200, 40, 40, 0.4);  }
-
-/* dark-mode variants */
-@media (prefers-color-scheme: dark) {
-    .pll-chip--good { color: #6ee7a8; background: rgba(20, 128, 70, 0.18); border-color: rgba(20, 128, 70, 0.4); }
-    .pll-chip--warn { color: #ffc46b; background: rgba(216, 138, 0, 0.2);  border-color: rgba(216, 138, 0, 0.45); }
-    .pll-chip--bad  { color: #ff9494; background: rgba(200, 40, 40, 0.18); border-color: rgba(200, 40, 40, 0.5); }
-}
-/* explicit theme overrides from popup toggle */
-html[data-phishlens-theme="light"] .pll-chip--good { color: #0a7d3b; background: rgba(16, 132, 66, 0.10); }
-html[data-phishlens-theme="light"] .pll-chip--warn { color: #a15b00; background: rgba(216, 138, 0, 0.10); }
-html[data-phishlens-theme="light"] .pll-chip--bad  { color: #b02020; background: rgba(200, 40, 40, 0.10); }
-html[data-phishlens-theme="dark"]  .pll-chip--good { color: #6ee7a8; background: rgba(20, 128, 70, 0.18); }
-html[data-phishlens-theme="dark"]  .pll-chip--warn { color: #ffc46b; background: rgba(216, 138, 0, 0.2);  }
-html[data-phishlens-theme="dark"]  .pll-chip--bad  { color: #ff9494; background: rgba(200, 40, 40, 0.18); }
-
-/* v1.6.1: cached-explanation hint next to the LIME tokens */
-.pll-cache-hint {
-    display: inline-block;
-    margin-left: 6px;
-    font-size: 11px;
-    color: #6ee7a8;
-    opacity: 0.75;
-    font-weight: 500;
-}
-
-/* ==================================================================
-   v1.8: attachment scan button + mini banner per attachment
-   ================================================================== */
-
-/* Small "🛡 Scan" pill injected next to each attachment tile.
-   Kept discreet so it doesn't dominate the Gmail attachment strip.
-   Font sizes are marked !important because Gmail's tile container
-   forces its own font scaling on descendants. */
+/* =====================================================================
+   Attachments: one compact card per scanned attachment, in a grid under
+   the attachment strip. Gmail forces fonts and colours inside that
+   area, hence the !important declarations.
+   ===================================================================== */
 .pll-att-btn {
-    display: inline-flex; align-items: center; gap: 4px;
-    background: #ff6b35; color: #1f2328; border: 0;
-    padding: 3px 10px; margin: 4px 0 0 8px;
-    border-radius: 999px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
-    font-size: 11px !important;
-    font-weight: 600 !important;
-    line-height: 1.4 !important;
-    cursor: pointer;
-    vertical-align: middle;
-    text-transform: none;
-    letter-spacing: normal;
+    display: inline-flex !important; align-items: center; gap: 4px;
+    margin-top: 8px !important; padding: 4px 12px !important;
+    border: 1px solid var(--pll-line) !important; border-radius: 999px !important;
+    background: var(--pll-surface) !important; color: var(--pll-text) !important;
+    font-family: var(--pll-font) !important; font-size: 12px !important; font-weight: 500 !important;
+    line-height: 1.4 !important; cursor: pointer;
 }
-.pll-att-btn:hover:not(:disabled) { background: #ffa07a; }
-.pll-att-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.pll-att-btn__icon { font-size: 12px !important; }
+.pll-att-btn:hover:not(:disabled) { border-color: var(--pll-accent) !important; background: var(--pll-accent-soft) !important; }
+.pll-att-btn:disabled { opacity: .5; cursor: not-allowed; }
 
-/* Modifier for the header "Scan N attachments" button: same shape as
-   pll-scan-btn but with a slightly muted colour so it doesn't compete
-   with the main "Scan with PhishLens" pill. */
-.pll-scan-btn.pll-scan-btn--all {
-    background: #2c3138; color: #f0f6fc;
-    border: 1px solid #ff6b35;
-    margin-left: 8px;
-}
-.pll-scan-btn.pll-scan-btn--all:hover:not(:disabled) {
-    background: #363b42;
-}
-
-/* Container for all attachment banners. Lays out as a horizontal grid
-   of compact cards that align with the attachment tiles above (each
-   ~200 px wide, wrapping to a new row when the email is narrow).
-   Full-width in the parent regardless of layout mode. */
 .pll-att-stack {
     display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)) !important;
     gap: 8px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    flex: 1 0 100% !important;
-    grid-column: 1 / -1 !important;
-    margin: 10px 0 !important;
-    padding: 0 !important;
-    box-sizing: border-box !important;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
-    font-size: 12px !important;
-    line-height: 1.35 !important;
+    width: 100% !important; max-width: 100% !important;
+    flex: 1 0 100% !important; grid-column: 1 / -1 !important;
+    margin: 10px 0 !important; padding: 0 !important; box-sizing: border-box !important;
+    font-family: var(--pll-font) !important; font-size: 12px !important; line-height: 1.4 !important;
+    color: var(--pll-text) !important;
 }
-
-/* One compact card per attachment. Card fills its grid column, keeps
-   height minimal, and reserves the top border strip for the verdict
-   colour. Everything is !important because Gmail's own CSS forcefully
-   sets colours/fonts on descendants inside the attachment area. */
 .pll-att-banner {
-    display: block !important;
-    margin: 0 !important;
-    padding: 8px 10px !important;
-    border-radius: 6px !important;
-    border: 1px solid #d0d7de !important;
-    border-top-width: 3px !important;
-    background: #ffffff !important;
-    color: #1f2328 !important;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
-    font-size: 12px !important;
-    line-height: 1.35 !important;
-    text-align: left !important;
-    box-sizing: border-box !important;
-    overflow: hidden !important;
+    display: block !important; margin: 0 !important; padding: 10px 12px !important;
+    border: 1px solid var(--pll-line) !important; border-top-width: 3px !important; border-radius: 10px !important;
+    background: var(--pll-surface) !important; color: var(--pll-text) !important;
+    font-family: var(--pll-font) !important; font-size: 12px !important; line-height: 1.4 !important;
+    text-align: left !important; box-sizing: border-box !important; overflow: hidden !important;
+    box-shadow: var(--pll-shadow) !important;
 }
-.pll-att-banner--loading { border-top-color: #8b949e !important; }
-.pll-att-banner--error   { border-top-color: #b02020 !important; }
-.pll-att-banner--safe    { border-top-color: #1a7f37 !important; background: #f4fbf5 !important; }
-.pll-att-banner--danger  { border-top-color: #c34315 !important; background: #fff5f0 !important; }
+.pll-att-banner--loading { border-top-color: var(--pll-text-2) !important; }
+.pll-att-banner--error   { border-top-color: var(--pll-warn) !important; }
+.pll-att-banner--safe    { border-top-color: var(--pll-good) !important; }
+.pll-att-banner--danger  { border-top-color: var(--pll-bad) !important; background: linear-gradient(0deg, var(--pll-bad-soft), var(--pll-bad-soft)), var(--pll-surface) !important; }
 
-.pll-att-banner__row   { display: flex !important; align-items: center !important; gap: 6px !important; }
-.pll-att-banner__icon  { flex: 0 0 auto !important; font-size: 14px !important; line-height: 1 !important; }
+.pll-att-banner__row  { display: flex !important; align-items: center !important; gap: 8px !important; }
+.pll-att-banner__icon { flex: none !important; display: inline-flex !important; width: 18px !important; height: 18px !important; color: var(--pll-text-2) !important; }
+.pll-att-banner--safe   .pll-att-banner__icon { color: var(--pll-good) !important; }
+.pll-att-banner--danger .pll-att-banner__icon { color: var(--pll-bad) !important; }
+.pll-att-banner--error  .pll-att-banner__icon { color: var(--pll-warn) !important; }
 .pll-att-banner__main  { flex: 1 !important; min-width: 0 !important; }
-
-.pll-att-banner__title {
-    font-weight: 600 !important;
-    font-size: 12px !important;
-    margin: 0 !important;
-    color: #1f2328 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+.pll-att-banner__title { font-weight: 600 !important; font-size: 12.5px !important; margin: 0 !important; color: var(--pll-text) !important; }
+.pll-att-banner--safe   .pll-att-banner__title { color: var(--pll-good) !important; }
+.pll-att-banner--danger .pll-att-banner__title { color: var(--pll-bad) !important; }
+.pll-att-banner__title, .pll-att-banner__file {
+    white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
 }
-.pll-att-banner--safe   .pll-att-banner__title { color: #1a7f37 !important; }
-.pll-att-banner--danger .pll-att-banner__title { color: #c34315 !important; }
-
-.pll-att-banner__file  {
-    display: block !important;
-    font-weight: 400 !important;
-    color: #57606a !important;
-    font-size: 11px !important;
-    margin-top: 2px !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-}
-.pll-att-banner__sub   { color: #57606a !important; font-size: 11px !important; margin-top: 4px !important; }
-.pll-att-banner__sub strong { color: #1f2328 !important; font-weight: 600 !important; }
-.pll-att-banner__chips { display: flex !important; flex-wrap: wrap !important; gap: 3px !important; margin-top: 6px !important; }
-
-/* Dark theme via OS preference */
-@media (prefers-color-scheme: dark) {
-    .pll-att-banner          { background: #1e242b !important; color: #f0f6fc !important; border-color: #30363d !important; }
-    .pll-att-banner--safe    { background: #12271b !important; }
-    .pll-att-banner--danger  { background: #2a1c1c !important; }
-    .pll-att-banner__title   { color: #f0f6fc !important; }
-    .pll-att-banner--safe   .pll-att-banner__title { color: #6ee7a8 !important; }
-    .pll-att-banner--danger .pll-att-banner__title { color: #ff8c5a !important; }
-    .pll-att-banner__file    { color: #f0f6fc !important; }
-    .pll-att-banner__sub     { color: #cdd9e5 !important; }
-    .pll-att-banner__sub strong { color: #ffffff !important; }
-    .pll-att-stack           { color: #f0f6fc !important; }
-}
-
-/* Explicit theme overrides broadcast by the popup toggle */
-html[data-phishlens-theme="light"] .pll-att-banner          { background: #ffffff !important; color: #1f2328 !important; border-color: #d0d7de !important; }
-html[data-phishlens-theme="light"] .pll-att-banner--safe    { background: #f0fff4 !important; }
-html[data-phishlens-theme="light"] .pll-att-banner--danger  { background: #fff5f0 !important; }
-html[data-phishlens-theme="light"] .pll-att-banner__title   { color: #1f2328 !important; }
-html[data-phishlens-theme="light"] .pll-att-banner--safe   .pll-att-banner__title { color: #1a7f37 !important; }
-html[data-phishlens-theme="light"] .pll-att-banner--danger .pll-att-banner__title { color: #c34315 !important; }
-html[data-phishlens-theme="light"] .pll-att-banner__file    { color: #1f2328 !important; }
-html[data-phishlens-theme="light"] .pll-att-banner__sub     { color: #57606a !important; }
-html[data-phishlens-theme="light"] .pll-att-banner__sub strong { color: #1f2328 !important; }
-html[data-phishlens-theme="light"] .pll-att-stack           { color: #1f2328 !important; }
-
-html[data-phishlens-theme="dark"]  .pll-att-banner          { background: #1e242b !important; color: #f0f6fc !important; border-color: #30363d !important; }
-html[data-phishlens-theme="dark"]  .pll-att-banner--safe    { background: #12271b !important; }
-html[data-phishlens-theme="dark"]  .pll-att-banner--danger  { background: #2a1c1c !important; }
-html[data-phishlens-theme="dark"]  .pll-att-banner__title   { color: #f0f6fc !important; }
-html[data-phishlens-theme="dark"]  .pll-att-banner--safe   .pll-att-banner__title { color: #6ee7a8 !important; }
-html[data-phishlens-theme="dark"]  .pll-att-banner--danger .pll-att-banner__title { color: #ff8c5a !important; }
-html[data-phishlens-theme="dark"]  .pll-att-banner__file    { color: #f0f6fc !important; }
-html[data-phishlens-theme="dark"]  .pll-att-banner__sub     { color: #cdd9e5 !important; }
-html[data-phishlens-theme="dark"]  .pll-att-banner__sub strong { color: #ffffff !important; }
-html[data-phishlens-theme="dark"]  .pll-att-stack           { color: #f0f6fc !important; }
+.pll-att-banner__file { display: block !important; color: var(--pll-text-2) !important; font-size: 11.5px !important; margin-top: 1px !important; }
+.pll-att-banner__sub  { color: var(--pll-text-2) !important; font-size: 11.5px !important; margin-top: 6px !important; }
+.pll-att-banner__sub strong { color: var(--pll-text) !important; font-weight: 600 !important; }
+.pll-att-banner__chips { display: flex !important; flex-wrap: wrap !important; gap: 4px !important; margin-top: 8px !important; }
 
 .pll-att-chip {
-    display: inline-flex; align-items: center;
-    padding: 2px 8px; border-radius: 999px;
-    font-size: 11px !important; font-weight: 500 !important;
-    line-height: 1.4 !important;
-    border: 1px solid transparent;
+    display: inline-flex !important; align-items: center !important;
+    padding: 2px 8px !important; border-radius: 999px !important; border: 1px solid transparent !important;
+    font-size: 11px !important; font-weight: 500 !important; line-height: 1.4 !important;
 }
-.pll-att-chip--good { color: #6ee7a8 !important; background: rgba(20, 128, 70, 0.2) !important;  border-color: rgba(20, 128, 70, 0.4) !important; }
-.pll-att-chip--warn { color: #ffc46b !important; background: rgba(216, 138, 0, 0.2) !important;  border-color: rgba(216, 138, 0, 0.4) !important; }
-.pll-att-chip--bad  { color: #ff9494 !important; background: rgba(200, 40, 40, 0.2) !important;  border-color: rgba(200, 40, 40, 0.4) !important; }
+.pll-att-chip--good { color: var(--pll-good) !important; background: var(--pll-good-soft) !important; border-color: var(--pll-good-line) !important; }
+.pll-att-chip--warn { color: var(--pll-warn) !important; background: var(--pll-warn-soft) !important; border-color: var(--pll-warn-line) !important; }
+.pll-att-chip--bad  { color: var(--pll-bad) !important;  background: var(--pll-bad-soft) !important;  border-color: var(--pll-bad-line) !important; }

@@ -179,13 +179,18 @@ both repositories, the models, the report and every guide.
 
 ## Roadmap
 
-- **More mail clients:** Outlook Web and Yahoo Mail.
-- **Automatic scanning** of new Gmail messages with a browser notification.
+- **Chrome Web Store release** once the extension UI is final (privacy
+  policy, store listing, tighter host permissions).
+- **Outlook Web** support, then Yahoo Mail.
+- **Automatic scanning** of new Gmail messages, with a browser
+  notification when one looks like phishing.
+- **Live evaluation:** false-positive rate on a real inbox and detection
+  rate on phishing reported after the training cut-off.
 - **Multilingual model:** French, Hausa and Yoruba phishing.
 - **Attachments:** archives (ZIP, RAR, 7z) and calendar invites (`.ics`),
   both used to smuggle links past scanners; OCR in French.
-- **Research:** evaluation on a live inbox stream, SHAP as a comparison for
-  LIME, retraining the agents on OCR text and QR-code phishing.
+- **Research:** SHAP as a comparison for LIME, retraining the agents on
+  OCR text and QR-code phishing.
 
 ## Academic context
 
