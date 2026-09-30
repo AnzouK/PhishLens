@@ -6,6 +6,19 @@ front); adapt names and paths for your own host.
 
 ## Deploy or update
 
+On the reference VM, one command does everything below: pull
+`origin/main`, build, restart, wait for `/health`, run a smoke
+`/analyse`, copy the landing page, and roll back to the previous image
+if the new one is not healthy.
+
+```bash
+bash ~/PhishLens/scripts/redeploy.sh              # update and redeploy
+bash ~/PhishLens/scripts/redeploy.sh --no-pull    # rebuild the current checkout
+bash ~/PhishLens/scripts/redeploy.sh --rollback   # back to the previous image
+```
+
+The manual steps, for another host or for debugging:
+
 ```bash
 cd ~/PhishLens
 git fetch origin && git reset --hard origin/main

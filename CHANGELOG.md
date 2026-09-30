@@ -7,6 +7,12 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Added
+- **`scripts/redeploy.sh`:** one-command redeploy on the VM (pull,
+  build, restart, health check and smoke `/analyse`, landing page copy),
+  with automatic rollback to the previous image when the new one is not
+  healthy, and `--rollback` to undo by hand.
+
 ### Security
 - **CodeQL alerts #9 to #11 (polynomial regular expressions):** the
   forwarded-sender lookup and the HTML stripping of calendar invites
