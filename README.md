@@ -12,9 +12,7 @@
 [![Live demo](https://img.shields.io/badge/Live%20demo-anzouk.duckdns.org-F80000)](https://anzouk.duckdns.org)
 [![Model](https://img.shields.io/badge/Hugging%20Face-model-yellow)](https://huggingface.co/AnzouKiona/phishlens-distilbert)
 
-<a href="https://anzouk.duckdns.org" target="_blank">
-  <img src="docs/landing-page.png" alt="PhishLens landing page" width="850">
-</a>
+<img src="docs/gmail-verdicts.svg" alt="PhishLens verdict banners in Gmail: a phishing verdict with per-agent scores, threat-intelligence chips and the words behind the decision, and a safe verdict from a trusted sender" width="860">
 
 </div>
 
@@ -29,9 +27,9 @@ pages and Word / Excel / PowerPoint files, with QR codes decoded and
 macros, remote templates and other dropper tricks flagged.
 
 <div align="center">
-  <img src="docs/gmail-banner.png" alt="PhishLens verdict banner injected in Gmail" width="850">
+  <img src="docs/attachments.svg" alt="Attachment scan results: a scanned PDF invoice with a QR code and a Word document with macros flagged as phishing, and a safe PDF" width="860">
   <br/>
-  <sub><em>The verdict banner injected above the email body in Gmail.</em></sub>
+  <sub><em>Attachment scan results under the attachment strip in Gmail.</em></sub>
 </div>
 
 ## Results
@@ -115,12 +113,9 @@ The backend is ready when the logs show `Model loaded on device=cpu`.
 - **History:** every scan is kept locally in the browser, with a small
   analytics view and CSV / JSON export.
 
-<table align="center">
-  <tr>
-    <td align="center"><img src="docs/popup-phishing.png" alt="Popup with a phishing verdict" width="360"><br/><sub><em>Phishing verdict with LIME tokens</em></sub></td>
-    <td align="center"><img src="docs/popup-safe-trusted.png" alt="Popup with a safe verdict and a verified-sender badge" width="360"><br/><sub><em>Safe verdict, sender verified by DKIM</em></sub></td>
-  </tr>
-</table>
+<div align="center">
+  <img src="docs/popup.svg" alt="The PhishLens popup after scanning an email: phishing verdict, a score per agent, threat-intelligence badges and the words behind the decision" width="400">
+</div>
 
 ## Configuration
 

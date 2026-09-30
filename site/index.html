@@ -597,6 +597,7 @@ cd backend && docker compose up --build</pre>
   function renderLime(features) {
     const slot = $("lime");
     if (!slot) return;
+    features = features.filter((f) => String(f.token || "").length > 1 && !/^\d+$/.test(f.token));
     if (!features.length) { slot.textContent = "No strong words for this one."; return; }
     const max = Math.max(...features.map((f) => Math.abs(f.weight))) || 1;
     slot.innerHTML = features.map((f) => {

@@ -23,6 +23,14 @@ Interface release: new landing page, Gmail UI and popup polish.
   the popup toggle, through a single set of colour variables.
 - **Popup**: emoji replaced by an SVG icon set, clearer labels and
   error messages.
+- **README illustrations** are now SVG (`docs/gmail-verdicts.svg`,
+  `docs/attachments.svg`, `docs/popup.svg`): sharp at any size and in
+  sync with the new interface. The old PNG screenshots are removed.
+- A safe verdict with a high agent score now explains why (trusted
+  sender, DKIM or Gmail delivery lowered the weight), instead of showing
+  red meters under "looks safe" without context.
+- Single characters and bare numbers are no longer shown among the
+  LIME words.
 - Roadmap: Chrome Web Store release, Outlook Web, automatic scanning,
   live evaluation.
 

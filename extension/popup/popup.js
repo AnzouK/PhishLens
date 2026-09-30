@@ -606,8 +606,9 @@ function renderExplain(features) {
     // LIME weights are tiny (often < 0.01), so printing them showed "0.00".
     // Colour strength now reflects each word's weight relative to the
     // strongest one; the exact figure stays in the tooltip.
-    const max = Math.max(...features.map((f) => Math.abs(Number(f.weight) || 0))) || 1;
-    explainTokens.innerHTML = features.map((f) => {
+    const shown = features.filter((f) => String(f.token || "").length > 1 && !/^\d+$/.test(f.token));
+    const max = Math.max(...shown.map((f) => Math.abs(Number(f.weight) || 0))) || 1;
+    explainTokens.innerHTML = shown.map((f) => {
         const w = Number(f.weight) || 0;
         const rel = Math.abs(w) / max;
         const cls = f.supports === "phishing" ? "token--phishing" : "token--safe";

@@ -237,6 +237,29 @@ function setBtnLoading(btn, on) {
         on ? "Scanning…" : "Scan again";
 }
 
+// Plain-language line under the title. When the verdict is safe but some
+// agent scored high, say why the high score did not count, otherwise the
+// red meters under a "looks safe" title read as a contradiction.
+function bannerLead(data, phishing) {
+    if (phishing) {
+        return "Don't click its links, open its attachments or reply until you have checked the sender another way.";
+    }
+    const high = ["text", "url", "metadata"].some((k) => (data.agents?.[k]?.phishing_probability || 0) >= 0.7);
+    if (high) {
+        if (data.trust_path === "trusted_sender" || data.trusted_sender) {
+            return "Some wording or links resemble phishing, but the sender is on the trusted list, so they weigh less.";
+        }
+        if (data.trust_path === "crypto_verified") {
+            return "Some wording or links resemble phishing, but the sender is proven by DKIM, so they weigh less.";
+        }
+        if (data.trust_path === "gmail_inbox_soft") {
+            return "Some wording or links resemble phishing, but Gmail verified the sender before delivery, so they weigh less.";
+        }
+        return "One signal looks suspicious, but not enough overall. Stay careful with this one.";
+    }
+    return "No strong phishing signals. Stay careful with unexpected requests for money or passwords.";
+}
+
 // One compact meter per agent: label, bar, percentage.
 function pllMeter(label, value) {
     const p = Math.max(0, Math.min(100, Number(value) || 0));
@@ -298,9 +321,7 @@ function showBanner(emailView, data) {
                 <span class="pll-banner__title">${phishing ? "This email looks like phishing" : "This email looks safe"}</span>
                 ${trustedBadge}
               </div>
-              <div class="pll-banner__lead">${phishing
-                ? "Don't click its links, open its attachments or reply until you have checked the sender another way."
-                : "No strong phishing signals. Stay careful with unexpected requests for money or passwords."}</div>
+              <div class="pll-banner__lead">${bannerLead(data, phishing)}</div>
               <div class="pll-meters">
                 ${pllMeter("Wording", text)}
                 ${pllMeter("Links", url)}
@@ -337,8 +358,12 @@ function attachExplanation(emailView, features, cached = false) {
     // LIME weights are tiny (often < 0.01), so printing them shows "0.00".
     // Show relative influence instead: colour strength scales with the
     // token's weight compared with the strongest one.
-    const max = Math.max(...features.map((f) => Math.abs(Number(f.weight) || 0))) || 1;
-    const chips = features.map((f) => {
+    // Single characters and bare numbers ("1", "t") carry no meaning for
+    // a reader; keep them out of the display (they stay in the history).
+    const shown = features.filter((f) => String(f.token || "").length > 1 && !/^\d+$/.test(f.token));
+    if (!shown.length) { slot.textContent = "No meaningful words to show for this email."; return; }
+    const max = Math.max(...shown.map((f) => Math.abs(Number(f.weight) || 0))) || 1;
+    const chips = shown.map((f) => {
         const w = Number(f.weight) || 0;
         const rel = Math.abs(w) / max;
         const cls = f.supports === "phishing" ? "pll-tok--phishing" : "pll-tok--safe";
