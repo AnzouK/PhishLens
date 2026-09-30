@@ -26,11 +26,16 @@ phishing_model.zip
 *.ipynb
 .ipynb_checkpoints/
 save_model_cell.py
-app.py                   # the Gradio demo, not used by the backend image
+# the Gradio demo, not used by the backend image
+app.py
 
 # Git
 .git/
 .gitignore
+
+# Tests are not part of the runtime image
+tests/
+.coveragerc
 
 # Logs and outputs
 *.log

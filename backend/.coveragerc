@@ -6,6 +6,7 @@ omit =
     tests/*
     url_agent.py
     metadata_agent.py
+    convert_agents_to_skops.py
 
 [report]
 precision = 1

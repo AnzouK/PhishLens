@@ -78,7 +78,7 @@ updates:
         applies-to: version-updates
         update-types: [minor, patch]
 
-  # Docker base images (python:3.11-slim in both Dockerfiles). Weekly
+  # Docker base images (python:3.12-slim in both Dockerfiles). Weekly
   # patch bumps catch upstream CVE fixes.
   - package-ecosystem: docker
     directory: /backend
@@ -92,8 +92,8 @@ updates:
     commit-message:
       prefix: chore(docker)
       include: scope
-    # Keep patch bumps (3.11.x security fixes). A Python minor bump
-    # (3.11 -> 3.14) changes which wheels exist for torch, lime and
+    # Keep patch bumps (3.12.x security fixes). A Python minor bump
+    # (3.12 -> 3.14) changes which wheels exist for torch, lime and
     # scikit-image, and CI neither builds the image nor runs that
     # Python, so it is done by hand: build a test container, then move
     # the CI python-version to match.

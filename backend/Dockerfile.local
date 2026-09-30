@@ -7,15 +7,17 @@
 # image small and lets you swap models without rebuilding.
 # =====================================================================
 
-FROM python:3.11-slim AS base
+FROM python:3.12-slim AS base
 
 # System dependencies
 #   - build-essential: needed by some pip packages with C extensions
 #   - curl: used by the HEALTHCHECK
+#   - tesseract-ocr: OCR for images and scanned PDFs (v1.12)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
         build-essential \
         curl \
+        tesseract-ocr \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -29,17 +31,8 @@ RUN pip install --no-cache-dir --upgrade pip \
         "torch>=2.0,<3.0" \
  && pip install --no-cache-dir -r requirements.txt
 
-# App code: extension_backend.py + optional trained-agent runtime.
-# feature_extraction.py / url_agent.py / metadata_agent.py are only
-# needed when the corresponding joblibs are present (either mounted or
-# downloaded from HF); when they're absent the heuristic path takes over.
-COPY extension_backend.py .
-COPY feature_extraction.py .
-COPY url_agent.py .
-COPY metadata_agent.py .
-COPY auth_headers.py .
-COPY reputation.py .
-COPY attachment_analysis.py .
+# App code: every top-level module of backend/ (tests/ is not copied).
+COPY *.py ./
 
 # Where the unzipped DistilBERT checkpoint will be mounted
 ENV MODEL_DIR=/app/model

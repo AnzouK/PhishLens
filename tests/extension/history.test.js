@@ -1,0 +1,82 @@
+"use strict";
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { installFakeChrome, loadLib } = require("./helpers");
+
+function fresh() {
+    installFakeChrome();
+    return loadLib("history.js");
+}
+
+test("saveScan stores newest first and sanitises fields", async () => {
+    const H = fresh();
+    await H.saveScan({ source: "gmail", subject: "first", verdict: "safe", score: 0.1 });
+    await H.saveScan({ source: "file", subject: "x".repeat(300), verdict: "weird", score: NaN });
+    const list = await H.getHistory();
+    assert.equal(list.length, 2);
+    assert.equal(list[0].subject.length, 120);
+    assert.equal(list[0].verdict, "safe");          // unknown verdicts fall back to safe
+    assert.equal(list[0].score, 0);                  // NaN score becomes 0
+    assert.equal(list[1].subject, "first");
+});
+
+test("history is capped at MAX_ENTRIES", async () => {
+    const H = fresh();
+    for (let i = 0; i < H.MAX_ENTRIES + 5; i++) {
+        await H.saveScan({ subject: `s${i}`, verdict: "safe" });
+    }
+    const list = await H.getHistory();
+    assert.equal(list.length, H.MAX_ENTRIES);
+    assert.equal(list[0].subject, `s${H.MAX_ENTRIES + 4}`);
+});
+
+test("attachTokens keeps the top 5", async () => {
+    const H = fresh();
+    const id = await H.saveScan({ subject: "a", verdict: "phishing" });
+    const tokens = Array.from({ length: 8 }, (_, i) => ({ token: `t${i}`, weight: i }));
+    await H.attachTokens(id, tokens);
+    const [e] = await H.getHistory();
+    assert.equal(e.tokens.length, 5);
+});
+
+test("getStats counts verdicts and ranks phishing tokens", async () => {
+    const H = fresh();
+    await H.saveScan({ verdict: "phishing", score: 0.9, source: "gmail",
+        tokens: [{ token: "Verify", weight: 0.4 }, { token: "account", weight: 0.1 }] });
+    await H.saveScan({ verdict: "phishing", score: 0.8, source: "file",
+        tokens: [{ token: "verify", weight: 0.3 }] });
+    await H.saveScan({ verdict: "safe", score: 0.1, source: "paste",
+        tokens: [{ token: "meeting", weight: 0.5 }] });
+    const s = await H.getStats();
+    assert.equal(s.total, 3);
+    assert.equal(s.phishing, 2);
+    assert.equal(s.phishingPct, 67);
+    assert.equal(s.topTokens[0].token, "verify");    // case-folded and summed
+    assert.ok(!s.topTokens.some((t) => t.token === "meeting"));
+    assert.equal(s.bySource.gmail, 1);
+    assert.equal(s.days.length, 30);
+});
+
+test("exportCSV neutralises spreadsheet formulas", async () => {
+    const H = fresh();
+    await H.saveScan({ verdict: "phishing", subject: '=HYPERLINK("http://evil.example","click")',
+        sender: "+attacker@evil.example" });
+    await H.saveScan({ verdict: "safe", subject: 'Lunch, "today"', sender: "a@b.c" });
+    const csv = await H.exportCSV();
+    const lines = csv.split("\n");
+    assert.equal(lines.length, 3);
+    assert.ok(lines[1].includes('"Lunch, ""today"""'));
+    assert.ok(lines[2].includes(`"'=HYPERLINK(""http://evil.example"",""click"")"`));
+    assert.ok(lines[2].includes("'+attacker@evil.example"));
+    assert.ok(!/,=/.test(csv) && !/,\+/.test(csv));
+});
+
+test("deleteScan and clearHistory", async () => {
+    const H = fresh();
+    const id = await H.saveScan({ verdict: "safe" });
+    await H.saveScan({ verdict: "safe" });
+    await H.deleteScan(id);
+    assert.equal((await H.getHistory()).length, 1);
+    await H.clearHistory();
+    assert.equal((await H.getHistory()).length, 0);
+});

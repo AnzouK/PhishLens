@@ -20,7 +20,8 @@ git clone https://github.com/AnzouK/PhishLens.git
 cd PhishLens/backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt pytest pytest-cov ruff
+pip install -r requirements.txt pytest pytest-cov ruff reportlab
+# OCR needs the tesseract binary: brew install tesseract / apt install tesseract-ocr
 uvicorn extension_backend:app --host 127.0.0.1 --port 8000
 ```
 
@@ -40,8 +41,13 @@ For extension changes, lint the JavaScript too (from the repo root):
 
 ```bash
 npm install --no-save --no-package-lock eslint@9 globals@15
-npx eslint extension/
+npx eslint extension/ --max-warnings 0
+node --test tests/extension/*.test.js
 ```
+
+The popup UI tests need Playwright: `npm install --no-save @playwright/test@1`,
+`npx playwright install chromium`, then
+`npx playwright test --config tests/ui/playwright.config.js`.
 
 CI runs all of the above, plus CodeQL. A pull request needs a green CI.
 

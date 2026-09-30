@@ -1,16 +1,18 @@
 # =====================================================================
 # PhishLens CI
 # =====================================================================
-# Runs on every push to main + every pull request.
+# Runs on every push to main and every pull request.
 #
-#   1. Compile every backend Python file to catch SyntaxErrors
-#   2. Lint the backend with ruff (fatal errors only: we're not enforcing
-#      house style, just catching bugs like unused imports, undefined
-#      names, syntax issues)
-#   3. Run the backend/tests/ pytest suite: pure-function tests, no
-#      model loading, no network, no heavy deps (torch/transformers/
-#      pdfplumber are deliberately NOT installed here to keep runs
-#      under a minute)
+#   extension     node --check, ESLint (every rule blocking) and the
+#                 node:test unit tests of extension/lib
+#   requirements  resolves backend/requirements.txt on the Docker base
+#                 Python without installing anything
+#   python        compile, ruff (fatal rules) and the offline pytest
+#                 suite with coverage (OCR, QR, Office, skops included;
+#                 torch / transformers are stubbed, the model never loads)
+#   ui            Playwright smoke tests of the popup (backend mocked)
+#
+# The first three are required by the branch protection rule on main.
 # =====================================================================
 name: CI
 
@@ -24,23 +26,17 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# Least-privilege token: this workflow only reads the code, it never
-# posts back to the repo (no PR comments, no status writes beyond what
-# GH does automatically). CodeQL wants an explicit permissions block.
+# Least-privilege token: this workflow only reads the code.
 permissions:
   contents: read
 
 jobs:
-  # Chrome extension: syntax check every script with Node, then ESLint
-  # (config in eslint.config.mjs: bug-class rules fail the job, hygiene
-  # rules only annotate). No package.json on purpose, the extension has
-  # no build step, so the linter is installed on the fly.
   extension:
     name: Extension lint (ESLint)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
@@ -52,22 +48,22 @@ jobs:
       - name: ESLint
         run: |
           npm install --no-save --no-package-lock --silent eslint@9 globals@15
-          npx eslint extension/
+          npx eslint extension/ --max-warnings 0
+      - name: Unit tests (node:test)
+        run: node --test tests/extension/*.test.js
 
-  # Resolves backend/requirements.txt on the same Python as the Docker
-  # base image (python:3.11-slim) without installing anything. Catches
-  # Dependabot bumps that CI would otherwise pass blindly because the
-  # test job only installs a handful of packages (e.g. a numpy release
-  # that no longer ships wheels for 3.11).
+  # Same Python as the Docker base image (python:3.12-slim). Catches
+  # dependency bumps that cannot install in the image, which the test
+  # job would not see because it installs only what the tests import.
   requirements:
-    name: Requirements resolve (Python 3.11)
+    name: Requirements resolve (Docker Python)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - name: pip resolve (dry run)
         run: |
           python -m pip install --upgrade pip
@@ -76,34 +72,40 @@ jobs:
   python:
     name: Python lint + tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
+
+      - name: System packages (Tesseract OCR)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends tesseract-ocr
 
       - name: Install lint + test dependencies
         run: |
           python -m pip install --upgrade pip
-          # Only what the tests need. NB: no torch / transformers / lime /
-          # pdfplumber. tests/conftest.py stubs the heavy imports and the
-          # endpoint tests patch the text agent, so the model never loads.
-          pip install pytest pytest-cov ruff beautifulsoup4 numpy \
-                      fastapi httpx prometheus-fastapi-instrumentator
+          # Everything the tests import, except torch / transformers /
+          # lime: tests/conftest.py stubs those and the endpoint tests
+          # patch the text agent, so the model never loads.
+          pip install pytest pytest-cov ruff \
+                      fastapi httpx prometheus-fastapi-instrumentator \
+                      numpy pandas beautifulsoup4 pdfplumber pypdfium2 \
+                      pillow pytesseract opencv-python-headless reportlab \
+                      scikit-learn joblib skops
 
       - name: Compile every backend .py to catch SyntaxError
         run: python -m compileall -q backend/
 
       - name: Ruff, fatal errors only (E9, F63, F7, F82)
         run: |
-          # Narrow rule set on purpose. We're not enforcing style here,
-          # just catching things that would 500 the app: syntax errors
-          # (E9), undefined names (F821, F823), assert on tuples (F631),
-          # not-implemented tests (F811), etc.
+          # Narrow rule set on purpose: syntax errors (E9), undefined
+          # names (F821, F823), assert on tuples (F631), etc.
           ruff check backend/ --select E9,F63,F7,F82 --output-format=github
 
       - name: Run pytest
@@ -114,3 +116,21 @@ jobs:
           pytest tests/ -q --tb=short \
             --cov=. --cov-config=.coveragerc \
             --cov-report=term-missing:skip-covered
+
+  # Not required by branch protection yet: make it required once it has
+  # been green for a while.
+  ui:
+    name: Popup UI tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Install Playwright + Chromium
+        run: |
+          npm install --no-save --no-package-lock --silent @playwright/test@1
+          npx playwright install --with-deps chromium
+      - name: Run
+        run: npx playwright test --config tests/ui/playwright.config.js

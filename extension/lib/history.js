@@ -166,8 +166,13 @@ async function exportCSV() {
     const cols = ["ts", "source", "verdict", "score", "sender", "subject",
                   "agent_text", "agent_url", "agent_metadata", "trusted", "top_tokens"];
     const esc = (v) => {
-        const s = v === null || v === undefined ? "" : String(v);
-        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        let s = v === null || v === undefined ? "" : String(v);
+        // CSV formula injection: subjects and senders come from attacker
+        // emails. A cell starting with = + - @ (or a tab / CR) would be
+        // run as a formula when the export is opened in Excel or Sheets,
+        // so it is prefixed with a quote to force plain text.
+        if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+        return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const rows = [cols.join(",")];
     for (const e of list) {

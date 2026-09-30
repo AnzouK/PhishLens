@@ -5,6 +5,58 @@ All notable changes to PhishLens are listed here. The format follows
 uses [Semantic Versioning](https://semver.org/). The extension and the
 backend share one version number.
 
+## [1.12.0] - 2026-09-30
+
+Attachment analysis, phase 2, and the end of pickle.
+
+### Added
+- **Scanned PDFs and images.** A PDF with almost no text layer is
+  flagged `image_only_pdf`, its first 3 pages are rendered (pypdfium2)
+  and read with Tesseract OCR, and the text goes through the text agent
+  like any other attachment. PNG, JPEG, GIF, WebP, BMP and TIFF
+  attachments are OCR'd the same way (`ocr.py`).
+- **QR codes ("quishing").** QR codes in images and in the first pages
+  of every PDF are decoded (OpenCV); their links go to the URL agent and
+  the threat-intel cascade, and the file is flagged `contains_qr_code`.
+- **Word, Excel and PowerPoint** (`.docx .docm .xlsx .xlsm .pptx .pptm`
+  and legacy `.doc .xls .ppt`), parsed with the standard library
+  (`office_analysis.py`): text, external links and the dropper flags
+  `contains_macros`, `remote_template`, `dde_field`,
+  `embedded_ole_object`, `contains_activex`, `external_data_connection`,
+  `encrypted_document`, `legacy_office_format`,
+  `suspicious_xml_doctype`, each with a score bonus. Macros, remote
+  templates and DDE fields force the phishing verdict, even when the
+  parent email is trusted.
+- **Random Forest agents in the skops format** (`agent_io.py`), loaded
+  with a type allowlist so a tampered file cannot run code, plus a
+  one-time converter (`convert_agents_to_skops.py`). Pickle remains a
+  fallback until the skops files are published (`AGENTS_ALLOW_PICKLE`).
+- Extension, popup and landing page accept all the new attachment types.
+- Tests: OCR / QR / scanned PDFs, Office parsing (macros, template
+  injection, DDE, zip bombs, XXE, legacy and encrypted files), skops
+  round trip and allowlist, extension libraries with `node:test`, popup
+  UI with Playwright (new CI job, not required yet).
+
+### Changed
+- Docker images and CI on **Python 3.12** (unblocks numpy 2.5); the
+  images install `tesseract-ocr` and copy every backend module.
+- The CI job "Requirements resolve (Python 3.11)" is now
+  "Requirements resolve (Docker Python)".
+- ESLint: every rule now fails the build (`--max-warnings 0`); the
+  remaining warnings were fixed (dead Gmail helpers from v1.6.2 removed,
+  unused popup variables removed).
+- GitHub Actions bumped to `checkout@v7` and `setup-python@v7` (the v4
+  / v5 ones ran on the deprecated Node 20).
+
+### Fixed
+- **CSV formula injection in the history export.** A subject such as
+  `=HYPERLINK("http://evil","click")` from a phishing email was written
+  as is, and Excel would run it on opening. Cells starting with
+  `= + - @` are now prefixed with a quote.
+- The popup file picker went back to accepting only `.eml` after the
+  first file was chosen.
+- `.dockerignore` had an inline comment that disabled its pattern.
+
 ## [1.11.0] - 2026-09-29
 
 ### Security
@@ -215,6 +267,7 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[1.12.0]: https://github.com/AnzouK/PhishLens/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/AnzouK/PhishLens/compare/v1.10.2...v1.11.0
 [1.10.2]: https://github.com/AnzouK/PhishLens/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/AnzouK/PhishLens/compare/v1.10.0...v1.10.1

@@ -376,54 +376,6 @@ async function extractGmailAuthSignals(emailView) {
 }
 
 // --- helpers for the DOM scrape ---
-// Gmail marks the details toggle with aria-label text that varies by locale.
-// We match on a set of known labels rather than the (obfuscated) class name.
-function _findDetailsToggle(emailView, preferClosed = false) {
-    const labels = [
-        "show details", "hide details",
-        "afficher les détails", "masquer les détails",
-        "afficher les informations", "masquer les informations",
-        "detalles", "ocultar detalles",
-        "detalhes", "mostrar detalhes",
-    ];
-    // Strategy 1: aria-label match (works in most locales / Gmail versions)
-    let nodes = emailView.querySelectorAll("[aria-label]");
-    for (const n of nodes) {
-        const al = (n.getAttribute("aria-label") || "").toLowerCase();
-        if (labels.some((l) => al.includes(l))) return n;
-    }
-    // Strategy 2: Gmail's stable class for the details triangle. It's a
-    // <img> or <span> inside a container with class "ajz" / "ajB" / "aju"
-    // depending on the version. We fall back to any of these.
-    nodes = emailView.querySelectorAll(".ajz, .ajB, .aju, img.ajz, [role='button'] img");
-    for (const n of nodes) {
-        const rect = n.getBoundingClientRect();
-        // Discard huge nodes (avoid clicking a wrong button)
-        if (rect.width > 32 || rect.height > 32) continue;
-        return n;
-    }
-    // Strategy 3: semantic. The details toggle usually sits in the same
-    // row as the recipient. Fall back to any clickable child of the
-    // sender header that has a triangle-ish icon.
-    return null;
-}
-
-// Find any Authentication-Results row already in the DOM (either mailed-by
-// or signed-by or the localized equivalent). Used to skip the toggle click
-// when the info is already accessible.
-function _findAuthRow(emailView) {
-    const nodes = emailView.querySelectorAll("td, span, div");
-    for (const el of nodes) {
-        const t = (el.textContent || "").trim().toLowerCase();
-        if (t === "mailed-by:" || t === "signed-by:" ||
-            t === "envoyé par :" || t === "envoyé par:" ||
-            t === "signé par :" || t === "signé par:") {
-            return el;
-        }
-    }
-    return null;
-}
-
 function _scrapeAuthRows(emailView, out) {
     const nodes = emailView.querySelectorAll("td, span, div");
     for (const el of nodes) {
@@ -437,10 +389,6 @@ function _scrapeAuthRows(emailView, out) {
             if (val && /\./.test(val)) out.signedBy = val;
         }
     }
-}
-
-function _nextTick(ms = 0) {
-    return new Promise((r) => setTimeout(r, ms));
 }
 
 // Resolve the currently-selected backend URL: needed for the LIME cache
@@ -527,7 +475,12 @@ function escapeHTML(s) {
 
 const ATT_MAX          = 15;                   // hard limit per mail
 const ATT_MAX_SIZE_MB  = 10;
-const ATT_SUPPORTED    = new Set(["pdf", "html", "htm"]);
+// v1.12: images (OCR + QR) and Office documents (macros, links) too.
+const ATT_SUPPORTED    = new Set(["pdf", "html", "htm", "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff", "docx", "docm", "doc", "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt"]);
+// Longest extensions first so "html" wins over "htm" in the regex.
+const ATT_EXT_RE       = new RegExp(
+    "([\\w \\-.()]+\\.(" + [...ATT_SUPPORTED].sort((a, b) => b.length - a.length).join("|") + "))",
+    "i");
 const ATT_HOOKED       = new WeakSet();
 
 // Gmail attachment strip container. Everything below must be scoped
@@ -678,7 +631,7 @@ function _extractAttachmentInfo(tile) {
 
     // Strip trailing size text: Gmail sometimes suffixes tile text with
     // "Checklist.pdf 320 KB". Keep only the first .ext-ending chunk.
-    const extMatch = filename.match(/([\w \-\.\(\)]+\.(pdf|html?|htm))/i);
+    const extMatch = filename.match(ATT_EXT_RE);
     if (extMatch) filename = extMatch[1].trim();
 
     const ext = (filename.split(".").pop() || "").toLowerCase();
@@ -811,9 +764,9 @@ async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn }
             payload: {
                 content_b64: b64,
                 filename,
-                mime_type: (ext === "pdf") ? "application/pdf"
-                         : (ext === "html" || ext === "htm") ? "text/html"
-                         : null,
+                // The backend sniffs the real type from the bytes; the
+                // extension only sends the filename-based hint.
+                mime_type: null,
                 parent_email: {
                     sender_email:    senderEl?.getAttribute("email") || null,
                     subject:         emailView.querySelector(SUBJECT_SEL)?.textContent?.trim() || null,

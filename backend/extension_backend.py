@@ -495,22 +495,66 @@ _URL_AGENT       = None
 _METADATA_AGENT  = None
 _FEATURE_EXTRACT = None
 
-def _try_download_agents() -> tuple[Path | None, Path | None]:
-    """Fetch the two agent joblibs from Hugging Face, if reachable."""
+# v1.12: agents are published in the skops format and loaded with a
+# type allowlist (agent_io.py), so a tampered file cannot run code. The
+# old joblib (pickle) files are only used as a fallback while the skops
+# files are not published yet; set AGENTS_ALLOW_PICKLE=0 to refuse them.
+AGENTS_ALLOW_PICKLE = os.environ.get("AGENTS_ALLOW_PICKLE", "1") != "0"
+
+
+def _hf_fetch(filename: str) -> Path | None:
     try:
         from huggingface_hub import hf_hub_download
-        url_path = hf_hub_download(
-            repo_id=HF_AGENTS_REPO, filename="url_agent.joblib",
-            repo_type="model", local_dir="./agents"
-        )
-        meta_path = hf_hub_download(
-            repo_id=HF_AGENTS_REPO, filename="metadata_agent.joblib",
-            repo_type="model", local_dir="./agents"
-        )
-        return Path(url_path), Path(meta_path)
+        return Path(hf_hub_download(
+            repo_id=HF_AGENTS_REPO, filename=filename,
+            repo_type="model", local_dir="./agents",
+        ))
     except Exception as e:
-        logger.warning(f"Could not fetch agents from {HF_AGENTS_REPO}: {e}")
-        return None, None
+        logger.info(f"{filename} not fetched from {HF_AGENTS_REPO}: {e}")
+        return None
+
+
+def _resolve_agent_file(stem: str, env_var: str) -> Path | None:
+    """Local override first, then <stem>.skops, then <stem>.joblib."""
+    local = os.environ.get(env_var)
+    if local and Path(local).exists():
+        return Path(local)
+    path = _hf_fetch(f"{stem}.skops")
+    if path:
+        return path
+    if AGENTS_ALLOW_PICKLE:
+        path = _hf_fetch(f"{stem}.joblib")
+        if path:
+            logger.warning(
+                f"Loading {path.name} with pickle: publish {stem}.skops "
+                "(convert_agents_to_skops.py) and set AGENTS_ALLOW_PICKLE=0."
+            )
+        return path
+    return None
+
+
+def _load_agent(agent, path: Path):
+    if path.suffix == ".skops":
+        import agent_io  # noqa: E402
+        return agent_io.apply_state(agent, agent_io.load_skops_state(path))
+    if not AGENTS_ALLOW_PICKLE:
+        raise RuntimeError(f"{path.name} is a pickle file and AGENTS_ALLOW_PICKLE=0")
+    agent.load_model(str(path))
+    return agent
+
+
+def _init_agent(stem: str, env_var: str, factory):
+    """Load one trained agent; any failure leaves the heuristic in place."""
+    try:
+        path = _resolve_agent_file(stem, env_var)
+        if not path:
+            return None
+        agent = _load_agent(factory(), path)
+        logger.info(f"Loaded trained {stem} from {path}")
+        return agent
+    except Exception as e:
+        logger.warning(f"Could not load {stem}, using the heuristic instead: {e}")
+        return None
 
 
 try:
@@ -518,33 +562,20 @@ try:
     from feature_extraction import FeatureExtractor  # noqa: E402
     _FEATURE_EXTRACT = FeatureExtractor()
 
-    # Local override paths win over the HF download.
-    local_url  = os.environ.get("URL_AGENT_PATH")
-    local_meta = os.environ.get("METADATA_AGENT_PATH")
-    url_path   = Path(local_url) if local_url and Path(local_url).exists() else None
-    meta_path  = Path(local_meta) if local_meta and Path(local_meta).exists() else None
-
-    if url_path is None or meta_path is None:
-        u2, m2 = _try_download_agents()
-        url_path  = url_path  or u2
-        meta_path = meta_path or m2
-
-    if url_path and url_path.exists():
+    def _url_factory():
         from url_agent import URLAgent  # noqa: E402
-        _URL_AGENT = URLAgent()
-        _URL_AGENT.load_model(str(url_path))
-        logger.info(f"Loaded trained URL agent from {url_path}")
+        return URLAgent()
 
-    if meta_path and meta_path.exists():
+    def _meta_factory():
         from metadata_agent import MetadataAgent  # noqa: E402
-        _METADATA_AGENT = MetadataAgent()
-        _METADATA_AGENT.load_model(str(meta_path))
-        logger.info(f"Loaded trained metadata agent from {meta_path}")
+        return MetadataAgent()
 
+    _URL_AGENT = _init_agent("url_agent", "URL_AGENT_PATH", _url_factory)
+    _METADATA_AGENT = _init_agent("metadata_agent", "METADATA_AGENT_PATH", _meta_factory)
     if not _URL_AGENT and not _METADATA_AGENT:
         logger.info("No trained agents loaded: using heuristic fallbacks.")
 except Exception as e:
-    logger.warning(f"Trained-agents init failed, falling back to heuristics: {e}")
+    logger.warning(f"Feature extractor init failed, falling back to heuristics: {e}")
 
 
 def url_agent(urls: list[str], body_text: str = "") -> float:
@@ -1102,6 +1133,20 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         "contains_password_field": 0.40,   # login-page attachments are ~always phish
         "contains_iframe":         0.10,
         "meta_refresh_redirect":   0.20,
+        # Images and scanned PDFs (v1.12)
+        "image_only_pdf":          0.10,   # no text layer: common evasion, also real scans
+        "contains_qr_code":        0.20,   # "quishing": link hidden from text scanners
+        "text_from_ocr":           0.00,   # informational
+        # Office documents (v1.12)
+        "contains_macros":         0.45,
+        "remote_template":         0.45,   # template injection
+        "dde_field":               0.40,
+        "contains_activex":        0.25,
+        "embedded_ole_object":     0.20,
+        "external_data_connection":0.20,
+        "encrypted_document":      0.30,   # password in the email body blinds scanners
+        "legacy_office_format":    0.10,
+        "suspicious_xml_doctype":  0.20,
     }
     for f in notable:
         feature_bonus += _RISK.get(f, 0.0)
@@ -1141,8 +1186,13 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         or parent.get("gmail_delivered")   # explicit flag set by gmail.js
     )
     gsb_hit = "google_safe_browsing" in rep_hit_sources
+    # Office dropper techniques (v1.12). Gmail delivering the parent email
+    # says nothing about what a macro will do once enabled, and compromised
+    # accounts are exactly how these documents travel, so they force the
+    # phishing verdict on every path, like a Safe Browsing hit.
+    dropper = sorted(set(notable) & {"contains_macros", "remote_template", "dde_field"})
 
-    if parent_trusted and not gsb_hit:
+    if parent_trusted and not gsb_hit and not dropper:
         # text agent halved, url weight kept, feature bonus intact.
         # Threshold raised so purely-textual false-positives (99% content
         # score on a legit doc) don't cross alone.
@@ -1152,7 +1202,7 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
     else:
         fused = 0.5 * p_text + 0.5 * p_url + feature_bonus
         threshold = 0.55
-        high_conf = gsb_hit or (max(p_text, p_url) >= HIGH_CONF_OVERRIDE)
+        high_conf = gsb_hit or bool(dropper) or (max(p_text, p_url) >= HIGH_CONF_OVERRIDE)
 
     fused = min(1.0, fused)
     is_phishing = fused >= threshold or high_conf
@@ -1173,6 +1223,11 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
             "extracted_urls_count": len(urls),
             "notable_features":    notable,
             "feature_bonus":       round(feature_bonus, 3),
+            # v1.12: images, scanned PDFs, Office
+            "qr_urls":             extracted.get("qr_urls", []),
+            "ocr_used":            bool(extracted.get("ocr_used")),
+            "capabilities":        extracted.get("capabilities"),
+            "dropper_techniques":  dropper,
         },
         "parent_email": req.parent_email or None,
         "parent_trusted": bool(parent_trusted),

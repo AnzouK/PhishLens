@@ -40,7 +40,7 @@ B4: the backend downloads and deserialises model files at startup.
 | S1 | **Spoofing** the sender: `From: paypal.com` sent from attacker infrastructure to borrow trust | B1 | Trust comes from DKIM alignment with the From: organisational domain, not from the header text. Misaligned `signed-by` stays on the strict path. Tested in `test_auth_headers.py` and `test_extension_backend.py` | Mitigated |
 | S2 | Spoofing the client context: a caller claims `gmail_in_inbox` or `gmail_delivered` to soften its own scan | B2 | The flags only soften the caller's own result, never shared state; a Safe Browsing hit still forces phishing; documented as a SECURITY NOTE in code | Accepted (limited impact) |
 | S3 | Trusted-domain abuse: a compromised account at an allowlisted bank sends phishing | B1 | A Safe Browsing hit forces phishing on every path, the allowlist included (regression test since v1.11.0); allowlist is small and documented as a regional fallback | Partially mitigated |
-| T1 | **Tampering** with the model: a malicious joblib on Hugging Face (pickle executes code on load) | B4 | Models pulled only from the project's own HF repos, overridable by env to a local, reviewed file | Residual risk, see R4 |
+| T1 | **Tampering** with the model: a malicious joblib on Hugging Face (pickle executes code on load) | B4 | Since v1.12 the agents load from skops files with a type allowlist (scikit-learn, NumPy, SciPy, builtins only); pickle is a fallback that `AGENTS_ALLOW_PICKLE=0` turns off | Mitigated once the skops files are published, see R4 |
 | T2 | Cache poisoning: a wrong verdict stored in the reputation cache | B3 | Cache key is the normalised URL, values only come from the cascade itself, 24 h TTL | Mitigated |
 | T3 | Adversarial text: wording crafted to push DistilBERT towards "safe" | B1 | Three independent agents plus threat intel; a clean text score does not hide a blocklisted URL or failed DMARC | Partially mitigated |
 | R1 | **Repudiation**: no record of what was scanned | B2 | By design: the backend keeps no email content. Aggregate verdict counts only (`/metrics`) | Accepted |
@@ -49,11 +49,13 @@ B4: the backend downloads and deserialises model files at startup.
 | I3 | Secrets in the repository or its history | n/a | `.phishlens.env` and `.env` are git-ignored; the GSB key only lives on the VM; history rewritten once to remove personal data | Mitigated |
 | I4 | `/metrics` and `/reputation/stats` reveal traffic and quota usage | B2 | Contain counts only; operations guide shows how to block `/metrics` at Caddy | Mitigated when proxy rule applied |
 | D1 | **Denial of service** by request flooding, or burning the 10k/day GSB quota | B2 | Per-IP rate limits (30/min analyse, 20/min attachments, 15/min explain); GSB quota tracked in process with a 500-request safety buffer; cache absorbs repeats | Mitigated |
-| D2 | Oversized or malformed attachments exhausting CPU or memory | B2 | 10 MB cap, magic-byte sniffing, page limit on PDFs, unsupported types rejected with 400 | Mitigated |
+| D2 | Oversized or malformed attachments exhausting CPU or memory | B2 | 10 MB cap, magic-byte sniffing, page limit on PDFs, unsupported types rejected with 400; OCR limited to 3 pages with a 10 s timeout each, images downscaled and guarded against decompression bombs; Office files capped on part count, uncompressed size (zip bombs) and part size | Mitigated |
+| D5 | XML entity expansion or external entities in an Office file | B2 | Any XML part that declares a DOCTYPE is skipped and flagged `suspicious_xml_doctype`; ElementTree never fetches external entities | Mitigated |
 | D3 | ReDoS through crafted headers or URLs | B1, B2 | CodeQL `py/polynomial-redos` enabled; the three findings fixed (bounded quantifiers, anchored matches, `email.utils.parseaddr` instead of a regex); regression test with a 50k-character From: header | Mitigated |
 | D4 | Intel APIs slow or down | B3 | 3 s HTTP timeout per tier; each tier fails open to "no hit"; lookups run in parallel with inference | Mitigated |
 | E1 | **Elevation of privilege** via the extension: a Gmail page scripting the extension | B1 | Content script reads the DOM but never evaluates page content; every backend or email value inserted into the banner goes through `escapeHTML`; host permissions limited to Gmail and the configured backends | Mitigated |
-| E2 | Code execution through a malicious PDF or HTML attachment | B2 | Parsing only (pdfplumber, BeautifulSoup); nothing is rendered or executed; container runs as a non-root user | Mitigated |
+| E2 | Code execution through a malicious attachment | B2 | Parsing only (pdfplumber, BeautifulSoup, zipfile + ElementTree for Office); macros are detected, never run; PDF pages are rasterised by PDFium without JavaScript; container runs as a non-root user | Mitigated |
+| E4 | CSV formula injection through the history export (an attacker-controlled subject such as `=HYPERLINK(...)`) | B1 | Cells starting with `= + - @` are prefixed with a quote in the export (v1.12), covered by a unit test | Mitigated |
 | E3 | Supply chain: a compromised dependency or GitHub Action | n/a | Dependabot alerts and weekly updates, CI token limited to `contents: read`, CodeQL on every push | Mitigated |
 
 ## Residual risks and known limitations
@@ -70,9 +72,14 @@ training distribution.
 because the effect is confined to that caller's own response.
 
 **R4. Pickled model files.** Loading a joblib executes code by design.
-The risk is limited to the project's own Hugging Face repos; moving the
-Random Forests to a non-executable format (for example ONNX or skops) is
-the long-term fix.
+v1.12 adds the skops format with a type allowlist and a one-time
+converter. The residual risk disappears once the `.skops` files are on
+Hugging Face and `AGENTS_ALLOW_PICKLE=0` is set on the backend.
+
+**R7. OCR and QR decoding are best effort.** Low-resolution scans,
+handwriting, stylised fonts or deliberately damaged QR codes can defeat
+them. The `image_only_pdf` flag still raises the score a little when
+OCR finds nothing.
 
 **R5. Shared public demo.** Rate limits are per IP and in memory, so they
 reset on restart and can be spread across many IPs. Good enough for a
@@ -85,5 +92,6 @@ institutions with weak DKIM setups, but it trusts domains, not messages.
 ## Review triggers
 
 Revisit this document when a new endpoint is added, when a new input
-type is accepted (DOCX, images), when the extension gets new permissions,
+type is accepted (last review: v1.12, images and Office documents), when
+the extension gets new permissions,
 or when the deployment moves off the single VM.

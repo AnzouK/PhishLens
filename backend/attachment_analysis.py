@@ -1,10 +1,13 @@
 """
 PhishLens: email attachment analysis.
 =====================================================================
-Extract text and URLs from email attachments (PDF, HTML for Phase 1;
-DOCX / XLSX planned for Phase 2; images with OCR + steg heuristics for
-Phase 3) and reuse the existing text / URL / reputation pipeline on
-the extracted content.
+Extract text and URLs from email attachments and reuse the existing
+text / URL / reputation pipeline on the extracted content.
+
+Supported (v1.12): PDF (with OCR for scanned pages and QR decoding),
+HTML, plain text, images (OCR + QR), Word / Excel / PowerPoint in both
+modern and legacy formats (text, links and macro-style flags; see
+office_analysis.py). OCR and QR live in ocr.py.
 
 The dispatcher (analyse_attachment) returns a JSON-serialisable dict
 whose shape mirrors /analyse as closely as possible so the extension
@@ -20,6 +23,9 @@ from typing import Any
 import logging
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
+import ocr
+import office_analysis as office
+
 # ---------------------------------------------------------------------
 # Limits: enforced BEFORE decoding to protect the process.
 # ---------------------------------------------------------------------
@@ -27,6 +33,9 @@ MAX_ATTACHMENT_BYTES  = 10 * 1024 * 1024      # 10 MB hard cap
 MAX_EXTRACTED_TEXT    = 20_000                # chars fed to the text agent
 MAX_EXTRACTED_URLS    = 200                   # URLs sent to reputation cascade
 PDF_PAGE_LIMIT        = 50                    # abort text extraction past this
+# A PDF with fewer extracted characters than this per page (on average)
+# is treated as scanned / image-only and sent to OCR.
+SCANNED_CHARS_PER_PAGE = 50
 
 # ---------------------------------------------------------------------
 # Optional deps: graceful fallback (endpoint still responds, but
@@ -58,7 +67,29 @@ _MIME_BY_EXT = {
     ".htm":  "text/html",
     ".xhtml":"application/xhtml+xml",
     ".txt":  "text/plain",
+    # Office, modern (zip + xml)
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".docm": "application/vnd.ms-word.document.macroenabled.12",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".xlsm": "application/vnd.ms-excel.sheet.macroenabled.12",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".pptm": "application/vnd.ms-powerpoint.presentation.macroenabled.12",
+    # Office, legacy (OLE2)
+    ".doc":  "application/msword",
+    ".xls":  "application/vnd.ms-excel",
+    ".ppt":  "application/vnd.ms-powerpoint",
+    # Images
+    ".png":  "image/png",
+    ".jpg":  "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif":  "image/gif",
+    ".webp": "image/webp",
+    ".bmp":  "image/bmp",
+    ".tif":  "image/tiff",
+    ".tiff": "image/tiff",
 }
+
+IMAGE_MIMES = {m for m in _MIME_BY_EXT.values() if m.startswith("image/")}
 
 def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> str:
     """
@@ -78,8 +109,23 @@ def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> s
     if head.lstrip().lower().startswith((b"<!doctype html", b"<html", b"<!--", b"<head")):
         return "text/html"
     if head[:2] == b"PK":
-        # ZIP-based (docx, xlsx, pptx, jar, ...): Phase 2 territory
+        # ZIP-based: Office documents are resolved by the dispatcher,
+        # which opens the archive to see what is inside.
         return "application/zip"
+    if head.startswith(office.OLE2_MAGIC):
+        return "application/x-ole-storage"
+    if head.startswith(b"\x89PNG"):
+        return "image/png"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if head.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif"
+    if head.startswith(b"RIFF") and head[8:12] == b"WEBP":
+        return "image/webp"
+    if head.startswith(b"BM"):
+        return "image/bmp"
+    if head.startswith((b"II*\x00", b"MM\x00*")):
+        return "image/tiff"
 
     # Fall back to whatever the client claimed, sanitized.
     if client_hint and "/" in client_hint:
@@ -192,6 +238,33 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
             except Exception:
                 continue
 
+    # Scanned / image-only PDFs and QR codes (v1.12). The first pages are
+    # rendered once; QR decoding always runs on them, OCR only when the
+    # PDF has (almost) no text layer.
+    caps = ocr.capabilities()
+    scanned = pages_read > 0 and len(text.strip()) < SCANNED_CHARS_PER_PAGE * pages_read
+    ocr_used = False
+    qr_found: list[str] = []
+    if caps["pdf_render"] and (caps["qr"] or (scanned and caps["ocr"])):
+        pages = ocr.render_pdf_pages(raw)
+        scan = ocr.scan_images(pages, do_ocr=scanned and caps["ocr"])
+        if scan["text"]:
+            text = (text + "\n" + scan["text"]).strip()[:MAX_EXTRACTED_TEXT]
+            ocr_used = True
+            for u in extract_urls(scan["text"]):
+                if u not in urls:
+                    urls.append(u)
+        qr_found = scan["qr_urls"]
+        for u in qr_found:
+            if u not in urls:
+                urls.append(u)
+    if scanned:
+        markers.append("image_only_pdf")
+    if qr_found:
+        markers.append("contains_qr_code")
+    if ocr_used:
+        markers.append("text_from_ocr")
+
     return {
         "kind":              "pdf",
         "filename":          filename,
@@ -200,8 +273,44 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
         "pages_read":        pages_read,
         "extracted_text":    text,
         "extracted_text_chars": len(text),
-        "extracted_urls":    urls,
+        "extracted_urls":    urls[:MAX_EXTRACTED_URLS],
         "notable_features":  markers,
+        "qr_urls":           qr_found,
+        "ocr_used":          ocr_used,
+        "capabilities":      caps,
+    }
+
+
+# =====================================================================
+# Image analysis (v1.12): OCR + QR
+# =====================================================================
+def analyse_image(raw: bytes, filename: str) -> dict[str, Any]:
+    img = ocr.load_image(raw)
+    caps = ocr.capabilities()
+    scan = ocr.scan_images([img], do_ocr=caps["ocr"])
+    text = scan["text"][:MAX_EXTRACTED_TEXT]
+    urls = extract_urls(text)
+    for u in scan["qr_urls"]:
+        if u not in urls:
+            urls.append(u)
+    flags = []
+    if scan["qr_urls"]:
+        flags.append("contains_qr_code")
+    if text:
+        flags.append("text_from_ocr")
+    return {
+        "kind":              "image",
+        "filename":          filename,
+        "size_bytes":        len(raw),
+        "width":             img.size[0],
+        "height":            img.size[1],
+        "extracted_text":    text,
+        "extracted_text_chars": len(text),
+        "extracted_urls":    urls[:MAX_EXTRACTED_URLS],
+        "notable_features":  flags,
+        "qr_urls":           scan["qr_urls"],
+        "ocr_used":          bool(text),
+        "capabilities":      caps,
     }
 
 
@@ -295,6 +404,21 @@ def analyse_attachment(content_b64: str,
 
     mime = sniff_type(filename or "", raw[:16], mime_type)
 
+    # Office documents: modern ones are ZIPs, legacy / encrypted ones OLE2.
+    if mime == "application/zip":
+        if office.detect_ooxml_kind(raw) is None:
+            raise ValueError("Unsupported ZIP attachment: not a Word, Excel or PowerPoint document.")
+        return office.analyse_ooxml(raw, filename)
+    if mime in office.OOXML_MIMES:
+        if raw.startswith(office.OLE2_MAGIC):
+            # password-protected .docx/.xlsx are OLE2 containers
+            return office.analyse_ole(raw, filename)
+        return office.analyse_ooxml(raw, filename)
+    if mime in office.LEGACY_MIMES:
+        return office.analyse_ole(raw, filename)
+    if mime in IMAGE_MIMES:
+        return analyse_image(raw, filename)
+
     if mime == "application/pdf":
         return analyse_pdf(raw, filename)
     if mime in ("text/html", "application/xhtml+xml"):
@@ -314,6 +438,6 @@ def analyse_attachment(content_b64: str,
 
     raise ValueError(
         f"Unsupported attachment type: {mime}. "
-        f"Phase 1 supports PDF, HTML and plain text. "
-        f"DOCX/XLSX will land in Phase 2, images with OCR in Phase 3."
+        "Supported: PDF, HTML, plain text, images (PNG, JPEG, GIF, WebP, BMP, TIFF), "
+        "Word, Excel and PowerPoint (modern and legacy formats)."
     )

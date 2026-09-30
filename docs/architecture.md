@@ -141,6 +141,48 @@ auto-execute, and so on, capped at 0.7), threshold 0.55. If the parent
 email was trusted, the text weight is halved and the threshold rises to
 0.72, but a Safe Browsing hit still forces phishing.
 
+### Attachment pipeline
+
+```mermaid
+flowchart TD
+    B["base64 upload<br/>10 MB cap"] --> M{"Sniff type<br/>extension, then magic bytes"}
+    M -->|PDF| P["pdfplumber text + link annotations"]
+    P --> Q{"Text layer?"}
+    Q -- "almost none" --> O["render first 3 pages<br/>Tesseract OCR"]
+    Q -- yes --> R["render first 3 pages"]
+    O & R --> QR["QR decoding (OpenCV)"]
+    M -->|image| I["OCR + QR"]
+    M -->|HTML| H["visible text, form / script / iframe flags"]
+    M -->|DOCX XLSX PPTX| X["zip + XML parts: text, external links,<br/>macros, remote template, DDE, OLE, ActiveX"]
+    M -->|DOC XLS PPT, encrypted| L["OLE2 marker scan:<br/>macros, encryption, URLs"]
+    QR & I & H & X & L & P --> A["text agent + URL agent + threat intel<br/>+ feature bonus"]
+```
+
+| Flag | Bonus | Why it matters |
+| --- | --- | --- |
+| `contains_macros` | 0.45 | VBA or Excel 4.0 macros, the classic dropper |
+| `remote_template` | 0.45 | Template fetched from a URL at open time (template injection) |
+| `dde_field` | 0.40 | DDE field that can launch a command |
+| `launch_external_action`, `auto_execute_on_open` | 0.35, 0.30 | PDF actions that run on open |
+| `contains_password_field` | 0.40 | An HTML login page as an attachment is almost always phishing |
+| `encrypted_document` | 0.30 | Password in the email body blinds scanners |
+| `contains_activex` | 0.25 | ActiveX control in an Office file |
+| `contains_qr_code` | 0.20 | "Quishing": the link is hidden from text scanners |
+| `embedded_ole_object`, `external_data_connection` | 0.20 | Hidden payloads or remote data |
+| `image_only_pdf` | 0.10 | No text layer: an evasion trick, but real scans exist too |
+| `legacy_office_format` | 0.10 | Pre-2007 binary format |
+
+Macros, remote templates and DDE fields force the phishing verdict on
+every path, even when the parent email is trusted: Gmail delivering the
+email says nothing about what a macro does once enabled, and hijacked
+accounts are how these documents usually travel.
+
+Every step has a resource limit: 10 MB per upload, 3 OCR pages, a
+10 s Tesseract timeout per page, images downscaled to 3000 px, a
+decompression-bomb guard, and for Office files a cap on part count,
+total uncompressed size (zip bombs) and part size. XML parts that
+declare a DOCTYPE are skipped rather than parsed.
+
 ## Key design decisions
 
 **DistilBERT rather than BERT-base.** About 40% smaller and 60% faster for
@@ -177,6 +219,16 @@ SHA-256 keyed cache turns a repeat explanation into a local read.
 **Two repositories.** Training code and notebooks change rarely and pull
 heavy dependencies; the runtime should stay small and installable. The
 models are the contract between the two, published on Hugging Face.
+
+**Office parsing with the standard library.** Word, Excel and PowerPoint
+files are read as ZIP + XML with `zipfile` and `ElementTree`, not with
+python-docx or openpyxl: nothing to install, nothing that interprets
+document content, and full control over size limits.
+
+**Random Forests in the skops format.** Pickle (joblib) runs arbitrary
+code when loaded. skops stores the same scikit-learn objects as data,
+and the loader refuses any file that references a type outside
+scikit-learn, NumPy, SciPy or the Python builtins.
 
 **No accounts, no server-side storage of emails.** The backend is
 stateless apart from the URL reputation cache (URLs and verdicts only).

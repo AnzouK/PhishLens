@@ -38,7 +38,7 @@ what it is for.
 | Design | [architecture.md](architecture.md), including the design decisions and their rationale |
 | Implementation | Conventional commits, semantic version tags, one tag per release |
 | Security (SSDLC) | [threat-model.md](threat-model.md), CodeQL on every push, Dependabot alerts and weekly version updates, [SECURITY.md](../SECURITY.md), per-IP rate limiting, least-privilege CI token |
-| Testing | Offline pytest suite in `backend/tests/` with coverage reported in CI; model evaluation in the PhishingDetector notebooks |
+| Testing | Offline pytest suite in `backend/tests/` with coverage reported in CI; extension unit tests (node:test) and popup UI tests (Playwright); model evaluation in the PhishingDetector notebooks |
 | Deployment | Docker images (`Dockerfile.local`, `Dockerfile.cloud`), Caddy with Let's Encrypt on an Oracle Cloud VM |
 | Operations | Structured logging, Prometheus `/metrics`, `/health` and `/reputation/stats`, Locust load test ([operations.md](operations.md)) |
 | Maintenance | [CHANGELOG.md](../CHANGELOG.md), Dependabot, GitHub Releases, roadmap in the README |
