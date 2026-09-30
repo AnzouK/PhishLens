@@ -53,4 +53,4 @@ pypdfium2>=5.13.0,<6.0
 # Random Forest agents without pickle (v1.12): skops files are loaded
 # with a type allowlist (agent_io.py). joblib stays for the one-time
 # conversion and as a fallback until the .skops files are published.
-skops>=0.10,<1.0
+skops>=0.16.0,<1.0
