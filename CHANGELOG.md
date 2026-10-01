@@ -5,7 +5,9 @@ All notable changes to PhishLens are listed here. The format follows
 uses [Semantic Versioning](https://semver.org/). The extension and the
 backend share one version number.
 
-## [Unreleased]
+## [1.14.1] - 2026-10-01
+
+Security fix for the v1.14 parsers, and a one-command redeploy.
 
 ### Added
 - **`scripts/redeploy.sh`:** one-command redeploy on the VM (pull,
@@ -375,6 +377,7 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[1.14.1]: https://github.com/AnzouK/PhishLens/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/AnzouK/PhishLens/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/AnzouK/PhishLens/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/AnzouK/PhishLens/compare/v1.11.0...v1.12.0
