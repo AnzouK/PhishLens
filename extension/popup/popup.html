@@ -266,23 +266,23 @@
       </p>
 
       <div class="backend-option">
+        <input type="radio" id="opt-cloud" name="backend" value="cloud" />
+        <label for="opt-cloud" class="backend-option__label">
+          <span class="backend-option__icon"><svg class="i" aria-hidden="true"><use href="#i-cloud"/></svg></span>
+          <div class="backend-option__main">
+            <div class="backend-option__title">PhishLens Cloud <span class="backend-option__tag">default</span></div>
+            <div class="backend-option__sub"><code>anzouk.duckdns.org</code>: hosted service, HTTPS, no setup.</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="backend-option">
         <input type="radio" id="opt-local" name="backend" value="local" />
         <label for="opt-local" class="backend-option__label">
           <span class="backend-option__icon"><svg class="i" aria-hidden="true"><use href="#i-monitor"/></svg></span>
           <div class="backend-option__main">
             <div class="backend-option__title">Local backend (Docker)</div>
             <div class="backend-option__sub"><code>http://127.0.0.1:8000</code>: private, no setup once Docker runs.</div>
-          </div>
-        </label>
-      </div>
-
-      <div class="backend-option">
-        <input type="radio" id="opt-cloud" name="backend" value="cloud" />
-        <label for="opt-cloud" class="backend-option__label">
-          <span class="backend-option__icon"><svg class="i" aria-hidden="true"><use href="#i-cloud"/></svg></span>
-          <div class="backend-option__main">
-            <div class="backend-option__title">PhishLens Cloud</div>
-            <div class="backend-option__sub"><code>anzouk.duckdns.org</code>: hosted service, HTTPS, no setup.</div>
           </div>
         </label>
       </div>

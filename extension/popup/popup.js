@@ -10,7 +10,7 @@ const BACKEND_PRESETS = {
     local:  "http://127.0.0.1:8000",
     cloud:  "https://anzouk.duckdns.org",
 };
-const DEFAULT_BACKEND = "local";
+const DEFAULT_BACKEND = "cloud";   // v1.15: PhishLens Cloud by default
 
 let backendChoice = DEFAULT_BACKEND;     // "local" | "cloud" | "custom"
 let backendCustomUrl = "";
@@ -799,7 +799,7 @@ async function renderInsights() {
         const when = timeAgo(e.ts);
         const subj = e.subject || "(no subject)";
         const src = ({
-            gmail: "Gmail", "gmail-attachment": "Gmail attachment", "gmail-auto": "Gmail (automatic)",
+            gmail: "Gmail", "gmail-attachment": "Gmail attachment", "gmail-auto": "Gmail (automatic)", outlook: "Outlook",
             file: ".eml file", attachment: "attachment", paste: "pasted text",
         })[e.source] || e.source;
         return `

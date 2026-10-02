@@ -10,7 +10,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const EXT = path.resolve(__dirname, "..", "..", "extension");
-const API = "http://127.0.0.1:8000";
+const API = "https://anzouk.duckdns.org";   // PhishLens Cloud, the default backend (v1.15)
 const TYPES = {
     ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
     ".png": "image/png", ".svg": "image/svg+xml", ".json": "application/json",

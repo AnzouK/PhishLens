@@ -172,7 +172,7 @@ async function getStats() {
         .map(([token, weight]) => ({ token, weight }));
 
     // By source breakdown
-    const bySource = { gmail: 0, "gmail-attachment": 0, "gmail-auto": 0, file: 0, attachment: 0, paste: 0, unknown: 0 };
+    const bySource = { gmail: 0, "gmail-attachment": 0, "gmail-auto": 0, outlook: 0, file: 0, attachment: 0, paste: 0, unknown: 0 };
     for (const e of list) bySource[e.source] = (bySource[e.source] || 0) + 1;
 
     // Average score

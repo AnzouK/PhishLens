@@ -1022,6 +1022,11 @@ def _get_body_urls_headers(req: AnalyseRequest):
 @(_limiter.limit(RATE_LIMIT_ANALYSE) if _RATE_LIMIT_OK else (lambda f: f))
 async def analyse(request: Request, req: AnalyseRequest):
     body, urls, headers, raw_bytes = _get_body_urls_headers(req)
+    if not body and raw_bytes:
+        # A full email with no text part (attachment-only): score its
+        # headers and links; the subject stands in for the text, which
+        # is too short for the text agent anyway (see MIN_TEXT_WORDS).
+        body = (headers.get("subject") or "").strip() or "(no text)"
     if not body:
         raise HTTPException(400, "Could not extract any text from this email.")
 
@@ -1051,10 +1056,19 @@ async def analyse(request: Request, req: AnalyseRequest):
     # run agents: pass the extra context so the trained models can take
     # over when they're loaded; the heuristic fallback still works with
     # just the parsed urls/headers.
+    # v1.15: headers fetched by the extension from Gmail's "Show original"
+    # are modern provider headers (ARC, X-Gm-*, long Received chains) that
+    # the trained metadata Random Forest never saw: on legitimate 2026
+    # Gmail mail it outputs ~1.0. For those, the header heuristics and the
+    # real SPF/DKIM/DMARC results are used instead of the trained model,
+    # until it is retrained on modern headers.
+    meta_raw_for_model = raw_bytes
+    if (req.client_context or {}).get("headers_source") == "gmail_show_original":
+        meta_raw_for_model = None
     try:
         p_text = text_agent(body)
         p_url  = url_agent(urls, body_text=body)
-        p_meta = metadata_agent(headers, raw_email=raw_bytes)
+        p_meta = metadata_agent(headers, raw_email=meta_raw_for_model)
     except Exception as e:
         if auth_signal_task:
             auth_signal_task.cancel()

@@ -474,3 +474,30 @@ def test_html_to_text_drops_css_and_scripts():
     assert "Your flight" in text and "Check & confirm" in text
     for noise in ("25px", "roboto", "itinerarytable", "var x"):
         assert noise not in text
+
+
+class TestShowOriginal:
+    EML = (b"From: Bank <alerts@bank.example>\r\nSubject: Statement ready\r\n"
+           b"Authentication-Results: mx.google.com; dkim=pass header.i=@bank.example\r\n"
+           b"Content-Type: text/plain\r\n\r\nYour monthly statement is ready to view online.\r\n")
+
+    def test_trained_meta_model_skipped_for_gmail_show_original(self, client, monkeypatch):
+        calls = []
+
+        def fake_meta(headers, raw_email=None):
+            calls.append(raw_email)
+            return 0.1
+        monkeypatch.setattr(eb, "metadata_agent", fake_meta)
+        client.post("/analyse", json={"raw_email_b64": b64(self.EML)})
+        client.post("/analyse", json={"raw_email_b64": b64(self.EML),
+                                      "client_context": {"origin": "gmail", "headers_source": "gmail_show_original"}})
+        assert calls[0] is not None and calls[1] is None
+
+    def test_attachment_only_eml_is_scored(self, client):
+        eml = (b"From: a@b.example\r\nSubject: Invoice\r\nMIME-Version: 1.0\r\n"
+               b"Content-Type: multipart/mixed; boundary=X\r\n\r\n--X\r\n"
+               b"Content-Type: application/pdf\r\nContent-Disposition: attachment; filename=a.pdf\r\n\r\n"
+               b"--X--\r\n")
+        r = client.post("/analyse", json={"raw_email_b64": b64(eml)})
+        assert r.status_code == 200
+        assert r.json()["text_agent_used"] is False

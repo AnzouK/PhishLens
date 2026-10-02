@@ -41,6 +41,22 @@
         "content_scripts/banner.css"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://outlook.office.com/*",
+        "https://outlook.office365.com/*",
+        "https://outlook.live.com/*"
+      ],
+      "js": [
+        "lib/lime_cache.js",
+        "content_scripts/gmail.js",
+        "content_scripts/outlook.js"
+      ],
+      "css": [
+        "content_scripts/banner.css"
+      ],
+      "run_at": "document_idle"
     }
   ]
 }

@@ -23,7 +23,7 @@ kept. It applies to the extension and to the hosted backend, PhishLens Cloud, at
 
 ## What the extension reads
 
-When a scan runs, the extension reads from the open Gmail page:
+When a scan runs, the extension reads from the open Gmail or Outlook page:
 
 - the text of the message, its subject and the sender's address;
 - the targets of the links in the message;
@@ -79,6 +79,7 @@ PhishLens Cloud also counts verdicts per scoring path for monitoring
 | `alarms` | Ping the backend now and then so the first scan is not slow. |
 | `notifications` | Warn you when the automatic scan finds a phishing email. |
 | Access to `mail.google.com` | Add the scan buttons and banners to Gmail and read the email you scan. |
+| Access to Outlook on the web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Same, in Outlook (manual scans only). |
 | Access to `127.0.0.1:8000`, `localhost:8000`, `anzouk.duckdns.org` | Send scans to the backend you chose. |
 
 ## Your choices

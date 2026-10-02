@@ -77,12 +77,13 @@ decisions: [docs/architecture.md](docs/architecture.md).
 **1. Load the extension.** Open `chrome://extensions`, turn on Developer
 mode, click **Load unpacked** and pick the `extension/` folder.
 
-**2. Pick a backend** in the extension's gear menu:
+**2. Pick a backend** in the extension's gear menu (PhishLens Cloud is
+the default, so this step is optional):
 
 | Option | Setup | When to use it |
 | --- | --- | --- |
-| PhishLens Cloud | none | Normal use. Hosted server, nothing stored ([privacy policy](PRIVACY.md)). |
-| Local Docker | commands below | Daily use, your emails stay on your machine. |
+| PhishLens Cloud (default) | none | Normal use. Hosted server, nothing stored ([privacy policy](PRIVACY.md)). |
+| Local Docker | commands below | Emails never leave your machine. |
 | Local Python | commands below | Development. |
 
 Local Docker:
@@ -179,13 +180,16 @@ both repositories, the models, the report and every guide.
 ## Roadmap
 
 - **Chrome Web Store release** once the extension UI is final.
-- **Outlook Web** support, then Yahoo Mail.
+- **Outlook on the web:** manual scans work (v1.15); next, attachments,
+  full headers and automatic scanning there, then Yahoo Mail.
 - **Live evaluation at scale:** the review buttons and
   `scripts/live_eval.py` are in place; the next step is a few hundred
   reviewed real emails, plus phishing reported after the training
   cut-off.
 - **Attachments:** open RAR and 7z archives (recognised but not opened
   today).
+- **Multilingual detection:** French, Portuguese, Hausa, Yoruba and
+  other languages (the text model and the OCR are English-only today).
 - **Research:** SHAP as a comparison for LIME, retraining the agents on
   OCR text and QR-code phishing.
 

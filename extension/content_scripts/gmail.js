@@ -10,6 +10,9 @@
 // =====================================================================
 
 const TAG = "[PhishLens]";
+// v1.15: this file is also loaded on Outlook for its banner code; the
+// Gmail-specific watchers only run on Gmail.
+const PLL_IS_GMAIL = location.hostname === "mail.google.com";
 
 // Inline SVG icons (no emoji: they render differently on every OS).
 const PLL_ICON = {
@@ -53,7 +56,7 @@ const PROCESSED = new WeakSet();
 // MutationObserver entry point
 // ---------------------------------------------------------------------
 const obs = new MutationObserver(() => scheduleScan());
-obs.observe(document.body, { childList: true, subtree: true });
+if (PLL_IS_GMAIL) obs.observe(document.body, { childList: true, subtree: true });
 
 let scanQueued = false;
 function scheduleScan() {
@@ -172,6 +175,8 @@ async function runScan(emailView, btn) {
         // Authentication-Results, Reply-To...) when the setting is on and
         // Gmail serves it; otherwise the visible text as before.
         const original = PLL_OPTS.fullHeaders ? await fetchOriginalMessage(msg) : null;
+        console.info(TAG, original ? `full headers: ${original.length} chars from Show original`
+                                   : `full headers: not used (option ${PLL_OPTS.fullHeaders ? "on" : "off"})`);
         const payload = {
             ...(original
                 ? { raw_email_b64: utf8ToB64(original) }
@@ -180,6 +185,7 @@ async function runScan(emailView, btn) {
             client_context: {
                 origin: "gmail",
                 subject,
+                ...(original ? { headers_source: "gmail_show_original" } : {}),
                 gmail_signed_by: gmailAuth.signedBy,
                 gmail_mailed_by: gmailAuth.mailedBy,
                 gmail_via:       gmailAuth.via,
@@ -334,7 +340,9 @@ function pllMeter(label, value) {
 // ---------------------------------------------------------------------
 // Render the verdict banner above the email body
 // ---------------------------------------------------------------------
-function showBanner(emailView, data) {
+// `anchor` (optional): insert the banner just before this element
+// (used by the Outlook script); Gmail finds its own place.
+function showBanner(emailView, data, anchor = null) {
     let banner = emailView.querySelector(":scope > .pll-banner") ||
                  emailView.querySelector(".pll-banner");
     if (banner) banner.remove();
@@ -398,7 +406,9 @@ function showBanner(emailView, data) {
     }
 
     const headerBar = emailView.querySelector(HEADER_BAR);
-    if (headerBar && headerBar.parentNode) {
+    if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(banner, anchor);
+    } else if (headerBar && headerBar.parentNode) {
         headerBar.parentNode.insertBefore(banner, headerBar);
     } else {
         const bodyEl = emailView.querySelector(BODY_SEL);
@@ -494,33 +504,50 @@ const _PLL_ENTITIES = { "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "
 async function fetchOriginalMessage(ref) {
     try {
         const ik = gmailIk();
-        if (!ik) return null;
+        if (!ik) { console.info(TAG, "full headers: Gmail token not found, using the visible page"); return null; }
         let q;
         if (ref?.thread) {
             q = "th=" + encodeURIComponent(ref.thread);
         } else {
+            // Gmail uses several id forms ("msg-f:123…", "msg-a:r123…");
+            // the legacy hex id works too, as a thread/message reference.
             const perm = (ref?.getAttribute?.("data-message-id") || "").replace(/^#/, "");
-            if (!/^msg-[a-z]:\d+$/.test(perm)) return null;
-            q = "permmsgid=" + encodeURIComponent(perm);
+            const legacy = ref?.getAttribute?.("data-legacy-message-id") || "";
+            if (/^msg-[a-z]:[a-z]?-?\d+$/.test(perm)) q = "permmsgid=" + encodeURIComponent(perm);
+            else if (/^[0-9a-f]{8,20}$/.test(legacy)) q = "th=" + legacy;
+            else { console.info(TAG, "full headers: no message id, using the visible page"); return null; }
         }
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 5000);
-        const resp = await fetch(`${gmailAccountPath()}/?ik=${ik}&view=om&${q}`,
+        // Absolute URL: a relative one is not resolved against the page
+        // in every content-script context.
+        const resp = await fetch(`${location.origin}${gmailAccountPath()}/?ik=${ik}&view=om&${q}`,
             { credentials: "include", signal: ctrl.signal });
         clearTimeout(timer);
-        if (!resp.ok) return null;
+        if (!resp.ok) { console.info(TAG, `full headers: Gmail answered HTTP ${resp.status}`); return null; }
         const html = await resp.text();
         const start = html.indexOf('id="raw_message_text"');
-        if (start < 0) return null;
+        if (start < 0) { console.info(TAG, "full headers: unexpected page layout, using the visible page"); return null; }
         const open = html.indexOf(">", start);
         const close = html.indexOf("</pre>", open);
         if (open < 0 || close < 0) return null;
         const raw = html.slice(open + 1, close)
             .replace(/&(?:lt|gt|quot|#39|amp);/g, (e) => _PLL_ENTITIES[e]);
         // Sanity check: it must look like an RFC 822 message.
-        if (!/^(?:from|received|delivered-to|return-path):/im.test(raw.slice(0, 20000))) return null;
+        if (!/^(?:from|received|delivered-to|return-path):/im.test(raw.slice(0, 20000))) {
+            console.info(TAG, "full headers: content is not an email, using the visible page");
+            return null;
+        }
+        // Messages you sent (or drafts) have no delivery headers: nothing
+        // to verify, and they would look odd to the sender checks.
+        const headerEnd = raw.search(/\r?\n\r?\n/);
+        if (!/^Received:/im.test(raw.slice(0, headerEnd > 0 ? headerEnd : 20000))) {
+            console.info(TAG, "full headers: no delivery headers (a message you sent?), using the visible page");
+            return null;
+        }
         return raw.slice(0, 2 * 1024 * 1024);
-    } catch {
+    } catch (e) {
+        console.info(TAG, "full headers: fetch failed, using the visible page:", String(e?.message || e));
         return null;
     }
 }
@@ -626,11 +653,11 @@ async function _getBackendBase() {
     try {
         const s = await new Promise((r) =>
             chrome.storage.local.get(["backend", "backend_custom_url"], r));
-        const choice = s.backend || "local";
+        const choice = s.backend || "cloud";
         if (choice === "custom") return (s.backend_custom_url || "").replace(/\/$/, "");
-        return _BACKEND_PRESETS[choice] || _BACKEND_PRESETS.local;
+        return _BACKEND_PRESETS[choice] || _BACKEND_PRESETS.cloud;
     } catch {
-        return _BACKEND_PRESETS.local;
+        return _BACKEND_PRESETS.cloud;
     }
 }
 
@@ -764,7 +791,7 @@ const _attObs = new MutationObserver(() => {
         });
     }, 400);
 });
-_attObs.observe(document.body, { childList: true, subtree: true });
+if (PLL_IS_GMAIL) _attObs.observe(document.body, { childList: true, subtree: true });
 
 function installAttachmentButtons(emailView) {
     if (!emailView) return;
@@ -1200,7 +1227,8 @@ console.log(TAG, "Gmail content script loaded.");
 // and sent to /analyse one at a time. A phishing verdict puts a red
 // "Phishing?" pill on the row and raises a desktop notification. Results
 // are cached by thread id, so an email is scanned once.
-const AUTO_CACHE_KEY = "autoScanCache";
+// v2: results from before the v1.15 header fix are not reused.
+const AUTO_CACHE_KEY = "autoScanCache.v2";
 const AUTO_CACHE_MAX = 500;
 const AUTO_MAX_PER_PASS = 10;     // stays well under the backend rate limit
 const AUTO_DELAY_MS = 1500;       // between two emails
@@ -1208,17 +1236,18 @@ let _autoRunning = false;
 let _autoTimer = null;
 
 function scheduleAutoScan() {
-    if (!PLL_OPTS.autoScan || _autoTimer) return;
+    if (!PLL_IS_GMAIL || !PLL_OPTS.autoScan || _autoTimer) return;
     _autoTimer = setTimeout(() => { _autoTimer = null; runAutoScan(); }, 3000);
 }
 // New mail and list redraws both mutate the DOM: piggy-back on them.
 let _paintQueued = false;
-new MutationObserver(() => {
+const _autoObs = new MutationObserver(() => {
     if (PLL_OPTS.autoScan) scheduleAutoScan();
     if (_paintQueued) return;
     _paintQueued = true;
     setTimeout(() => { _paintQueued = false; paintAutoBadges(); }, 300);
-}).observe(document.body, { childList: true, subtree: true });
+});
+if (PLL_IS_GMAIL) _autoObs.observe(document.body, { childList: true, subtree: true });
 
 function _autoCacheGet() {
     return new Promise((r) => chrome.storage.local.get([AUTO_CACHE_KEY], (s) => r(s[AUTO_CACHE_KEY] || {})));
@@ -1252,13 +1281,16 @@ function paintAutoBadges() {
     if (!_autoCacheMem) return;
     for (const r of _inboxRows()) {
         const hit = _autoCacheMem[r.id];
-        if (!hit || hit.verdict !== "phishing" || r.row.querySelector(".pll-row-badge")) continue;
+        if (!hit || (hit.verdict !== "phishing" && hit.verdict !== "safe") || r.row.querySelector(".pll-row-badge")) continue;
         const cell = r.row.querySelector(".bog")?.parentElement;
         if (!cell) continue;
+        const bad = hit.verdict === "phishing";
         const b = document.createElement("span");
-        b.className = "pll-row-badge";
-        b.textContent = "Phishing?";
-        b.title = `PhishLens: ${Math.round((hit.score || 0) * 100)}% phishing score. Open the email and scan it for details.`;
+        b.className = "pll-row-badge" + (bad ? "" : " pll-row-badge--safe");
+        b.textContent = bad ? "Phishing?" : "Safe";
+        b.title = bad
+            ? `PhishLens: ${Math.round((hit.score || 0) * 100)}% phishing score. Open the email and scan it for details.`
+            : `PhishLens checked this email automatically: no strong phishing signals (${Math.round((hit.score || 0) * 100)}%).`;
         cell.prepend(b);
     }
 }
@@ -1305,6 +1337,7 @@ async function runAutoScan() {
                     client_context: {
                         origin: "gmail",
                         subject: r.subject,
+                        headers_source: "gmail_show_original",
                         gmail_in_inbox: !/spam|trash/i.test(location.hash),
                         auto_scan: true,
                     },
@@ -1331,9 +1364,9 @@ async function runAutoScan() {
                     trusted: !!d.trusted_sender,
                 },
             }).catch(() => {});
+            paintAutoBadges();
             if (d.verdict === "phishing") {
                 flagged++;
-                paintAutoBadges();
                 chrome.runtime.sendMessage({
                     type: "phishlens.notify",
                     title: "PhishLens: this email looks like phishing",
@@ -1353,4 +1386,4 @@ async function runAutoScan() {
         _autoRunning = false;
     }
 }
-_autoCacheGet().then((c) => { _autoCacheMem = c; paintAutoBadges(); }).catch(() => {});
+if (PLL_IS_GMAIL) _autoCacheGet().then((c) => { _autoCacheMem = c; paintAutoBadges(); }).catch(() => {});
