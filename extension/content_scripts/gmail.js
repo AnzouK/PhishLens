@@ -168,8 +168,14 @@ async function runScan(emailView, btn) {
 
         // Send the body as raw_text and the sender separately so the backend
         // can run the trusted-domain check.
+        // v1.15: the full original message (all headers: Received chain,
+        // Authentication-Results, Reply-To...) when the setting is on and
+        // Gmail serves it; otherwise the visible text as before.
+        const original = PLL_OPTS.fullHeaders ? await fetchOriginalMessage(msg) : null;
         const payload = {
-            raw_text: (shortBody ? [subject, body].filter(Boolean).join("\n") || "(no text)" : body).slice(0, 4000),
+            ...(original
+                ? { raw_email_b64: utf8ToB64(original) }
+                : { raw_text: (shortBody ? [subject, body].filter(Boolean).join("\n") || "(no text)" : body).slice(0, 4000) }),
             sender_email: senderEmail || null,
             client_context: {
                 origin: "gmail",
@@ -189,7 +195,7 @@ async function runScan(emailView, btn) {
             type: "phishlens.analyse", payload,
         });
         if (!r?.ok) throw new Error(r?.error || "Unknown error");
-        showBanner(emailView, { ...r.data, _threadMessages: count });
+        showBanner(emailView, { ...r.data, _threadMessages: count, _fullHeaders: !!original });
 
         // Persist this scan in the local history: background.js writes it
         // via the shared history module. We remember the returned id so we
@@ -436,6 +442,98 @@ function textOf(el) {
     if (!el) return "";
     return el.innerText.replace(/\s+\n/g, "\n").trim();
 }
+// ---------------------------------------------------------------------
+// v1.15: options and Gmail's "Show original"
+// ---------------------------------------------------------------------
+// Options set in the popup (Settings): full headers on by default,
+// automatic scanning of new emails off by default (it sends emails to
+// the backend without a click, so it is opt-in).
+const PLL_OPTS = { fullHeaders: true, autoScan: false };
+chrome.storage?.local?.get(["opt_full_headers", "opt_auto_scan"], (s) => {
+    PLL_OPTS.fullHeaders = s.opt_full_headers !== false;
+    PLL_OPTS.autoScan = s.opt_auto_scan === true;
+    if (PLL_OPTS.autoScan) scheduleAutoScan();
+});
+chrome.storage?.onChanged?.addListener((changes, area) => {
+    if (area !== "local") return;
+    if (changes.opt_full_headers) PLL_OPTS.fullHeaders = changes.opt_full_headers.newValue !== false;
+    if (changes.opt_auto_scan) {
+        PLL_OPTS.autoScan = changes.opt_auto_scan.newValue === true;
+        if (PLL_OPTS.autoScan) scheduleAutoScan();
+    }
+});
+
+// Gmail's per-account token, needed by its own URLs. It is in an inline
+// script of the page (var GLOBALS=[...], 10th value); content scripts
+// cannot read page variables but can read script text.
+let _pllIk = null;
+function gmailIk() {
+    if (_pllIk) return _pllIk;
+    for (const sc of document.scripts) {
+        const t = sc.textContent || "";
+        const i = t.indexOf("var GLOBALS=[");
+        if (i < 0) continue;
+        const parts = t.slice(i + 13, i + 4000).split(",");
+        const v = (parts[9] || "").trim().replace(/^"|"$/g, "");
+        if (/^[0-9a-f]{6,20}$/.test(v)) { _pllIk = v; return v; }
+    }
+    return null;
+}
+
+function gmailAccountPath() {
+    const m = location.pathname.match(/^\/mail\/u\/\d+/);
+    return m ? m[0] : "/mail/u/0";
+}
+
+const _PLL_ENTITIES = { "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&amp;": "&" };
+
+// Fetches the raw message behind "Show original" (headers and text
+// parts; Gmail leaves attachment bodies out of this view). `ref` is the
+// message element (.adn) or { thread: legacyThreadId }. Returns the raw
+// text, or null when Gmail does not serve it (layout change, timeout).
+async function fetchOriginalMessage(ref) {
+    try {
+        const ik = gmailIk();
+        if (!ik) return null;
+        let q;
+        if (ref?.thread) {
+            q = "th=" + encodeURIComponent(ref.thread);
+        } else {
+            const perm = (ref?.getAttribute?.("data-message-id") || "").replace(/^#/, "");
+            if (!/^msg-[a-z]:\d+$/.test(perm)) return null;
+            q = "permmsgid=" + encodeURIComponent(perm);
+        }
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 5000);
+        const resp = await fetch(`${gmailAccountPath()}/?ik=${ik}&view=om&${q}`,
+            { credentials: "include", signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!resp.ok) return null;
+        const html = await resp.text();
+        const start = html.indexOf('id="raw_message_text"');
+        if (start < 0) return null;
+        const open = html.indexOf(">", start);
+        const close = html.indexOf("</pre>", open);
+        if (open < 0 || close < 0) return null;
+        const raw = html.slice(open + 1, close)
+            .replace(/&(?:lt|gt|quot|#39|amp);/g, (e) => _PLL_ENTITIES[e]);
+        // Sanity check: it must look like an RFC 822 message.
+        if (!/^(?:from|received|delivered-to|return-path):/im.test(raw.slice(0, 20000))) return null;
+        return raw.slice(0, 2 * 1024 * 1024);
+    } catch {
+        return null;
+    }
+}
+
+function utf8ToB64(text) {
+    const bytes = new TextEncoder().encode(text);
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(bin);
+}
+
 // http(s) targets of the links in the message body, deduplicated, max 50.
 function linkTargetsOf(el) {
     if (!el) return [];
@@ -556,6 +654,9 @@ function renderBannerSignals(data) {
     }
     if (data.shared_links?.count) {
         chips.push(`<span class="pll-chip pll-chip--warn" title="${escapeHTML((data.shared_links.urls || []).join("\n"))}">Shared file: ${escapeHTML((data.shared_links.services || []).join(", "))}</span>`);
+    }
+    if (data._fullHeaders) {
+        chips.push(`<span class="pll-chip pll-chip--good" title="PhishLens read the full original message (all headers), not only the visible page">Full headers checked</span>`);
     }
     if (data._threadMessages > 1) {
         chips.push(`<span class="pll-chip" title="In a conversation, PhishLens scans the last expanded message">Latest message of ${data._threadMessages}</span>`);
@@ -1090,3 +1191,166 @@ function arrayBufferToBase64(buffer) {
 }
 
 console.log(TAG, "Gmail content script loaded.");
+
+// =====================================================================
+// v1.15: automatic scanning of new emails (opt-in, popup Settings)
+// =====================================================================
+// When the inbox list is on screen, unread emails PhishLens has not seen
+// yet are fetched through Gmail's "Show original" (no need to open them)
+// and sent to /analyse one at a time. A phishing verdict puts a red
+// "Phishing?" pill on the row and raises a desktop notification. Results
+// are cached by thread id, so an email is scanned once.
+const AUTO_CACHE_KEY = "autoScanCache";
+const AUTO_CACHE_MAX = 500;
+const AUTO_MAX_PER_PASS = 10;     // stays well under the backend rate limit
+const AUTO_DELAY_MS = 1500;       // between two emails
+let _autoRunning = false;
+let _autoTimer = null;
+
+function scheduleAutoScan() {
+    if (!PLL_OPTS.autoScan || _autoTimer) return;
+    _autoTimer = setTimeout(() => { _autoTimer = null; runAutoScan(); }, 3000);
+}
+// New mail and list redraws both mutate the DOM: piggy-back on them.
+let _paintQueued = false;
+new MutationObserver(() => {
+    if (PLL_OPTS.autoScan) scheduleAutoScan();
+    if (_paintQueued) return;
+    _paintQueued = true;
+    setTimeout(() => { _paintQueued = false; paintAutoBadges(); }, 300);
+}).observe(document.body, { childList: true, subtree: true });
+
+function _autoCacheGet() {
+    return new Promise((r) => chrome.storage.local.get([AUTO_CACHE_KEY], (s) => r(s[AUTO_CACHE_KEY] || {})));
+}
+async function _autoCachePut(id, entry) {
+    const cache = await _autoCacheGet();
+    cache[id] = entry;
+    const ids = Object.keys(cache);
+    if (ids.length > AUTO_CACHE_MAX) {
+        ids.sort((a, b) => cache[a].ts - cache[b].ts)
+           .slice(0, ids.length - AUTO_CACHE_MAX).forEach((k) => delete cache[k]);
+    }
+    await new Promise((r) => chrome.storage.local.set({ [AUTO_CACHE_KEY]: cache }, r));
+    _autoCacheMem = cache;
+}
+let _autoCacheMem = null;
+
+function _inboxRows() {
+    // Only rows of the list on screen (Gmail keeps hidden copies of
+    // other views in the DOM).
+    return [...document.querySelectorAll("tr.zA")].filter((row) => row.offsetParent !== null).map((row) => ({
+        row,
+        id: row.querySelector("[data-legacy-thread-id]")?.getAttribute("data-legacy-thread-id") || "",
+        unread: row.classList.contains("zE"),
+        sender: row.querySelector("span[email]")?.getAttribute("email") || "",
+        subject: (row.querySelector(".bog")?.textContent || "").trim(),
+    })).filter((r) => /^[0-9a-f]{8,20}$/.test(r.id));
+}
+
+function paintAutoBadges() {
+    if (!_autoCacheMem) return;
+    for (const r of _inboxRows()) {
+        const hit = _autoCacheMem[r.id];
+        if (!hit || hit.verdict !== "phishing" || r.row.querySelector(".pll-row-badge")) continue;
+        const cell = r.row.querySelector(".bog")?.parentElement;
+        if (!cell) continue;
+        const b = document.createElement("span");
+        b.className = "pll-row-badge";
+        b.textContent = "Phishing?";
+        b.title = `PhishLens: ${Math.round((hit.score || 0) * 100)}% phishing score. Open the email and scan it for details.`;
+        cell.prepend(b);
+    }
+}
+
+// Small status toast, bottom left of Gmail, for the automatic scan.
+function autoToast(text, kind = "info", hideAfterMs = 0) {
+    let t = document.getElementById("pll-auto-toast");
+    if (!t) {
+        t = document.createElement("div");
+        t.id = "pll-auto-toast";
+        t.className = "pll-toast";
+        t.setAttribute("role", "status");
+        t.innerHTML = `<span class="pll-toast__icon">${PLL_ICON.shield}</span><span class="pll-toast__text"></span>` +
+                      `<button type="button" class="pll-toast__close" aria-label="Dismiss">${PLL_ICON.close}</button>`;
+        t.querySelector(".pll-toast__close").addEventListener("click", () => t.remove());
+        document.body.appendChild(t);
+    }
+    t.className = `pll-toast pll-toast--${kind}`;
+    t.querySelector(".pll-toast__text").textContent = text;
+    clearTimeout(t._pllTimer);
+    if (hideAfterMs) t._pllTimer = setTimeout(() => t.remove(), hideAfterMs);
+}
+
+async function runAutoScan() {
+    if (_autoRunning || !PLL_OPTS.autoScan) return;
+    _autoRunning = true;
+    try {
+        const cache = await _autoCacheGet();
+        _autoCacheMem = cache;
+        const todo = _inboxRows().filter((r) => r.unread && !cache[r.id]).slice(0, AUTO_MAX_PER_PASS);
+        let done = 0, flagged = 0, failed = false;
+        for (const r of todo) {
+            if (!PLL_OPTS.autoScan) break;
+            autoToast(todo.length > 1
+                ? `PhishLens is checking new emails (${done + 1} of ${todo.length})…`
+                : "PhishLens is checking a new email…");
+            const original = await fetchOriginalMessage({ thread: r.id });
+            if (!original) { await _autoCachePut(r.id, { verdict: "skipped", ts: Date.now() }); continue; }
+            const resp = await chrome.runtime.sendMessage({
+                type: "phishlens.analyse",
+                payload: {
+                    raw_email_b64: utf8ToB64(original),
+                    sender_email: r.sender || null,
+                    client_context: {
+                        origin: "gmail",
+                        subject: r.subject,
+                        gmail_in_inbox: !/spam|trash/i.test(location.hash),
+                        auto_scan: true,
+                    },
+                },
+            }).catch(() => null);
+            if (!resp?.ok) {
+                // Backend down or rate-limited: stop this pass, retry later.
+                failed = true;
+                break;
+            }
+            done++;
+            const d = resp.data;
+            await _autoCachePut(r.id, { verdict: d.verdict, score: Number(d.fused_score) || 0, ts: Date.now() });
+            chrome.runtime.sendMessage({
+                type: "phishlens.history.save",
+                entry: {
+                    source: "gmail-auto", subject: r.subject, sender: r.sender,
+                    verdict: d.verdict, score: Number(d.fused_score) || 0,
+                    agents: {
+                        text: Number(d.agents?.text?.phishing_probability) || 0,
+                        url: Number(d.agents?.url?.phishing_probability) || 0,
+                        metadata: Number(d.agents?.metadata?.phishing_probability) || 0,
+                    },
+                    trusted: !!d.trusted_sender,
+                },
+            }).catch(() => {});
+            if (d.verdict === "phishing") {
+                flagged++;
+                paintAutoBadges();
+                chrome.runtime.sendMessage({
+                    type: "phishlens.notify",
+                    title: "PhishLens: this email looks like phishing",
+                    message: `${r.sender || "Unknown sender"}: ${r.subject || "(no subject)"}`,
+                }).catch(() => {});
+            }
+            await new Promise((ok) => setTimeout(ok, AUTO_DELAY_MS));
+        }
+        if (failed) {
+            autoToast("PhishLens could not reach the backend. It will try again on the next new email.", "warn", 6000);
+        } else if (done) {
+            const what = done > 1 ? `${done} new emails checked` : "New email checked";
+            if (flagged) autoToast(`${what}: ${flagged} ${flagged > 1 ? "look" : "looks"} like phishing (marked "Phishing?").`, "danger", 8000);
+            else autoToast(`${what}: nothing suspicious.`, "safe", 4000);
+        }
+    } finally {
+        _autoRunning = false;
+    }
+}
+_autoCacheGet().then((c) => { _autoCacheMem = c; paintAutoBadges(); }).catch(() => {});

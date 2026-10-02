@@ -31,7 +31,7 @@ before we've had a chance to fix them.
 - The static allowlist (`TRUSTED_DOMAINS`): it's a curated set of
   well-known senders and giving it a wider trust radius is a product
   decision, not a security bug.
-- The public Cloud demo (`https://anzouk.duckdns.org`) is intentionally
+- PhishLens Cloud (`https://anzouk.duckdns.org`) is intentionally
   a shared open backend with permissive CORS. Rate-limiting bypass is
   a bug, but "someone can query the API without signing up" is not.
 - Model-quality issues (false positives / false negatives on specific

@@ -688,6 +688,16 @@ document.querySelectorAll('input[name="backend"]').forEach((r) => {
     });
 });
 
+// v1.15: Gmail options (read by content_scripts/gmail.js).
+const optFullHeaders = $("opt-full-headers");
+const optAutoScan = $("opt-auto-scan");
+STORAGE?.get(["opt_full_headers", "opt_auto_scan"], (s) => {
+    optFullHeaders.checked = s.opt_full_headers !== false;
+    optAutoScan.checked = s.opt_auto_scan === true;
+});
+optFullHeaders.addEventListener("change", () => STORAGE?.set({ opt_full_headers: optFullHeaders.checked }));
+optAutoScan.addEventListener("change", () => STORAGE?.set({ opt_auto_scan: optAutoScan.checked }));
+
 customUrlInput.addEventListener("input", () => {
     backendCustomUrl = customUrlInput.value.trim();
     STORAGE?.set({ backend_custom_url: backendCustomUrl });
@@ -770,13 +780,26 @@ async function renderInsights() {
         }).join("");
     }
 
+    // v1.15: live evaluation, from the scans the user reviewed below.
+    const live = stats.live || { reviewed: 0 };
+    const pctOf = (v) => (v == null ? "n/a" : `${Math.round(v * 100)}%`);
+    $("live-eval").innerHTML = live.reviewed
+        ? `<div class="live-eval__grid">
+             <div><strong>${live.reviewed}</strong><span>reviewed</span></div>
+             <div><strong>${pctOf(live.accuracy)}</strong><span>accuracy</span></div>
+             <div><strong>${live.fp}</strong><span>false alarms</span></div>
+             <div><strong>${live.fn}</strong><span>missed phishing</span></div>
+           </div>
+           <div class="empty-hint">Precision ${pctOf(live.precision)} · recall ${pctOf(live.recall)} · false-positive rate ${pctOf(live.falsePositiveRate)}</div>`
+        : `<div class="empty-hint">Mark recent scans as right or wrong below to measure how PhishLens does on your real mail.</div>`;
+
     // Recent history: last 20
     historyList.innerHTML = list.slice(0, 20).map((e) => {
         const dot = icon(e.verdict === "phishing" ? "alert" : "shield-check");
         const when = timeAgo(e.ts);
         const subj = e.subject || "(no subject)";
         const src = ({
-            gmail: "Gmail", "gmail-attachment": "Gmail attachment",
+            gmail: "Gmail", "gmail-attachment": "Gmail attachment", "gmail-auto": "Gmail (automatic)",
             file: ".eml file", attachment: "attachment", paste: "pasted text",
         })[e.source] || e.source;
         return `
@@ -792,8 +815,20 @@ async function renderInsights() {
               </div>
             </div>
             <div class="history-item__score">${Math.round((e.score || 0) * 100)}%</div>
+            <div class="history-item__review" role="group" aria-label="Was this verdict right?">
+              <button type="button" class="review-btn${e.label === "correct" ? " review-btn--on" : ""}" data-label="correct" title="The verdict was right">Right</button>
+              <button type="button" class="review-btn review-btn--wrong${e.label === "wrong" ? " review-btn--on" : ""}" data-label="wrong" title="The verdict was wrong">Wrong</button>
+            </div>
           </div>`;
     }).join("");
+    historyList.querySelectorAll(".review-btn").forEach((b) => {
+        b.addEventListener("click", async () => {
+            const id = b.closest(".history-item")?.dataset.id;
+            const on = b.classList.contains("review-btn--on");
+            await window.PhishLensHistory?.setLabel(id, on ? null : b.dataset.label);
+            renderInsights();
+        });
+    });
 }
 
 function escapeHtml(s) {
@@ -878,7 +913,7 @@ testConnBtn.addEventListener("click", async () => {
             throw new Error("URL must start with http:// or https://");
         }
         // Hit /health (not /) because / now serves the landing HTML
-        // through Caddy on the Cloud demo backend.
+        // through Caddy on the PhishLens Cloud backend.
         const resp = await fetch(`${url}/health`, { method: "GET" });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json().catch(() => null);

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy · PhishLens</title>
+<meta name="description" content="What data the PhishLens extension and PhishLens Cloud handle, where it goes and what is kept.">
+<link rel="icon" href="/icon.png" type="image/png">
+<style>
+  :root { color-scheme: light dark; --fg:#1f2328; --muted:#57606a; --bg:#fff; --line:#d0d7de; --accent:#e8590c; }
+  @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --muted:#9198a1; --bg:#0d1117; --line:#30363d; --accent:#ff8a4c; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:40px 20px 80px; }
+  a { color:var(--accent); }
+  h1 { font-size:2rem; margin:0 0 .25em; } h2 { margin-top:2em; font-size:1.3rem; }
+  table { border-collapse:collapse; width:100%; font-size:.95rem; margin:1em 0; }
+  th, td { border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+  code { font-size:.9em; }
+  .back { display:inline-block; margin-bottom:24px; text-decoration:none; }
+</style>
+</head>
+<body>
+<main>
+<a class="back" href="/">&larr; PhishLens</a>
+<h1 id="phishlens-privacy-policy">PhishLens privacy policy</h1>
+<p>Last updated: October 2, 2026.</p>
+<p>PhishLens is a Chrome extension that checks emails for phishing. This page explains what data it handles, where that data goes and what is kept. It applies to the extension and to the hosted backend, PhishLens Cloud, at <code>anzouk.duckdns.org</code>.</p>
+<h2 id="in-short">In short</h2>
+<ul>
+<li>PhishLens reads an email only when you ask it to (the <strong>Scan</strong> buttons), or automatically if you turn on <strong>Scan new emails automatically</strong> in the settings (off by default).</li>
+<li>The email is sent to the backend you chose in the settings: your own computer (local Docker or Python), your own server, or PhishLens Cloud. Nothing is sent anywhere else by the extension.</li>
+<li>The backend analyses the email and returns a verdict. It does not store email content, senders or subjects.</li>
+<li>Your scan history stays in your browser. It is never uploaded.</li>
+<li>There are no accounts, no analytics, no advertising and no sale of data.</li>
+</ul>
+<h2 id="what-the-extension-reads">What the extension reads</h2>
+<p>When a scan runs, the extension reads from the open Gmail page:</p>
+<ul>
+<li>the text of the message, its subject and the sender's address;</li>
+<li>the targets of the links in the message;</li>
+<li>the authentication hints Gmail shows (mailed-by, signed-by);</li>
+<li>with <strong>Read full headers</strong> on (default), the original message as Gmail's "Show original" page provides it: all headers and the text parts, without the attachment files;</li>
+<li>for an attachment scan, the attachment file.</li>
+</ul>
+<p>The popup also reads files you drop into it and text you paste.</p>
+<h2 id="where-the-data-goes">Where the data goes</h2>
+<p>All analysis requests go to one backend, selected in the extension settings:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Choice</th>
+<th>Where your email goes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Local backend</td>
+<td>Your own computer (<code>127.0.0.1:8000</code>). Nothing leaves it, except the threat-intelligence lookups below.</td>
+</tr>
+<tr class="even">
+<td>Custom URL</td>
+<td>The server you entered. Its owner's policy applies.</td>
+</tr>
+<tr class="odd">
+<td>PhishLens Cloud</td>
+<td>The hosted server run by the PhishLens author, on Oracle Cloud. Nothing is stored (see below).</td>
+</tr>
+</tbody>
+</table>
+<p>The backend checks the links found in an email against threat-intelligence services. For this it sends the <strong>link addresses only</strong> (never the email text, sender or subject):</p>
+<ul>
+<li>Google Safe Browsing (full URLs, when an API key is configured);</li>
+<li>URLhaus by abuse.ch (full URLs);</li>
+<li>Spamhaus DBL (domain names, through DNS);</li>
+<li>PhishTank (checked against a list downloaded to the server; no per-email request).</li>
+</ul>
+<h2 id="what-is-kept-and-for-how-long">What is kept, and for how long</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Data</th>
+<th>Where</th>
+<th>How long</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Scan history (subject, sender, verdict, scores, top explanation words)</td>
+<td>Your browser (<code>chrome.storage.local</code>)</td>
+<td>Until you clear it (Insights, <strong>Clear</strong>), up to the last 500 scans</td>
+</tr>
+<tr class="even">
+<td>Explanation cache</td>
+<td>Your browser</td>
+<td>Until the extension is removed</td>
+</tr>
+<tr class="odd">
+<td>Automatic-scan results (thread id, verdict, score)</td>
+<td>Your browser</td>
+<td>Last 500 emails</td>
+</tr>
+<tr class="even">
+<td>Settings</td>
+<td>Your browser</td>
+<td>Until changed</td>
+</tr>
+<tr class="odd">
+<td>Link verdicts (URL, verdict, source)</td>
+<td>Backend cache (SQLite)</td>
+<td>24 hours</td>
+</tr>
+<tr class="even">
+<td>Email text, headers, attachments</td>
+<td>Backend memory, during the request</td>
+<td>Not stored</td>
+</tr>
+<tr class="odd">
+<td>Request metadata (time, path, status, IP address)</td>
+<td>PhishLens Cloud application and web-server logs, when enabled</td>
+<td>Rotated by the server; request bodies are never logged</td>
+</tr>
+</tbody>
+</table>
+<p>PhishLens Cloud also counts verdicts per scoring path for monitoring (Prometheus counters). These are numbers only, with no email data.</p>
+<h2 id="permissions">Permissions</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Permission</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>storage</code></td>
+<td>Keep your settings, scan history and caches in the browser.</td>
+</tr>
+<tr class="even">
+<td><code>alarms</code></td>
+<td>Ping the backend now and then so the first scan is not slow.</td>
+</tr>
+<tr class="odd">
+<td><code>notifications</code></td>
+<td>Warn you when the automatic scan finds a phishing email.</td>
+</tr>
+<tr class="even">
+<td>Access to <code>mail.google.com</code></td>
+<td>Add the scan buttons and banners to Gmail and read the email you scan.</td>
+</tr>
+<tr class="odd">
+<td>Access to <code>127.0.0.1:8000</code>, <code>localhost:8000</code>, <code>anzouk.duckdns.org</code></td>
+<td>Send scans to the backend you chose.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="your-choices">Your choices</h2>
+<ul>
+<li>Turn off <strong>Read full headers</strong> or <strong>Scan new emails automatically</strong> in the settings at any time.</li>
+<li>Use the local backend so emails never leave your computer.</li>
+<li>Clear the history from the Insights view, or remove the extension to delete everything it stored.</li>
+</ul>
+<h2 id="children">Children</h2>
+<p>PhishLens is not directed at children and does not knowingly collect data about them.</p>
+<h2 id="changes-and-contact">Changes and contact</h2>
+<p>Changes to this policy are listed in the project's <a href="https://github.com/AnzouK/PhishLens/blob/main/CHANGELOG.md">changelog</a>. Questions: open an issue at <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a>, or report a security problem privately as described in <a href="https://github.com/AnzouK/PhishLens/blob/main/SECURITY.md">SECURITY.md</a>.</p>
+</main>
+</body>
+</html>

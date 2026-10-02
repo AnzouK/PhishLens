@@ -454,3 +454,23 @@ class TestV114:
 def test_forwarded_sender_parsing_is_bounded():
     body = "---------- Forwarded message ---------\nFrom: " + "a" * 200_000
     assert eb.detect_forwarded(body) == {"detected": True, "original_sender": None}
+
+
+def test_eml_html_href_targets_are_extracted():
+    eml = (b"From: a@b.co\r\nSubject: hi\r\nMIME-Version: 1.0\r\n"
+           b"Content-Type: multipart/alternative; boundary=X\r\n\r\n"
+           b"--X\r\nContent-Type: text/plain\r\n\r\nClick here to verify\r\n"
+           b"--X\r\nContent-Type: text/html\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n"
+           b"<a href=3D\"https://evil.example/login\">Click here</a>\r\n--X--\r\n")
+    _body, urls, _headers = eb.parse_eml(eml)
+    assert urls == ["https://evil.example/login"]
+
+
+def test_html_to_text_drops_css_and_scripts():
+    html = ('<html><head><style>.itinerarytable{font:25px roboto}</style></head>'
+            '<body><h1 class="heading">Your flight</h1><p>Check &amp; confirm</p>'
+            '<script>var x = 1</script></body></html>')
+    text = eb.html_to_text(html)
+    assert "Your flight" in text and "Check & confirm" in text
+    for noise in ("25px", "roboto", "itinerarytable", "var x"):
+        assert noise not in text

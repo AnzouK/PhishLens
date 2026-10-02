@@ -255,3 +255,27 @@ html[data-phishlens-theme="dark"] {
 .pll-banner__why summary:focus-visible { outline: 2px solid var(--pll-accent); outline-offset: 2px; border-radius: 4px; }
 /* Keep the percentage next to its bar */
 .pll-meter { grid-template-columns: auto minmax(60px, 140px) auto; justify-content: start; }
+
+/* v1.15: automatic scan, pill on inbox rows flagged as phishing */
+.pll-row-badge {
+    display: inline-block; margin-right: 6px; padding: 0 7px; border-radius: 9px;
+    font: 600 11px/18px "Google Sans", Roboto, Arial, sans-serif;
+    color: #fff; background: #c5221f; vertical-align: middle;
+}
+
+/* v1.15: automatic-scan status toast */
+.pll-toast {
+    position: fixed; left: 24px; bottom: 24px; z-index: 2147483000;
+    display: flex; align-items: center; gap: 10px; max-width: 420px;
+    padding: 10px 12px 10px 14px; border-radius: 12px;
+    font: 500 13px/1.4 "Google Sans", Roboto, Arial, sans-serif;
+    color: var(--pll-text, #1f1f1f); background: var(--pll-surface, #fff);
+    border: 1px solid var(--pll-line, #dadce0); box-shadow: 0 6px 24px rgba(0,0,0,.18);
+}
+.pll-toast__icon { display: grid; width: 18px; height: 18px; color: var(--pll-accent); }
+.pll-toast__icon svg, .pll-toast__close svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pll-toast__close { all: unset; cursor: pointer; width: 14px; height: 14px; opacity: .6; margin-left: 4px; }
+.pll-toast--safe .pll-toast__icon { color: var(--pll-good); }
+.pll-toast--danger { border-color: var(--pll-bad-line); }
+.pll-toast--danger .pll-toast__icon { color: var(--pll-bad); }
+.pll-toast--warn .pll-toast__icon { color: var(--pll-warn); }

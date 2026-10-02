@@ -9,7 +9,7 @@
 [![CI](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml/badge.svg)](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/AnzouK/PhishLens?color=blueviolet)](https://github.com/AnzouK/PhishLens/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Live demo](https://img.shields.io/badge/Live%20demo-anzouk.duckdns.org-F80000)](https://anzouk.duckdns.org)
+[![Website](https://img.shields.io/badge/Website-anzouk.duckdns.org-F80000)](https://anzouk.duckdns.org)
 [![Model](https://img.shields.io/badge/Hugging%20Face-model-yellow)](https://huggingface.co/AnzouKiona/phishlens-distilbert)
 
 <img src="docs/gmail-verdicts.svg" alt="PhishLens verdict banners in Gmail: a phishing verdict with per-agent scores, threat-intelligence chips and the words behind the decision, and a safe verdict from a trusted sender" width="860">
@@ -46,7 +46,7 @@ image-only emails and links hidden behind "Click here".
 | URL | Random Forest, 23 features | 99.34% | 0.991 |
 | Metadata | Random Forest, 37 features | 99.92% | 0.999 |
 
-**Latency** on the public demo (Oracle Cloud ARM, 4 cores, CPU only,
+**Latency** on PhishLens Cloud (Oracle Cloud ARM, 4 cores, CPU only,
 [load test](docs/operations.md#load-testing) with 10 concurrent users):
 `/analyse` median 77 ms, p95 280 ms, zero failures over 454 requests.
 
@@ -81,7 +81,7 @@ mode, click **Load unpacked** and pick the `extension/` folder.
 
 | Option | Setup | When to use it |
 | --- | --- | --- |
-| Cloud demo | none | Trying it out. Shared public server: don't send sensitive mail. |
+| PhishLens Cloud | none | Normal use. Hosted server, nothing stored ([privacy policy](PRIVACY.md)). |
 | Local Docker | commands below | Daily use, your emails stay on your machine. |
 | Local Python | commands below | Development. |
 
@@ -174,18 +174,16 @@ both repositories, the models, the report and every guide.
 | [Changelog](CHANGELOG.md) | What changed in each version |
 | [Contributing](CONTRIBUTING.md) | Setup, checks, guidelines |
 | [Security policy](SECURITY.md) | How to report a vulnerability |
+| [Privacy policy](PRIVACY.md) | What data is handled, where it goes, what is kept |
 
 ## Roadmap
 
-- **Chrome Web Store release** once the extension UI is final (privacy
-  policy, store listing, tighter host permissions).
+- **Chrome Web Store release** once the extension UI is final.
 - **Outlook Web** support, then Yahoo Mail.
-- **Automatic scanning** of new Gmail messages, with a browser
-  notification when one looks like phishing.
-- **Live evaluation:** false-positive rate on a real inbox and detection
-  rate on phishing reported after the training cut-off.
-- **Full Gmail headers:** read the original message ("Show original") so
-  the metadata agent sees the real headers instead of the visible page.
+- **Live evaluation at scale:** the review buttons and
+  `scripts/live_eval.py` are in place; the next step is a few hundred
+  reviewed real emails, plus phishing reported after the training
+  cut-off.
 - **Attachments:** open RAR and 7z archives (recognised but not opened
   today).
 - **Research:** SHAP as a comparison for LIME, retraining the agents on

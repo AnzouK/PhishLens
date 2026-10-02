@@ -90,3 +90,33 @@ test("attachment scans are counted by source", async () => {
     assert.equal(stats.bySource.attachment, 1);
     assert.equal((await H.getHistory())[1].source, "gmail-attachment");
 });
+
+test("live evaluation from user reviews", async () => {
+    const H = fresh();
+    const a = await H.saveScan({ verdict: "phishing" });
+    const b = await H.saveScan({ verdict: "phishing" });
+    const c = await H.saveScan({ verdict: "safe" });
+    const d = await H.saveScan({ verdict: "safe" });
+    await H.saveScan({ verdict: "safe" });                 // not reviewed
+    await H.setLabel(a, "correct");                        // TP
+    await H.setLabel(b, "wrong");                          // FP
+    await H.setLabel(c, "correct");                        // TN
+    await H.setLabel(d, "wrong");                          // FN
+    const { live } = await H.getStats();
+    assert.deepEqual([live.reviewed, live.tp, live.fp, live.tn, live.fn], [4, 1, 1, 1, 1]);
+    assert.equal(live.accuracy, 0.5);
+    await H.setLabel(d, null);                             // clearing a review
+    assert.equal((await H.getStats()).live.reviewed, 3);
+    assert.match(await H.exportCSV(), /,label\n/);
+});
+
+test("daily buckets use the local date", async () => {
+    const H = fresh();
+    await H.saveScan({ verdict: "safe" });
+    const { days } = await H.getStats();
+    const today = days[days.length - 1];
+    const d = new Date();
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    assert.equal(today.date, key);
+    assert.equal(today.safe, 1);
+});

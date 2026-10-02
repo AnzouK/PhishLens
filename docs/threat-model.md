@@ -1,7 +1,7 @@
 # Threat model
 
-Scope: the PhishLens runtime (Chrome extension, FastAPI backend, public
-demo at anzouk.duckdns.org). The training pipeline in PhishingDetector is
+Scope: the PhishLens runtime (Chrome extension, FastAPI backend,
+PhishLens Cloud at anzouk.duckdns.org). The training pipeline in PhishingDetector is
 covered only where it affects the runtime (the published models).
 Method: STRIDE per trust boundary, then a list of the risks we accept.
 
@@ -12,7 +12,7 @@ Method: STRIDE per trust boundary, then a list of the risks we accept.
 | Email content sent for scanning | Private user data (body, sender, attachments) |
 | Correctness of the verdict | A wrong "safe" on a phishing email is the main harm the tool can cause |
 | Google Safe Browsing API key and daily quota | Leaking or exhausting it silently removes the strongest URL signal |
-| Backend availability | The public demo is shared by every extension user on the Cloud preset |
+| Backend availability | PhishLens Cloud is shared by every extension user on the Cloud setting |
 | Published models on Hugging Face | Loaded and unpickled by every backend at startup |
 | The Oracle VM and its secrets (`.phishlens.env`) | Host compromise exposes all of the above |
 
@@ -44,7 +44,7 @@ B4: the backend downloads and deserialises model files at startup.
 | T2 | Cache poisoning: a wrong verdict stored in the reputation cache | B3 | Cache key is the normalised URL, values only come from the cascade itself, 24 h TTL | Mitigated |
 | T3 | Adversarial text: wording crafted to push DistilBERT towards "safe" | B1 | Three independent agents plus threat intel; a clean text score does not hide a blocklisted URL or failed DMARC | Partially mitigated |
 | R1 | **Repudiation**: no record of what was scanned | B2 | By design: the backend keeps no email content. Aggregate verdict counts only (`/metrics`) | Accepted |
-| I1 | **Information disclosure**: users paste sensitive mail into the shared demo | B2 | HTTPS only; no server-side storage of bodies; README warns not to send sensitive content to the demo; self-hosting is documented | Mitigated for transport, user choice otherwise |
+| I1 | **Information disclosure**: users paste sensitive mail into the shared PhishLens Cloud test box | B2 | HTTPS only; no server-side storage of bodies; README warns not to send sensitive content to the demo; self-hosting is documented | Mitigated for transport, user choice otherwise |
 | I2 | Error messages leak internals | B2 | Errors return a one-line message; FastAPI never returns stack traces to the client | Mitigated |
 | I3 | Secrets in the repository or its history | n/a | `.phishlens.env` and `.env` are git-ignored; the GSB key only lives on the VM; history rewritten once to remove personal data | Mitigated |
 | I4 | `/metrics` and `/reputation/stats` reveal traffic and quota usage | B2 | Contain counts only; operations guide shows how to block `/metrics` at Caddy | Mitigated when proxy rule applied |
@@ -83,10 +83,11 @@ handwriting, stylised fonts or deliberately damaged QR codes can defeat
 them. The `image_only_pdf` flag still raises the score a little when
 OCR finds nothing.
 
-**R5. Shared public demo.** Rate limits are per IP and in memory, so they
-reset on restart and can be spread across many IPs. Good enough for a
-demo, not for a production service; a production deployment should put
-authentication in front of the API.
+**R5. Shared open API.** PhishLens Cloud has no accounts: rate limits are
+per IP and in memory, so they reset on restart and can be spread across
+many IPs. Acceptable while the user base is small; with a public store
+release, per-install API keys or a shared limiter (Redis) in front of
+the API become worthwhile.
 
 **R6. The allowlist is regional and static.** Useful for Nigerian
 institutions with weak DKIM setups, but it trusts domains, not messages.
