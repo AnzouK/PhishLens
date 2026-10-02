@@ -5,6 +5,36 @@ All notable changes to PhishLens are listed here. The format follows
 uses [Semantic Versioning](https://semver.org/). The extension and the
 backend share one version number.
 
+## [Unreleased]
+
+### Added
+- **Full headers in Gmail:** with "Read full headers" on (default), a
+  scan fetches the message behind Gmail's "Show original" (all headers
+  and text parts, no attachment files) and sends it as a full email, so
+  the metadata agent and the SPF/DKIM/DMARC checks see the real Received
+  chain, Authentication-Results, Reply-To and so on. Falls back to the
+  visible page when Gmail does not serve it. Banner chip "Full headers
+  checked".
+- **Automatic scanning (opt-in):** with "Scan new emails automatically"
+  on, unread emails in the inbox list are fetched through "Show
+  original" and scanned one at a time (10 per pass, cached by thread),
+  without opening them. Phishing gets a red "Phishing?" pill on the row
+  and a desktop notification (new `notifications` permission); results
+  go to the history as "Gmail (automatic)".
+- **Live evaluation:** each scan in Insights can be marked "Right" or
+  "Wrong"; a "Live accuracy" block shows reviewed scans, accuracy, false
+  alarms and missed phishing, and the CSV export has a `label` column.
+  `scripts/live_eval.py` turns an exported JSON history into a report
+  (confusion matrix, precision, recall, false-positive rate with 95%
+  intervals, per source) without printing subjects or senders.
+- **Privacy policy** (`PRIVACY.md`), published at `/privacy.html` on the
+  site and linked from the footer.
+- **Backend:** `.eml` scans also collect the real link targets of the
+  HTML part, and accept `client_context.link_urls`.
+
+### Changed
+- Removed the unused `http://130.61.146.213/*` host permission.
+
 ## [1.14.1] - 2026-10-01
 
 Security fix for the v1.14 parsers, and a one-command redeploy.

@@ -13,7 +13,7 @@
 //   Entry: {
 //     id:        string       // uuid-ish
 //     ts:        number       // Date.now()
-//     source:    "gmail" | "gmail-attachment" | "file" | "attachment" | "paste"
+//     source:    "gmail" | "gmail-attachment" | "gmail-auto" | "file" | "attachment" | "paste"
 //     subject:   string       // truncated to 120 chars
 //     sender:    string       // sender email/domain when available
 //     verdict:   "phishing" | "safe"
@@ -21,6 +21,7 @@
 //     agents:    { text: number, url: number, metadata: number }
 //     trusted:   boolean      // trusted_sender flag from backend
 //     tokens:    [{token, weight}]   // top 5 LIME features (populated later)
+//     label:     "correct" | "wrong" | undefined   // v1.15: user review
 //   }
 // =====================================================================
 
@@ -59,6 +60,7 @@ async function saveScan(entry) {
         trusted:  !!entry.trusted,
         tokens:   Array.isArray(entry.tokens) ? entry.tokens.slice(0, 5) : [],
     };
+    if (entry.label === "correct" || entry.label === "wrong") clean.label = entry.label;
     list.unshift(clean);
     if (list.length > MAX_ENTRIES) list.length = MAX_ENTRIES;
     await _set(STORAGE_KEY, list);
@@ -73,6 +75,41 @@ async function attachTokens(id, tokens) {
     if (idx < 0) return;
     list[idx].tokens = tokens.slice(0, 5);
     await _set(STORAGE_KEY, list);
+}
+
+// v1.15: the user says whether a verdict was right. Unknown labels clear it.
+async function setLabel(id, label) {
+    const list = (await _get(STORAGE_KEY)) || [];
+    const e = list.find((x) => x.id === id);
+    if (!e) return;
+    if (label === "correct" || label === "wrong") e.label = label;
+    else delete e.label;
+    await _set(STORAGE_KEY, list);
+}
+
+// Live evaluation from the reviewed scans. Ground truth: a "correct"
+// phishing verdict is a true positive, a "wrong" one a false positive;
+// a "correct" safe verdict is a true negative, a "wrong" one a missed
+// phishing email (false negative).
+function liveEvaluation(list) {
+    let tp = 0, fp = 0, tn = 0, fn = 0;
+    for (const e of list) {
+        if (e.label !== "correct" && e.label !== "wrong") continue;
+        const ph = e.verdict === "phishing";
+        if (ph && e.label === "correct") tp++;
+        else if (ph) fp++;
+        else if (e.label === "correct") tn++;
+        else fn++;
+    }
+    const n = tp + fp + tn + fn;
+    const rate = (a, b) => (b ? a / b : null);
+    return {
+        reviewed: n, tp, fp, tn, fn,
+        accuracy:  rate(tp + tn, n),
+        precision: rate(tp, tp + fp),
+        recall:    rate(tp, tp + fn),
+        falsePositiveRate: rate(fp, fp + tn),
+    };
 }
 
 async function getHistory() {
@@ -98,18 +135,21 @@ async function getStats() {
     const phishing = list.filter((e) => e.verdict === "phishing").length;
     const safe = total - phishing;
 
-    // last 30 days daily buckets
+    // last 30 days daily buckets, keyed by LOCAL date. toISOString() is
+    // UTC: east of Greenwich it shifted every bucket one day back, and the
+    // chart showed nothing for today's scans.
+    const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const now = new Date();
     const days = [];
     for (let i = 29; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(now.getDate() - i);
         d.setHours(0, 0, 0, 0);
-        days.push({ date: d.toISOString().slice(0, 10), phishing: 0, safe: 0 });
+        days.push({ date: dayKey(d), phishing: 0, safe: 0 });
     }
     const bucketByDate = Object.fromEntries(days.map((d) => [d.date, d]));
     for (const e of list) {
-        const key = new Date(e.ts).toISOString().slice(0, 10);
+        const key = dayKey(new Date(e.ts));
         const b = bucketByDate[key];
         if (b) b[e.verdict]++;
     }
@@ -120,7 +160,9 @@ async function getStats() {
         if (e.verdict !== "phishing") continue;
         for (const t of e.tokens || []) {
             const key = (t.token || "").toLowerCase();
-            if (!key) continue;
+            // Same filter as the Gmail banner, plus CSS-looking tokens
+            // ("25px", "0px") that leak from HTML emails.
+            if (key.length < 3 || /^\d+$/.test(key) || /^\d+(px|em|pt|%)$/.test(key)) continue;
             tokenCounts[key] = (tokenCounts[key] || 0) + Math.abs(t.weight || 0);
         }
     }
@@ -130,7 +172,7 @@ async function getStats() {
         .map(([token, weight]) => ({ token, weight }));
 
     // By source breakdown
-    const bySource = { gmail: 0, "gmail-attachment": 0, file: 0, attachment: 0, paste: 0, unknown: 0 };
+    const bySource = { gmail: 0, "gmail-attachment": 0, "gmail-auto": 0, file: 0, attachment: 0, paste: 0, unknown: 0 };
     for (const e of list) bySource[e.source] = (bySource[e.source] || 0) + 1;
 
     // Average score
@@ -148,6 +190,7 @@ async function getStats() {
         days,
         topTokens,
         bySource,
+        live: liveEvaluation(list),
         firstScanTs: list.length ? list[list.length - 1].ts : null,
         lastScanTs:  list.length ? list[0].ts               : null,
     };
@@ -164,7 +207,7 @@ async function exportJSON() {
 async function exportCSV() {
     const list = await getHistory();
     const cols = ["ts", "source", "verdict", "score", "sender", "subject",
-                  "agent_text", "agent_url", "agent_metadata", "trusted", "top_tokens"];
+                  "agent_text", "agent_url", "agent_metadata", "trusted", "top_tokens", "label"];
     const esc = (v) => {
         let s = v === null || v === undefined ? "" : String(v);
         // CSV formula injection: subjects and senders come from attacker
@@ -188,6 +231,7 @@ async function exportCSV() {
             e.agents?.metadata?.toFixed(4),
             e.trusted ? "yes" : "no",
             (e.tokens || []).map((t) => t.token).join("|"),
+            e.label || "",
         ].map(esc).join(","));
     }
     return rows.join("\n");
@@ -197,7 +241,7 @@ async function exportCSV() {
 // Global export: works in popup, content scripts, service worker.
 // ---------------------------------------------------------------------
 const PhishLensHistory = {
-    saveScan, attachTokens, getHistory, getStats,
+    saveScan, attachTokens, setLabel, liveEvaluation, getHistory, getStats,
     clearHistory, deleteScan, exportJSON, exportCSV,
     STORAGE_KEY, MAX_ENTRIES,
 };

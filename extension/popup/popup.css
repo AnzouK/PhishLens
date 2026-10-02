@@ -879,3 +879,20 @@ body {
 .history-item__dot .i { width: 16px; height: 16px; color: var(--success); }
 .history-item[data-verdict="phishing"] .history-item__dot .i { color: var(--danger); }
 .btn--ghost .i { margin-right: 4px; }
+
+/* v1.15: Gmail options in Settings */
+.settings-subtitle { margin: 18px 0 8px; font-size: 13px; font-weight: 600; color: var(--text-subtle); text-transform: uppercase; letter-spacing: .04em; }
+.opt-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; margin-bottom: 8px;
+           border: 1px solid var(--border, rgba(127,127,127,.25)); border-radius: 10px; font-size: 12.5px; line-height: 1.45; cursor: pointer; }
+.opt-row input { margin-top: 3px; flex: none; }
+.opt-row strong { font-size: 13px; }
+
+/* v1.15: live evaluation + review buttons */
+.live-eval__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px; text-align: center; }
+.live-eval__grid strong { display: block; font-size: 16px; }
+.live-eval__grid span { font-size: 11px; color: var(--text-mute); }
+.history-item__review { display: flex; gap: 4px; margin-left: 6px; }
+.review-btn { font: inherit; font-size: 10.5px; padding: 2px 6px; border-radius: 6px; cursor: pointer;
+              border: 1px solid var(--border); background: transparent; color: var(--text-mute); }
+.review-btn--on { color: #fff; background: #1a7f37; border-color: #1a7f37; }
+.review-btn--wrong.review-btn--on { background: #c5221f; border-color: #c5221f; }

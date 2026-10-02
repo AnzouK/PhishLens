@@ -19,14 +19,14 @@
   },
   "permissions": [
     "storage",
-    "alarms"
+    "alarms",
+    "notifications"
   ],
   "host_permissions": [
     "https://mail.google.com/*",
     "http://127.0.0.1:8000/*",
     "http://localhost:8000/*",
-    "https://anzouk.duckdns.org/*",
-    "http://130.61.146.213/*"
+    "https://anzouk.duckdns.org/*"
   ],
   "content_scripts": [
     {

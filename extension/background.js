@@ -95,6 +95,16 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === "phishlens-keepalive") warmBackend("keepalive");
 });
 
+const _pllNotifTabs = new Map();
+chrome.notifications?.onClicked?.addListener((id) => {
+    const t = _pllNotifTabs.get(id);
+    if (!t) return;
+    chrome.tabs.update(t.tabId, { active: true }).catch(() => {});
+    chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
+    chrome.notifications.clear(id);
+    _pllNotifTabs.delete(id);
+});
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // History persistence: content scripts (Gmail) delegate storage to us.
     if (msg?.type === "phishlens.history.save") {
@@ -107,6 +117,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             }
         })();
         return true;
+    }
+    // v1.15: desktop notification for a phishing email found by the
+    // automatic scan. Clicking it focuses the Gmail tab that found it.
+    if (msg?.type === "phishlens.notify") {
+        const tabId = sender?.tab?.id;
+        const id = "pll-" + Date.now();
+        try {
+            chrome.notifications?.create(id, {
+                type: "basic",
+                iconUrl: "icons/128.png",
+                title: String(msg.title || "PhishLens").slice(0, 120),
+                message: String(msg.message || "").slice(0, 300),
+                priority: 2,
+            });
+            if (tabId != null) _pllNotifTabs.set(id, { tabId, windowId: sender.tab.windowId });
+        } catch {}
+        sendResponse({ ok: true });
+        return false;
     }
     if (msg?.type === "phishlens.history.attachTokens") {
         (async () => {

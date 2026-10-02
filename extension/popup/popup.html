@@ -233,6 +233,12 @@
         <div id="top-tokens" class="top-tokens"></div>
       </div>
 
+      <!-- v1.15: live evaluation from the user's reviews -->
+      <div class="chart-block" id="live-block">
+        <div class="chart-block__title">Live accuracy (your reviews)</div>
+        <div id="live-eval" class="live-eval"></div>
+      </div>
+
       <!-- Recent history list -->
       <div class="history-block">
         <div class="history-block__head">
@@ -275,8 +281,8 @@
         <label for="opt-cloud" class="backend-option__label">
           <span class="backend-option__icon"><svg class="i" aria-hidden="true"><use href="#i-cloud"/></svg></span>
           <div class="backend-option__main">
-            <div class="backend-option__title">Cloud demo (Oracle Cloud)</div>
-            <div class="backend-option__sub"><code>anzouk.duckdns.org</code>: HTTPS, works without setup, no cold start.</div>
+            <div class="backend-option__title">PhishLens Cloud</div>
+            <div class="backend-option__sub"><code>anzouk.duckdns.org</code>: hosted service, HTTPS, no setup.</div>
           </div>
         </label>
       </div>
@@ -296,6 +302,18 @@
 
       <button id="test-conn-btn" class="btn btn--secondary">Test connection</button>
       <p id="conn-status" class="conn-status" hidden></p>
+
+      <h3 class="settings-subtitle">Gmail</h3>
+      <label class="opt-row">
+        <input type="checkbox" id="opt-full-headers" />
+        <span><strong>Read full headers</strong><br>
+          Uses Gmail's "Show original" so the sender checks see every header, not only the visible page.</span>
+      </label>
+      <label class="opt-row">
+        <input type="checkbox" id="opt-auto-scan" />
+        <span><strong>Scan new emails automatically</strong><br>
+          Unread emails in the inbox list are sent to the backend without a click; a notification appears when one looks like phishing.</span>
+      </label>
     </section>
 
   </main>

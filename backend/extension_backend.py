@@ -284,7 +284,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Smart Phishing Detector: extension backend",
               lifespan=lifespan)
 
-# Chrome extensions have origin chrome-extension://<id>. The Cloud demo
+# Chrome extensions have origin chrome-extension://<id>. The PhishLens Cloud
 # is a shared open backend, so we allow any origin: self-hosted deploys
 # should tighten this via CORS_ALLOW_ORIGINS if they don't need it open.
 app.add_middleware(
@@ -417,6 +417,57 @@ class AttachmentRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Email parsing
 # ---------------------------------------------------------------------------
+def html_to_text(html_src: str) -> str:
+    """Visible text of an HTML email body, like the text Gmail shows.
+
+    <style>, <script> and <head> contents are dropped: a plain tag strip
+    kept the CSS ("25px", "roboto", "heading"...) and the text model read
+    it as words. BeautifulSoup when installed (it is in requirements.txt),
+    a linear find-based fallback otherwise.
+    """
+    html_src = html_src[:1_000_000]
+    try:
+        from bs4 import BeautifulSoup  # type: ignore
+        soup = BeautifulSoup(html_src, "html.parser")
+        for tag in soup(["style", "script", "head", "noscript", "title"]):
+            tag.decompose()
+        text = soup.get_text(separator=" ")
+    except Exception:
+        low = html_src.lower()
+        out, i = [], 0
+        while True:
+            j = min([k for k in (low.find("<style", i), low.find("<script", i)) if k >= 0], default=-1)
+            if j < 0:
+                out.append(html_src[i:])
+                break
+            out.append(html_src[i:j])
+            end_tag = "</style>" if low.startswith("<style", j) else "</script>"
+            k = low.find(end_tag, j)
+            if k < 0:
+                break
+            i = k + len(end_tag)
+        stripped, depth = [], 0
+        for ch in "".join(out):
+            if ch == "<":
+                depth = 1
+                stripped.append(" ")
+            elif ch == ">" and depth:
+                depth = 0
+            elif not depth:
+                stripped.append(ch)
+        text = "".join(stripped)
+        import html as _html
+        text = _html.unescape(text)
+    # Collapse whitespace line by line (no regex: linear on any input).
+    lines = (" ".join(line.split()) for line in text.splitlines())
+    return "\n".join(line for line in lines if line)
+
+
+# href="https://..." in an HTML part. Bounded class, no nested
+# quantifiers: linear on any input.
+_HREF_RE = re.compile(r"""href=["'](https?://[^"'\s<>]{1,2048})""", re.IGNORECASE)
+
+
 def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
     """Return (body_text, urls_list, headers_dict)."""
     msg = message_from_bytes(raw_bytes, policy=policy.default)
@@ -435,7 +486,7 @@ def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
             for part in msg.walk():
                 if part.get_content_type() == "text/html":
                     try:
-                        body = re.sub(r"<[^>]+>", " ", part.get_content())
+                        body = html_to_text(part.get_content())
                         break
                     except Exception:
                         pass
@@ -444,8 +495,22 @@ def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
             body = msg.get_content()
         except Exception:
             body = raw_bytes.decode("utf-8", errors="ignore")
-    # urls
+    # urls: from the text, then the real link targets of the HTML part
+    # (an HTML email shows "Click here", the address is in the href).
     urls = re.findall(r"https?://[^\s\"'<>)]+", body)
+    for part in (msg.walk() if msg.is_multipart() else [msg]):
+        if part.get_content_type() != "text/html":
+            continue
+        try:
+            html_src = part.get_content()
+        except Exception:
+            continue
+        for m in _HREF_RE.finditer(html_src[:500_000]):
+            u = m.group(1)
+            if u not in urls:
+                urls.append(u)
+            if len(urls) >= 200:
+                break
     # headers (subset)
     headers = {k.lower(): str(v) for k, v in msg.items()}
     return body.strip(), urls, headers
@@ -947,6 +1012,9 @@ def _get_body_urls_headers(req: AnalyseRequest):
     # let sender_email override the parsed From if explicitly given
     if req.sender_email:
         headers["from"] = req.sender_email
+    # v1.15: the Gmail extension sends the full original message ("Show
+    # original") together with the link targets it saw in the page.
+    urls = _merge_link_urls(urls, (req.client_context or {}).get("link_urls"))
     return body, urls, headers, raw_bytes
 
 

@@ -13,7 +13,7 @@ what it is for.
 | [dodi-ctrl/PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector) | The research side: the three Colab training notebooks, dataset loaders, augmentation cell, per-agent metrics and known model limitations. What you clone to retrain or reproduce the models. |
 | [AnzouKiona/phishlens-distilbert](https://huggingface.co/AnzouKiona/phishlens-distilbert) | The fine-tuned DistilBERT text agent (model card, weights, tokenizer). Pulled by the backend at startup. |
 | [AnzouKiona/phishlens-agents](https://huggingface.co/AnzouKiona/phishlens-agents) | The trained URL and metadata Random Forest agents (joblib). Pulled by the backend at startup. |
-| [anzouk.duckdns.org](https://anzouk.duckdns.org) | Live demo: landing page, try-it widget, and the shared Cloud backend used by the extension's "Cloud demo" preset. |
+| [anzouk.duckdns.org](https://anzouk.duckdns.org) | Website: landing page, try-it widget, and the PhishLens Cloud backend used by the extension's "PhishLens Cloud" setting. |
 | Project report | B.Sc. final-year report (Department of Cybersecurity, Nile University of Nigeria, 2025/2026): literature review, methodology, evaluation. Not published here; available on request through the university. |
 
 ## Documentation map

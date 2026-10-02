@@ -320,7 +320,7 @@
         <div class="result"><div class="result__num">77 ms</div><div class="result__lbl">median scan on a CPU-only server</div></div>
         <div class="result"><div class="result__num">4</div><div class="result__lbl">threat-intelligence sources</div></div>
       </div>
-      <p class="result__note">Offline test sets and a load test on the demo server. Real inboxes are harder: see the <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations" target="_blank" rel="noopener">known limitations</a>.</p>
+      <p class="result__note">Offline test sets and a load test on PhishLens Cloud. Real inboxes are harder: see the <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations" target="_blank" rel="noopener">known limitations</a>.</p>
     </div>
   </section>
 
@@ -365,7 +365,7 @@
       <div class="sec__head">
         <div class="sec__kicker">Try it</div>
         <h2>Scan an email right here</h2>
-        <p>Same backend as the extension. This is a shared demo server: please don't paste private emails.</p>
+        <p>Same backend as the extension. It runs on PhishLens Cloud; please don't paste private emails into this test box.</p>
       </div>
       <div class="demo">
         <div class="panel">
@@ -407,7 +407,7 @@
     <div class="wrap">
       <div class="sec__head">
         <div class="sec__kicker">Live</div>
-        <h2>Demo server, right now</h2>
+        <h2>PhishLens Cloud, right now</h2>
         <p>Read from <code>/reputation/stats</code> when the page loads. Counters reset when the server restarts.</p>
       </div>
       <div class="stats" id="stats-grid">
@@ -438,7 +438,7 @@
         <div class="panel">
           <h3 style="margin:0">2. A backend</h3>
           <ol>
-            <li><strong>Cloud demo:</strong> nothing to do, pick it in the extension settings.</li>
+            <li><strong>PhishLens Cloud:</strong> nothing to do, pick it in the extension settings.</li>
             <li><strong>Your own, private:</strong> run it with Docker, then pick "Local".</li>
           </ol>
 <pre>huggingface-cli download AnzouKiona/phishlens-distilbert \
@@ -458,6 +458,7 @@ cd backend && docker compose up --build</pre>
       <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/architecture.md" target="_blank" rel="noopener">Architecture</a>
       <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md" target="_blank" rel="noopener">Threat model</a>
       <a href="https://github.com/AnzouK/PhishLens/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
+      <a href="/privacy.html">Privacy</a>
       <a href="https://huggingface.co/AnzouKiona/phishlens-distilbert" target="_blank" rel="noopener">Model</a>
       <a href="https://github.com/dodi-ctrl/PhishingDetector" target="_blank" rel="noopener">Training code</a>
     </nav>
