@@ -873,6 +873,17 @@ MAX_LINK_URLS = 50
 # fusion and the verdict rests on the links and the sender.
 MIN_TEXT_WORDS = 3
 
+
+_HOST_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789-")
+
+
+def _is_hostname(name: str) -> bool:
+    """A DNS hostname with at least two labels, checked without a regex
+    (linear on any input; CodeQL flagged the regex form)."""
+    labels = name.split(".")
+    return (0 < len(name) <= 253 and len(labels) >= 2
+            and all(0 < len(lab) <= 63 and set(lab) <= _HOST_CHARS for lab in labels))
+
 # Rule-based URL score a link needs before the URL agent alone may force
 # the phishing verdict (see the default trust path in /analyse). 0.25 is
 # one concrete sign: plain http (0.25), raw IP (0.40), "@" (0.35) or a
@@ -1190,8 +1201,8 @@ async def analyse(request: Request, req: AnalyseRequest):
         and not crypto_verified
     )
     if outlook_internal and not sender_domain:
-        org = str(ctx.get("org_domain") or "").strip().lower()
-        if re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", org):
+        org = str(ctx.get("org_domain") or "").strip().lower()[:253]
+        if _is_hostname(org):
             sender_domain = org
             trusted_sender = is_trusted_domain(org)
     if forwarded["detected"]:
