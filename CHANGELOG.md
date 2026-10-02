@@ -5,6 +5,14 @@ All notable changes to PhishLens are listed here. The format follows
 uses [Semantic Versioning](https://semver.org/). The extension and the
 backend share one version number.
 
+## [Unreleased]
+
+### Security
+- **CodeQL alerts #12 and #13:** the Outlook sender name no longer goes
+  through a one-pass tag strip (incomplete sanitization), and the
+  organisation domain is validated label by label instead of with a
+  nested-quantifier regex.
+
 ## [1.15.0] - 2026-10-02
 
 Real-mail release: Gmail full headers, automatic scanning, Outlook on

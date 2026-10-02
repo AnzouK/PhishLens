@@ -83,7 +83,7 @@ function olCurrentMessage(pane) {
     const fromText = (from?.querySelector("[aria-label]")?.getAttribute("aria-label") || from?.textContent || "")
         .replace(/^\s*(De|From)\s*:\s*/i, "").trim();
     const email = (fromText.match(OL_EMAIL_RE) || [])[0] || "";
-    return { body, count: bodies.length, senderEmail: email.toLowerCase(), senderName: fromText.replace(/<[^>]*>/, "").trim() };
+    return { body, count: bodies.length, senderEmail: email.toLowerCase(), senderName: fromText.split("<")[0].trim() };   // "Name <addr>" -> "Name"
 }
 
 // Domain of the signed-in account, from the folder pane ("name@org").

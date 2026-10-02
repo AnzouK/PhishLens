@@ -598,3 +598,11 @@ class TestOutlookInternal:
         j = client.post("/analyse", json={"raw_text": self.BODY, "client_context": {
             "origin": "outlook", "outlook_internal": True, "org_domain": "not a domain"}}).json()
         assert j["sender_domain"] is None
+
+
+def test_is_hostname():
+    assert eb._is_hostname("nileuniversity.edu.ng")
+    assert not eb._is_hostname("not a domain")
+    assert not eb._is_hostname("localhost")
+    assert not eb._is_hostname("a..b")
+    assert not eb._is_hostname("-" * 300 + ".com")
