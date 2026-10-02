@@ -873,6 +873,12 @@ MAX_LINK_URLS = 50
 # fusion and the verdict rests on the links and the sender.
 MIN_TEXT_WORDS = 3
 
+# Rule-based URL score a link needs before the URL agent alone may force
+# the phishing verdict (see the default trust path in /analyse). 0.25 is
+# one concrete sign: plain http (0.25), raw IP (0.40), "@" (0.35) or a
+# suspicious TLD (0.30); length or keywords alone (0.15, 0.10) are not.
+URL_OVERRIDE_RULE_MIN = 0.25
+
 # ---------------------------------------------------------------------
 # Forwarded emails (v1.14). The From: of a forwarded email is the person
 # who forwarded it, not the author of the content, so the sender-trust
@@ -1245,7 +1251,15 @@ async def analyse(request: Request, req: AnalyseRequest):
         trust_path = "gmail_inbox_soft"
     else:
         fused = _fuse(1.0)
-        high_conf = max(p_text if text_used else 0.0, p_url, p_meta) >= HIGH_CONF_OVERRIDE
+        # v1.15: the URL agent alone no longer fires the override unless a
+        # concrete sign backs it (threat-intel hit, or a rule: raw IP,
+        # plain http, "@", suspicious TLD, credential keywords). On real
+        # 2026 mail the trained URL model scores most URLs with a path at
+        # ~0.95, which flagged legitimate unverified senders. Its score
+        # still counts in the weighted fusion.
+        url_confirmed = rep_max_score > 0 or url_heuristic(urls) >= URL_OVERRIDE_RULE_MIN
+        high_conf = (max(p_text if text_used else 0.0, p_meta) >= HIGH_CONF_OVERRIDE
+                     or (p_url >= HIGH_CONF_OVERRIDE and url_confirmed))
         threshold = FUSION_THRESHOLD
         trust_path = "default"
 
@@ -1485,7 +1499,10 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
     else:
         fused = 0.5 * p_text + 0.5 * p_url + feature_bonus
         threshold = 0.55
-        high_conf = gsb_hit or bool(dropper) or (max(p_text, p_url) >= HIGH_CONF_OVERRIDE)
+        # Same rule as /analyse: the URL agent alone needs a concrete sign.
+        url_confirmed = rep_max_score > 0 or url_heuristic(urls) >= URL_OVERRIDE_RULE_MIN
+        high_conf = (gsb_hit or bool(dropper) or p_text >= HIGH_CONF_OVERRIDE
+                     or (p_url >= HIGH_CONF_OVERRIDE and url_confirmed))
 
     fused = min(1.0, fused)
     is_phishing = fused >= threshold or high_conf

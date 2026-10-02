@@ -53,6 +53,14 @@ backend share one version number.
   so the text model read CSS ("25px", "roboto"). `html_to_text` now
   keeps only the visible text. CSS-like tokens are also left out of the
   "Top phishing tokens" stats.
+- **URL agent and the single-agent override:** on the default path the
+  URL agent alone forces "phishing" only with a concrete sign (a
+  threat-intelligence hit, or a rule: raw IP, plain http, `@`,
+  suspicious TLD). Its score still counts in the fusion. Same rule for
+  attachments. Removes false alarms on legitimate unverified senders
+  whose links merely have a path.
+- **Disconnected content scripts** (after an extension update) stop
+  their observers and no longer log "Extension context invalidated".
 - **Trained URL model and hidden links:** on real 2026 links the URL
   Random Forest scores almost any URL with a path at ~0.95
   (`github.com/user/repo` 0.95, `wikipedia.org/wiki/...` 0.97; a bare
