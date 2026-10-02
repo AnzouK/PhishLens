@@ -26,6 +26,13 @@
 // =====================================================================
 
 const STORAGE_KEY = "scanHistory";
+// Function words carry no meaning in "Top phishing tokens" even when
+// LIME weights them; they stay in the stored history.
+const STOPWORDS = new Set(("the and for are but not you your yours our ours this that these those with from have has had " +
+    "was were will would can could should been being into onto than then them they their there here what when where " +
+    "which who whom why how all any each few more most other some such only own same too very just also its it's " +
+    "about above after again against before below between during over under until while off out once does did doing " +
+    "dear good hello thanks thank regards please").split(" "));
 const MAX_ENTRIES = 500;   // ~50 KB, well below the 5 MB chrome.storage cap
 
 // ---------------------------------------------------------------------
@@ -162,7 +169,7 @@ async function getStats() {
             const key = (t.token || "").toLowerCase();
             // Same filter as the Gmail banner, plus CSS-looking tokens
             // ("25px", "0px") that leak from HTML emails.
-            if (key.length < 3 || /^\d+$/.test(key) || /^\d+(px|em|pt|%)$/.test(key)) continue;
+            if (key.length < 3 || /^\d+$/.test(key) || /^\d+(px|em|pt|%)$/.test(key) || STOPWORDS.has(key)) continue;
             tokenCounts[key] = (tokenCounts[key] || 0) + Math.abs(t.weight || 0);
         }
     }

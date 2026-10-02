@@ -750,13 +750,15 @@ async function renderInsights() {
     const maxDaily = Math.max(1, ...stats.days.map((d) => d.phishing + d.safe));
     dailyChart.innerHTML = stats.days.map((d) => {
         const tot = d.phishing + d.safe;
-        const h = Math.round((tot / maxDaily) * 100);
-        const phishH = tot ? Math.round((d.phishing / tot) * h) : 0;
-        const safeH  = h - phishH;
+        // Bar height in pixels (the chart is 84px high, 18px go to the
+        // date label): percentages need a sized parent and collapsed.
+        const h = tot ? Math.max(3, Math.round((tot / maxDaily) * 62)) : 0;
+        const phishH = tot ? Math.round((d.phishing / tot) * 100) : 0;
+        const safeH  = 100 - phishH;
         const short = d.date.slice(5);   // MM-DD
         return `
           <div class="dc-col" title="${d.date}: ${tot} scan(s), ${d.phishing} phishing / ${d.safe} safe">
-            <div class="dc-stack" style="height:${h}%">
+            <div class="dc-stack" style="height:${h}px">
               <span class="dc-phishing" style="height:${phishH}%"></span>
               <span class="dc-safe"     style="height:${safeH}%"></span>
             </div>

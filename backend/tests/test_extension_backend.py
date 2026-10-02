@@ -501,3 +501,47 @@ class TestShowOriginal:
         r = client.post("/analyse", json={"raw_email_b64": b64(eml)})
         assert r.status_code == 200
         assert r.json()["text_agent_used"] is False
+
+
+class TestV115Scoring:
+    def test_hidden_links_get_rules_not_the_trained_model(self, monkeypatch):
+        class RF:
+            def get_prediction_with_confidence(self, feats):
+                return {"phishing_probability": 0.95}
+
+        class FX:
+            @staticmethod
+            def extract_url_features(text):
+                return {}
+        monkeypatch.setattr(eb, "_URL_AGENT", RF())
+        monkeypatch.setattr(eb, "_FEATURE_EXTRACT", FX())
+        text = "Your CI run failed. View results."
+        # hidden, harmless link: rules only
+        assert eb.url_agent(["https://github.com/AnzouK/PhishLens/actions/runs/1"], text) < 0.2
+        # hidden, risky link: the rules still catch it
+        assert eb.url_agent(["http://192.168.0.1/login-verify"], text) >= 0.7
+        # a link written in the text: the trained model decides
+        assert eb.url_agent(["https://x.example/a"], "see https://x.example/a") == 0.95
+
+    def test_page_text_wins_over_eml_text_part(self, client, monkeypatch):
+        seen = {}
+
+        def fake_text(body):
+            seen["body"] = body
+            return 0.1
+        monkeypatch.setattr(eb, "text_agent", fake_text)
+        eml = (b"From: a@b.example\r\nSubject: CI\r\nContent-Type: text/plain\r\n\r\n"
+               b"View results: https://github.com/x/y/actions/runs/1\r\n")
+        client.post("/analyse", json={"raw_email_b64": b64(eml),
+                                      "raw_text": "Run failed. View results"})
+        assert seen["body"] == "Run failed. View results"
+
+    def test_eml_prefers_rendered_html_part(self):
+        eml = (b"From: a@b.co\r\nSubject: CI\r\nMIME-Version: 1.0\r\n"
+               b"Content-Type: multipart/alternative; boundary=X\r\n\r\n"
+               b"--X\r\nContent-Type: text/plain\r\n\r\nView results: https://github.com/x/y/actions/runs/1\r\n"
+               b"--X\r\nContent-Type: text/html\r\n\r\n<p>Run failed. <a href=\"https://github.com/x/y/actions/runs/1\">View results</a></p>\r\n"
+               b"--X--\r\n")
+        body, urls, _h = eb.parse_eml(eml)
+        assert body == "Run failed. View results"
+        assert urls == ["https://github.com/x/y/actions/runs/1"]

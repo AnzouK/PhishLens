@@ -12,7 +12,7 @@
 // organisation; the address is read from the "From" line when present.
 // =====================================================================
 
-/* global PLL_ICON, textOf, linkTargetsOf, showBanner, attachExplanation, setBtnLoading, _getBackendBase */
+/* global PLL_ICON, PLL_INSTANCE, pllAlive, textOf, linkTargetsOf, showBanner, attachExplanation, setBtnLoading, _getBackendBase */
 
 const OL_PANE_SEL = '[data-app-section="MailReadCompose"]';
 const OL_SUBJECT_SEL = '[role="heading"][id^="CONV_"][id$="_SUBJECT"]';
@@ -27,11 +27,14 @@ new MutationObserver(() => {
 }).observe(document.body, { childList: true, subtree: true });
 
 function olInject() {
+    if (!pllAlive()) return;
     const pane = document.querySelector(OL_PANE_SEL);
     const subject = pane?.querySelector(OL_SUBJECT_SEL);
-    if (!subject || subject.dataset.pllHooked) return;
+    if (!subject || subject.dataset.pllHooked === PLL_INSTANCE) return;
     if (!pane.querySelector(OL_BODY_SEL)) return;
-    subject.dataset.pllHooked = "1";
+    // Replace a button left by an older copy of the script (see gmail.js).
+    subject.parentElement?.querySelectorAll(".pll-scan-btn--outlook").forEach((b) => b.remove());
+    subject.dataset.pllHooked = PLL_INSTANCE;
 
     const btn = document.createElement("button");
     btn.type = "button";
