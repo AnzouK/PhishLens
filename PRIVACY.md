@@ -71,6 +71,15 @@ only** (never the email text, sender or subject):
 PhishLens Cloud also counts verdicts per scoring path for monitoring
 (Prometheus counters). These are numbers only, with no email data.
 
+## This website
+
+`anzouk.duckdns.org` sets no cookies and uses no tracking scripts, so
+there is nothing to consent to. Visit counts come from the web server's
+own logs (page, time, referrer, browser type, IP address), read with a
+self-hosted tool; they are kept for 30 days and never shared. The page
+asks GitHub's public API for the latest version number, which GitHub
+sees as a normal request from your browser.
+
 ## Permissions
 
 | Permission | Why |

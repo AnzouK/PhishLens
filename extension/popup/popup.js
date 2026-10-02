@@ -66,6 +66,13 @@ let explainError = null;         // string error message or null
 
 // ---------- theme persistence ----------
 const STORAGE = chrome?.storage?.local;
+
+// Version in the footer, read from the manifest.
+try {
+    const v = chrome?.runtime?.getManifest?.().version;
+    const el = document.getElementById("app-version");
+    if (v && el) el.textContent = `v${v}`;
+} catch { /* not in an extension context (tests) */ }
 (async function initTheme() {
     let saved = null;
     try {

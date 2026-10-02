@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="620" viewBox="0 0 400 620" role="img" aria-labelledby="t d">
+  <title id="t">PhishLens popup showing a phishing verdict</title>
+  <desc id="d">The extension popup after scanning an email: a phishing verdict, a score per check with a bar, threat-intelligence and authentication badges, and the words that influenced the text model.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .ic { fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+  <rect x="0.5" y="0.5" width="399" height="619" rx="6" fill="#f5f2eb" stroke="#d6d0c2"/>
+
+  <image x="20" y="18" width="34" height="34" href="data:image/png;base64,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"/>
+  <text x="64" y="34" font-size="16" font-weight="700" fill="#1f1e1b">PhishLens</text>
+  <text x="64" y="51" font-size="12" fill="#4a4740">Detect &amp; explain phishing emails</text>
+  <g>
+    <rect x="276" y="20" width="30" height="30" rx="4" fill="none" stroke="#d6d0c2"/>
+    <g transform="translate(282 26) scale(.75)" class="ic" stroke="#4a4740" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></g>
+    <rect x="312" y="20" width="30" height="30" rx="4" fill="none" stroke="#d6d0c2"/>
+    <g transform="translate(318 26) scale(.75)" class="ic" stroke="#4a4740" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/></g>
+    <rect x="348" y="20" width="30" height="30" rx="4" fill="none" stroke="#d6d0c2"/>
+    <g transform="translate(354 26) scale(.75)" class="ic" stroke="#4a4740" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 000 18z" fill="#4a4740"/></g>
+  </g>
+  <line x1="0" y1="68" x2="400" y2="68" stroke="#d6d0c2"/>
+
+  <rect x="20" y="84" width="360" height="62" rx="4" fill="#f6e9e8" stroke="#a3271c"/>
+  <path transform="translate(38 101)" class="ic" stroke="#a3271c" d="M10.3 1.9L1.4 17a2 2 0 001.7 3h17.8a2 2 0 001.7-3L13.7 1.9a2 2 0 00-3.4 0zM12 8v4M12 16h.01" stroke-width="2"/>
+  <text x="74" y="111" font-size="15" font-weight="700" fill="#1f1e1b">This email looks like phishing</text>
+  <text x="74" y="130" font-size="12.5" fill="#4a4740">We recommend not clicking any links.</text>
+
+  <rect x="20" y="160" width="360" height="84" rx="4" fill="#ffffff" stroke="#d6d0c2"/>
+  <text x="36" y="186" font-size="13.5" font-weight="600" fill="#1f1e1b">Message content</text>
+  <text x="364" y="186" font-size="13.5" font-weight="700" fill="#a3271c" text-anchor="end">97%</text>
+  <rect x="36" y="196" width="328" height="5" rx="2.5" fill="#e3ddd0"/>
+  <rect x="36" y="196" width="316" height="5" rx="2.5" fill="#a3271c"/>
+  <text x="36" y="226" font-size="12" fill="#4a4740">The message content reads like a scam.</text>
+  <rect x="20" y="256" width="360" height="84" rx="4" fill="#ffffff" stroke="#d6d0c2"/>
+  <text x="36" y="282" font-size="13.5" font-weight="600" fill="#1f1e1b">Links in the email</text>
+  <text x="364" y="282" font-size="13.5" font-weight="700" fill="#a3271c" text-anchor="end">88%</text>
+  <rect x="36" y="292" width="328" height="5" rx="2.5" fill="#e3ddd0"/>
+  <rect x="36" y="292" width="287" height="5" rx="2.5" fill="#a3271c"/>
+  <rect x="36" y="308" width="208" height="20" rx="4" fill="#eed8d6"/>
+  <text x="43" y="322" font-size="11" font-weight="600" fill="#a3271c">Flagged by Google Safe Browsing</text>
+  <rect x="20" y="352" width="360" height="84" rx="4" fill="#ffffff" stroke="#d6d0c2"/>
+  <text x="36" y="378" font-size="13.5" font-weight="600" fill="#1f1e1b">Sender &amp; headers</text>
+  <text x="364" y="378" font-size="13.5" font-weight="700" fill="#7a5200" text-anchor="end">64%</text>
+  <rect x="36" y="388" width="328" height="5" rx="2.5" fill="#e3ddd0"/>
+  <rect x="36" y="388" width="209" height="5" rx="2.5" fill="#7a5200"/>
+  <rect x="36" y="404" width="76" height="20" rx="4" fill="#eed8d6"/>
+  <text x="43" y="418" font-size="11" font-weight="600" fill="#a3271c">DMARC fail</text>
+  <rect x="118.0" y="404" width="63" height="20" rx="4" fill="#e7e0d1"/>
+  <text x="125.0" y="418" font-size="11" font-weight="600" fill="#7a5200">SPF fail</text>
+
+  <rect x="20" y="448" width="360" height="152" rx="4" fill="#ffffff" stroke="#d6d0c2"/>
+  <text x="36" y="474" font-size="13.5" font-weight="600" fill="#1f1e1b">Why this verdict?</text>
+  <path d="M356 470l5-5 5 5" class="ic" stroke="#4a4740"/>
+  <text x="36" y="496" font-size="11.5" fill="#4a4740">The words that influenced the text model most.</text>
+  <text x="36" y="512" font-size="11.5" fill="#4a4740">Red points to phishing, green to safe.</text>
+    <rect x="36" y="528" width="56" height="22" rx="4" fill="#cc8882"/>
+  <text x="44" y="543" font-size="11.5" fill="#1f1e1b">verify</text>
+  <rect x="98" y="528" width="75" height="22" rx="4" fill="#d69e99"/>
+  <text x="106" y="543" font-size="11.5" fill="#1f1e1b">suspended</text>
+  <rect x="179" y="528" width="89" height="22" rx="4" fill="#dcada9"/>
+  <text x="187" y="543" font-size="11.5" fill="#1f1e1b">immediately</text>
+  <rect x="274" y="528" width="62" height="22" rx="4" fill="#e5c3bf"/>
+  <text x="282" y="543" font-size="11.5" fill="#1f1e1b">account</text>
+  <rect x="36" y="556" width="62" height="22" rx="4" fill="#ebcfcd"/>
+  <text x="44" y="571" font-size="11.5" fill="#1f1e1b">payment</text>
+  <rect x="104" y="556" width="42" height="22" rx="4" fill="#c0d3c3"/>
+  <text x="112" y="571" font-size="11.5" fill="#1f1e1b">team</text>
+  <rect x="153" y="556" width="56" height="22" rx="4" fill="#d1ded3"/>
+  <text x="161" y="571" font-size="11.5" fill="#1f1e1b">agenda</text>
+</svg>
