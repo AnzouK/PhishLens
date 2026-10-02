@@ -7,7 +7,16 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [1.15.1] - 2026-10-02
+
+Look and feel release: the website, the popup and the README pictures
+now share one style, in light and dark.
+
 ### Changed
+- **Popup controls in the accent colour:** checkboxes, radios and the
+  keyboard focus ring use the PhishLens orange instead of the browser
+  blue; the selected backend is a plain card with an orange border; the
+  footer fits on one line.
 - **Illustrations in light and dark** (`scripts/build_illustrations.py`):
   the README shows `docs/*-light.svg` or `docs/*-dark.svg` to match the
   reader's GitHub theme, and the website uses the dark ones. The dark
@@ -528,6 +537,7 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[1.15.1]: https://github.com/AnzouK/PhishLens/compare/v1.15.0...v1.15.1
 [1.15.0]: https://github.com/AnzouK/PhishLens/compare/v1.14.1...v1.15.0
 [1.14.1]: https://github.com/AnzouK/PhishLens/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/AnzouK/PhishLens/compare/v1.13.0...v1.14.0
