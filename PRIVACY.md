@@ -78,6 +78,7 @@ PhishLens Cloud also counts verdicts per scoring path for monitoring
 | `storage` | Keep your settings, scan history and caches in the browser. |
 | `alarms` | Ping the backend now and then so the first scan is not slow. |
 | `notifications` | Warn you when the automatic scan finds a phishing email. |
+| `scripting` | After an update, put the new version of the scan buttons into Gmail and Outlook tabs that are already open, so you do not have to refresh them. |
 | Access to `mail.google.com` | Add the scan buttons and banners to Gmail and read the email you scan. |
 | Access to Outlook on the web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Same, in Outlook (manual scans only). |
 | Access to `127.0.0.1:8000`, `localhost:8000`, `anzouk.duckdns.org` | Send scans to the backend you chose. |

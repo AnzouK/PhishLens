@@ -81,10 +81,37 @@ async function warmBackend(reason) {
 chrome.runtime.onStartup.addListener(() => warmBackend("startup"));
 
 // 2. Fire on install / update (also keeps the original install log).
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
     console.log("PhishLens installed.");
     warmBackend("install");
+    // Only when this extension itself was installed or updated (a reload
+    // counts as an update). A Chrome update keeps the scripts alive, and
+    // injecting a second copy into the same page would clash.
+    if (details?.reason === "install" || details?.reason === "update") reinjectIntoOpenTabs();
 });
+
+// After an install, an update or a reload, Chrome does not inject content
+// scripts into tabs that are already open: the old copy stays there, cut
+// off from the extension, and the user would have to refresh Gmail. So
+// the new copy is injected into open Gmail / Outlook tabs here; it
+// replaces the old buttons (see PLL_INSTANCE in gmail.js).
+async function reinjectIntoOpenTabs() {
+    if (!chrome.scripting) return;
+    const groups = chrome.runtime.getManifest().content_scripts || [];
+    for (const cs of groups) {
+        let tabs = [];
+        try { tabs = await chrome.tabs.query({ url: cs.matches }); } catch { continue; }
+        for (const tab of tabs) {
+            if (tab.id == null || tab.discarded) continue;
+            try {
+                if (cs.css?.length) await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: cs.css });
+                await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: cs.js });
+            } catch (e) {
+                console.warn("PhishLens: could not refresh the script in tab", tab.id, String(e?.message || e));
+            }
+        }
+    }
+}
 
 // 3. Keep-alive alarm: pings every 10 min while Chrome is running.
 //    Chrome's alarms API guarantees a minimum interval of 30 s in prod,
