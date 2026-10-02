@@ -1179,16 +1179,32 @@ async def analyse(request: Request, req: AnalyseRequest):
     forwarded = detect_forwarded(body, subject if isinstance(subject, str) else None)
     shared_links = detect_shared_links(urls)
     text_used = len(body.split()) >= MIN_TEXT_WORDS
+    # v1.15: Outlook on the web shows only the NAME of senders from the
+    # user's own organisation. Such internal mail was authenticated by the
+    # organisation's mail server (Exchange), so it gets the same soft
+    # treatment as a Gmail inbox delivery, and the organisation's domain
+    # stands in for the sender domain (allowlist check).
+    outlook_internal = (
+        ctx.get("origin") == "outlook"
+        and ctx.get("outlook_internal") is True
+        and not crypto_verified
+    )
+    if outlook_internal and not sender_domain:
+        org = str(ctx.get("org_domain") or "").strip().lower()
+        if re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", org):
+            sender_domain = org
+            trusted_sender = is_trusted_domain(org)
     if forwarded["detected"]:
         # The sender vouches for the forward, not for the forwarded content.
         trusted_sender = False
         crypto_verified = False
+        outlook_internal = False
 
     gmail_inbox_soft = (
         not crypto_verified
         and not forwarded["detected"]
-        and ctx.get("origin") == "gmail"
-        and bool(ctx.get("gmail_in_inbox"))
+        and (ctx.get("origin") == "gmail" or outlook_internal)
+        and (bool(ctx.get("gmail_in_inbox")) or outlook_internal)
         and auth_signal.get("auth", {}).get("dmarc") != "fail"
         and auth_signal.get("auth", {}).get("dkim")  != "fail"
     )
@@ -1248,7 +1264,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         fused = _fuse(0.6)
         high_conf = gsb_hit
         threshold = 0.62
-        trust_path = "gmail_inbox_soft"
+        trust_path = "outlook_internal" if outlook_internal else "gmail_inbox_soft"
     else:
         fused = _fuse(1.0)
         # v1.15: the URL agent alone no longer fires the override unless a
@@ -1282,7 +1298,8 @@ async def analyse(request: Request, req: AnalyseRequest):
         "text_agent_used": text_used,
         "sender_auth": {
             "cryptographically_verified": crypto_verified,
-            "gmail_inbox_soft_verified":  bool(gmail_inbox_soft),
+            "gmail_inbox_soft_verified":  bool(gmail_inbox_soft and not outlook_internal),
+            "outlook_internal":           bool(outlook_internal),
             "spf":   auth_signal.get("auth", {}).get("spf", "none"),
             "dkim":  auth_signal.get("auth", {}).get("dkim", "none"),
             "dmarc": auth_signal.get("auth", {}).get("dmarc", "none"),

@@ -354,6 +354,9 @@ function bannerLead(data, phishing) {
         if (data.trust_path === "crypto_verified") {
             return "Some wording or links resemble phishing, but the sender is proven by DKIM, so they weigh less.";
         }
+        if (data.trust_path === "outlook_internal") {
+            return "Some wording or links resemble phishing, but it comes from inside your organisation, so they weigh less.";
+        }
         if (data.trust_path === "gmail_inbox_soft") {
             return "Some wording or links resemble phishing, but Gmail verified the sender before delivery, so they weigh less.";
         }
@@ -412,6 +415,8 @@ function showBanner(emailView, data, anchor = null) {
             const dkim = data.sender_auth?.dkim || "none";
             const dmarc = data.sender_auth?.dmarc || "none";
             trustedBadge = `<span class="pll-trusted" title="DKIM signature aligned with From: ${escapeHTML(data.sender_domain || "")}, SPF=${escapeHTML(spf)} DKIM=${escapeHTML(dkim)} DMARC=${escapeHTML(dmarc)}">DKIM verified</span>`;
+        } else if (data.sender_auth?.outlook_internal) {
+            trustedBadge = `<span class="pll-trusted" title="Sent from inside your organisation: your mail server authenticated it. Softer signal than a DKIM check.">Internal sender</span>`;
         } else if (gmailSoftVerified) {
             trustedBadge = `<span class="pll-trusted" title="Gmail delivered this to Inbox, so its own SPF/DKIM/DMARC verification passed. Softer signal than a full crypto verification.">Delivered by Gmail</span>`;
         }

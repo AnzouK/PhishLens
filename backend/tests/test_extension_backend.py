@@ -566,3 +566,35 @@ class TestUrlOverrideNeedsConfirmation:
             "raw_text": "Please confirm your details at http://192.168.10.5/login before Monday."}).json()
         assert j["high_confidence_override"] is True
         assert j["verdict"] == "phishing"
+
+
+class TestOutlookInternal:
+    BODY = "Dear student, please find your attendance details below and have a fruitful day."
+
+    def test_internal_sender_from_trusted_org(self, client, monkeypatch):
+        text_score(monkeypatch, 0.99)
+        j = client.post("/analyse", json={"raw_text": self.BODY, "client_context": {
+            "origin": "outlook", "outlook_internal": True, "org_domain": "gtbank.com"}}).json()
+        assert j["trust_path"] == "trusted_sender"
+        assert j["verdict"] == "safe"
+
+    def test_internal_sender_soft_path(self, client, monkeypatch):
+        text_score(monkeypatch, 0.99)
+        j = client.post("/analyse", json={"raw_text": self.BODY, "client_context": {
+            "origin": "outlook", "outlook_internal": True, "org_domain": "example-university.edu"}}).json()
+        assert j["trust_path"] == "outlook_internal"
+        assert j["sender_auth"]["outlook_internal"] is True
+        assert j["verdict"] == "safe"
+
+    def test_outlook_external_unknown_gets_no_discount(self, client, monkeypatch):
+        text_score(monkeypatch, 0.99)
+        j = client.post("/analyse", json={"raw_text": self.BODY, "sender_email": "x@unknown.example",
+                                          "client_context": {"origin": "outlook"}}).json()
+        assert j["trust_path"] == "default"
+        assert j["verdict"] == "phishing"
+
+    def test_bad_org_domain_ignored(self, client, monkeypatch):
+        text_score(monkeypatch, 0.10)
+        j = client.post("/analyse", json={"raw_text": self.BODY, "client_context": {
+            "origin": "outlook", "outlook_internal": True, "org_domain": "not a domain"}}).json()
+        assert j["sender_domain"] is None

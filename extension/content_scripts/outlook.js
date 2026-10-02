@@ -86,6 +86,15 @@ function olCurrentMessage(pane) {
     return { body, count: bodies.length, senderEmail: email.toLowerCase(), senderName: fromText.replace(/<[^>]*>/, "").trim() };
 }
 
+// Domain of the signed-in account, from the folder pane ("name@org").
+function olAccountDomain() {
+    for (const el of document.querySelectorAll('[role="treeitem"][title*="@"], [role="tree"] [title*="@"]')) {
+        const m = (el.getAttribute("title") || "").trim().match(/^[\w.+-]+@([\w-]+(?:\.[\w-]+)+)$/);
+        if (m) return m[1].toLowerCase();
+    }
+    return null;
+}
+
 async function olScan(pane, btn) {
     const { body: bodyEl, count, senderEmail, senderName } = olCurrentMessage(pane);
     const subject = pane.querySelector(OL_SUBJECT_SEL)?.getAttribute("title")
@@ -112,6 +121,9 @@ async function olScan(pane, btn) {
             client_context: {
                 origin: "outlook",
                 subject,
+                // No address shown: Outlook hides it for senders of the
+                // user's own organisation (internal, authenticated mail).
+                ...(senderEmail ? {} : { outlook_internal: true, org_domain: olAccountDomain() }),
                 link_urls: links,
                 thread_messages: count,
             },
