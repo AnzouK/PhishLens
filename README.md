@@ -23,8 +23,11 @@ and the headers), then the verdict is adjusted with real evidence:
 SPF/DKIM/DMARC alignment and four threat-intelligence sources. A LIME
 panel highlights the words that drove the decision. Attachments are
 scanned too: PDFs (including scanned ones, through OCR), images, HTML
-pages and Word / Excel / PowerPoint files, with QR codes decoded and
-macros, remote templates and other dropper tricks flagged.
+pages, Word / Excel / PowerPoint files, ZIP archives, calendar invites
+and attached emails, with QR codes decoded and macros, executables,
+password-protected archives and other dropper tricks flagged. The
+scanner handles real-inbox cases: conversations, forwarded emails,
+image-only emails and links hidden behind "Click here".
 
 <div align="center">
   <img src="docs/attachments.svg" alt="Attachment scan results: a scanned PDF invoice with a QR code and a Word document with macros flagged as phishing, and a safe PDF" width="860">
@@ -109,7 +112,7 @@ The backend is ready when the logs show `Model loaded on device=cpu`.
   sender-authentication chips and a "Why?" panel. Emails with attachments
   get a **Scan N attachments** button.
 - **In the popup:** drop a `.eml` file or an attachment (PDF, image,
-  Word, Excel, PowerPoint, HTML), or paste the text of an email.
+  Word, Excel, PowerPoint, HTML, ZIP, .ics), or paste the text of an email.
 - **History:** every scan is kept locally in the browser, with a small
   analytics view and CSV / JSON export.
 
@@ -181,9 +184,10 @@ both repositories, the models, the report and every guide.
   notification when one looks like phishing.
 - **Live evaluation:** false-positive rate on a real inbox and detection
   rate on phishing reported after the training cut-off.
-- **Multilingual model:** French, Hausa and Yoruba phishing.
-- **Attachments:** archives (ZIP, RAR, 7z) and calendar invites (`.ics`),
-  both used to smuggle links past scanners; OCR in French.
+- **Full Gmail headers:** read the original message ("Show original") so
+  the metadata agent sees the real headers instead of the visible page.
+- **Attachments:** open RAR and 7z archives (recognised but not opened
+  today).
 - **Research:** SHAP as a comparison for LIME, retraining the agents on
   OCR text and QR-code phishing.
 
