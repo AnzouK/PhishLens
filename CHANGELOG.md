@@ -5,7 +5,11 @@ All notable changes to PhishLens are listed here. The format follows
 uses [Semantic Versioning](https://semver.org/). The extension and the
 backend share one version number.
 
-## [Unreleased]
+## [1.15.0] - 2026-10-02
+
+Real-mail release: Gmail full headers, automatic scanning, Outlook on
+the web, live evaluation, and scoring fixes found by testing on a real
+inbox (header and URL models on 2026 mail).
 
 ### Added
 - **Full headers in Gmail:** with "Read full headers" on (default), a
@@ -39,6 +43,13 @@ backend share one version number.
   HTML part, and accept `client_context.link_urls`.
 
 ### Changed
+- **Outlook internal senders:** Outlook hides the address of senders
+  from the user's own organisation. Such mail (already authenticated by
+  the organisation's server) now gets the soft path, as a new
+  `outlook_internal` trust path (text weight x0.6, threshold 0.62, no
+  single-agent override except Safe Browsing), and the organisation's
+  domain, read from the folder pane, is used for the allowlist check. An
+  "Internal sender" pill shows it.
 - **PhishLens Cloud** (formerly "Cloud demo") is the hosted backend for
   normal use and the **default** for new installs; existing settings are
   kept. Renamed everywhere (settings, README, site, privacy policy,
@@ -477,6 +488,7 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[1.15.0]: https://github.com/AnzouK/PhishLens/compare/v1.14.1...v1.15.0
 [1.14.1]: https://github.com/AnzouK/PhishLens/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/AnzouK/PhishLens/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/AnzouK/PhishLens/compare/v1.12.0...v1.13.0

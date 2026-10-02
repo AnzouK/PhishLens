@@ -116,6 +116,7 @@ How each trust path changes them:
 | `trusted_sender` | x0.5 | only on a Safe Browsing hit | 0.65 | metadata score floored at 0.05 |
 | `crypto_verified` | x0.5 | only on a Safe Browsing hit | 0.65 | |
 | `gmail_inbox_soft` | x0.6 | only on a Safe Browsing hit | 0.62 | |
+| `outlook_internal` | x0.6 | only on a Safe Browsing hit | 0.62 | Outlook sender from the user's own organisation (address hidden by Outlook, mail authenticated by the organisation's server); the organisation's domain is used for the allowlist check, so an allowlisted organisation gets `trusted_sender` instead |
 | `default` | x1.0 | text or metadata >= 0.85; URL >= 0.85 only with a concrete sign (threat-intel hit, raw IP, plain http, `@`, suspicious TLD) | 0.5 | |
 
 A Google Safe Browsing match on any link forces the phishing verdict on
