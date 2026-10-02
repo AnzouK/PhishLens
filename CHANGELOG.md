@@ -61,6 +61,11 @@ backend share one version number.
   whose links merely have a path.
 - **Disconnected content scripts** (after an extension update) stop
   their observers and no longer log "Extension context invalidated".
+- **Open tabs after an update:** Chrome does not inject content scripts
+  into tabs that are already open, so the background worker now does it
+  on install and update (new `scripting` permission, Outlook hosts added
+  to `host_permissions`); the new copy replaces the old buttons. No more
+  "please refresh this tab" after an update.
 - **Trained URL model and hidden links:** on real 2026 links the URL
   Random Forest scores almost any URL with a path at ~0.95
   (`github.com/user/repo` 0.95, `wikipedia.org/wiki/...` 0.97; a bare
