@@ -140,7 +140,7 @@ html[data-phishlens-theme="dark"] {
 .pll-banner__close:hover { background: var(--pll-surface-2); color: var(--pll-text); }
 
 /* agent meters */
-.pll-meters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 18px; margin: 10px 0 2px; max-width: 560px; }
+.pll-meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px 18px; margin: 10px 0 2px; max-width: 600px; }
 @media (max-width: 700px) { .pll-meters { grid-template-columns: 1fr; } }
 .pll-meter { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; font-size: 12px; }
 .pll-meter__l { color: var(--pll-text-2); }
@@ -279,3 +279,11 @@ html[data-phishlens-theme="dark"] {
 .pll-toast--danger { border-color: var(--pll-bad-line); }
 .pll-toast--danger .pll-toast__icon { color: var(--pll-bad); }
 .pll-toast--warn .pll-toast__icon { color: var(--pll-warn); }
+
+/* v1.15: Outlook, the scan button sits on its own line under the subject */
+.pll-scan-btn--outlook { margin: 6px 0 4px; }
+.pll-row-badge--safe { color: var(--pll-good); background: transparent; box-shadow: inset 0 0 0 1px var(--pll-good-line, currentColor); }
+
+/* v1.15: Outlook, the banner sits under the subject bar */
+.pll-ol-slot { padding: 0 12px; }
+.pll-ol-slot > .pll-banner { margin: 8px 0 4px; }

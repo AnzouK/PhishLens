@@ -27,13 +27,51 @@ backend share one version number.
   `scripts/live_eval.py` turns an exported JSON history into a report
   (confusion matrix, precision, recall, false-positive rate with 95%
   intervals, per source) without printing subjects or senders.
+- **Outlook on the web** (`outlook.office.com`, `outlook.office365.com`,
+  `outlook.live.com`): a "Scan with PhishLens" button under the subject
+  and the same verdict banner, scores, chips and word-level explanation
+  as in Gmail, on the last expanded message of a conversation. Manual
+  scans only for now (no attachments, full headers or automatic scan
+  yet); history source "Outlook".
 - **Privacy policy** (`PRIVACY.md`), published at `/privacy.html` on the
   site and linked from the footer.
 - **Backend:** `.eml` scans also collect the real link targets of the
   HTML part, and accept `client_context.link_urls`.
 
 ### Changed
+- **PhishLens Cloud** (formerly "Cloud demo") is the hosted backend for
+  normal use and the **default** for new installs; existing settings are
+  kept. Renamed everywhere (settings, README, site, privacy policy,
+  threat model).
 - Removed the unused `http://130.61.146.213/*` host permission.
+
+### Fixed
+- **Insights chart:** daily buckets used the UTC date, so east of
+  Greenwich today's scans fell outside the 30-day chart.
+- **HTML-only emails:** `.eml` bodies (and the full-headers Gmail scans)
+  were turned into text with a tag strip that kept `<style>` contents,
+  so the text model read CSS ("25px", "roboto"). `html_to_text` now
+  keeps only the visible text. CSS-like tokens are also left out of the
+  "Top phishing tokens" stats.
+- **Full headers and the trained header model:** on real 2026 Gmail
+  headers (ARC, X-Gm-*, long Received chains) the trained metadata
+  Random Forest scored legitimate mail at ~1.0 (it was trained on older
+  corpora). Scans that send Gmail's "Show original"
+  (`client_context.headers_source = "gmail_show_original"`) now use the
+  header heuristics plus the real SPF/DKIM/DMARC results instead, until
+  the model is retrained on modern headers. Automatic-scan results from
+  before the fix are discarded.
+- **Sent messages:** a message without delivery headers (one you sent)
+  is scanned from the page instead of "Show original".
+- **Attachment-only emails** sent as full `.eml` no longer get a 400:
+  headers and links are scored, the text agent is left out.
+- **Outlook:** the banner sits under the subject bar instead of inside
+  the message; drafts in a conversation are ignored; the button frees up
+  before the word-level explanation arrives.
+- **Banner meters** wrap on narrow reading panes instead of overlapping.
+- **Automatic scan:** safe emails get a green "Safe" pill too.
+- **Automatic scan feedback:** a status toast in Gmail shows the scan in
+  progress and its result.
 
 ## [1.14.1] - 2026-10-01
 

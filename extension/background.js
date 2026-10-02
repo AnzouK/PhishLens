@@ -30,9 +30,9 @@ const BACKEND_PRESETS = {
 async function getApiBase() {
     const s = await new Promise((r) =>
         chrome.storage.local.get(["backend", "backend_custom_url"], r));
-    const choice = s.backend || "local";
+    const choice = s.backend || "cloud";
     if (choice === "custom") return (s.backend_custom_url || "").replace(/\/$/, "");
-    return BACKEND_PRESETS[choice] || BACKEND_PRESETS.local;
+    return BACKEND_PRESETS[choice] || BACKEND_PRESETS.cloud;
 }
 
 // ---------------------------------------------------------------------
@@ -52,7 +52,7 @@ async function warmBackend(reason) {
     try {
         const s = await new Promise((r) =>
             chrome.storage.local.get(["backend", "backend_custom_url"], r));
-        const choice = s.backend || "local";
+        const choice = s.backend || "cloud";
         // Local Docker never sleeps; nothing to warm up.
         if (choice === "local") return;
         const base =
