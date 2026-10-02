@@ -23,6 +23,20 @@ const PLL_INSTANCE = Math.random().toString(36).slice(2, 10);
 function pllAlive() {
     try { return !!chrome.runtime?.id; } catch { return false; }
 }
+// Every observer of this copy, so a disconnected copy can stop them all.
+const PLL_OBSERVERS = [];
+function pllShutdownIfDead() {
+    if (pllAlive()) return false;
+    PLL_OBSERVERS.forEach((o) => o.disconnect());
+    PLL_OBSERVERS.length = 0;
+    return true;
+}
+// A call to chrome.* from a disconnected copy throws "Extension context
+// invalidated"; those are expected after an update and not worth a red
+// entry on the extensions page.
+window.addEventListener("unhandledrejection", (ev) => {
+    if (/Extension context invalidated/i.test(String(ev.reason?.message || ev.reason))) ev.preventDefault();
+});
 
 // Inline SVG icons (no emoji: they render differently on every OS).
 const PLL_ICON = {
@@ -65,7 +79,8 @@ const PROCESSED = new WeakSet();
 // ---------------------------------------------------------------------
 // MutationObserver entry point
 // ---------------------------------------------------------------------
-const obs = new MutationObserver(() => scheduleScan());
+const obs = new MutationObserver(() => { if (!pllShutdownIfDead()) scheduleScan(); });
+PLL_OBSERVERS.push(obs);
 if (PLL_IS_GMAIL) obs.observe(document.body, { childList: true, subtree: true });
 
 let scanQueued = false;
@@ -801,7 +816,7 @@ const ATT_TILE_HINT_SELECTORS_IN_STRIP = [
 // view whenever the DOM settles.
 let _attScanQueued = false;
 const _attObs = new MutationObserver(() => {
-    if (_attScanQueued) return;
+    if (pllShutdownIfDead() || _attScanQueued) return;
     _attScanQueued = true;
     setTimeout(() => {
         _attScanQueued = false;
@@ -812,6 +827,7 @@ const _attObs = new MutationObserver(() => {
         });
     }, 400);
 });
+PLL_OBSERVERS.push(_attObs);
 if (PLL_IS_GMAIL) _attObs.observe(document.body, { childList: true, subtree: true });
 
 function installAttachmentButtons(emailView) {
@@ -1268,15 +1284,20 @@ function scheduleAutoScan() {
 // New mail and list redraws both mutate the DOM: piggy-back on them.
 let _paintQueued = false;
 const _autoObs = new MutationObserver(() => {
+    if (pllShutdownIfDead()) return;
     if (PLL_OPTS.autoScan) scheduleAutoScan();
     if (_paintQueued) return;
     _paintQueued = true;
     setTimeout(() => { _paintQueued = false; paintAutoBadges(); }, 300);
 });
+PLL_OBSERVERS.push(_autoObs);
 if (PLL_IS_GMAIL) _autoObs.observe(document.body, { childList: true, subtree: true });
 
 function _autoCacheGet() {
-    return new Promise((r) => chrome.storage.local.get([AUTO_CACHE_KEY], (s) => r(s[AUTO_CACHE_KEY] || {})));
+    return new Promise((r) => {
+        try { chrome.storage.local.get([AUTO_CACHE_KEY], (s) => r(s?.[AUTO_CACHE_KEY] || {})); }
+        catch { r({}); }
+    });
 }
 async function _autoCachePut(id, entry) {
     const cache = await _autoCacheGet();

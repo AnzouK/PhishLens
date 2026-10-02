@@ -12,7 +12,7 @@
 // organisation; the address is read from the "From" line when present.
 // =====================================================================
 
-/* global PLL_ICON, PLL_INSTANCE, pllAlive, textOf, linkTargetsOf, showBanner, attachExplanation, setBtnLoading, _getBackendBase */
+/* global PLL_ICON, PLL_INSTANCE, pllAlive, pllShutdownIfDead, PLL_OBSERVERS, textOf, linkTargetsOf, showBanner, attachExplanation, setBtnLoading, _getBackendBase */
 
 const OL_PANE_SEL = '[data-app-section="MailReadCompose"]';
 const OL_SUBJECT_SEL = '[role="heading"][id^="CONV_"][id$="_SUBJECT"]';
@@ -20,11 +20,13 @@ const OL_BODY_SEL = '[id^="UniqueMessageBody"]';
 const OL_EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
 
 let _olQueued = false;
-new MutationObserver(() => {
-    if (_olQueued) return;
+const _olObs = new MutationObserver(() => {
+    if (pllShutdownIfDead() || _olQueued) return;
     _olQueued = true;
     setTimeout(() => { _olQueued = false; olInject(); }, 300);
-}).observe(document.body, { childList: true, subtree: true });
+});
+PLL_OBSERVERS.push(_olObs);
+_olObs.observe(document.body, { childList: true, subtree: true });
 
 function olInject() {
     if (!pllAlive()) return;

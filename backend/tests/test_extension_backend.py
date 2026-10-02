@@ -545,3 +545,24 @@ class TestV115Scoring:
         body, urls, _h = eb.parse_eml(eml)
         assert body == "Run failed. View results"
         assert urls == ["https://github.com/x/y/actions/runs/1"]
+
+
+class TestUrlOverrideNeedsConfirmation:
+    def _rf(self, monkeypatch, p):
+        monkeypatch.setattr(eb, "url_agent", lambda urls, body_text="": p)
+
+    def test_clean_link_alone_does_not_force_phishing(self, client, monkeypatch):
+        text_score(monkeypatch, 0.10)
+        self._rf(monkeypatch, 0.95)
+        j = client.post("/analyse", json={
+            "raw_text": "The agenda for Monday is at https://github.com/AnzouK/PhishLens/wiki today."}).json()
+        assert j["high_confidence_override"] is False
+        assert j["verdict"] == "safe"
+
+    def test_risky_link_still_forces_phishing(self, client, monkeypatch):
+        text_score(monkeypatch, 0.10)
+        self._rf(monkeypatch, 0.95)
+        j = client.post("/analyse", json={
+            "raw_text": "Please confirm your details at http://192.168.10.5/login before Monday."}).json()
+        assert j["high_confidence_override"] is True
+        assert j["verdict"] == "phishing"

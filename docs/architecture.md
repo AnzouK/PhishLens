@@ -87,7 +87,7 @@ flowchart TD
     C -- yes --> P2["crypto_verified<br/>text x0.5, override only on GSB hit, threshold 0.65"]
     C -- no --> I{"Gmail delivered to Inbox<br/>and no DKIM/DMARC fail?"}
     I -- yes --> P3["gmail_inbox_soft<br/>text x0.6, override only on GSB hit, threshold 0.62"]
-    I -- no --> P4["default<br/>weights 0.34 / 0.33 / 0.33, override if any agent >= 0.85, threshold 0.5"]
+    I -- no --> P4["default<br/>weights 0.34 / 0.33 / 0.33, override if text or metadata >= 0.85<br/>(URL only with a confirming sign), threshold 0.5"]
 ```
 
 Before the paths apply, two external signals are folded in: a Google Safe
@@ -116,7 +116,7 @@ How each trust path changes them:
 | `trusted_sender` | x0.5 | only on a Safe Browsing hit | 0.65 | metadata score floored at 0.05 |
 | `crypto_verified` | x0.5 | only on a Safe Browsing hit | 0.65 | |
 | `gmail_inbox_soft` | x0.6 | only on a Safe Browsing hit | 0.62 | |
-| `default` | x1.0 | any agent >= 0.85 | 0.5 | |
+| `default` | x1.0 | text or metadata >= 0.85; URL >= 0.85 only with a concrete sign (threat-intel hit, raw IP, plain http, `@`, suspicious TLD) | 0.5 | |
 
 A Google Safe Browsing match on any link forces the phishing verdict on
 every path: a trusted or signed sender carrying a blocklisted link means
