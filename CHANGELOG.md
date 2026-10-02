@@ -7,6 +7,38 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Changed
+- **Illustrations in light and dark** (`scripts/build_illustrations.py`):
+  the README shows `docs/*-light.svg` or `docs/*-dark.svg` to match the
+  reader's GitHub theme, and the website uses the dark ones. The dark
+  Gmail pictures use the extension's real dark-mode colours, the canvas
+  is transparent so it takes the page background, and the popup picture
+  is redrawn from the real popup in both themes.
+- **Website rebuilt** (`site/`): "Console" style (charcoal background,
+  one orange accent, system fonts, line icons, aligned rows, borders
+  instead of shadows, no gradients, glows, glass or hover animations;
+  results and live server counters up front, features, a fuller install
+  guide, a paste-from-clipboard button, fixed-size check panels, centred
+  mobile layout),
+  Gmail and Outlook covered, one call to action ("Install PhishLens"),
+  the live check form with validation, a honeypot and a submit
+  throttle, loading indicators, and the live server table. Stylesheet
+  and script moved to `/style.css` and `/app.js` (no inline code, ready
+  for a strict Content-Security-Policy).
+
+### Added
+- **Popup restyled like the website** (same charcoal palette, orange
+  accent, small radii, no gradients or press animations; the light theme
+  uses the site's paper tones) and the **extension version** in the
+  popup footer.
+- **Terms of use** (`TERMS.md`, `/terms.html`), a custom `/404.html`,
+  `robots.txt`, `sitemap.xml`, a social preview image (`/img/og.png`),
+  `favicon.ico` and `apple-touch-icon.png`, canonical and Open Graph
+  tags on every page. `scripts/build_site_pages.py` rebuilds the privacy,
+  terms and 404 pages from the Markdown sources.
+- **Privacy policy:** a "This website" section (no cookies, visit counts
+  from server logs kept 30 days).
+
 ### Security
 - **CodeQL alerts #12 and #13:** the Outlook sender name no longer goes
   through a one-pass tag strip (incomplete sanitization), and the

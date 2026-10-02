@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="200" viewBox="0 0 860 200" role="img" aria-labelledby="t d">
+  <title id="t">PhishLens attachment scan results in Gmail</title>
+  <desc id="d">Three attachment cards: a scanned PDF invoice flagged as phishing through OCR and a QR code, a Word document flagged for macros, and a safe PDF.</desc>
+  <style>
+    text { font-family: "Google Sans", Roboto, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .ic { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+  <rect x="0" y="0" width="860" height="200" rx="18" fill="none"/>
+
+  <!-- card 1: scanned PDF with QR -->
+  <g transform="translate(24 24)">
+    <rect width="262" height="152" rx="10" fill="#342d32" stroke="#694748"/>
+    <rect width="262" height="4" rx="2" fill="#ff8a80"/>
+    <g transform="translate(14 18)" class="ic" stroke="#ff8a80"><path d="M9 1 L17 15 L1 15 Z"/><path d="M9 6 V9.5 M9 12 V12.2"/></g>
+    <text x="42" y="31" font-size="13" font-weight="600" fill="#ff8a80">Looks like phishing</text>
+    <text x="42" y="48" font-size="11.5" fill="#a6adb7">Invoice_0925.pdf</text>
+    <text x="14" y="76" font-size="11.5" fill="#a6adb7">PDF · 212 KB · 1 / 1 pages · 1 URL</text>
+    <text x="14" y="94" font-size="11.5" fill="#a6adb7">Wording</text><text x="64" y="94" font-size="11.5" font-weight="600" fill="#e8eaed">91%</text><text x="96" y="94" font-size="11.5" fill="#a6adb7">· Links</text><text x="138" y="94" font-size="11.5" font-weight="600" fill="#e8eaed">84%</text>
+    <rect x="14" y="108" width="102" height="22" rx="11" fill="#3a3830" stroke="#6d623d"/>
+    <text x="25" y="123" font-size="11" font-weight="500" fill="#fdd663">image only pdf</text>
+    <rect x="122" y="108" width="112" height="22" rx="11" fill="#3a3830" stroke="#6d623d"/>
+    <text x="133" y="123" font-size="11" font-weight="500" fill="#fdd663">contains qr code</text>
+  </g>
+
+  <!-- card 2: macro docm -->
+  <g transform="translate(299 24)">
+    <rect width="262" height="152" rx="10" fill="#342d32" stroke="#694748"/>
+    <rect width="262" height="4" rx="2" fill="#ff8a80"/>
+    <g transform="translate(14 18)" class="ic" stroke="#ff8a80"><path d="M9 1 L17 15 L1 15 Z"/><path d="M9 6 V9.5 M9 12 V12.2"/></g>
+    <text x="42" y="31" font-size="13" font-weight="600" fill="#ff8a80">Looks like phishing</text>
+    <text x="42" y="48" font-size="11.5" fill="#a6adb7">Payment_details.docm</text>
+    <text x="14" y="76" font-size="11.5" fill="#a6adb7">DOCX · 38 KB</text>
+    <text x="14" y="94" font-size="11.5" fill="#a6adb7">Wording</text><text x="64" y="94" font-size="11.5" font-weight="600" fill="#e8eaed">42%</text><text x="96" y="94" font-size="11.5" fill="#a6adb7">· Links</text><text x="138" y="94" font-size="11.5" font-weight="600" fill="#e8eaed">5%</text>
+    <rect x="14" y="108" width="104" height="22" rx="11" fill="#3a3830" stroke="#6d623d"/>
+    <text x="25" y="123" font-size="11" font-weight="500" fill="#fdd663">contains macros</text>
+    <rect x="124" y="108" width="104" height="22" rx="11" fill="#3a3830" stroke="#6d623d"/>
+    <text x="135" y="123" font-size="11" font-weight="500" fill="#fdd663">remote template</text>
+  </g>
+
+  <!-- card 3: safe pdf -->
+  <g transform="translate(574 24)">
+    <rect width="262" height="152" rx="10" fill="#1f2329" stroke="#3a4049"/>
+    <rect width="262" height="4" rx="2" fill="#81c995"/>
+    <g transform="translate(14 17)" class="ic" stroke="#81c995"><path d="M9 1l6 2.6v5.2c0 3.9-2.6 6.7-6 7.8-3.4-1.1-6-3.9-6-7.8V3.6L9 1z"/><path d="M6.5 8.5l2 2 3.5-3.5"/></g>
+    <text x="42" y="31" font-size="13" font-weight="600" fill="#81c995">Looks safe</text>
+    <text x="42" y="48" font-size="11.5" fill="#a6adb7">Required_documents.pdf</text>
+    <text x="14" y="76" font-size="11.5" fill="#a6adb7">PDF · 189 KB · 1 / 1 pages</text>
+    <text x="14" y="94" font-size="11.5" fill="#a6adb7">Wording</text><text x="64" y="94" font-size="11.5" font-weight="600" fill="#e8eaed">12%</text><text x="96" y="94" font-size="11.5" fill="#a6adb7">· Links</text><text x="138" y="94" font-size="11.5" font-weight="600" fill="#e8eaed">5%</text>
+    <rect x="14" y="108" width="92" height="22" rx="11" fill="#2d3a38" stroke="#415d4f"/>
+    <text x="25" y="123" font-size="11" font-weight="500" fill="#81c995">Trusted email</text>
+  </g>
+</svg>

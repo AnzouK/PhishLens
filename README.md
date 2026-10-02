@@ -12,7 +12,10 @@
 [![Website](https://img.shields.io/badge/Website-anzouk.duckdns.org-F80000)](https://anzouk.duckdns.org)
 [![Model](https://img.shields.io/badge/Hugging%20Face-model-yellow)](https://huggingface.co/AnzouKiona/phishlens-distilbert)
 
-<img src="docs/gmail-verdicts.svg" alt="PhishLens verdict banners in Gmail: a phishing verdict with per-agent scores, threat-intelligence chips and the words behind the decision, and a safe verdict from a trusted sender" width="860">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/gmail-verdicts-dark.svg">
+  <img src="docs/gmail-verdicts-light.svg" alt="PhishLens verdict banners in Gmail: a phishing verdict with per-agent scores, threat-intelligence chips and the words behind the decision, and a safe verdict from a trusted sender" width="860">
+</picture>
 
 </div>
 
@@ -30,7 +33,10 @@ scanner handles real-inbox cases: conversations, forwarded emails,
 image-only emails and links hidden behind "Click here".
 
 <div align="center">
-  <img src="docs/attachments.svg" alt="Attachment scan results: a scanned PDF invoice with a QR code and a Word document with macros flagged as phishing, and a safe PDF" width="860">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/attachments-dark.svg">
+    <img src="docs/attachments-light.svg" alt="Attachment scan results: a scanned PDF invoice with a QR code and a Word document with macros flagged as phishing, and a safe PDF" width="860">
+  </picture>
   <br/>
   <sub><em>Attachment scan results under the attachment strip in Gmail.</em></sub>
 </div>
@@ -118,7 +124,10 @@ The backend is ready when the logs show `Model loaded on device=cpu`.
   analytics view and CSV / JSON export.
 
 <div align="center">
-  <img src="docs/popup.svg" alt="The PhishLens popup after scanning an email: phishing verdict, a score per agent, threat-intelligence badges and the words behind the decision" width="400">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/popup-dark.svg">
+    <img src="docs/popup-light.svg" alt="The PhishLens popup after scanning an email: phishing verdict, a score per agent, threat-intelligence badges and the words behind the decision" width="400">
+  </picture>
 </div>
 
 ## Configuration
@@ -176,6 +185,7 @@ both repositories, the models, the report and every guide.
 | [Contributing](CONTRIBUTING.md) | Setup, checks, guidelines |
 | [Security policy](SECURITY.md) | How to report a vulnerability |
 | [Privacy policy](PRIVACY.md) | What data is handled, where it goes, what is kept |
+| [Terms of use](TERMS.md) | Acceptable use, no-guarantee notice, liability |
 
 ## Roadmap
 

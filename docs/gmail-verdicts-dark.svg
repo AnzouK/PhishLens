@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="540" viewBox="0 0 860 540" role="img" aria-labelledby="t d">
+  <title id="t">PhishLens verdict banners in Gmail</title>
+  <desc id="d">Two PhishLens banners as they appear above an email in Gmail: a phishing verdict with per-agent meters, threat-intelligence chips and the words that drove the decision, and a safe verdict from a trusted sender.</desc>
+  <style>
+    text { font-family: "Google Sans", Roboto, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .ic { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+
+  <!-- canvas -->
+  <rect x="0" y="0" width="860" height="540" rx="18" fill="none"/>
+
+  <!-- ======================= PHISHING ======================= -->
+  <!-- email subject row -->
+  <text x="30" y="46" font-size="20" font-weight="600" fill="#e8eaed">Payment failed: subscription terminated</text>
+  <rect x="466" y="26" width="184" height="30" rx="15" fill="#1f2329" stroke="#3a4049"/>
+  <g transform="translate(479 33)" class="ic" stroke="#ff8a4c"><path d="M8 1l6 2.6v5.2c0 3.9-2.6 6.7-6 7.8-3.4-1.1-6-3.9-6-7.8V3.6L8 1z"/></g>
+  <text x="502" y="46" font-size="13" font-weight="500" fill="#e8eaed">Scan with PhishLens</text>
+
+  <!-- banner card -->
+  <rect x="30" y="72" width="800" height="200" rx="12" fill="#342d32" stroke="#694748"/>
+  <rect x="30" y="72" width="5" height="200" rx="2.5" fill="#ff8a80"/>
+  <rect x="50" y="88" width="34" height="34" rx="10" fill="#413437"/>
+  <g transform="translate(55 93)" class="ic" stroke="#ff8a80"><path d="M12 3 L22 20 L2 20 Z"/><path d="M12 9.5 V14 M12 17 V17.2"/></g>
+  <text x="98" y="104" font-size="16" font-weight="600" fill="#ff8a80">This email looks like phishing</text>
+  <text x="98" y="124" font-size="13" fill="#a6adb7">Don't click its links, open its attachments or reply until you have checked the sender another way.</text>
+  <g transform="translate(804 86)" class="ic" stroke="#a6adb7"><path d="M2 2l10 10M12 2L2 12"/></g>
+
+  <!-- meters -->
+  <text x="98" y="156" font-size="12" fill="#a6adb7">Wording</text>
+  <rect x="152" y="148" width="120" height="6" rx="3" fill="#3a4049"/><rect x="152" y="148" width="117" height="6" rx="3" fill="#ff8a80"/>
+  <text x="280" y="156" font-size="12" font-weight="600" fill="#e8eaed">97%</text>
+  <text x="330" y="156" font-size="12" fill="#a6adb7">Links</text>
+  <rect x="368" y="148" width="120" height="6" rx="3" fill="#3a4049"/><rect x="368" y="148" width="106" height="6" rx="3" fill="#ff8a80"/>
+  <text x="496" y="156" font-size="12" font-weight="600" fill="#e8eaed">88%</text>
+  <text x="546" y="156" font-size="12" fill="#a6adb7">Sender</text>
+  <rect x="592" y="148" width="120" height="6" rx="3" fill="#3a4049"/><rect x="592" y="148" width="89" height="6" rx="3" fill="#fdd663"/>
+  <text x="720" y="156" font-size="12" font-weight="600" fill="#e8eaed">74%</text>
+
+  <!-- chips -->
+  <rect x="98" y="170" width="218" height="24" rx="12" fill="#413437" stroke="#694748"/>
+  <text x="112" y="186" font-size="12" font-weight="500" fill="#ff8a80">Flagged by Google Safe Browsing</text>
+  <rect x="324" y="170" width="84" height="24" rx="12" fill="#413437" stroke="#694748"/>
+  <text x="338" y="186" font-size="12" font-weight="500" fill="#ff8a80">DMARC fail</text>
+  <rect x="416" y="170" width="168" height="24" rx="12" fill="#3a3830" stroke="#6d623d"/>
+  <text x="430" y="186" font-size="12" font-weight="500" fill="#fdd663">Sender on Spamhaus list</text>
+
+  <!-- why -->
+  <text x="98" y="218" font-size="12.5" font-weight="600" fill="#ff8a4c">Why this verdict?</text>
+  <path d="M212 212l4 4 4-4" class="ic" stroke="#ff8a4c" stroke-width="1.6"/>
+  <g class="mono" font-size="12">
+    <rect x="98" y="230" width="62" height="24" rx="6" fill="#ff8a4c" fill-opacity=".42" stroke="#ff8a4c" stroke-opacity=".35"/><text x="108" y="246" class="mono" fill="#ffb08a">verify</text>
+    <rect x="166" y="230" width="90" height="24" rx="6" fill="#ff8a4c" fill-opacity=".34" stroke="#ff8a4c" stroke-opacity=".35"/><text x="176" y="246" class="mono" fill="#ffb08a">suspended</text>
+    <rect x="262" y="230" width="106" height="24" rx="6" fill="#ff8a4c" fill-opacity=".26" stroke="#ff8a4c" stroke-opacity=".35"/><text x="272" y="246" class="mono" fill="#ffb08a">immediately</text>
+    <rect x="374" y="230" width="72" height="24" rx="6" fill="#ff8a4c" fill-opacity=".2" stroke="#ff8a4c" stroke-opacity=".35"/><text x="384" y="246" class="mono" fill="#ffb08a">payment</text>
+    <rect x="452" y="230" width="72" height="24" rx="6" fill="#81c995" fill-opacity=".14" stroke="#81c995" stroke-opacity=".3"/><text x="462" y="246" class="mono" fill="#81c995">meeting</text>
+    <rect x="530" y="230" width="62" height="24" rx="6" fill="#ff8a4c" fill-opacity=".14" stroke="#ff8a4c" stroke-opacity=".35"/><text x="540" y="246" class="mono" fill="#ffb08a">access</text>
+  </g>
+
+  <!-- ======================= SAFE ======================= -->
+  <text x="30" y="326" font-size="20" font-weight="600" fill="#e8eaed">Your monthly account statement</text>
+  <rect x="30" y="344" width="800" height="168" rx="12" fill="#1f2329" stroke="#415d4f"/>
+  <rect x="30" y="344" width="5" height="168" rx="2.5" fill="#81c995"/>
+  <rect x="50" y="360" width="34" height="34" rx="10" fill="#2d3a38"/>
+  <g transform="translate(56 366)" class="ic" stroke="#81c995"><path d="M11 2l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V5l7-3z" transform="scale(.95)"/><path d="M8 11l2 2 4-4" transform="scale(.95)"/></g>
+  <text x="98" y="376" font-size="16" font-weight="600" fill="#e8eaed">This email looks safe</text>
+  <rect x="274" y="361" width="108" height="22" rx="11" fill="#2d3a38" stroke="#415d4f"/>
+  <text x="287" y="376" font-size="11.5" font-weight="600" fill="#81c995">Trusted sender</text>
+  <text x="98" y="396" font-size="13" fill="#a6adb7">Some wording or links resemble phishing, but the sender is on the trusted list, so they weigh less.</text>
+  <g transform="translate(804 358)" class="ic" stroke="#a6adb7"><path d="M2 2l10 10M12 2L2 12"/></g>
+
+  <text x="98" y="428" font-size="12" fill="#a6adb7">Wording</text>
+  <rect x="152" y="420" width="120" height="6" rx="3" fill="#3a4049"/><rect x="152" y="420" width="92" height="6" rx="3" fill="#ff8a80"/>
+  <text x="280" y="428" font-size="12" font-weight="600" fill="#e8eaed">76%</text>
+  <text x="330" y="428" font-size="12" fill="#a6adb7">Links</text>
+  <rect x="368" y="420" width="120" height="6" rx="3" fill="#3a4049"/><rect x="368" y="420" width="7" height="6" rx="3" fill="#81c995"/>
+  <text x="496" y="428" font-size="12" font-weight="600" fill="#e8eaed">5%</text>
+  <text x="546" y="428" font-size="12" fill="#a6adb7">Sender</text>
+  <rect x="592" y="420" width="120" height="6" rx="3" fill="#3a4049"/><rect x="592" y="420" width="6" height="6" rx="3" fill="#81c995"/>
+  <text x="720" y="428" font-size="12" font-weight="600" fill="#e8eaed">2%</text>
+
+  <rect x="98" y="442" width="178" height="24" rx="12" fill="#2d3a38" stroke="#415d4f"/>
+  <text x="112" y="458" font-size="12" font-weight="500" fill="#81c995">Links checked, none flagged</text>
+  <rect x="284" y="442" width="96" height="24" rx="12" fill="#2d3a38" stroke="#415d4f"/>
+  <text x="298" y="458" font-size="12" font-weight="500" fill="#81c995">DKIM aligned</text>
+  <text x="98" y="490" font-size="12.5" font-weight="600" fill="#ff8a4c">Why this verdict?</text>
+  <path d="M212 484l4 4 4-4" class="ic" stroke="#ff8a4c" stroke-width="1.6"/>
+</svg>
