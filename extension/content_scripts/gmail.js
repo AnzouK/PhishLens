@@ -13,6 +13,16 @@ const TAG = "[PhishLens]";
 // v1.15: this file is also loaded on Outlook for its banner code; the
 // Gmail-specific watchers only run on Gmail.
 const PLL_IS_GMAIL = location.hostname === "mail.google.com";
+// After an extension update or reload, the previous copy of this script
+// stays in open tabs, cut off from the extension ("context invalidated").
+// Each copy tags the buttons it creates; a newer copy replaces older ones,
+// so users do not have to refresh Gmail after an update.
+const PLL_INSTANCE = Math.random().toString(36).slice(2, 10);
+// False once this copy has been cut off from the extension; it then
+// stops touching the page and leaves it to the new copy.
+function pllAlive() {
+    try { return !!chrome.runtime?.id; } catch { return false; }
+}
 
 // Inline SVG icons (no emoji: they render differently on every OS).
 const PLL_ICON = {
@@ -69,6 +79,7 @@ function scheduleScan() {
 }
 
 function injectIfNeeded() {
+    if (!pllAlive()) return;
     document.querySelectorAll(SUBJECT_SEL).forEach((subjectEl) => {
         if (PROCESSED.has(subjectEl)) return;
         // Make sure we're looking at a real open email, not a list row.
@@ -86,13 +97,20 @@ function injectIfNeeded() {
 // ---------------------------------------------------------------------
 function installScanButton(subjectEl, emailView) {
     // wrap the subject in a flex container so we can put the button after it
-    if (subjectEl.dataset.pllHooked) return;
-    subjectEl.dataset.pllHooked = "1";
+    if (subjectEl.dataset.pllHooked === PLL_INSTANCE) return;
+    let wrap = subjectEl.parentElement?.classList.contains("pll-subject-wrap") ? subjectEl.parentElement : null;
+    if (subjectEl.dataset.pllHooked && wrap) {
+        // Hooked by an older copy of the script: drop its dead buttons.
+        wrap.querySelectorAll(".pll-scan-btn").forEach((b) => b.remove());
+    }
+    subjectEl.dataset.pllHooked = PLL_INSTANCE;
 
-    const wrap = document.createElement("div");
-    wrap.className = "pll-subject-wrap";
-    subjectEl.parentNode.insertBefore(wrap, subjectEl);
-    wrap.appendChild(subjectEl);
+    if (!wrap) {
+        wrap = document.createElement("div");
+        wrap.className = "pll-subject-wrap";
+        subjectEl.parentNode.insertBefore(wrap, subjectEl);
+        wrap.appendChild(subjectEl);
+    }
 
     const btn = document.createElement("button");
     btn.type = "button";
@@ -178,8 +196,11 @@ async function runScan(emailView, btn) {
         console.info(TAG, original ? `full headers: ${original.length} chars from Show original`
                                    : `full headers: not used (option ${PLL_OPTS.fullHeaders ? "on" : "off"})`);
         const payload = {
+            // With the original: headers from it, but the text as the page
+            // shows it (plain-text parts spell URLs out and skew the text
+            // model). Without it: the page text, as before.
             ...(original
-                ? { raw_email_b64: utf8ToB64(original) }
+                ? { raw_email_b64: utf8ToB64(original), ...(shortBody ? {} : { raw_text: body.slice(0, 4000) }) }
                 : { raw_text: (shortBody ? [subject, body].filter(Boolean).join("\n") || "(no text)" : body).slice(0, 4000) }),
             sender_email: senderEmail || null,
             client_context: {
@@ -794,7 +815,7 @@ const _attObs = new MutationObserver(() => {
 if (PLL_IS_GMAIL) _attObs.observe(document.body, { childList: true, subtree: true });
 
 function installAttachmentButtons(emailView) {
-    if (!emailView) return;
+    if (!emailView || !pllAlive()) return;
 
     // Attachments only live inside an attachment strip. Everything else
     // is out of bounds; this is what prevented orphan "Scan" buttons
@@ -935,7 +956,11 @@ function installScanAllButton(emailView, targets) {
     // already installed the button with a different attachment count
     // (Gmail lazy-loaded more tiles), update the label instead of
     // duplicating.
-    const existing = emailView.querySelector(".pll-scan-btn--all");
+    let existing = emailView.querySelector(".pll-scan-btn--all");
+    if (existing && existing.dataset.pllInstance !== PLL_INSTANCE) {
+        existing.remove();          // left by an older copy of the script
+        existing = null;
+    }
     if (existing) {
         const label = existing.querySelector(".pll-scan-btn__label");
         if (label && !existing.disabled) {
@@ -954,6 +979,7 @@ function installScanAllButton(emailView, targets) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "pll-scan-btn pll-scan-btn--all";
+    btn.dataset.pllInstance = PLL_INSTANCE;
     btn._pllTargets = targets;
     btn.innerHTML = `<span class="pll-scan-btn__icon">${PLL_ICON.clip}</span>` +
                     `<span class="pll-scan-btn__label">${
@@ -1227,8 +1253,8 @@ console.log(TAG, "Gmail content script loaded.");
 // and sent to /analyse one at a time. A phishing verdict puts a red
 // "Phishing?" pill on the row and raises a desktop notification. Results
 // are cached by thread id, so an email is scanned once.
-// v2: results from before the v1.15 header fix are not reused.
-const AUTO_CACHE_KEY = "autoScanCache.v2";
+// v3: results from before the v1.15 scoring fixes are not reused.
+const AUTO_CACHE_KEY = "autoScanCache.v3";
 const AUTO_CACHE_MAX = 500;
 const AUTO_MAX_PER_PASS = 10;     // stays well under the backend rate limit
 const AUTO_DELAY_MS = 1500;       // between two emails
@@ -1278,7 +1304,7 @@ function _inboxRows() {
 }
 
 function paintAutoBadges() {
-    if (!_autoCacheMem) return;
+    if (!_autoCacheMem || !pllAlive()) return;
     for (const r of _inboxRows()) {
         const hit = _autoCacheMem[r.id];
         if (!hit || (hit.verdict !== "phishing" && hit.verdict !== "safe") || r.row.querySelector(".pll-row-badge")) continue;
@@ -1315,7 +1341,7 @@ function autoToast(text, kind = "info", hideAfterMs = 0) {
 }
 
 async function runAutoScan() {
-    if (_autoRunning || !PLL_OPTS.autoScan) return;
+    if (_autoRunning || !PLL_OPTS.autoScan || !pllAlive()) return;
     _autoRunning = true;
     try {
         const cache = await _autoCacheGet();

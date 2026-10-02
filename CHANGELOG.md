@@ -53,6 +53,25 @@ backend share one version number.
   so the text model read CSS ("25px", "roboto"). `html_to_text` now
   keeps only the visible text. CSS-like tokens are also left out of the
   "Top phishing tokens" stats.
+- **Trained URL model and hidden links:** on real 2026 links the URL
+  Random Forest scores almost any URL with a path at ~0.95
+  (`github.com/user/repo` 0.95, `wikipedia.org/wiki/...` 0.97; a bare
+  domain 0.05), so feeding it the hidden link targets flagged nearly
+  every HTML email. It now only judges the URLs written in the text, as
+  in training; hidden targets (Gmail hrefs, HTML parts, QR codes) get
+  the rule-based score and the threat-intelligence lookups.
+- **Text the text model reads:** a scan with the full original sends the
+  page text too, and the backend uses it for the text agent (a GitHub CI
+  email scored 0.51 on the page text and 0.998 on its plain-text part,
+  which spells every URL out). `.eml` bodies now come from the rendered
+  HTML part first, then the plain-text part.
+- **Extension updates without refreshing Gmail:** after an update, the
+  old copy of the content script stays in open tabs, cut off from the
+  extension ("please refresh this tab"). Each copy now tags its buttons,
+  a newer copy replaces the old ones, and a disconnected copy stops.
+- **Insights chart:** bars were sized in percent inside an auto-height
+  column and collapsed to 2px; they are sized in pixels now. Function
+  words ("have", "good") are left out of "Top phishing tokens".
 - **Full headers and the trained header model:** on real 2026 Gmail
   headers (ARC, X-Gm-*, long Received chains) the trained metadata
   Random Forest scored legitimate mail at ~1.0 (it was trained on older

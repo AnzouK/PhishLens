@@ -474,25 +474,30 @@ def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
     # body text
     body = ""
     if msg.is_multipart():
+        # The rendered HTML part first: it is the text the reader sees, with
+        # links behind their labels. Plain-text alternatives spell every
+        # URL out, which pushes the text model toward phishing.
         for part in msg.walk():
-            ctype = part.get_content_type()
-            if ctype == "text/plain":
+            if part.get_content_type() == "text/html" and not part.is_attachment():
                 try:
-                    body = part.get_content()
-                    break
+                    body = html_to_text(part.get_content())
+                    if body.strip():
+                        break
                 except Exception:
-                    pass
-        if not body:
+                    body = ""
+        if not body.strip():
             for part in msg.walk():
-                if part.get_content_type() == "text/html":
+                if part.get_content_type() == "text/plain" and not part.is_attachment():
                     try:
-                        body = html_to_text(part.get_content())
+                        body = part.get_content()
                         break
                     except Exception:
                         pass
     else:
         try:
             body = msg.get_content()
+            if msg.get_content_type() == "text/html":
+                body = html_to_text(body)
         except Exception:
             body = raw_bytes.decode("utf-8", errors="ignore")
     # urls: from the text, then the real link targets of the HTML part
@@ -643,29 +648,9 @@ except Exception as e:
     logger.warning(f"Feature extractor init failed, falling back to heuristics: {e}")
 
 
-def url_agent(urls: list[str], body_text: str = "") -> float:
-    """URL score: trained RF on the full body text when available,
-    heuristic on the extracted URL list otherwise."""
-    # No links, no URL risk. Checked before the trained path on purpose:
-    # the Random Forest was trained on emails that carry URLs, and on an
-    # all-zero feature vector it outputs a high phishing probability,
-    # which fired the single-agent override on plain link-free text.
-    if not urls:
-        return 0.05
-    if _URL_AGENT is not None and _FEATURE_EXTRACT is not None and body_text:
-        try:
-            # The trained features are extracted from text, so URLs that
-            # are not in the visible text (Gmail link targets, QR codes)
-            # are appended to it; otherwise the RF would never see them.
-            missing = [u for u in urls if u not in body_text]
-            text = body_text + ("\n" + "\n".join(missing) if missing else "")
-            feats = _FEATURE_EXTRACT.extract_url_features(text)
-            pred  = _URL_AGENT.get_prediction_with_confidence(feats)
-            return float(pred["phishing_probability"])
-        except Exception as e:
-            logger.warning(f"url_agent trained path failed ({e}); falling back to heuristic")
-    if not urls:
-        return 0.05  # almost no risk with no URLs
+def url_heuristic(urls: list[str]) -> float:
+    """Rule-based URL score (worst URL): plain http, raw IP host, "@" in
+    the URL, very long URL, suspicious TLD, credential keywords."""
     bad = 0.0
     for u in urls:
         score = 0.0
@@ -673,11 +658,47 @@ def url_agent(urls: list[str], body_text: str = "") -> float:
         if re.match(r"https?://\d{1,3}(\.\d{1,3}){3}", u):       score += 0.40
         if "@" in u.split("://", 1)[-1]:                         score += 0.35
         if len(u) > 75:                                          score += 0.15
-        tld = u.rstrip("/").rsplit(".", 1)[-1].split("/")[0].lower()
+        host = u.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
+        tld = host.rsplit(".", 1)[-1].lower()
         if tld in SUSPICIOUS_TLDS:                               score += 0.30
         if re.search(r"(login|verify|account|update|secure)", u, re.I): score += 0.10
         bad = max(bad, min(score, 1.0))
     return bad
+
+
+def url_agent(urls: list[str], body_text: str = "") -> float:
+    """URL score.
+
+    The trained Random Forest extracts its features from the text, and
+    was trained on emails whose links were written out in the text: it
+    only judges the URLs that appear in `body_text`. URLs that are not in
+    the text (Gmail link targets, HTML hrefs, QR codes) get the rule-based
+    score instead: on real 2026 mail the RF scores almost any URL with a
+    path at ~0.95 (github.com/user/repo, wikipedia.org/wiki/...), so
+    feeding it hidden link targets flagged nearly every HTML email. Those
+    hidden URLs are still checked against threat intelligence by the
+    caller, which is where most of their value lies.
+    """
+    # No links, no URL risk. Checked before the trained path on purpose:
+    # on an all-zero feature vector the RF outputs a high probability.
+    if not urls:
+        return 0.05
+    visible = [u for u in urls if u in body_text]
+    hidden = [u for u in urls if u not in body_text]
+
+    score = 0.05
+    if visible:
+        score = url_heuristic(visible)
+        if _URL_AGENT is not None and _FEATURE_EXTRACT is not None:
+            try:
+                feats = _FEATURE_EXTRACT.extract_url_features(body_text)
+                pred  = _URL_AGENT.get_prediction_with_confidence(feats)
+                score = float(pred["phishing_probability"])
+            except Exception as e:
+                logger.warning(f"url_agent trained path failed ({e}); falling back to heuristic")
+    if hidden:
+        score = max(score, url_heuristic(hidden))
+    return score
 
 
 def metadata_agent(headers: dict[str, str], raw_email: bytes | None = None) -> float:
@@ -976,7 +997,7 @@ def _get_body_urls_headers(req: AnalyseRequest):
     bytes when available (needed by the trained metadata agent), None when
     only raw_text was supplied.
     """
-    if req.raw_text:
+    if req.raw_text and not req.raw_email_b64:
         body = req.raw_text.strip()
         urls = re.findall(r"https?://[^\s\"'<>)]+", body)
         # The visible text of an HTML email hides where its links go
@@ -1013,7 +1034,15 @@ def _get_body_urls_headers(req: AnalyseRequest):
     if req.sender_email:
         headers["from"] = req.sender_email
     # v1.15: the Gmail extension sends the full original message ("Show
-    # original") together with the link targets it saw in the page.
+    # original") together with the link targets it saw in the page, and
+    # the text as the page shows it. That visible text is what the text
+    # agent should read: plain-text parts spell every URL out ("View
+    # results: https://..."), which the text model reads as phishing
+    # (a GitHub CI email: 0.51 on the page text, 0.998 on the text part).
+    if req.raw_text and req.raw_text.strip():
+        page_text = req.raw_text.strip()
+        urls = _merge_link_urls(re.findall(r"https?://[^\s\"'<>)]+", page_text), urls)
+        body = page_text
     urls = _merge_link_urls(urls, (req.client_context or {}).get("link_urls"))
     return body, urls, headers, raw_bytes
 
