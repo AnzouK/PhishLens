@@ -2,7 +2,7 @@
 # Targets Python 3.10+. Tested on 3.11 / 3.12 / 3.13.
 
 # Web framework
-fastapi>=0.110,<1.0
+fastapi>=0.142.2,<1.0
 uvicorn[standard]>=0.54.0,<1.0
 pydantic>=2.13.5,<3.0
 
