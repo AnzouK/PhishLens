@@ -49,7 +49,7 @@
   const submit = $("demo-submit"), out = $("demo-result"), drop = $("drop-zone");
   const MAX_FILE = 10 * 1024 * 1024;
   const ATTACHMENT_EXTS = new Set(["pdf", "html", "htm", "png", "jpg", "jpeg", "gif", "webp", "docx", "docm", "doc",
-                                   "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt", "zip", "ics", "txt"]);
+                                   "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt", "zip", "rar", "7z", "ics", "txt"]);
   const SAMPLES = {
     phish: "Dear customer,\n\nWe were unable to process your last payment and your account has been suspended. To avoid permanent closure, verify your billing details within 24 hours:\n\nhttp://secure-billing-verify.tk/login?id=48213\n\nFailure to act immediately will result in the loss of all your files.\n\nBilling Department",
     safe: "Hi team,\n\nThe sprint review moved to Thursday at 3pm, same room. I added the agenda to the shared document; please add your items before Wednesday evening.\n\nThanks,\nAmina",

@@ -85,7 +85,7 @@ jobs:
       - name: System packages (Tesseract OCR)
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends tesseract-ocr
+          sudo apt-get install -y -q --no-install-recommends tesseract-ocr libarchive-tools
 
       - name: Install lint + test dependencies
         run: |
@@ -97,7 +97,7 @@ jobs:
                       fastapi httpx prometheus-fastapi-instrumentator \
                       numpy pandas beautifulsoup4 pdfplumber pypdfium2 \
                       pillow pytesseract opencv-python-headless reportlab \
-                      scikit-learn joblib skops
+                      scikit-learn joblib skops rarfile py7zr
 
       - name: Compile every backend .py to catch SyntaxError
         run: python -m compileall -q backend/

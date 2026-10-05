@@ -9,7 +9,8 @@ HTML, plain text, images (OCR + QR), Word / Excel / PowerPoint in both
 modern and legacy formats (text, links and macro-style flags; see
 office_analysis.py). OCR and QR live in ocr.py.
 v1.14: ZIP archives (listed, risky entries flagged, supported files
-inside analysed one level deep), RAR / 7z (recognised only), calendar
+inside analysed one level deep), RAR / 7z (opened the same way since
+v1.15.3 when rarfile / py7zr are installed), calendar
 invites (.ics), encrypted PDFs, and executable / script / shortcut /
 disk-image files (flagged by type). See archive_analysis.py.
 
@@ -468,7 +469,9 @@ def dispatch_raw(raw: bytes, filename: str, mime_type: str | None = None,
     if fmt:
         if depth:
             raise ValueError("Nested archive.")
-        return archives.analyse_uninspectable_archive(raw, filename, fmt)
+        opener = archives.analyse_rar if fmt == "rar" else archives.analyse_7z
+        return opener(raw, filename,
+                      inner=lambda data, name: dispatch_raw(data, name, None, depth + 1))
     if mime == "text/calendar" or raw.lstrip()[:15].upper().startswith(b"BEGIN:VCALENDAR"):
         return archives.analyse_ics(raw, filename, extract_urls)
 
@@ -511,6 +514,6 @@ def dispatch_raw(raw: bytes, filename: str, mime_type: str | None = None,
     raise ValueError(
         f"Unsupported attachment type: {mime}. "
         "Supported: PDF, HTML, plain text, images (PNG, JPEG, GIF, WebP, BMP, TIFF), "
-        "Word, Excel and PowerPoint (modern and legacy formats), ZIP archives "
+        "Word, Excel and PowerPoint (modern and legacy formats), ZIP, RAR and 7z archives "
         "and calendar invites (.ics)."
     )

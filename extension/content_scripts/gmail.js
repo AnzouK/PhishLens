@@ -792,7 +792,7 @@ const ATT_ANY_EXT_RE   = /([\w \-.()]+\.([a-z0-9]{1,5}))(?=\s|$)/i;
 // Attachment flags meaning "we could not look inside": a safe score is
 // not reassuring, so these get a caution banner instead of "Looks safe".
 const ATT_CAUTION_FLAGS = new Set(["encrypted_archive", "encrypted_document", "uninspectable_archive",
-                                   "disk_image_attachment", "disk_image_in_archive", "zip_bomb_suspected"]);
+                                   "disk_image_attachment", "disk_image_in_archive", "zip_bomb_suspected", "inner_files_not_extracted"]);
 // Longest extensions first so "html" wins over "htm" in the regex.
 const ATT_EXT_RE       = new RegExp(
     "([\\w \\-.()]+\\.(" + [...ATT_SUPPORTED].sort((a, b) => b.length - a.length).join("|") + "))",

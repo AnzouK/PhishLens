@@ -101,7 +101,7 @@
           <li><svg class="ic"><use href="#i-text"/></svg><b>Wording</b><span>DistilBERT, fine-tuned on about 29,500 emails, scores the text; LIME shows the words that pushed the verdict.</span></li>
           <li><svg class="ic"><use href="#i-link"/></svg><b>Links</b><span>Every real link target, including the one behind "Click here", checked against Safe Browsing, PhishTank, URLhaus and Spamhaus.</span></li>
           <li><svg class="ic"><use href="#i-key"/></svg><b>Sender</b><span>SPF, DKIM and DMARC show who really sent it. Forwarded mail does not borrow the forwarder's trust.</span></li>
-          <li><svg class="ic"><use href="#i-clip"/></svg><b>Attachments</b><span>PDFs (scanned ones through OCR), QR codes, Office macros and remote templates, ZIP archives and calendar invites.</span></li>
+          <li><svg class="ic"><use href="#i-clip"/></svg><b>Attachments</b><span>PDFs (scanned ones through OCR), QR codes, Office macros and remote templates, ZIP, RAR and 7z archives and calendar invites.</span></li>
           <li><svg class="ic"><use href="#i-inbox"/></svg><b>Real inboxes</b><span>Conversations, image-only mail and links to files shared on Drive, OneDrive or Dropbox.</span></li>
         </ul>
         <figure class="frame">
@@ -170,10 +170,10 @@
             <label class="drop" id="drop-zone" for="demo-file">
               <svg class="ic"><use href="#i-upload"/></svg>
               <strong id="drop-title">Drop a file here, or click to choose one</strong>
-              <span>.eml email, PDF, image, Word, Excel, PowerPoint, ZIP or .ics</span>
+              <span>.eml email, PDF, image, Word, Excel, PowerPoint, ZIP, RAR, 7z or .ics</span>
               <small>10 MB at most. Analysed, never stored.</small>
               <input type="file" id="demo-file" name="file" aria-describedby="demo-file-error"
-                     accept=".eml,.pdf,.html,.htm,.png,.jpg,.jpeg,.gif,.webp,.docx,.docm,.doc,.xlsx,.xlsm,.xls,.pptx,.pptm,.ppt,.zip,.ics,.txt">
+                     accept=".eml,.pdf,.html,.htm,.png,.jpg,.jpeg,.gif,.webp,.docx,.docm,.doc,.xlsx,.xlsm,.xls,.pptx,.pptm,.ppt,.zip,.rar,.7z,.ics,.txt">
             </label>
             <div class="tools"><span class="small muted">Nothing to choose? Switch to Paste text and use an example.</span></div>
             <p class="error-msg" id="demo-file-error" role="alert"></p>

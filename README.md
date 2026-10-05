@@ -26,7 +26,7 @@ and the headers), then the verdict is adjusted with real evidence:
 SPF/DKIM/DMARC alignment and four threat-intelligence sources. A LIME
 panel highlights the words that drove the decision. Attachments are
 scanned too: PDFs (including scanned ones, through OCR), images, HTML
-pages, Word / Excel / PowerPoint files, ZIP archives, calendar invites
+pages, Word / Excel / PowerPoint files, ZIP, RAR and 7z archives, calendar invites
 and attached emails, with QR codes decoded and macros, executables,
 password-protected archives and other dropper tricks flagged. The
 scanner handles real-inbox cases: conversations, forwarded emails,
@@ -119,7 +119,7 @@ The backend is ready when the logs show `Model loaded on device=cpu`.
   sender-authentication chips and a "Why?" panel. Emails with attachments
   get a **Scan N attachments** button.
 - **In the popup:** drop a `.eml` file or an attachment (PDF, image,
-  Word, Excel, PowerPoint, HTML, ZIP, .ics), or paste the text of an email.
+  Word, Excel, PowerPoint, HTML, ZIP, RAR, 7z, .ics), or paste the text of an email.
 - **History:** every scan is kept locally in the browser, with a small
   analytics view and CSV / JSON export.
 
@@ -196,8 +196,6 @@ both repositories, the models, the report and every guide.
   `scripts/live_eval.py` are in place; the next step is a few hundred
   reviewed real emails, plus phishing reported after the training
   cut-off.
-- **Attachments:** open RAR and 7z archives (recognised but not opened
-  today).
 - **Multilingual detection:** French, Portuguese, Hausa, Yoruba and
   other languages (the text model and the OCR are English-only today).
 - **Research:** SHAP as a comparison for LIME, retraining the agents on

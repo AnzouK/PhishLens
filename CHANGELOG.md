@@ -7,6 +7,30 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [1.15.3] - 2026-10-05
+
+RAR and 7z attachments are opened, like ZIP.
+
+### Added
+- **RAR and 7z archives** (`backend/archive_analysis.py`): listed with
+  `rarfile` and `py7zr`, risky members flagged (executables, scripts,
+  shortcuts, disk images, double extensions, nested archives), and the
+  supported files inside (PDF, Office, HTML, images, text) analysed one
+  level deep, with the same limits as ZIP (500 entries, 5 inner files,
+  5 MB each, 15 MB in total, compression ratio 100). Password-protected
+  archives, including those whose file list is encrypted (`rar -hp`,
+  `7z -mhe`), are flagged `encrypted_archive`. 7z members are written to
+  a private temporary folder, deleted at once, after the size checks;
+  RAR members are decompressed by `bsdtar` (`libarchive-tools`, now in
+  the Docker images). A RAR whose members cannot be decompressed is
+  flagged `inner_files_not_extracted`; a damaged or multi-volume archive
+  stays `uninspectable_archive`.
+
+### Changed
+- ZIP, RAR and 7z share one listing and inner-file routine.
+- Website and README list RAR and 7z among the supported attachments;
+  the RAR / 7z item is removed from the roadmap.
+
 ## [1.15.2] - 2026-10-05
 
 Small operations release: a result cache, an uptime alert, weekly
@@ -567,6 +591,7 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[1.15.3]: https://github.com/AnzouK/PhishLens/compare/v1.15.2...v1.15.3
 [1.15.2]: https://github.com/AnzouK/PhishLens/compare/v1.15.1...v1.15.2
 [1.15.1]: https://github.com/AnzouK/PhishLens/compare/v1.15.0...v1.15.1
 [1.15.0]: https://github.com/AnzouK/PhishLens/compare/v1.14.1...v1.15.0

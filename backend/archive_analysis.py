@@ -12,21 +12,25 @@ Archives are the classic way to get a payload past mail scanners:
   - double extensions ("invoice.pdf.exe") hide the real type.
 
 ZIP archives are opened with the standard library (no extraction to
-disk). Supported files inside (PDF, HTML, Office, images, text) are
-analysed one level deep with the same dispatcher as a direct attachment.
-RAR and 7z need extra native libraries, so they are only recognised and
-reported as not inspectable.
+disk). Since v1.15.3, RAR (rarfile) and 7z (py7zr) archives are listed
+and opened the same way, with the same limits. Supported files inside
+(PDF, HTML, Office, images, text) are analysed one level deep with the
+same dispatcher as a direct attachment. Without those libraries, RAR
+and 7z are recognised and reported as not inspectable.
 
 Calendar invites (.ics) carry links in their description and location
 fields and land in the calendar even when the email is ignored.
 
-Pure standard library: safe to import anywhere.
+Standard library at import time (rarfile and py7zr are imported lazily):
+safe to import anywhere.
 """
 from __future__ import annotations
 
 import io
 import re
+import tempfile
 import zipfile
+from pathlib import Path
 from typing import Any, Callable
 
 # ---------------------------------------------------------------------
@@ -108,6 +112,117 @@ def is_rar_or_7z(raw: bytes) -> str | None:
     return None
 
 
+class _Entry:
+    """One archive member, whatever the format."""
+    __slots__ = ("name", "size", "packed", "is_dir")
+
+    def __init__(self, name: str, size: int | None, packed: int | None, is_dir: bool):
+        self.name, self.size, self.packed, self.is_dir = name, size, packed, is_dir
+
+
+def _analyse_listing(raw: bytes, filename: str, fmt: str, entries: list[_Entry],
+                     encrypted: bool, read: Callable[[list[str]], dict[str, bytes]] | None,
+                     inner: Callable[[bytes, str], dict[str, Any]] | None,
+                     flags: list[str] | None = None) -> dict[str, Any]:
+    """Shared by ZIP, RAR and 7z: flag risky names, pick the supported
+    inner files within the size limits, read them through `read(names)`
+    (format specific) and analyse them with `inner`."""
+    names = [e.name for e in entries if not e.is_dir]
+    flags = list(flags or [])
+
+    def add(f: str) -> None:
+        if f not in flags:
+            flags.append(f)
+
+    for f in classify_names(names):
+        add(f)
+    if encrypted:
+        add("encrypted_archive")
+
+    chosen: list[str] = []
+    total = 0
+    if inner and read and not encrypted:
+        for e in entries:
+            if len(chosen) >= MAX_INNER_FILES:
+                break
+            if e.is_dir or _ext(e.name) not in DOCUMENT_EXTS:
+                continue
+            size = e.size or 0
+            if size > MAX_INNER_BYTES or total + size > MAX_TOTAL_INNER:
+                add("oversized_inner_file")
+                continue
+            # Ratio per member when the format gives it, else against the
+            # whole archive (solid 7z / RAR blocks have no per-file size).
+            packed = e.packed if e.packed else len(raw)
+            if size / max(packed, 1) > MAX_RATIO:
+                add("zip_bomb_suspected")
+                continue
+            chosen.append(e.name)
+            total += size
+
+    texts: list[str] = []
+    urls: list[str] = []
+    inner_results: list[dict[str, Any]] = []
+    if chosen:
+        try:
+            data_by_name = read(chosen)
+        except _NotExtracted:
+            data_by_name = {}
+            add("inner_files_not_extracted")
+        for name in chosen:
+            data = data_by_name.get(name)
+            if data is None:
+                continue
+            try:
+                res = inner(data[:MAX_INNER_BYTES], name)
+            except (ValueError, RuntimeError, zipfile.BadZipFile, NotImplementedError):
+                continue
+            inner_results.append({
+                "filename": name,
+                "kind": res.get("kind"),
+                "notable_features": res.get("notable_features", []),
+            })
+            if res.get("extracted_text"):
+                texts.append(res["extracted_text"])
+            for u in res.get("extracted_urls", []) or []:
+                if u not in urls:
+                    urls.append(u)
+            for f in res.get("notable_features", []) or []:
+                add(f)
+
+    text = "\n".join(texts)
+    return {
+        "kind":              "archive",
+        "filename":          filename,
+        "size_bytes":        len(raw),
+        "archive_format":    fmt,
+        "entries":           names[:50],
+        "entry_count":       len(names),
+        "encrypted":         encrypted,
+        "inner_files":       inner_results,
+        "extracted_text":    text,
+        "extracted_text_chars": len(text),
+        "extracted_urls":    urls,
+        "notable_features":  flags,
+    }
+
+
+class _NotExtracted(Exception):
+    """The listing worked but the members cannot be decompressed here."""
+
+
+def _encrypted_unlisted(raw: bytes, filename: str, fmt: str) -> dict[str, Any]:
+    """Archive whose file list itself is encrypted (rar -hp, 7z -mhe)."""
+    r = _analyse_listing(raw, filename, fmt, [], True, None, None)
+    r["entry_count"] = None
+    return r
+
+
+def _looks_like_password_error(e: Exception) -> bool:
+    text = (type(e).__name__ + " " + str(e)).lower()
+    return "password" in text or "encrypt" in text
+
+
 def analyse_zip(raw: bytes, filename: str,
                 inner: Callable[[bytes, str], dict[str, Any]] | None = None) -> dict[str, Any]:
     """List a ZIP archive, flag risky content, analyse supported files.
@@ -121,69 +236,120 @@ def analyse_zip(raw: bytes, filename: str,
     except zipfile.BadZipFile as e:
         raise RuntimeError(f"ZIP parse failed: {e}")
 
-    names = [i.filename for i in infos if not i.is_dir()]
-    flags = classify_names(names)
+    entries = [_Entry(i.filename, i.file_size, i.compress_size, i.is_dir()) for i in infos]
     encrypted = any(i.flag_bits & 0x1 for i in infos)
-    if encrypted:
-        flags.append("encrypted_archive")
 
-    texts: list[str] = []
-    urls: list[str] = []
-    inner_results: list[dict[str, Any]] = []
-    total = 0
-    if inner and not encrypted:
-        for i in infos:
-            if len(inner_results) >= MAX_INNER_FILES:
-                break
-            if i.is_dir() or _ext(i.filename) not in DOCUMENT_EXTS:
-                continue
-            if i.file_size > MAX_INNER_BYTES or total + i.file_size > MAX_TOTAL_INNER:
-                if "oversized_inner_file" not in flags:
-                    flags.append("oversized_inner_file")
-                continue
-            if i.compress_size and i.file_size / max(i.compress_size, 1) > MAX_RATIO:
-                if "zip_bomb_suspected" not in flags:
-                    flags.append("zip_bomb_suspected")
-                continue
+    def read(names: list[str]) -> dict[str, bytes]:
+        out: dict[str, bytes] = {}
+        for n in names:
             try:
-                data = zf.read(i)[:MAX_INNER_BYTES]
-                total += len(data)
-                res = inner(data, i.filename)
-            except (ValueError, RuntimeError, zipfile.BadZipFile, NotImplementedError):
+                out[n] = zf.read(n)[:MAX_INNER_BYTES]
+            except (zipfile.BadZipFile, NotImplementedError, RuntimeError, KeyError):
                 continue
-            inner_results.append({
-                "filename": i.filename,
-                "kind": res.get("kind"),
-                "notable_features": res.get("notable_features", []),
-            })
-            if res.get("extracted_text"):
-                texts.append(res["extracted_text"])
-            for u in res.get("extracted_urls", []) or []:
-                if u not in urls:
-                    urls.append(u)
-            for f in res.get("notable_features", []) or []:
-                if f not in flags:
-                    flags.append(f)
+        return out
 
-    text = "\n".join(texts)
-    return {
-        "kind":              "archive",
-        "filename":          filename,
-        "size_bytes":        len(raw),
-        "archive_format":    "zip",
-        "entries":           names[:50],
-        "entry_count":       len(names),
-        "encrypted":         encrypted,
-        "inner_files":       inner_results,
-        "extracted_text":    text,
-        "extracted_text_chars": len(text),
-        "extracted_urls":    urls,
-        "notable_features":  flags,
-    }
+    return _analyse_listing(raw, filename, "zip", entries, encrypted, read, inner)
+
+
+def analyse_7z(raw: bytes, filename: str,
+               inner: Callable[[bytes, str], dict[str, Any]] | None = None) -> dict[str, Any]:
+    """7z (v1.15.3), with py7zr. Members are extracted to a private
+    temporary folder that is deleted at once; only the chosen supported
+    files (size-checked first) are written."""
+    try:
+        import py7zr
+    except ImportError:
+        return analyse_uninspectable_archive(raw, filename, "7z")
+    try:
+        szf = py7zr.SevenZipFile(io.BytesIO(raw), mode="r")
+    except Exception as e:  # PasswordRequired (encrypted header), Bad7zFile...
+        if _looks_like_password_error(e):
+            return _encrypted_unlisted(raw, filename, "7z")
+        return analyse_uninspectable_archive(raw, filename, "7z")
+
+    with szf:
+        try:
+            infos = szf.list()[:MAX_ENTRIES]
+            encrypted = bool(szf.needs_password())
+        except Exception as e:
+            if _looks_like_password_error(e):
+                return _encrypted_unlisted(raw, filename, "7z")
+            return analyse_uninspectable_archive(raw, filename, "7z")
+        entries = [_Entry(i.filename, getattr(i, "uncompressed", None),
+                          getattr(i, "compressed", None), bool(getattr(i, "is_directory", False)))
+                   for i in infos]
+
+        def read(names: list[str]) -> dict[str, bytes]:
+            out: dict[str, bytes] = {}
+            with tempfile.TemporaryDirectory(prefix="pl7z-") as tmp:
+                root = Path(tmp).resolve()
+                try:
+                    szf.reset()
+                    szf.extract(path=tmp, targets=names)
+                except Exception as e:
+                    raise _NotExtracted(str(e))
+                for n in names:
+                    p = (root / n).resolve()
+                    if root not in p.parents or not p.is_file():
+                        continue        # path traversal or not written: ignore
+                    with open(p, "rb") as fh:
+                        out[n] = fh.read(MAX_INNER_BYTES)
+            return out
+
+        return _analyse_listing(raw, filename, "7z", entries, encrypted, read, inner)
+
+
+def analyse_rar(raw: bytes, filename: str,
+                inner: Callable[[bytes, str], dict[str, Any]] | None = None) -> dict[str, Any]:
+    """RAR 4 and 5 (v1.15.3), with rarfile. The listing (names, sizes,
+    encryption) is pure Python; decompressing members needs an external
+    tool (unrar, unar, 7z or bsdtar; the Docker image ships bsdtar). Without
+    one, stored members are still read and the rest is reported as
+    "inner_files_not_extracted"."""
+    try:
+        import rarfile
+    except ImportError:
+        return analyse_uninspectable_archive(raw, filename, "rar")
+
+    with tempfile.TemporaryDirectory(prefix="plrar-") as tmp:
+        path = Path(tmp) / "a.rar"
+        path.write_bytes(raw)
+        try:
+            rf = rarfile.RarFile(str(path), errors="strict")
+            infos = rf.infolist()[:MAX_ENTRIES]
+            encrypted = bool(rf.needs_password())
+        except Exception as e:  # PasswordRequired, NeedFirstVolume, BadRarFile...
+            if _looks_like_password_error(e):
+                return _encrypted_unlisted(raw, filename, "rar")
+            return analyse_uninspectable_archive(raw, filename, "rar")
+        if not infos and not encrypted:
+            # Nothing listed: truncated or damaged headers.
+            return analyse_uninspectable_archive(raw, filename, "rar")
+
+        entries = [_Entry(i.filename, i.file_size, getattr(i, "compress_size", None), i.is_dir())
+                   for i in infos]
+
+        def read(names: list[str]) -> dict[str, bytes]:
+            out: dict[str, bytes] = {}
+            missing_tool = False
+            for n in names:
+                try:
+                    out[n] = rf.read(n)[:MAX_INNER_BYTES]
+                except Exception as e:
+                    if type(e).__name__ in ("RarCannotExec", "RarExecError"):
+                        missing_tool = True
+                    continue
+            if missing_tool and not out:
+                raise _NotExtracted("no RAR decompression tool")
+            return out
+
+        with rf:
+            return _analyse_listing(raw, filename, "rar", entries, encrypted, read, inner)
 
 
 def analyse_uninspectable_archive(raw: bytes, filename: str, fmt: str) -> dict[str, Any]:
-    """RAR / 7z: recognised, not opened (needs native libraries)."""
+    """RAR / 7z the server cannot open (library missing, multi-volume or
+    damaged archive): recognised, reported as not inspectable."""
     return {
         "kind":              "archive",
         "filename":          filename,

@@ -1487,7 +1487,8 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         "suspicious_xml_doctype":  0.20,
         # Archives, calendar invites, risky file types (v1.14)
         "encrypted_archive":       0.35,   # scanners can't open it: classic evasion
-        "uninspectable_archive":   0.20,   # RAR / 7z: not opened here
+        "uninspectable_archive":   0.20,   # RAR / 7z the server cannot open
+        "inner_files_not_extracted": 0.10, # RAR listed, members not decompressed
         "nested_archive":          0.10,
         "zip_bomb_suspected":      0.30,
         "disk_image_in_archive":   0.40,

@@ -52,7 +52,7 @@ const ATTACHMENT_EXTS = ["pdf", "html", "htm", "png", "jpg", "jpeg", "gif", "web
                          "zip", "rar", "7z", "ics", "txt"];
 // Attachment flags meaning "could not look inside" (see gmail.js).
 const CAUTION_FLAGS = ["encrypted_archive", "encrypted_document", "uninspectable_archive",
-                       "disk_image_attachment", "disk_image_in_archive", "zip_bomb_suspected"];
+                       "disk_image_attachment", "disk_image_in_archive", "zip_bomb_suspected", "inner_files_not_extracted"];
 const FILE_ACCEPT = [".eml", ...ATTACHMENT_EXTS.map((e) => "." + e)].join(",");
 const fileExt = (name) => ((name || "").split(".").pop() || "").toLowerCase();
 

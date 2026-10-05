@@ -54,3 +54,10 @@ pypdfium2>=5.13.0,<6.0
 # with a type allowlist (agent_io.py). joblib stays for the one-time
 # conversion and as a fallback until the .skops files are published.
 skops>=0.16.0,<1.0
+
+# RAR and 7z attachments (v1.15.3). rarfile lists RAR archives in pure
+# Python and calls bsdtar (libarchive-tools, see Dockerfiles) to
+# decompress members; py7zr opens 7z archives. Both optional: without
+# them RAR / 7z are reported as not inspectable.
+rarfile>=4.2,<5.0
+py7zr>=0.22,<2.0

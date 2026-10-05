@@ -196,14 +196,15 @@ flowchart TD
 | `image_only_pdf` | 0.10 | No text layer: an evasion trick, but real scans exist too |
 | `legacy_office_format` | 0.10 | Pre-2007 binary format |
 | `disk_image_attachment`, `disk_image_in_archive` | 0.40 | ISO / IMG / VHD mount as a drive and skip the "downloaded file" warning |
-| `encrypted_archive` | 0.35 | Password-protected ZIP: scanners cannot open it |
+| `encrypted_archive` | 0.35 | Password-protected ZIP, RAR or 7z: scanners cannot open it |
 | `zip_bomb_suspected` | 0.30 | Compression ratio above 100 |
-| `uninspectable_archive` | 0.20 | RAR / 7z, recognised but not opened |
+| `uninspectable_archive` | 0.20 | RAR / 7z the server cannot open (damaged, multi-volume, library missing) |
+| `inner_files_not_extracted` | 0.10 | RAR listed but its members could not be decompressed |
 | `nested_archive`, `calendar_with_links` | 0.10 | Archive in an archive; invite carrying links |
 
 Macros, remote templates and DDE fields force the phishing verdict on
 every path, and so (v1.14) do executables, scripts and shortcut files
-(`.exe`, `.js`, `.lnk`, ...) attached directly or inside a ZIP, and
+(`.exe`, `.js`, `.lnk`, ...) attached directly or inside a ZIP, RAR or 7z archive, and
 double extensions such as `invoice.pdf.exe`. They force the verdict even when the parent email is trusted: Gmail delivering the
 email says nothing about what a macro does once enabled, and hijacked
 accounts are how these documents usually travel.
