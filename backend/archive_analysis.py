@@ -104,6 +104,22 @@ def classify_names(names: list[str]) -> list[str]:
     return flags
 
 
+# Plain-English reason for each risky name flag (per-file report, v1.15.4).
+NAME_REASONS = {
+    "double_extension":      "fake extension",
+    "executable_in_archive": "program",
+    "script_in_archive":     "script",
+    "shortcut_in_archive":   "shortcut",
+    "disk_image_in_archive": "disk image",
+    "nested_archive":        "archive inside the archive",
+}
+
+
+def entry_reasons(name: str) -> list[str]:
+    """Why one archive member is risky, from its name alone."""
+    return [NAME_REASONS[f] for f in classify_names([name]) if f in NAME_REASONS]
+
+
 def is_rar_or_7z(raw: bytes) -> str | None:
     if raw.startswith(RAR_MAGIC):
         return "rar"
@@ -181,6 +197,11 @@ def _analyse_listing(raw: bytes, filename: str, fmt: str, entries: list[_Entry],
                 "filename": name,
                 "kind": res.get("kind"),
                 "notable_features": res.get("notable_features", []),
+                "url_count": len(res.get("extracted_urls", []) or []),
+                # Private, for the per-file report (v1.15.4); removed by
+                # the endpoint before the response is sent.
+                "_text": (res.get("extracted_text") or "")[:4000],
+                "_urls": list(res.get("extracted_urls", []) or [])[:50],
             })
             if res.get("extracted_text"):
                 texts.append(res["extracted_text"])

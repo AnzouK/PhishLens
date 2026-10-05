@@ -1377,6 +1377,49 @@ async def analyse(request: Request, req: AnalyseRequest):
 # `attachment` object carrying the extracted metadata (kind, size, page
 # count, notable features like /JavaScript in PDFs, etc).
 # ---------------------------------------------------------------------------
+# Inner-file reasons worth naming in the per-file report (v1.15.4).
+_INNER_REASONS = {
+    "contains_macros": "macros", "remote_template": "remote template",
+    "dde_field": "DDE field", "contains_activex": "ActiveX control",
+    "embedded_ole_object": "embedded object", "contains_javascript": "JavaScript",
+    "auto_execute_on_open": "runs on open", "launch_external_action": "launches a program",
+    "contains_password_field": "password form", "submits_form_to_url": "sends a form",
+    "encrypted_document": "password-protected", "contains_qr_code": "QR code",
+}
+
+
+def _archive_file_report(extracted: dict, reputation_verdicts: list[dict]) -> list[dict]:
+    """Members of an archive that explain the verdict: risky names
+    (program, script, fake extension...), risky inner documents (macros,
+    login form...), phishing wording, or a link flagged by threat
+    intelligence. Ordered by number of reasons; at most 20."""
+    bad_urls = {v.get("url") for v in reputation_verdicts if v.get("malicious")}
+    report: dict[str, list[str]] = {}
+    for name in extracted.get("entries") or []:
+        reasons = _attachments.archives.entry_reasons(name)
+        if reasons:
+            report[name] = reasons
+    for f in extracted.get("inner_files") or []:
+        name = f.get("filename") or "?"
+        reasons = report.setdefault(name, [])
+        for flag in f.get("notable_features") or []:
+            label = _INNER_REASONS.get(flag)
+            if label and label not in reasons:
+                reasons.append(label)
+        if any(u in bad_urls for u in f.get("_urls") or []):
+            reasons.append("flagged link")
+        text = f.get("_text") or ""
+        if len(text.split()) >= MIN_TEXT_WORDS:
+            try:
+                if float(text_agent(text)) >= 0.7:
+                    reasons.append("phishing wording")
+            except Exception as e:
+                logger.warning(f"text_agent failed on inner file: {e}")
+    rows = [{"name": n, "reasons": r} for n, r in report.items() if r]
+    rows.sort(key=lambda row: -len(row["reasons"]))
+    return rows[:20]
+
+
 @app.post("/analyse_attachment")
 @(_limiter.limit(RATE_LIMIT_ATTACHMENT) if _RATE_LIMIT_OK else (lambda f: f))
 async def analyse_attachment(request: Request, req: AttachmentRequest):
@@ -1566,6 +1609,12 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
     _count_verdict("/analyse_attachment", is_phishing,
                    "parent_trusted" if parent_trusted else "default")
 
+    # v1.15.4: for archives, say which files inside are the problem.
+    suspicious_files = (_archive_file_report(extracted, reputation_verdicts)
+                        if extracted.get("kind") == "archive" else [])
+    inner_public = [{k: v for k, v in f.items() if not k.startswith("_")}
+                    for f in (extracted.get("inner_files") or [])]
+
     return {
         "verdict": "phishing" if is_phishing else "safe",
         "fused_score": float(fused),
@@ -1590,7 +1639,8 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
             "entries":             extracted.get("entries"),
             "entry_count":         extracted.get("entry_count"),
             "encrypted":           extracted.get("encrypted"),
-            "inner_files":         extracted.get("inner_files"),
+            "inner_files":         inner_public if extracted.get("kind") == "archive" else None,
+            "suspicious_files":    suspicious_files,
             "organizer":           extracted.get("organizer"),
         },
         "parent_email": req.parent_email or None,

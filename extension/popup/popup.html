@@ -75,7 +75,7 @@
         <label id="drop-zone" class="drop-zone" for="file-input">
           <input id="file-input" type="file" accept=".eml,.pdf,.html,.htm,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff,.docx,.docm,.doc,.xlsx,.xlsm,.xls,.pptx,.pptm,.ppt,.zip,.rar,.7z,.ics,.txt" hidden />
           <div class="drop-zone__icon"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg></div>
-          <div class="drop-zone__label">Drag &amp; drop an email (<code>.eml</code>) or an attachment (PDF, image, Word, Excel, PowerPoint, HTML)</div>
+          <div class="drop-zone__label">Drag &amp; drop an email (<code>.eml</code>) or an attachment (PDF, image, Word, Excel, PowerPoint, HTML, ZIP, RAR, 7z, .ics)</div>
           <div class="drop-zone__hint">or click to browse · 10 MB max</div>
         </label>
       </div>
@@ -127,6 +127,9 @@
           <div class="verdict-card__sub" id="verdict-sub">Unlikely to be a phishing attempt</div>
         </div>
       </div>
+
+      <!-- v1.15.4: files inside an archive -->
+      <div id="archive-files" class="archive-files" hidden></div>
 
       <!-- three agent cards -->
       <div class="agents">

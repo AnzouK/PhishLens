@@ -660,3 +660,40 @@ class TestResultCache:
         client.post("/analyse", json={"raw_text": self.BODY})
         stats = client.get("/reputation/stats").json()["result_cache"]
         assert stats["hits"] == 1 and stats["entries"] == 1 and stats["ttl_hours"] == 24
+
+
+# ---------------------------------------------------------------------
+# v1.15.4: which files inside an archive are the problem
+# ---------------------------------------------------------------------
+class TestArchiveFileReport:
+    def _zip(self, files):
+        import io
+        import zipfile
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            for n, d in files.items():
+                zf.writestr(n, d)
+        return buf.getvalue()
+
+    def test_risky_names_and_phishing_text_are_named(self, client, monkeypatch):
+        text_score(monkeypatch, 0.93)
+        raw = self._zip({"invoice.pdf.exe": "MZ",
+                         "notes.txt": "Your account is suspended, verify your payment now",
+                         "photo.txt": "x"})
+        r = client.post("/analyse_attachment", json={"content_b64": b64(raw), "filename": "docs.zip"})
+        a = r.json()["attachment"]
+        files = {f["name"]: f["reasons"] for f in a["suspicious_files"]}
+        assert files["invoice.pdf.exe"] == ["fake extension", "program"]
+        assert files["notes.txt"] == ["phishing wording"]
+        assert "photo.txt" not in files
+        # private fields never leave the server
+        assert all(not k.startswith("_") for f in a["inner_files"] for k in f)
+
+    def test_clean_archive_names_nothing(self, client):
+        raw = self._zip({"report.txt": "Minutes of the team meeting on Monday."})
+        r = client.post("/analyse_attachment", json={"content_b64": b64(raw), "filename": "m.zip"})
+        assert r.json()["attachment"]["suspicious_files"] == []
+
+    def test_non_archive_has_no_report(self, client):
+        r = client.post("/analyse_attachment", json={"content_b64": b64(b"hello there team"), "filename": "a.txt"})
+        assert r.json()["attachment"]["suspicious_files"] == []

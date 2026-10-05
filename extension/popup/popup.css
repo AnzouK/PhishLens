@@ -975,3 +975,21 @@ textarea:focus, input:focus { box-shadow: none !important; outline: 1px solid va
 .url-warn { margin: 8px 0 0; padding: 8px 10px; font-size: 12px; line-height: 1.45;
   color: var(--warn); background: var(--warn-soft); border-radius: var(--radius); }
 .url-warn code { font-size: 11.5px; }
+
+/* v1.15.4: files inside an archive (result view) */
+.archive-files { display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+.archive-files[hidden] { display: none; }
+.archive-files ul { list-style: none; margin: 4px 0 0; padding: 0; max-height: 150px; overflow-y: auto; }
+.archive-files li { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
+.archive-files__risky { padding: 8px 10px; border-radius: var(--radius); border: 1px solid var(--border); }
+.archive-files__risky--bad { border-color: var(--danger); background: var(--danger-soft); }
+.archive-files__risky--warn { border-color: var(--warn); background: var(--warn-soft); }
+.archive-files__title { font-weight: 600; }
+.archive-files__risky--bad .archive-files__title { color: var(--danger); }
+.archive-files__risky--warn .archive-files__title { color: var(--warn); }
+.archive-files__name { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; color: var(--text); }
+.archive-files__why { color: var(--text-mute); white-space: nowrap; flex-shrink: 0; }
+.archive-files__all { padding: 6px 10px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-elev); }
+.archive-files__all summary { cursor: pointer; color: var(--text-mute); }
+.archive-files__more { color: var(--text-mute); }

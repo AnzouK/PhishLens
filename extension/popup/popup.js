@@ -144,8 +144,8 @@ function setSelectedFile(file) {
         dropZone.innerHTML = `
             <input id="file-input" type="file" accept="${FILE_ACCEPT}" hidden />
             <div class="drop-zone__icon">${icon("upload")}</div>
-            <div class="drop-zone__label">Drag &amp; drop an email or an attachment</div>
-            <div class="drop-zone__hint">or click to browse</div>`;
+            <div class="drop-zone__label">Drag &amp; drop an email (<code>.eml</code>) or an attachment (PDF, image, Word, Excel, PowerPoint, HTML, ZIP, RAR, 7z, .ics)</div>
+            <div class="drop-zone__hint">or click to browse · 10 MB max</div>`;
         rewireFileInput();
         updateAnalyzeEnabled();
         return;
@@ -356,6 +356,7 @@ function renderResult(data) {
     $("verdict-icon").innerHTML = icon(isPhishing ? "alert" : "shield-check");
     const flags = data.attachment?.notable_features || [];
     const caution = isAttachment && !isPhishing && flags.some((f) => CAUTION_FLAGS.includes(f));
+    renderArchiveFiles(data.attachment, isPhishing);
     const what = isAttachment ? "file" : "email";
     $("verdict-label").textContent = isPhishing
         ? `This ${what} looks like phishing`
@@ -474,6 +475,55 @@ function _mkBadge(text, kind, title) {
     el.textContent = text;
     if (title) el.title = _sanitizeTitle(title);
     return el;
+}
+
+// v1.15.4: inside an archive, name the files that explain the verdict,
+// then list every file (folded). Built with DOM nodes: file names come
+// from the archive and are never inserted as HTML.
+function renderArchiveFiles(att, isPhishing) {
+    const box = $("archive-files");
+    if (!box) return;
+    box.replaceChildren();
+    box.hidden = true;
+    if (!att || att.kind !== "archive") return;
+    const el = (tag, cls, text) => {
+        const n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text !== undefined) n.textContent = text;
+        return n;
+    };
+    const risky = Array.isArray(att.suspicious_files) ? att.suspicious_files : [];
+    const entries = Array.isArray(att.entries) ? att.entries : [];
+    if (risky.length) {
+        const block = el("div", "archive-files__risky archive-files__risky--" + (isPhishing ? "bad" : "warn"));
+        block.append(el("div", "archive-files__title", isPhishing ? "Do not open" : "Check before opening"));
+        const ul = el("ul");
+        risky.forEach((f) => {
+            const li = el("li");
+            const name = el("span", "archive-files__name", f.name);
+            name.title = f.name;
+            li.append(name, el("span", "archive-files__why", (f.reasons || []).join(", ")));
+            ul.append(li);
+        });
+        block.append(ul);
+        box.append(block);
+    }
+    if (entries.length) {
+        const det = el("details", "archive-files__all");
+        det.append(el("summary", "", `Files inside (${att.entry_count || entries.length})`));
+        const ul = el("ul");
+        entries.forEach((n) => {
+            const li = el("li");
+            const name = el("span", "archive-files__name", n);
+            name.title = n;
+            li.append(name);
+            ul.append(li);
+        });
+        if (att.entry_count > entries.length) ul.append(el("li", "archive-files__more", `and ${att.entry_count - entries.length} more`));
+        det.append(ul);
+        box.append(det);
+    }
+    box.hidden = !box.childElementCount;
 }
 
 function renderUrlBadges(rep) {

@@ -287,3 +287,19 @@ html[data-phishlens-theme="dark"] {
 /* v1.15: Outlook, the banner sits under the subject bar */
 .pll-ol-slot { padding: 0 12px; }
 .pll-ol-slot > .pll-banner { margin: 8px 0 4px; }
+
+/* v1.15.4: files inside an archive (attachment card) */
+.pll-att-files { margin-top: 8px !important; padding: 6px 8px !important; border-radius: 6px !important;
+    border: 1px solid var(--pll-line) !important; font-size: 11.5px !important; color: var(--pll-text) !important; }
+.pll-att-files--bad  { border-color: var(--pll-bad-line) !important; background: var(--pll-bad-soft) !important; }
+.pll-att-files--warn { border-color: var(--pll-warn-line) !important; background: var(--pll-warn-soft) !important; }
+.pll-att-files__title { font-weight: 600 !important; margin-bottom: 4px !important; }
+.pll-att-files--bad .pll-att-files__title { color: var(--pll-bad) !important; }
+.pll-att-files--warn .pll-att-files__title { color: var(--pll-warn) !important; }
+.pll-att-files ul { list-style: none !important; margin: 0 !important; padding: 0 !important; max-height: 160px !important; overflow-y: auto !important; }
+.pll-att-files li { display: flex !important; gap: 8px !important; justify-content: space-between !important; padding: 2px 0 !important; }
+.pll-att-files__name { font-family: var(--pll-mono) !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; min-width: 0 !important; }
+.pll-att-files__why { color: var(--pll-text-2) !important; white-space: nowrap !important; flex-shrink: 0 !important; }
+.pll-att-files--all summary { cursor: pointer !important; color: var(--pll-text-2) !important; }
+.pll-att-files--all ul { margin-top: 4px !important; }
+.pll-att-files__more { color: var(--pll-text-2) !important; }

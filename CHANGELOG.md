@@ -7,6 +7,26 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [1.15.4] - 2026-10-05
+
+Archives now say which file inside is the problem.
+
+### Added
+- **Files named inside archives:** `/analyse_attachment` returns
+  `attachment.suspicious_files` for ZIP, RAR and 7z attachments, one row
+  per member with the reasons in plain words: fake extension, program,
+  script, shortcut, disk image, archive inside the archive, macros,
+  remote template, login form, flagged link, or phishing wording (the
+  text model scores each inner file on its own). The Gmail attachment
+  card and the popup show them under **Do not open** (phishing verdict)
+  or **Check before opening** (safe verdict but something stands out),
+  followed by the full list of files, folded. File names are inserted as
+  text, never as HTML.
+
+### Changed
+- Popup drop zone lists every supported attachment type (ZIP, RAR, 7z
+  and .ics included), also after a file is removed.
+
 ## [1.15.3] - 2026-10-05
 
 RAR and 7z attachments are opened, like ZIP.
@@ -591,6 +611,7 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[1.15.4]: https://github.com/AnzouK/PhishLens/compare/v1.15.3...v1.15.4
 [1.15.3]: https://github.com/AnzouK/PhishLens/compare/v1.15.2...v1.15.3
 [1.15.2]: https://github.com/AnzouK/PhishLens/compare/v1.15.1...v1.15.2
 [1.15.1]: https://github.com/AnzouK/PhishLens/compare/v1.15.0...v1.15.1

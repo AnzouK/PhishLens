@@ -1223,7 +1223,33 @@ function renderAttachmentBanner(banner, data, filename) {
             ${isEmail ? ` · Sender <strong>${pct(data.agents?.metadata?.phishing_probability)}%</strong>` : ""}
         </div>
         ${chips.length ? `<div class="pll-att-banner__chips">${chips.join("")}</div>` : ""}
+        ${archiveFilesHTML(a, bad)}
     `;
+}
+
+// v1.15.4: inside an archive, name the files that explain the verdict
+// ("Do not open"), then the full list of files, folded.
+function archiveFilesHTML(a, bad) {
+    if (a.kind !== "archive") return "";
+    const risky = Array.isArray(a.suspicious_files) ? a.suspicious_files : [];
+    const entries = Array.isArray(a.entries) ? a.entries : [];
+    let html = "";
+    if (risky.length) {
+        const rows = risky.map((f) =>
+            `<li><span class="pll-att-files__name" title="${escapeHTML(f.name)}">${escapeHTML(f.name)}</span>`
+            + `<span class="pll-att-files__why">${escapeHTML((f.reasons || []).join(", "))}</span></li>`).join("");
+        html += `<div class="pll-att-files pll-att-files--${bad ? "bad" : "warn"}">
+            <div class="pll-att-files__title">${bad ? "Do not open" : "Check before opening"}</div>
+            <ul>${rows}</ul></div>`;
+    }
+    if (entries.length) {
+        const more = a.entry_count > entries.length ? `<li class="pll-att-files__more">and ${a.entry_count - entries.length} more</li>` : "";
+        html += `<details class="pll-att-files pll-att-files--all">
+            <summary>Files inside (${a.entry_count || entries.length})</summary>
+            <ul>${entries.map((n) => `<li><span class="pll-att-files__name" title="${escapeHTML(n)}">${escapeHTML(n)}</span></li>`).join("")}${more}</ul>
+        </details>`;
+    }
+    return html;
 }
 
 // Find or create a container to stack attachment banners. Instead of
