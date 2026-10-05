@@ -121,14 +121,19 @@
 <td>24 hours</td>
 </tr>
 <tr class="even">
+<td>Results sent back (verdict, scores, link verdicts, explanation words), keyed by a hash of the email; not the email itself</td>
+<td>Backend memory</td>
+<td>24 hours, or until the server restarts</td>
+</tr>
+<tr class="odd">
 <td>Email text, headers, attachments</td>
 <td>Backend memory, during the request</td>
 <td>Not stored</td>
 </tr>
-<tr class="odd">
-<td>Request metadata (time, path, status, IP address)</td>
-<td>PhishLens Cloud application and web-server logs, when enabled</td>
-<td>Rotated by the server; request bodies are never logged</td>
+<tr class="even">
+<td>Request metadata (time, path, status, IP address, browser)</td>
+<td>PhishLens Cloud application and web-server logs</td>
+<td>30 days; request bodies are never logged</td>
 </tr>
 </tbody>
 </table></div>

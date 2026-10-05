@@ -209,6 +209,8 @@ Final-year project, B.Sc. Cybersecurity,
 [Nile University of Nigeria](https://nileuniversity.edu.ng/), 2025/2026.
 Model training and evaluation live in the companion repository
 [PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector).
+The accompanying paper describes PhishLens as it was when it was written;
+everything added since is in the [CHANGELOG](CHANGELOG.md).
 
 ## License
 

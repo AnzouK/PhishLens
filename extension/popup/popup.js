@@ -670,6 +670,7 @@ function renderSettings() {
     connStatus.hidden = true;
     connStatus.className = "conn-status";
     connStatus.textContent = "";
+    updateCustomUrlWarn();
 }
 
 settingsBtn.addEventListener("click", () => {
@@ -692,6 +693,7 @@ document.querySelectorAll('input[name="backend"]').forEach((r) => {
         if (backendChoice === "custom" && !customUrlInput.value) {
             customUrlInput.focus();
         }
+        updateCustomUrlWarn();
     });
 });
 
@@ -705,9 +707,31 @@ STORAGE?.get(["opt_full_headers", "opt_auto_scan"], (s) => {
 optFullHeaders.addEventListener("change", () => STORAGE?.set({ opt_full_headers: optFullHeaders.checked }));
 optAutoScan.addEventListener("change", () => STORAGE?.set({ opt_auto_scan: optAutoScan.checked }));
 
+// v1.15.2: an http:// URL to a remote server would send emails in clear
+// text. Local and private-network addresses are fine (nothing leaves the
+// computer or the home network).
+const customUrlWarn = $("custom-url-warn");
+function isPlainRemoteUrl(value) {
+    let u;
+    try { u = new URL(value); } catch { return false; }
+    if (u.protocol !== "http:") return false;
+    const h = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+    if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h === "::1") return false;
+    const m = h.match(/^(\d+)\.(\d+)\.\d+\.\d+$/);
+    if (m) {
+        const a = Number(m[1]), b = Number(m[2]);
+        if (a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31)) return false;
+    }
+    return true;
+}
+function updateCustomUrlWarn() {
+    customUrlWarn.hidden = !(backendChoice === "custom" && isPlainRemoteUrl(customUrlInput.value.trim()));
+}
+
 customUrlInput.addEventListener("input", () => {
     backendCustomUrl = customUrlInput.value.trim();
     STORAGE?.set({ backend_custom_url: backendCustomUrl });
+    updateCustomUrlWarn();
 });
 
 // ---------- insights view (history + analytics) ----------

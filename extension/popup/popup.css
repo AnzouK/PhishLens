@@ -970,3 +970,8 @@ textarea:focus, input:focus { box-shadow: none !important; outline: 1px solid va
 .backend-option, .opt-row, .chart-block, .ratio-block, .history-block, .insights-stats .stat-card,
 .status, .conn-status, .verdict-card, .result-card, .paste-input, .drop-zone { border-radius: var(--radius) !important; }
 .view, .view--active { animation: none !important; }
+
+/* v1.15.2: warning under an http:// custom backend URL */
+.url-warn { margin: 8px 0 0; padding: 8px 10px; font-size: 12px; line-height: 1.45;
+  color: var(--warn); background: var(--warn-soft); border-radius: var(--radius); }
+.url-warn code { font-size: 11.5px; }

@@ -46,6 +46,8 @@ from lime.lime_text import LimeTextExplainer
 from pydantic import BaseModel
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
+from result_cache import ResultCache, make_key
+
 import logging
 # Root config for the "phishlens.*" loggers. uvicorn configures its own
 # loggers but leaves ours without a handler, which silently drops INFO.
@@ -372,6 +374,10 @@ def _count_verdict(endpoint: str, is_phishing: bool, trust_path: str) -> None:
         _VERDICTS.labels(endpoint, "phishing" if is_phishing else "safe", trust_path).inc()
     except Exception:
         pass
+
+
+# v1.15.2: same email, same answer for 24 h (see result_cache.py).
+_RESULT_CACHE = ResultCache()
 
 
 class AnalyseRequest(BaseModel):
@@ -768,8 +774,9 @@ def reputation_stats():
     and whether the cache is doing its job. Not exposed to end users.
     """
     if not _REPUTATION_AVAILABLE:
-        return {"enabled": False, "reason": "reputation module not loaded"}
-    return {"enabled": True, **_reputation.stats()}
+        return {"enabled": False, "reason": "reputation module not loaded",
+                "result_cache": _RESULT_CACHE.stats()}
+    return {"enabled": True, **_reputation.stats(), "result_cache": _RESULT_CACHE.stats()}
 
 
 @app.post("/explain")
@@ -779,6 +786,11 @@ def explain(request: Request, req: AnalyseRequest):
     body, _, _, _ = _get_body_urls_headers(req)
     if not body:
         raise HTTPException(400, "Could not extract any text from this email.")
+    num_samples = int(os.environ.get("LIME_NUM_SAMPLES", "100"))
+    cache_key = make_key("explain", {"body": body[:800], "n": num_samples})
+    cached = _RESULT_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
 
     lime = STATE["lime"]
     try:
@@ -789,7 +801,7 @@ def explain(request: Request, req: AnalyseRequest):
         body_short = body[:800]
         exp = lime.explain_instance(
             body_short, predict_proba_batch,
-            num_samples=int(os.environ.get("LIME_NUM_SAMPLES", "100")),
+            num_samples=num_samples,
             num_features=12,
             labels=(1,),     # explain in the Phishing direction
         )
@@ -813,7 +825,9 @@ def explain(request: Request, req: AnalyseRequest):
     except Exception as e:
         raise HTTPException(500, f"LIME failed: {e}")
 
-    return {"features": feats}
+    result = {"features": feats}
+    _RESULT_CACHE.set(cache_key, result)
+    return result
 
 
 def _synthesize_auth_results(ctx: dict, sender_email: str | None) -> str:
@@ -1067,6 +1081,13 @@ def _get_body_urls_headers(req: AnalyseRequest):
 @app.post("/analyse")
 @(_limiter.limit(RATE_LIMIT_ANALYSE) if _RATE_LIMIT_OK else (lambda f: f))
 async def analyse(request: Request, req: AnalyseRequest):
+    cache_key = make_key("analyse", req.model_dump())
+    cached = _RESULT_CACHE.get(cache_key)
+    if cached is not None:
+        _count_verdict("/analyse", cached.get("verdict") == "phishing", cached.get("trust_path", "default"))
+        cached["cached"] = True
+        return cached
+
     body, urls, headers, raw_bytes = _get_body_urls_headers(req)
     if not body and raw_bytes:
         # A full email with no text part (attachment-only): score its
@@ -1124,11 +1145,13 @@ async def analyse(request: Request, req: AnalyseRequest):
 
     # Collect the auth signal (or a safe default if disabled/errored)
     auth_signal: dict[str, Any] = {"score_delta": 0.0, "reasons": [], "auth": {}, "spamhaus_dbl": {}}
+    cacheable = True     # a partial result (a check failed) is not cached
     if auth_signal_task:
         try:
             auth_signal = await auth_signal_task
         except Exception as e:
             logger.warning(f"auth_signal task failed: {e}")
+            cacheable = False
 
     # Collect the URL reputation verdicts (or an empty list if disabled)
     reputation_verdicts: list[dict[str, Any]] = []
@@ -1137,6 +1160,7 @@ async def analyse(request: Request, req: AnalyseRequest):
             reputation_verdicts = await reputation_task
         except Exception as e:
             logger.warning(f"reputation task failed: {e}")
+            cacheable = False
 
     # Apply reputation to the URL agent score. Any tier flagging a URL is
     # very strong evidence: much better than a RF trained on lexical
@@ -1293,7 +1317,7 @@ async def analyse(request: Request, req: AnalyseRequest):
     is_phishing = (fused >= threshold) or high_conf
     _count_verdict("/analyse", is_phishing, trust_path)
 
-    return {
+    result = {
         "verdict": "phishing" if is_phishing else "safe",
         "fused_score": float(fused),
         "high_confidence_override": bool(high_conf),
@@ -1336,7 +1360,11 @@ async def analyse(request: Request, req: AnalyseRequest):
                          "phishing_probability_raw": p_meta_raw,
                          "verdict": verdict_label(p_meta)},
         },
+        "cached": False,
     }
+    if cacheable:
+        _RESULT_CACHE.set(cache_key, result)
+    return result
 
 
 # ---------------------------------------------------------------------------

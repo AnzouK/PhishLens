@@ -7,6 +7,36 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [1.15.2] - 2026-10-05
+
+Small operations release: a result cache, an uptime alert, weekly
+encrypted backups, and a warning before emails would leave in clear text.
+
+### Added
+- **Result cache** (`backend/result_cache.py`): `/analyse` and `/explain`
+  answers are kept in memory for 24 hours, keyed by a SHA-256 of the
+  request (never the email itself). The same email scanned twice, or
+  auto-scanned then opened, answers at once with `"cached": true`, and
+  "Why this verdict?" gives the same words on every click. The
+  `auto_scan` flag does not split entries; a result where a check failed
+  is not cached. `RESULT_CACHE_TTL` (0 turns it off) and
+  `RESULT_CACHE_MAX`; hit rate in `/reputation/stats`.
+- **Weekly backups** (`scripts/backup.sh`): server configuration, backend
+  data (consistent SQLite copies) and access logs, uploaded to any rclone
+  remote (an encrypted crypt remote is recommended); archives older than
+  60 days are removed. See `docs/operations.md`.
+- **Uptime alert** note in `docs/operations.md` (any external monitor on
+  `/health`).
+
+### Changed
+- **Custom backend URL:** the settings warn when an `http://` address
+  points outside this computer or the home network, since emails would
+  then cross the internet unencrypted.
+- **Privacy policy:** lists the 24-hour result cache and the 30-day
+  web-server logs.
+- **README:** notes that the paper describes PhishLens as it was when
+  written, with later changes in the CHANGELOG.
+
 ## [1.15.1] - 2026-10-02
 
 Look and feel release: the website, the popup and the README pictures
@@ -537,6 +567,7 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[1.15.2]: https://github.com/AnzouK/PhishLens/compare/v1.15.1...v1.15.2
 [1.15.1]: https://github.com/AnzouK/PhishLens/compare/v1.15.0...v1.15.1
 [1.15.0]: https://github.com/AnzouK/PhishLens/compare/v1.14.1...v1.15.0
 [1.14.1]: https://github.com/AnzouK/PhishLens/compare/v1.14.0...v1.14.1

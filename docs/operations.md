@@ -183,3 +183,46 @@ of these numbers; `/explain` (LIME) is excluded and is much slower.
 To find the saturation point, raise the offered load, for example
 `-u 50 -r 5` and a shorter `wait_time`, and watch for p95 growth and
 failures.
+
+## Uptime alert
+
+Point any external uptime monitor (UptimeRobot, Better Stack, Healthchecks...)
+at `GET /health` every few minutes. It answers `{"status":"ok",...}` only
+once the model is loaded, so a keyword check on `"status":"ok"` also
+catches a server that is up but not ready.
+
+## Result cache
+
+Since v1.15.2 the backend keeps the result of `/analyse` and `/explain`
+in memory for 24 hours, keyed by a SHA-256 of the request (the email
+itself is not kept). A second scan of the same email, or "Why this
+verdict?" clicked twice, answers at once with `"cached": true`. Results
+where a check failed (DNS or reputation lookup) are not cached.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `RESULT_CACHE_TTL` | `86400` | Seconds an entry is kept; `0` turns the cache off |
+| `RESULT_CACHE_MAX` | `2000` | Entries kept at most (oldest go first) |
+
+Hit rate and size: `"result_cache"` in `/reputation/stats`. A redeploy
+empties the cache.
+
+## Backups
+
+`scripts/backup.sh` (run on the server, weekly with cron) archives what
+cannot be rebuilt from the repository or Hugging Face: the env file, the
+Caddyfile, the data folder (SQLite files copied with SQLite's backup API)
+and the web-server access logs. It uploads the archive to any
+[rclone](https://rclone.org) remote (`PHISHLENS_BACKUP_REMOTE`, default
+`phishlens-backup:`) and removes archives older than
+`PHISHLENS_BACKUP_KEEP_DAYS` (default 60). Use an rclone **crypt** remote
+so the archive, which contains the env file, is encrypted before it
+leaves the server.
+
+```bash
+bash scripts/backup.sh          # back up now
+bash scripts/backup.sh --list   # list the archives on the remote
+```
+
+Scan reviews (Right / Wrong) are stored in the browser, not on the
+server: export them from the popup (Insights, JSON).

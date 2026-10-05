@@ -65,8 +65,9 @@ only** (never the email text, sender or subject):
 | Automatic-scan results (thread id, verdict, score) | Your browser | Last 500 emails |
 | Settings | Your browser | Until changed |
 | Link verdicts (URL, verdict, source) | Backend cache (SQLite) | 24 hours |
+| Results sent back (verdict, scores, link verdicts, explanation words), keyed by a hash of the email; not the email itself | Backend memory | 24 hours, or until the server restarts |
 | Email text, headers, attachments | Backend memory, during the request | Not stored |
-| Request metadata (time, path, status, IP address) | PhishLens Cloud application and web-server logs, when enabled | Rotated by the server; request bodies are never logged |
+| Request metadata (time, path, status, IP address, browser) | PhishLens Cloud application and web-server logs | 30 days; request bodies are never logged |
 
 PhishLens Cloud also counts verdicts per scoring path for monitoring
 (Prometheus counters). These are numbers only, with no email data.

@@ -29,6 +29,20 @@ def b64(data: bytes) -> str:
     return base64.b64encode(data).decode()
 
 
+@pytest.fixture(autouse=True)
+def _fresh_result_cache():
+    """Each test patches the agents differently: never reuse a result.
+    The rate limiter is reset too, so a long run never hits 429."""
+    eb._RESULT_CACHE.clear()
+    if getattr(eb, "_RATE_LIMIT_OK", False):
+        try:
+            eb._limiter.reset()
+        except Exception:
+            pass
+    yield
+    eb._RESULT_CACHE.clear()
+
+
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setenv("REPUTATION_ENABLE_DBL", "0")
@@ -606,3 +620,43 @@ def test_is_hostname():
     assert not eb._is_hostname("localhost")
     assert not eb._is_hostname("a..b")
     assert not eb._is_hostname("-" * 300 + ".com")
+
+
+# ---------------------------------------------------------------------
+# v1.15.2: result cache
+# ---------------------------------------------------------------------
+class TestResultCache:
+    BODY = "Your account is suspended, verify your payment details immediately at our page."
+
+    def test_second_identical_scan_is_cached(self, client, monkeypatch):
+        calls = []
+        monkeypatch.setattr(eb, "text_agent", lambda b: calls.append(b) or 0.9)
+        first = client.post("/analyse", json={"raw_text": self.BODY}).json()
+        second = client.post("/analyse", json={"raw_text": self.BODY}).json()
+        assert first["cached"] is False and second["cached"] is True
+        assert second["verdict"] == first["verdict"]
+        assert second["fused_score"] == first["fused_score"]
+        assert len(calls) == 1
+
+    def test_auto_scan_flag_shares_the_entry(self, client):
+        ctx = {"origin": "gmail", "auto_scan": True}
+        client.post("/analyse", json={"raw_text": self.BODY, "client_context": ctx})
+        r = client.post("/analyse", json={"raw_text": self.BODY,
+                                          "client_context": {"origin": "gmail", "auto_scan": False}})
+        assert r.json()["cached"] is True
+
+    def test_different_email_is_not_cached(self, client):
+        client.post("/analyse", json={"raw_text": self.BODY})
+        r = client.post("/analyse", json={"raw_text": self.BODY + " Thanks."})
+        assert r.json()["cached"] is False
+
+    def test_cache_can_be_turned_off(self, client, monkeypatch):
+        monkeypatch.setattr(eb._RESULT_CACHE, "ttl", 0)
+        client.post("/analyse", json={"raw_text": self.BODY})
+        assert client.post("/analyse", json={"raw_text": self.BODY}).json()["cached"] is False
+
+    def test_stats_report_the_cache(self, client):
+        client.post("/analyse", json={"raw_text": self.BODY})
+        client.post("/analyse", json={"raw_text": self.BODY})
+        stats = client.get("/reputation/stats").json()["result_cache"]
+        assert stats["hits"] == 1 and stats["entries"] == 1 and stats["ttl_hours"] == 24

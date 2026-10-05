@@ -298,6 +298,11 @@
         </label>
         <input type="url" id="custom-url" class="custom-url-input"
                placeholder="https://your-server.example.com" />
+        <p id="custom-url-warn" class="url-warn" role="alert" hidden>
+          Not encrypted: with <code>http://</code> your emails would cross the
+          internet in clear text. Use <code>https://</code>, or <code>http://</code>
+          only for a server on this computer or your home network.
+        </p>
       </div>
 
       <button id="test-conn-btn" class="btn btn--secondary">Test connection</button>
