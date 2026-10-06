@@ -197,7 +197,7 @@ td.num { font-family: var(--mono); white-space: nowrap; color: var(--ink); }
 /* try it: two panels of the same height */
 .demo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: stretch; }
 @media (max-width: 860px) { .demo { grid-template-columns: minmax(0, 1fr); } }
-.panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-2); padding: 16px; }
+.panel { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-2); padding: 16px; }
 .tabs { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 12px; }
 .tab { font: inherit; font-size: 0.9rem; padding: 6px 14px; border: 0; border-radius: 3px; background: transparent; color: var(--ink-2); cursor: pointer; }
 .tab[aria-selected="true"] { background: var(--bg-3); color: var(--ink); }
@@ -209,8 +209,11 @@ textarea { font: inherit; font-size: 0.95rem; line-height: 1.5; color: var(--ink
 textarea:focus { outline: none; border-color: var(--ink-3); }
 .drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 20px; background: var(--bg); color: var(--ink-2); border: 1px dashed var(--ink-3); border-radius: var(--radius); cursor: pointer; }
 .drop .ic { color: var(--accent); width: 28px; height: 28px; }
-.drop strong { color: var(--ink); }
+.drop { min-width: 0; }
+.drop strong { color: var(--ink); max-width: 100%; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex-shrink: 0; }
 .drop small { color: var(--ink-3); }
+.drop-size { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.drop-size[hidden] { display: none; }
 .drop--over, .drop:focus-within { border-color: var(--accent); }
 .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .tools { display: flex; flex-wrap: nowrap; gap: 8px; align-items: center; height: 38px; margin-top: 10px; overflow: hidden; }

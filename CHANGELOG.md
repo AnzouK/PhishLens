@@ -7,6 +7,11 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Fixed
+- **Website upload box:** a long file name no longer spills out of the
+  box; it wraps on two lines at most (full name on hover) and the size
+  shows on its own line.
+
 ## [1.15.4] - 2026-10-05
 
 Archives now say which file inside is the problem.

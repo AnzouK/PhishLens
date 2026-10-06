@@ -95,7 +95,12 @@
   // file: click or drag and drop
   const setFile = (f) => {
     chosen = f || null; clearErrors();
-    $("drop-title").textContent = chosen ? `${chosen.name} (${Math.max(1, Math.round(chosen.size / 1024))} KB)` : "Drop a file here, or click to choose one";
+    // Long names are cut to two lines by CSS; the size stays visible on
+    // its own line and the full name is in the tooltip.
+    $("drop-title").textContent = chosen ? chosen.name : "Drop a file here, or click to choose one";
+    $("drop-title").title = chosen ? chosen.name : "";
+    $("drop-size").textContent = chosen ? `${Math.max(1, Math.round(chosen.size / 1024))} KB` : "";
+    $("drop-size").hidden = !chosen;
   };
   file.addEventListener("change", () => setFile(file.files[0]));
   ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("drop--over"); }));
