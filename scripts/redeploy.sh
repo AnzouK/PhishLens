@@ -93,7 +93,8 @@ main() {
     if [ "${1:-}" != "--no-pull" ]; then
         echo "== 1. Update code"
         OLD=$(git rev-parse --short HEAD)
-        git fetch --quiet origin --prune --tags
+        # --force: accept tags rewritten on GitHub (history clean-ups)
+        git fetch --quiet --force origin --prune --tags
         git reset --quiet --hard origin/main
         NEW=$(git rev-parse --short HEAD)
         if [ "$OLD" = "$NEW" ]; then
