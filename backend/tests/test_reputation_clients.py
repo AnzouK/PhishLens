@@ -145,3 +145,29 @@ class TestPhishTank:
         pt._urls = {"http://old.example/"}
         assert run(pt.refresh()) == 0
         assert pt.check("http://old.example/") is not None
+
+
+class TestSharedHosts:
+    def test_shared_hosts_match_only_the_exact_url(self):
+        pt = rep.PhishTank()
+        pt._urls = {"https://storage.googleapis.com/evil-bucket/login.html", "https://bit.ly/3evil"}
+        pt._domains = {"storage.googleapis.com", "bit.ly", "evil-login.example"}
+        assert pt.check("https://storage.googleapis.com/evil-bucket/login.html")["match"] == "url"
+        assert pt.check("https://storage.googleapis.com/other-bucket/page.html") is None
+        assert pt.check("https://bit.ly/45CzUKH") is None
+        assert pt.check("https://evil-login.example/anything")["match"] == "domain"
+
+    @pytest.mark.parametrize(
+        ("netloc", "shared"),
+        [
+            ("storage.googleapis.com", True),
+            ("www.bit.ly", True),
+            ("ds26j.r.a.d.sendibm1.com", True),
+            ("mybucket.s3.amazonaws.com", True),
+            ("evil.web.app", False),
+            ("kissandfly.ng", False),
+            ("bit.ly.evil.example", False),
+        ],
+    )
+    def test_shared_host_detection(self, netloc, shared):
+        assert rep.is_shared_path_host(netloc) is shared

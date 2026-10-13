@@ -320,6 +320,106 @@ class GoogleSafeBrowsing:
 # =====================================================================
 # PhishTank: verified phishing feed, in-memory set.
 # =====================================================================
+# Hosts where one domain serves many unrelated owners, told apart by the
+# path (storage buckets, link shorteners, form and file-sharing services,
+# email click trackers, big platforms). A PhishTank entry on such a host
+# says nothing about the other links of that host, so only the exact URL
+# is matched there. Subdomain-based hosting (name.web.app, name.github.io)
+# is not listed: its full host name already belongs to one owner.
+SHARED_PATH_HOSTS = frozenset(
+    {
+        # cloud storage and static hosting by path
+        "storage.googleapis.com",
+        "firebasestorage.googleapis.com",
+        "storage.cloud.google.com",
+        "amazonaws.com",
+        "blob.core.windows.net",
+        "r2.dev",
+        "ipfs.io",
+        "dweb.link",
+        "cloudflare-ipfs.com",
+        "raw.githubusercontent.com",
+        "gist.github.com",
+        # link shorteners and redirectors
+        "bit.ly",
+        "bitly.com",
+        "tinyurl.com",
+        "t.co",
+        "goo.gl",
+        "ow.ly",
+        "is.gd",
+        "buff.ly",
+        "rebrand.ly",
+        "cutt.ly",
+        "shorturl.at",
+        "rb.gy",
+        "t.ly",
+        "lnkd.in",
+        "c.gle",
+        "linktr.ee",
+        "s.id",
+        "tiny.cc",
+        "qrco.de",
+        # documents, forms and file sharing
+        "google.com",
+        "sites.google.com",
+        "docs.google.com",
+        "drive.google.com",
+        "forms.gle",
+        "microsoft.com",
+        "office.com",
+        "sharepoint.com",
+        "onedrive.live.com",
+        "1drv.ms",
+        "live.com",
+        "dropbox.com",
+        "dropboxusercontent.com",
+        "wetransfer.com",
+        "we.tl",
+        "box.com",
+        "mega.nz",
+        "mediafire.com",
+        "docsend.com",
+        "canva.com",
+        "notion.so",
+        "jotform.com",
+        "typeform.com",
+        "forms.office.com",
+        "airtable.com",
+        # big platforms
+        "github.com",
+        "gitlab.com",
+        "bitbucket.org",
+        "medium.com",
+        "youtube.com",
+        "facebook.com",
+        "instagram.com",
+        "linkedin.com",
+        "twitter.com",
+        "x.com",
+        "apple.com",
+        "icloud.com",
+        "adobe.com",
+        "wordpress.com",
+        # email click trackers and sending platforms
+        "mandrillapp.com",
+        "sendgrid.net",
+        "mailchi.mp",
+        "list-manage.com",
+        "sendibm1.com",
+        "hubspotlinks.com",
+        "mailgun.org",
+        "sparkpostmail.com",
+        "exacttarget.com",
+    }
+)
+
+
+def is_shared_path_host(netloc: str) -> bool:
+    host = netloc.lower().split("@")[-1].split(":")[0].removeprefix("www.")
+    return any(host == h or host.endswith("." + h) for h in SHARED_PATH_HOSTS)
+
+
 class PhishTank:
     """
     PhishTank's public feed of verified phishing URLs. We download the
@@ -364,7 +464,7 @@ class PhishTank:
             urls.add(u)
             try:
                 netloc = urlparse(u).netloc.lower()
-                if netloc:
+                if netloc and not is_shared_path_host(netloc):
                     domains.add(netloc)
             except Exception:
                 pass
@@ -393,7 +493,7 @@ class PhishTank:
             netloc = urlparse(url).netloc.lower()
         except Exception:
             return None
-        if netloc and netloc in self._domains:
+        if netloc and netloc in self._domains and not is_shared_path_host(netloc):
             return {"source": "phishtank", "match": "domain", "threat_types": ["PHISHING"]}
         return None
 

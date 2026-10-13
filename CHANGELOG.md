@@ -45,6 +45,13 @@ backend share one version number.
   oversized email are shown as readable text.
 - `/health` and `/` report the version; `/health` says when the text
   model is not loaded. The PhishTank feed is downloaded over HTTPS.
+- **PhishTank works again, without flagging shared hosts:** the feed
+  was requested over plain HTTP and never loaded; over HTTPS it does.
+  Its domain-level match no longer applies to hosts shared by unrelated
+  owners (cloud storage buckets, link shorteners, file-sharing and form
+  services, email click trackers, big platforms): there only the exact
+  listed URL counts. Before, one phishing page on storage.googleapis.com
+  or one bit.ly link flagged every link of that host.
 - Version history moved out of code comments into this changelog.
 
 ### Development
