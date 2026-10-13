@@ -181,6 +181,33 @@ class TestSimpleEndpoints:
 
 
 # ---------------------------------------------------------------------
+# Request limits and error responses (audit H4, H5)
+# ---------------------------------------------------------------------
+class TestLimitsAndErrors:
+    def test_oversized_text_field_is_refused(self, client):
+        r = client.post("/analyse", json={"raw_text": "a" * (eb.MAX_TEXT_CHARS + 1)})
+        assert r.status_code == 422
+
+    def test_declared_huge_body_is_refused_before_parsing(self, client):
+        r = client.post("/analyse", content=b"{}",
+                        headers={"content-type": "application/json",
+                                 "content-length": str(eb.MAX_BODY_BYTES + 1)})
+        assert r.status_code == 413
+
+    def test_internal_error_details_are_not_returned(self, client, monkeypatch):
+        def boom(_body):
+            raise RuntimeError("secret internal path /home/user/app/model")
+        monkeypatch.setattr(eb, "text_agent", boom)
+        r = client.post("/analyse", json={"raw_text": "Hello there, see you tomorrow."})
+        assert r.status_code == 500
+        assert "secret" not in r.text and "reference" in r.json()["detail"]
+
+    def test_bad_eml_error_is_generic(self, client):
+        r = client.post("/analyse", json={"raw_email_b64": "!!!not-base64!!!"})
+        assert r.status_code == 400 and "base64" in r.json()["detail"]
+
+
+# ---------------------------------------------------------------------
 # /analyse
 # ---------------------------------------------------------------------
 class TestAnalyse:
@@ -217,12 +244,35 @@ class TestAnalyse:
         r = client.post("/analyse", json={
             "raw_text": "Your debit alert. Verify your account balance.",
             "sender_email": "alerts@gtbank.com",
+            "client_context": {"origin": "gmail", "gmail_signed_by": "gtbank.com"},
         })
         j = r.json()
         assert j["trusted_sender"] is True
         assert j["sender_domain"] == "gtbank.com"
         assert j["trust_path"] == "trusted_sender"
         assert j["verdict"] == "safe"
+
+    def test_forged_allowlisted_sender_is_not_trusted(self, client, monkeypatch):
+        # Audit H1 (v1.16): the From: text alone used to unlock the
+        # allowlist, so a forged bank address got the softest path.
+        text_score(monkeypatch, 0.97)
+        j = client.post("/analyse", json={
+            "raw_text": "Your debit alert. Verify your account balance.",
+            "sender_email": "alerts@gtbank.com",
+        }).json()
+        assert j["trusted_sender"] is False
+        assert j["trust_path"] == "default"
+        assert j["verdict"] == "phishing"
+
+    def test_allowlist_needs_aligned_signature(self, client, monkeypatch):
+        text_score(monkeypatch, 0.97)
+        j = client.post("/analyse", json={
+            "raw_text": "Your debit alert. Verify your account balance.",
+            "sender_email": "alerts@gtbank.com",
+            "client_context": {"origin": "gmail", "gmail_signed_by": "attacker.example"},
+        }).json()
+        assert j["trusted_sender"] is False
+        assert j["verdict"] == "phishing"
 
     def test_gsb_hit_overrides_allowlist(self, client, monkeypatch):
         # Regression (v1.11.0): an allowlisted sender carrying a Safe
@@ -242,6 +292,7 @@ class TestAnalyse:
         r = client.post("/analyse", json={
             "raw_text": "Your statement: https://gtbank-secure.example/login",
             "sender_email": "alerts@gtbank.com",
+            "client_context": {"origin": "gmail", "gmail_signed_by": "gtbank.com"},
         })
         j = r.json()
         assert j["trust_path"] == "trusted_sender"

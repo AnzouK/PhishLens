@@ -81,10 +81,10 @@ afterwards; the extension caches it so reopening the same email is instant.
 
 ```mermaid
 flowchart TD
-    S["Agent scores<br/>p_text, p_url, p_meta"] --> T{"Sender domain in<br/>TRUSTED_DOMAINS?"}
+    S["Agent scores<br/>p_text, p_url, p_meta"] --> C{"DKIM aligned<br/>with From:?"}
+    C -- yes --> T{"Sender domain in<br/>TRUSTED_DOMAINS?"}
     T -- yes --> P1["trusted_sender<br/>text x0.5, override only on GSB hit, threshold 0.65"]
-    T -- no --> C{"DKIM aligned<br/>with From:?"}
-    C -- yes --> P2["crypto_verified<br/>text x0.5, override only on GSB hit, threshold 0.65"]
+    T -- no --> P2["crypto_verified<br/>text x0.5, override only on GSB hit, threshold 0.65"]
     C -- no --> I{"Gmail delivered to Inbox<br/>and no DKIM/DMARC fail?"}
     I -- yes --> P3["gmail_inbox_soft<br/>text x0.6, override only on GSB hit, threshold 0.62"]
     I -- no --> P4["default<br/>weights 0.34 / 0.33 / 0.33, override if text or metadata >= 0.85<br/>(URL only with a confirming sign), threshold 0.5"]
@@ -124,11 +124,13 @@ every path: a trusted or signed sender carrying a blocklisted link means
 the sending account is compromised.
 
 **Precedence:** `trusted_sender > crypto_verified > gmail_inbox_soft >
-default`. The allowlist (`TRUSTED_DOMAINS`) wins over DKIM alignment
-because it covers institutions whose DKIM setup is sometimes broken. It
-is Nigerian-centric by default (banks, telcos, universities); extend it
-for your region. An empty allowlist is safe, just less forgiving on
-legitimate transactional templates.
+default`. The allowlist (`TRUSTED_DOMAINS`) only applies to an
+authenticated sender: DKIM aligned with the From: domain (real headers
+or Gmail's "signed-by"), or internal Outlook mail authenticated by the
+organisation's own server. Until v1.15 the From: text alone was enough,
+so a forged bank address got the softest path (fixed in v1.16). It is
+Nigerian-centric by default (banks, telcos, universities); extend it for
+your region. An empty allowlist is safe.
 
 **Forwarded emails (v1.14):** when the body carries a forward marker
 ("Forwarded message", "Begin forwarded message:", "Message transféré",
@@ -154,7 +156,7 @@ lure.
 **Why the discounts exist:** DistilBERT learned that "verify your
 account" wording means phishing, and real bank, hospital and university
 messages use the same templates. Discounting the text agent only when the
-sender is proven (DKIM) or curated (allowlist) removes those false
+sender is proven (DKIM, plus the allowlist for authenticated senders) removes those false
 positives without trusting whatever the From: header claims.
 
 Attachments (`/analyse_attachment`) use a simpler rule: text and URL
@@ -230,8 +232,8 @@ scores are shown to the user.
 **Cryptographic sender checks over a pure allowlist.** An allowlist alone
 trusts whatever the From: header claims. DKIM alignment proves the sender
 domain, so a spoofed `From: paypal.com` signed by another domain stays on
-the strict path. The allowlist is kept as a fallback for regional senders
-with broken DKIM, and it is documented as such.
+the strict path. The allowlist only adds to an authenticated sender: it
+never replaces the authentication.
 
 **Gmail's own verdict as a soft signal.** When the extension cannot read
 the headers, the fact that Gmail delivered the message to Inbox (after its

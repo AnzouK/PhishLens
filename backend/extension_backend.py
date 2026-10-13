@@ -29,8 +29,10 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 import os
 import re
+import uuid
 from contextlib import asynccontextmanager
 from email import message_from_bytes, policy
 from email.utils import parseaddr
@@ -43,12 +45,12 @@ import torch.nn.functional as F
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from lime.lime_text import LimeTextExplainer
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from result_cache import ResultCache, make_key
 
-import logging
 # Root config for the "phishlens.*" loggers. uvicorn configures its own
 # loggers but leaves ours without a handler, which silently drops INFO.
 logging.basicConfig(
@@ -380,6 +382,32 @@ def _count_verdict(endpoint: str, is_phishing: bool, trust_path: str) -> None:
 _RESULT_CACHE = ResultCache()
 
 
+# Request size limits. An email with its attachments can be large (Gmail
+# accepts 25 MB), base64 adds a third; an attachment is capped at 10 MB
+# by attachment_analysis. Bigger bodies are refused before parsing.
+MAX_EMAIL_B64_CHARS = 40_000_000
+MAX_TEXT_CHARS = 2_000_000
+MAX_ATTACHMENT_B64_CHARS = 15_000_000
+MAX_BODY_BYTES = 45_000_000
+
+
+@app.middleware("http")
+async def _limit_body_size(request: Request, call_next):
+    length = request.headers.get("content-length")
+    if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail": "Request too large."}, status_code=413)
+    return await call_next(request)
+
+
+def _server_error(what: str) -> HTTPException:
+    """Log the current exception with a short reference and return a
+    generic 500: internal details stay in the logs, not in the response."""
+    ref = uuid.uuid4().hex[:8]
+    logger.exception("%s failed (ref %s)", what, ref)
+    return HTTPException(500, f"{what} failed (reference {ref}).")
+
+
 class AnalyseRequest(BaseModel):
     """Either raw_email_b64 (a base64-encoded .eml file) or raw_text
     (plain-text email body) must be provided.
@@ -397,9 +425,9 @@ class AnalyseRequest(BaseModel):
     (body only)). Structure is intentionally loose (dict) so we can add new
     hints without a breaking API bump.
     """
-    raw_email_b64: str | None = None
-    raw_text: str | None = None
-    sender_email: str | None = None
+    raw_email_b64: str | None = Field(None, max_length=MAX_EMAIL_B64_CHARS)
+    raw_text: str | None = Field(None, max_length=MAX_TEXT_CHARS)
+    sender_email: str | None = Field(None, max_length=512)
     client_context: dict[str, Any] | None = None
 
 
@@ -414,9 +442,9 @@ class AttachmentRequest(BaseModel):
                    the attachment came from. Not required for /analyse_attachment
                    to work, but nice to attach in the response for the UI.
     """
-    content_b64:  str
-    filename:     str | None = None
-    mime_type:    str | None = None
+    content_b64:  str = Field(max_length=MAX_ATTACHMENT_B64_CHARS)
+    filename:     str | None = Field(None, max_length=1024)
+    mime_type:    str | None = Field(None, max_length=255)
     parent_email: dict[str, Any] | None = None
 
 
@@ -828,7 +856,7 @@ def explain(request: Request, req: AnalyseRequest):
         for f in feats:
             f.pop("abs_weight", None)
     except Exception as e:
-        raise HTTPException(500, f"LIME failed: {e}")
+        raise _server_error("Explanation") from e
 
     result = {"features": feats}
     _RESULT_CACHE.set(cache_key, result)
@@ -1067,11 +1095,12 @@ def _get_body_urls_headers(req: AnalyseRequest):
     try:
         raw_bytes = base64.b64decode(req.raw_email_b64)
     except Exception as e:
-        raise HTTPException(400, f"Could not decode base64: {e}")
+        raise HTTPException(400, "raw_email_b64 is not valid base64.") from e
     try:
         body, urls, headers = parse_eml(raw_bytes)
     except Exception as e:
-        raise HTTPException(400, f"Could not parse EML: {e}")
+        logger.info("EML parse error: %s", e)
+        raise HTTPException(400, "Could not parse this email.") from e
     # let sender_email override the parsed From if explicitly given
     if req.sender_email:
         headers["from"] = req.sender_email
@@ -1087,6 +1116,12 @@ def _get_body_urls_headers(req: AnalyseRequest):
         body = page_text
     urls = _merge_link_urls(urls, (req.client_context or {}).get("link_urls"))
     return body, urls, headers, raw_bytes
+
+
+def _run_agents(body: str, urls: list[str], headers: dict[str, str],
+                raw_email: bytes | None) -> tuple[float, float, float]:
+    return (text_agent(body), url_agent(urls, body_text=body),
+            metadata_agent(headers, raw_email=raw_email))
 
 
 @app.post("/analyse")
@@ -1108,9 +1143,10 @@ async def analyse(request: Request, req: AnalyseRequest):
     if not body:
         raise HTTPException(400, "Could not extract any text from this email.")
 
-    # trusted-sender check (must be done before fusion)
+    # The allowlist is matched here but only applied once the sender is
+    # authenticated (below): the From: text alone can be forged.
     sender_domain = _sender_domain(headers.get("from", ""))
-    trusted_sender = is_trusted_domain(sender_domain)
+    allowlisted = is_trusted_domain(sender_domain)
 
     # NEW: SPF/DKIM/DMARC + Spamhaus DBL. This runs in parallel with the
     # model inference below: the DNS lookup is ~50ms and the header parse
@@ -1153,15 +1189,16 @@ async def analyse(request: Request, req: AnalyseRequest):
     auth_source = ("gmail_ui" if auth_header.startswith("gmail-client-context")
                    else "headers" if auth_header else "none")
     try:
-        p_text = text_agent(body)
-        p_url  = url_agent(urls, body_text=body)
-        p_meta = metadata_agent(headers, raw_email=meta_raw_for_model)
+        # In a worker thread: model inference must not block the event
+        # loop (every other request would wait for it).
+        p_text, p_url, p_meta = await run_in_threadpool(
+            _run_agents, body, urls, headers, meta_raw_for_model)
     except Exception as e:
         if auth_signal_task:
             auth_signal_task.cancel()
         if reputation_task:
             reputation_task.cancel()
-        raise HTTPException(500, f"Inference failed: {e}")
+        raise _server_error("Inference") from e
 
     # Collect the auth signal (or a safe default if disabled/errored)
     auth_signal: dict[str, Any] = {"score_delta": 0.0, "reasons": [], "auth": {}, "spamhaus_dbl": {}}
@@ -1248,12 +1285,17 @@ async def analyse(request: Request, req: AnalyseRequest):
         org = str(ctx.get("org_domain") or "").strip().lower()[:253]
         if _is_hostname(org):
             sender_domain = org
-            trusted_sender = is_trusted_domain(org)
+            allowlisted = is_trusted_domain(org)
     if forwarded["detected"]:
         # The sender vouches for the forward, not for the forwarded content.
-        trusted_sender = False
+        allowlisted = False
         crypto_verified = False
         outlook_internal = False
+    # An allowlisted domain counts only for an authenticated sender: DKIM
+    # aligned with From: (real headers or Gmail's "signed-by"), or internal
+    # mail authenticated by the organisation's own server. A forged
+    # "From: alerts@gtbank.com" stays on the strict path.
+    trusted_sender = allowlisted and (crypto_verified or outlook_internal)
 
     gmail_inbox_soft = (
         not crypto_verified
@@ -1454,20 +1496,22 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         )
 
     try:
-        extracted = _attachments.analyse_attachment(
+        # Parsing, OCR and decompression are CPU-bound: worker thread.
+        extracted = await run_in_threadpool(
+            _attachments.analyse_attachment,
             req.content_b64,
             filename=req.filename or "",
             mime_type=req.mime_type,
         )
     except ValueError as e:
         # Client-side error: unsupported type, oversized, bad base64.
-        raise HTTPException(400, str(e))
+        # Our own messages, written for the user.
+        raise HTTPException(400, str(e)) from e
     except RuntimeError as e:
-        # Server-side extraction failed (corrupt PDF, etc). Not a 500:
-        # the request was valid, the file just doesn't parse.
-        raise HTTPException(422, str(e))
+        # The request was valid, the file just doesn't parse (corrupt PDF...).
+        raise HTTPException(422, str(e)) from e
     except Exception as e:
-        raise HTTPException(500, f"Attachment analysis crashed: {e}")
+        raise _server_error("Attachment analysis") from e
 
     text = extracted.get("extracted_text", "") or ""
     urls = extracted.get("extracted_urls", []) or []
@@ -1479,15 +1523,15 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
     p_text = 0.0
     if text.strip():
         try:
-            p_text = float(text_agent(text))
+            p_text = float(await run_in_threadpool(text_agent, text))
         except Exception as e:
-            logger.warning(f"text_agent failed on attachment: {e}")
+            logger.warning("text_agent failed on attachment: %s", e)
 
     # URL agent: trained RF when available, heuristic fallback otherwise.
     try:
-        p_url = float(url_agent(urls, body_text=text))
+        p_url = float(await run_in_threadpool(url_agent, urls, body_text=text))
     except Exception as e:
-        logger.warning(f"url_agent failed on attachment: {e}")
+        logger.warning("url_agent failed on attachment: %s", e)
         p_url = 0.0
 
     # Reputation cascade in parallel: same tiers as /analyse.
@@ -1633,7 +1677,7 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
                    "parent_trusted" if parent_trusted else "default")
 
     # v1.15.4: for archives, say which files inside are the problem.
-    suspicious_files = (_archive_file_report(extracted, reputation_verdicts)
+    suspicious_files = (await run_in_threadpool(_archive_file_report, extracted, reputation_verdicts)
                         if extracted.get("kind") == "archive" else [])
     inner_public = [{k: v for k, v in f.items() if not k.startswith("_")}
                     for f in (extracted.get("inner_files") or [])]

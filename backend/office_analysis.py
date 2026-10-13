@@ -36,7 +36,9 @@ import logging
 import re
 import zipfile
 from typing import Any
-from xml.etree import ElementTree as ET
+# defusedxml: the same API as xml.etree, hardened against entity
+# expansion and external entities in untrusted Office XML.
+from defusedxml import ElementTree as ET
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 

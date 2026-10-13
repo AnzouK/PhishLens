@@ -60,7 +60,10 @@ except ImportError:
 GSB_API_KEY         = os.environ.get("GSB_API_KEY", "").strip()
 GSB_DAILY_LIMIT     = int(os.environ.get("GSB_DAILY_LIMIT", "10000"))
 GSB_SAFETY_BUFFER   = int(os.environ.get("GSB_SAFETY_BUFFER", "500"))
-CACHE_DB_PATH       = os.environ.get("REPUTATION_CACHE_DB", "/tmp/phishlens_reputation.db")
+# Per-user cache folder by default, not the shared /tmp.
+CACHE_DB_PATH       = os.environ.get(
+    "REPUTATION_CACHE_DB",
+    os.path.join(os.path.expanduser("~"), ".cache", "phishlens", "reputation.db"))
 CACHE_TTL_SEC       = int(os.environ.get("REPUTATION_CACHE_TTL", str(24 * 3600)))
 PHISHTANK_REFRESH_S = int(os.environ.get("PHISHTANK_REFRESH_S", "3600"))
 PHISHTANK_API_KEY   = os.environ.get("PHISHTANK_API_KEY", "").strip()  # optional
