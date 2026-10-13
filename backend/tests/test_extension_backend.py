@@ -193,7 +193,7 @@ class TestSimpleEndpoints:
 
 
 # ---------------------------------------------------------------------
-# Request limits and error responses (audit H4, H5)
+# Request limits and error responses
 # ---------------------------------------------------------------------
 class TestLimitsAndErrors:
     def test_oversized_text_field_is_refused(self, client):
@@ -274,7 +274,7 @@ class TestAnalyse:
         assert j["verdict"] == "safe"
 
     def test_forged_allowlisted_sender_is_not_trusted(self, client, monkeypatch):
-        # Audit H1 (v1.16): the From: text alone used to unlock the
+        # Regression (v1.16): the From: text alone used to unlock the
         # allowlist, so a forged bank address got the softest path.
         text_score(monkeypatch, 0.97)
         j = client.post(
@@ -937,7 +937,7 @@ class TestArchiveFileReport:
 
 
 # ---------------------------------------------------------------------
-# v1.15.5: audit fixes (alignment from Gmail's signed-by, provenance)
+# Alignment from Gmail's signed-by, and which checks ran (v1.15.5)
 # ---------------------------------------------------------------------
 class TestGmailSignedByAlignment:
     def test_synthetic_header_no_dmarc_pass_across_organisations(self):

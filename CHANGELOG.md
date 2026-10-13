@@ -8,21 +8,21 @@ backend share one version number.
 ## [Unreleased]
 
 ### Security
-- **Allowlist only for authenticated senders (audit H1):** a domain in
+- **Allowlist only for authenticated senders:** a domain in
   `TRUSTED_DOMAINS` gave the softest trust path on the From: text alone,
   so a forged `alerts@gtbank.com` was treated as the bank. The allowlist
   now applies only when DKIM is aligned with From: (real headers or
   Gmail's "signed-by") or for internal Outlook mail; otherwise the
   message stays on its normal path.
-- **No internal details in error responses (H4):** server errors return
+- **No internal details in error responses:** server errors return
   a short reference; the details stay in the logs.
-- **Request size limits (H5):** oversized fields are refused (422) and
+- **Request size limits:** oversized fields are refused (422) and
   bodies above 45 MB are refused before parsing (413).
 - Office XML from attachments is parsed with defusedxml; the URL
   reputation cache moves from `/tmp` to `~/.cache/phishlens`.
 
 ### Fixed
-- **Model inference no longer blocks the server (H3):** the text model,
+- **Model inference no longer blocks the server:** the text model,
   the agents and attachment extraction (PDF, OCR, archives) run in a
   worker thread, so one slow scan no longer stalls every other request.
 - **Chrome Web Store:** the manifest description is under the 132
@@ -30,7 +30,7 @@ backend share one version number.
 
 
 ### Changed
-- **Backend split by responsibility (audit phase 1):** the 1,688-line
+- **Backend split by responsibility:** the 1,688-line
   `extension_backend.py` now only holds the HTTP layer; `settings.py`
   (version, environment, every scoring constant), `email_parsing.py`,
   `sender_trust.py` with `trusted_domains.py`, `text_model.py`,
