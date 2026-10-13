@@ -1,5 +1,5 @@
 """
-PhishLens: loading the Random Forest agents without pickle (v1.12).
+PhishLens: loading the Random Forest agents without pickle.
 =====================================================================
 The URL and metadata agents used to be published as joblib files.
 joblib is pickle underneath, and unpickling runs whatever code the file

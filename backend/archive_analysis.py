@@ -1,5 +1,5 @@
 """
-PhishLens: archive and calendar-invite attachments (v1.14).
+PhishLens: archive and calendar-invite attachments.
 =====================================================================
 Archives are the classic way to get a payload past mail scanners:
 
@@ -12,7 +12,7 @@ Archives are the classic way to get a payload past mail scanners:
   - double extensions ("invoice.pdf.exe") hide the real type.
 
 ZIP archives are opened with the standard library (no extraction to
-disk). Since v1.15.3, RAR (rarfile) and 7z (py7zr) archives are listed
+disk). RAR (rarfile) and 7z (py7zr) archives are listed
 and opened the same way, with the same limits. Supported files inside
 (PDF, HTML, Office, images, text) are analysed one level deep with the
 same dispatcher as a direct attachment. Without those libraries, RAR
@@ -104,7 +104,7 @@ def classify_names(names: list[str]) -> list[str]:
     return flags
 
 
-# Plain-English reason for each risky name flag (per-file report, v1.15.4).
+# Plain-English reason for each risky name flag (per-file report).
 NAME_REASONS = {
     "double_extension":      "fake extension",
     "executable_in_archive": "program",
@@ -198,7 +198,7 @@ def _analyse_listing(raw: bytes, filename: str, fmt: str, entries: list[_Entry],
                 "kind": res.get("kind"),
                 "notable_features": res.get("notable_features", []),
                 "url_count": len(res.get("extracted_urls", []) or []),
-                # Private, for the per-file report (v1.15.4); removed by
+                # Private, for the per-file report; removed by
                 # the endpoint before the response is sent.
                 "_text": (res.get("extracted_text") or "")[:4000],
                 "_urls": list(res.get("extracted_urls", []) or [])[:50],
@@ -274,7 +274,7 @@ def analyse_zip(raw: bytes, filename: str,
 
 def analyse_7z(raw: bytes, filename: str,
                inner: Callable[[bytes, str], dict[str, Any]] | None = None) -> dict[str, Any]:
-    """7z (v1.15.3), with py7zr. Members are extracted to a private
+    """7z, with py7zr. Members are extracted to a private
     temporary folder that is deleted at once; only the chosen supported
     files (size-checked first) are written."""
     try:
@@ -322,7 +322,7 @@ def analyse_7z(raw: bytes, filename: str,
 
 def analyse_rar(raw: bytes, filename: str,
                 inner: Callable[[bytes, str], dict[str, Any]] | None = None) -> dict[str, Any]:
-    """RAR 4 and 5 (v1.15.3), with rarfile. The listing (names, sizes,
+    """RAR 4 and 5, with rarfile. The listing (names, sizes,
     encryption) is pure Python; decompressing members needs an external
     tool (unrar, unar, 7z or bsdtar; the Docker image ships bsdtar). Without
     one, stored members are still read and the rest is reported as

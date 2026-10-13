@@ -118,8 +118,8 @@ def _org_domain(domain: str) -> str:
     registry that uses generic second-level labels (co, com, org, gov, edu,
     ac, ...) and common shared-hosting suffixes, so two different
     organisations under the same public suffix never compare equal
-    (attacker.co.uk vs paypal.co.uk). v1.15.5: used by every alignment
-    check, including the one built from Gmail's "signed-by".
+    (attacker.co.uk vs paypal.co.uk). Used by every alignment check,
+    including the one built from Gmail's "signed-by".
     """
     if not domain:
         return ""

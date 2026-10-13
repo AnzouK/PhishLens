@@ -13,7 +13,7 @@ flowchart LR
     subgraph Browser["Chrome extension (MV3)"]
         CS["Gmail content script<br/>gmail.js"]
         PU["Popup<br/>.eml / paste / file"]
-        BG["Service worker<br/>fetch proxy + warm-up"]
+        BG["Service worker<br/>fetch proxy, history"]
         ST[("chrome.storage.local<br/>history, LIME cache, settings")]
         CS --> BG
         PU --> BG

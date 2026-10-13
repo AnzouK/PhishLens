@@ -1,5 +1,5 @@
 """
-PhishLens: OCR and QR code decoding for attachments (v1.12).
+PhishLens: OCR and QR code decoding for attachments.
 =====================================================================
 Two evasion tricks this module closes:
 

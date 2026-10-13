@@ -1,5 +1,5 @@
 """
-In-memory cache for /analyse and /explain results (v1.15.2).
+In-memory cache for /analyse and /explain results.
 
 The same email is often checked more than once: auto-scan, then a manual
 scan, then "Why this verdict?", or the same newsletter reaching several

@@ -1,5 +1,5 @@
 """
-PhishLens: Office document analysis (v1.12).
+PhishLens: Office document analysis.
 =====================================================================
 Extracts text and links from Word, Excel and PowerPoint attachments and
 flags the features attackers use to turn a document into a dropper.

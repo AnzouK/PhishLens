@@ -21,7 +21,7 @@
 //     agents:    { text: number, url: number, metadata: number }
 //     trusted:   boolean      // trusted_sender flag from backend
 //     tokens:    [{token, weight}]   // top 5 LIME features (populated later)
-//     label:     "correct" | "wrong" | undefined   // v1.15: user review
+//     label:     "correct" | "wrong" | undefined   // User review
 //   }
 // =====================================================================
 
@@ -84,7 +84,7 @@ async function attachTokens(id, tokens) {
     await _set(STORAGE_KEY, list);
 }
 
-// v1.15: the user says whether a verdict was right. Unknown labels clear it.
+// The user says whether a verdict was right. Unknown labels clear it.
 async function setLabel(id, label) {
     const list = (await _get(STORAGE_KEY)) || [];
     const e = list.find((x) => x.id === id);

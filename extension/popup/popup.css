@@ -479,7 +479,7 @@ body {
 .agent[data-flagged="phishing"] .agent__score { color: var(--accent); }
 .agent__hint { font-size: 11px; color: var(--text-mute); line-height: 1.35; }
 
-/* signal badges: sender_auth verdicts + URL reputation hits (v1.6+) */
+/* signal badges: sender_auth verdicts + URL reputation hits */
 .agent__badges {
   display: flex;
   flex-wrap: wrap;
@@ -864,7 +864,7 @@ body {
 }
 
 /* =====================================================================
-   Icons (v1.13): inline SVG sprite instead of emoji
+   Icons: inline SVG sprite instead of emoji
    ===================================================================== */
 .i {
   width: 16px; height: 16px; flex-shrink: 0;
@@ -884,14 +884,14 @@ body {
 .history-item[data-verdict="phishing"] .history-item__dot .i { color: var(--danger); }
 .btn--ghost .i { margin-right: 4px; }
 
-/* v1.15: Gmail options in Settings */
+/* Gmail options in Settings */
 .settings-subtitle { margin: 18px 0 8px; font-size: 13px; font-weight: 600; color: var(--text-subtle); text-transform: uppercase; letter-spacing: .04em; }
 .opt-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; margin-bottom: 8px;
            border: 1px solid var(--border, rgba(127,127,127,.25)); border-radius: 10px; font-size: 12.5px; line-height: 1.45; cursor: pointer; }
 .opt-row input { margin-top: 3px; flex: none; }
 .opt-row strong { font-size: 13px; }
 
-/* v1.15: live evaluation + review buttons */
+/* Live evaluation + review buttons */
 .live-eval__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px; text-align: center; }
 .live-eval__grid strong { display: block; font-size: 16px; }
 .live-eval__grid span { font-size: 11px; color: var(--text-mute); }
@@ -904,7 +904,7 @@ body {
 
 
 /* =====================================================================
-   v1.15: same look as the website (anzouk.duckdns.org)
+   Same look as the website (anzouk.duckdns.org)
    Charcoal (never pure black), one orange accent, small radii, rules
    instead of shadows, no gradients, no press/scale animations.
    ===================================================================== */
@@ -971,12 +971,12 @@ textarea:focus, input:focus { box-shadow: none !important; outline: 1px solid va
 .status, .conn-status, .verdict-card, .result-card, .paste-input, .drop-zone { border-radius: var(--radius) !important; }
 .view, .view--active { animation: none !important; }
 
-/* v1.15.2: warning under an http:// custom backend URL */
+/* Warning under an http:// custom backend URL */
 .url-warn { margin: 8px 0 0; padding: 8px 10px; font-size: 12px; line-height: 1.45;
   color: var(--warn); background: var(--warn-soft); border-radius: var(--radius); }
 .url-warn code { font-size: 11.5px; }
 
-/* v1.15.4: files inside an archive (result view) */
+/* Files inside an archive (result view) */
 .archive-files { display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
 .archive-files[hidden] { display: none; }
 .archive-files ul { list-style: none; margin: 4px 0 0; padding: 0; max-height: 150px; overflow-y: auto; }

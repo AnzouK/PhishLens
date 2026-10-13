@@ -4,15 +4,14 @@ PhishLens: email attachment analysis.
 Extract text and URLs from email attachments and reuse the existing
 text / URL / reputation pipeline on the extracted content.
 
-Supported (v1.12): PDF (with OCR for scanned pages and QR decoding),
+Supported: PDF (with OCR for scanned pages and QR decoding),
 HTML, plain text, images (OCR + QR), Word / Excel / PowerPoint in both
 modern and legacy formats (text, links and macro-style flags; see
-office_analysis.py). OCR and QR live in ocr.py.
-v1.14: ZIP archives (listed, risky entries flagged, supported files
-inside analysed one level deep), RAR / 7z (opened the same way since
-v1.15.3 when rarfile / py7zr are installed), calendar
-invites (.ics), encrypted PDFs, and executable / script / shortcut /
-disk-image files (flagged by type). See archive_analysis.py.
+office_analysis.py). OCR and QR live in ocr.py. Also ZIP archives
+(listed, risky entries flagged, supported files inside analysed one level
+deep), RAR / 7z (the same way, when rarfile / py7zr are installed),
+calendar invites (.ics), encrypted PDFs, and executable / script /
+shortcut / disk-image files (flagged by type). See archive_analysis.py.
 
 The dispatcher (analyse_attachment) returns a JSON-serialisable dict
 whose shape mirrors /analyse as closely as possible so the extension
@@ -73,7 +72,7 @@ _MIME_BY_EXT = {
     ".htm":  "text/html",
     ".xhtml":"application/xhtml+xml",
     ".txt":  "text/plain",
-    # Archives and calendar invites (v1.14)
+    # Archives and calendar invites
     ".zip":  "application/zip",
     ".rar":  "application/vnd.rar",
     ".7z":   "application/x-7z-compressed",
@@ -263,7 +262,7 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
             except Exception:
                 continue
 
-    # Scanned / image-only PDFs and QR codes (v1.12). The first pages are
+    # Scanned / image-only PDFs and QR codes. The first pages are
     # rendered once; QR decoding always runs on them, OCR only when the
     # PDF has (almost) no text layer.
     caps = ocr.capabilities()
@@ -307,7 +306,7 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
 
 
 # =====================================================================
-# Image analysis (v1.12): OCR + QR
+# Image analysis: OCR + QR
 # =====================================================================
 def analyse_image(raw: bytes, filename: str) -> dict[str, Any]:
     img = ocr.load_image(raw)
@@ -464,7 +463,7 @@ def dispatch_raw(raw: bytes, filename: str, mime_type: str | None = None,
 
     mime = sniff_type(filename, raw[:16], mime_type)
 
-    # Archives that are not Office documents, and calendar invites (v1.14).
+    # Archives that are not Office documents, and calendar invites.
     fmt = archives.is_rar_or_7z(raw)
     if fmt:
         if depth:

@@ -249,21 +249,21 @@ html[data-phishlens-theme="dark"] {
 .pll-att-chip--warn { color: var(--pll-warn) !important; background: var(--pll-warn-soft) !important; border-color: var(--pll-warn-line) !important; }
 .pll-att-chip--bad  { color: var(--pll-bad) !important;  background: var(--pll-bad-soft) !important;  border-color: var(--pll-bad-line) !important; }
 
-/* v1.13.1: no focus ring after a mouse click on "Why this verdict?",
+/* No focus ring after a mouse click on "Why this verdict?",
    keep it for keyboard users. */
 .pll-banner__why summary:focus { outline: none; }
 .pll-banner__why summary:focus-visible { outline: 2px solid var(--pll-accent); outline-offset: 2px; border-radius: 4px; }
 /* Keep the percentage next to its bar */
 .pll-meter { grid-template-columns: auto minmax(60px, 140px) auto; justify-content: start; }
 
-/* v1.15: automatic scan, pill on inbox rows flagged as phishing */
+/* Automatic scan, pill on inbox rows flagged as phishing */
 .pll-row-badge {
     display: inline-block; margin-right: 6px; padding: 0 7px; border-radius: 9px;
     font: 600 11px/18px "Google Sans", Roboto, Arial, sans-serif;
     color: #fff; background: #c5221f; vertical-align: middle;
 }
 
-/* v1.15: automatic-scan status toast */
+/* Automatic-scan status toast */
 .pll-toast {
     position: fixed; left: 24px; bottom: 24px; z-index: 2147483000;
     display: flex; align-items: center; gap: 10px; max-width: 420px;
@@ -280,15 +280,15 @@ html[data-phishlens-theme="dark"] {
 .pll-toast--danger .pll-toast__icon { color: var(--pll-bad); }
 .pll-toast--warn .pll-toast__icon { color: var(--pll-warn); }
 
-/* v1.15: Outlook, the scan button sits on its own line under the subject */
+/* Outlook, the scan button sits on its own line under the subject */
 .pll-scan-btn--outlook { margin: 6px 0 4px; }
 .pll-row-badge--safe { color: var(--pll-good); background: transparent; box-shadow: inset 0 0 0 1px var(--pll-good-line, currentColor); }
 
-/* v1.15: Outlook, the banner sits under the subject bar */
+/* Outlook, the banner sits under the subject bar */
 .pll-ol-slot { padding: 0 12px; }
 .pll-ol-slot > .pll-banner { margin: 8px 0 4px; }
 
-/* v1.15.4: files inside an archive (attachment card) */
+/* Files inside an archive (attachment card) */
 .pll-att-files { margin-top: 8px !important; padding: 6px 8px !important; border-radius: 6px !important;
     border: 1px solid var(--pll-line) !important; font-size: 11.5px !important; color: var(--pll-text) !important; }
 .pll-att-files--bad  { border-color: var(--pll-bad-line) !important; background: var(--pll-bad-soft) !important; }

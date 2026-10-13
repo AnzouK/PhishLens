@@ -1,5 +1,5 @@
 // =====================================================================
-// PhishLens content script: Outlook on the web (v1.15).
+// PhishLens content script: Outlook on the web.
 // =====================================================================
 // Loaded after gmail.js, whose banner, explanation and helper functions
 // it reuses (gmail.js only starts its Gmail watchers on Gmail).
@@ -12,7 +12,7 @@
 // organisation; the address is read from the "From" line when present.
 // =====================================================================
 
-/* global PLL_ICON, PLL_INSTANCE, pllAlive, pllShutdownIfDead, PLL_OBSERVERS, textOf, linkTargetsOf, showBanner, attachExplanation, setBtnLoading, _getBackendBase */
+/* global PLL_ICON, PLL_INSTANCE, pllAlive, pllShutdownIfDead, PLL_OBSERVERS, textOf, linkTargetsOf, showBanner, attachExplanation, setBtnLoading */
 
 const OL_PANE_SEL = '[data-app-section="MailReadCompose"]';
 const OL_SUBJECT_SEL = '[role="heading"][id^="CONV_"][id$="_SUBJECT"]';
@@ -193,14 +193,14 @@ async function olExplain(pane, payload, data, savedId) {
         }
         let features = null, cached = false;
         try {
-            const hit = await window.PhishLensLimeCache?.get(await _getBackendBase(), payload);
+            const hit = await window.PhishLensLimeCache?.get(await PhishLensShared.getBackendBase(), payload);
             if (hit) { features = hit.features; cached = true; }
         } catch {}
         if (!features) {
             const rr = await chrome.runtime.sendMessage({ type: "phishlens.explain", payload }).catch(() => null);
             if (!rr?.ok) return;
             features = rr.data.features || [];
-            try { window.PhishLensLimeCache?.put(await _getBackendBase(), payload, features); } catch {}
+            try { window.PhishLensLimeCache?.put(await PhishLensShared.getBackendBase(), payload, features); } catch {}
         }
         attachExplanation(pane, features, cached);
         if (savedId) {

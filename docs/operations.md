@@ -71,7 +71,7 @@ from agents/url_agent.skops`.
 
 | Endpoint | Use |
 | --- | --- |
-| `GET /health` | Liveness. Also used by the extension as a warm-up ping. |
+| `GET /health` | Liveness, version, and which agents run a trained model (`model`) or rules. |
 | `GET /reputation/stats` | Cache hit rate, GSB quota consumed and remaining, PhishTank feed size. |
 | `GET /metrics` | Prometheus metrics (see below). Internal only. |
 

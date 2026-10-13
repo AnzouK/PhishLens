@@ -48,6 +48,7 @@ export default [
         // Shared between files through globalThis (see lib/*.js).
         PhishLensHistory: "readonly",
         PhishLensLimeCache: "readonly",
+        PhishLensShared: "readonly",
       },
     },
     rules: { ...bugRules, ...hygieneRules },
