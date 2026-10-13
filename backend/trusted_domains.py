@@ -16,31 +16,67 @@ The default list is Nigerian-centric (the project started at Nile
 University of Nigeria); a fork for another region should extend it.
 """
 
-TRUSTED_DOMAINS = frozenset({
-    # Nigerian banks
-    "ubagroup.com", "gtbank.com", "gtco.com", "zenithbank.com",
-    "accessbankplc.com", "firstbanknigeria.com", "sterlingbankng.com",
-    "ecobank.com", "fcmb.com", "fbnholdings.com", "wemabank.com",
-    "polarisbanklimited.com", "unionbankng.com", "stanbicibtcbank.com",
-    # Nigerian telcos
-    "mtnonline.com", "mtn.ng", "airtel.com", "airtel.com.ng",
-    "9mobile.com.ng", "glo.com",
-    # Nigerian payment processors and fintech
-    "flutterwave.com", "paystack.com", "interswitchgroup.com",
-    "kuda.com", "opay.com",
-    # Nigerian government and universities
-    "nimc.gov.ng", "firs.gov.ng", "frsc.gov.ng", "nile.edu.ng",
-    "nileuniversity.edu.ng", "abu.edu.ng", "unilag.edu.ng",
-    # Nigerian hospitals
-    "nizamiye.ng", "lasuth.ng", "uithniseason.org",
-    # International services whose support and billing mail comes from these domains
-    "google.com", "googlemail.com",
-    "microsoft.com", "outlook.office365.com",
-    "apple.com", "icloud.com",
-    "amazon.com", "amazon.co.uk", "amazonpay.com",
-    "paypal.com", "stripe.com",
-    "github.com", "gitlab.com",
-    "linkedin.com", "facebook.com", "facebookmail.com",
-    "twitter.com", "x.com",
-    "anthropic.com",
-})
+TRUSTED_DOMAINS = frozenset(
+    {
+        # Nigerian banks
+        "ubagroup.com",
+        "gtbank.com",
+        "gtco.com",
+        "zenithbank.com",
+        "accessbankplc.com",
+        "firstbanknigeria.com",
+        "sterlingbankng.com",
+        "ecobank.com",
+        "fcmb.com",
+        "fbnholdings.com",
+        "wemabank.com",
+        "polarisbanklimited.com",
+        "unionbankng.com",
+        "stanbicibtcbank.com",
+        # Nigerian telcos
+        "mtnonline.com",
+        "mtn.ng",
+        "airtel.com",
+        "airtel.com.ng",
+        "9mobile.com.ng",
+        "glo.com",
+        # Nigerian payment processors and fintech
+        "flutterwave.com",
+        "paystack.com",
+        "interswitchgroup.com",
+        "kuda.com",
+        "opay.com",
+        # Nigerian government and universities
+        "nimc.gov.ng",
+        "firs.gov.ng",
+        "frsc.gov.ng",
+        "nile.edu.ng",
+        "nileuniversity.edu.ng",
+        "abu.edu.ng",
+        "unilag.edu.ng",
+        # Nigerian hospitals
+        "nizamiye.ng",
+        "lasuth.ng",
+        "uithniseason.org",
+        # International services whose support and billing mail comes from these domains
+        "google.com",
+        "googlemail.com",
+        "microsoft.com",
+        "outlook.office365.com",
+        "apple.com",
+        "icloud.com",
+        "amazon.com",
+        "amazon.co.uk",
+        "amazonpay.com",
+        "paypal.com",
+        "stripe.com",
+        "github.com",
+        "gitlab.com",
+        "linkedin.com",
+        "facebook.com",
+        "facebookmail.com",
+        "twitter.com",
+        "x.com",
+        "anthropic.com",
+    }
+)

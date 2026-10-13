@@ -4,11 +4,12 @@ PRIVACY.md and TERMS.md (needs pandoc). Run from the repository root:
 
     python3 scripts/build_site_pages.py
 """
+
 import html
 import re
 import subprocess
 
-HEAD = '''<!DOCTYPE html>
+HEAD = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -42,8 +43,8 @@ HEAD = '''<!DOCTYPE html>
 </header>
 <main id="main" class="wrap">
 <article class="prose">
-'''
-FOOT = '''</article>
+"""
+FOOT = """</article>
 </main>
 <footer class="site-foot">
   <div class="wrap">
@@ -60,12 +61,26 @@ FOOT = '''</article>
 </footer>
 </body>
 </html>
-'''
+"""
+
+
 def build(out, title, desc, body, path=None, noindex=False, base=""):
     canon = f'<link rel="canonical" href="https://anzouk.duckdns.org{path}">\n' if path else ""
     robots = '<meta name="robots" content="noindex">\n' if noindex else ""
-    open(out, "w").write((HEAD.format(title=html.escape(title), desc=html.escape(desc), canon=canon, robots=robots, b=base, home=base or "./")
-                            + body.replace('href="/', f'href="{base}') + FOOT.format(b=base)))
+    page = (
+        HEAD.format(
+            title=html.escape(title),
+            desc=html.escape(desc),
+            canon=canon,
+            robots=robots,
+            b=base,
+            home=base or "./",
+        )
+        + body.replace('href="/', f'href="{base}')
+        + FOOT.format(b=base)
+    )
+    with open(out, "w") as fh:
+        fh.write(page)
 
 
 GITHUB = "https://github.com/AnzouK/PhishLens/blob/main/"
@@ -75,8 +90,12 @@ def md(path):
     out = subprocess.check_output(["pandoc", path, "-f", "gfm", "-t", "html5"]).decode()
     for name in ("CHANGELOG.md", "SECURITY.md", "LICENSE"):
         out = out.replace(f'href="{name}"', f'href="{GITHUB}{name}"')
-    out = out.replace('href="PRIVACY.md"', 'href="/privacy.html"').replace('href="TERMS.md"', 'href="/terms.html"')
-    out = re.sub(r"<table>", '<div class="table-wrap"><table>', out).replace("</table>", "</table></div>")
+    out = out.replace('href="PRIVACY.md"', 'href="/privacy.html"').replace(
+        'href="TERMS.md"', 'href="/terms.html"'
+    )
+    out = re.sub(r"<table>", '<div class="table-wrap"><table>', out).replace(
+        "</table>", "</table></div>"
+    )
     return out
 
 
@@ -86,11 +105,27 @@ NOT_FOUND = """<h1>Page not found</h1>
 """
 
 if __name__ == "__main__":
-    build("site/privacy.html", "Privacy policy · PhishLens",
-          "What the PhishLens extension, website and PhishLens Cloud handle, where it goes and what is kept.",
-          md("PRIVACY.md"), "/privacy.html")
-    build("site/terms.html", "Terms of use · PhishLens",
-          "The terms for using the PhishLens extension, website and PhishLens Cloud.",
-          md("TERMS.md"), "/terms.html")
-    build("site/404.html", "Page not found · PhishLens", "This page does not exist.", NOT_FOUND, None, noindex=True, base="/")
+    build(
+        "site/privacy.html",
+        "Privacy policy · PhishLens",
+        "What the PhishLens extension, website and PhishLens Cloud handle, where it goes and what is kept.",
+        md("PRIVACY.md"),
+        "/privacy.html",
+    )
+    build(
+        "site/terms.html",
+        "Terms of use · PhishLens",
+        "The terms for using the PhishLens extension, website and PhishLens Cloud.",
+        md("TERMS.md"),
+        "/terms.html",
+    )
+    build(
+        "site/404.html",
+        "Page not found · PhishLens",
+        "This page does not exist.",
+        NOT_FOUND,
+        None,
+        noindex=True,
+        base="/",
+    )
     print("site pages rebuilt")

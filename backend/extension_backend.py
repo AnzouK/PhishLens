@@ -24,6 +24,7 @@ This module only wires requests to the other modules:
 Run locally:
     uvicorn extension_backend:app --host 127.0.0.1 --port 8000
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -43,16 +44,34 @@ from starlette.concurrency import run_in_threadpool
 import fusion
 import structured_agents
 import text_model
-from email_parsing import (detect_forwarded, detect_shared_links, merge_link_urls,
-                           parse_eml, urls_in_text)
+from email_parsing import (
+    detect_forwarded,
+    detect_shared_links,
+    merge_link_urls,
+    parse_eml,
+    urls_in_text,
+)
 from result_cache import ResultCache, make_key
-from sender_trust import (is_hostname, is_trusted_domain, sender_domain,
-                          synthesize_auth_results)
-from settings import (CORS_ALLOW_ORIGINS, ENABLE_DBL, INNER_FILE_WORDING_THRESHOLD,
-                      MAX_ATTACHMENT_B64_CHARS, MAX_BODY_BYTES, MAX_EMAIL_B64_CHARS,
-                      MAX_LINK_URLS, MAX_TEXT_CHARS, METRICS_ENABLED, MIN_TEXT_WORDS,
-                      RATE_LIMIT_ANALYSE, RATE_LIMIT_ATTACHMENT, RATE_LIMIT_DEFAULT,
-                      RATE_LIMIT_EXPLAIN, RATE_LIMIT_STORAGE, TRUSTED_META_CEILING, VERSION)
+from sender_trust import is_hostname, is_trusted_domain, sender_domain, synthesize_auth_results
+from settings import (
+    CORS_ALLOW_ORIGINS,
+    ENABLE_DBL,
+    INNER_FILE_WORDING_THRESHOLD,
+    MAX_ATTACHMENT_B64_CHARS,
+    MAX_BODY_BYTES,
+    MAX_EMAIL_B64_CHARS,
+    MAX_LINK_URLS,
+    MAX_TEXT_CHARS,
+    METRICS_ENABLED,
+    MIN_TEXT_WORDS,
+    RATE_LIMIT_ANALYSE,
+    RATE_LIMIT_ATTACHMENT,
+    RATE_LIMIT_DEFAULT,
+    RATE_LIMIT_EXPLAIN,
+    RATE_LIMIT_STORAGE,
+    TRUSTED_META_CEILING,
+    VERSION,
+)
 
 # uvicorn configures its own loggers only: without this, the
 # "phishlens.*" INFO messages would be dropped.
@@ -67,6 +86,7 @@ __all__ = ["MAX_LINK_URLS", "app"]
 # Optional modules: the API still starts without them, with rules only.
 try:
     from auth_headers import build_metadata_auth_signal
+
     _AUTH_HEADERS_AVAILABLE = True
 except Exception as _e:
     _AUTH_HEADERS_AVAILABLE = False
@@ -74,6 +94,7 @@ except Exception as _e:
 
 try:
     import reputation as _reputation
+
     _REPUTATION_AVAILABLE = True
 except Exception as _e:
     _REPUTATION_AVAILABLE = False
@@ -81,6 +102,7 @@ except Exception as _e:
 
 try:
     import attachment_analysis as _attachments
+
     _ATTACHMENTS_AVAILABLE = True
 except Exception as _e:
     _ATTACHMENTS_AVAILABLE = False
@@ -138,8 +160,11 @@ try:
     from slowapi.errors import RateLimitExceeded
     from slowapi.util import get_remote_address
 
-    _limiter = Limiter(key_func=get_remote_address, default_limits=[RATE_LIMIT_DEFAULT],
-                       storage_uri=RATE_LIMIT_STORAGE)
+    _limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=[RATE_LIMIT_DEFAULT],
+        storage_uri=RATE_LIMIT_STORAGE,
+    )
     app.state.limiter = _limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     _RATE_LIMIT_OK = True
@@ -163,10 +188,13 @@ if METRICS_ENABLED:
         from prometheus_fastapi_instrumentator import Instrumentator
 
         Instrumentator(excluded_handlers=["/metrics", "/health"]).instrument(app).expose(
-            app, endpoint="/metrics", include_in_schema=False)
-        _VERDICTS = Counter("phishlens_verdicts_total",
-                            "Final verdicts returned by the scoring endpoints.",
-                            ["endpoint", "verdict", "trust_path"])
+            app, endpoint="/metrics", include_in_schema=False
+        )
+        _VERDICTS = Counter(
+            "phishlens_verdicts_total",
+            "Final verdicts returned by the scoring endpoints.",
+            ["endpoint", "verdict", "trust_path"],
+        )
     except Exception as _e:
         logger.warning("Prometheus metrics off (%s).", _e)
 
@@ -206,6 +234,7 @@ class AnalyseRequest(BaseModel):
     link_urls, subject. Outlook: origin, outlook_internal, org_domain.
     These hints only affect the caller's own result.
     """
+
     raw_email_b64: str | None = Field(None, max_length=MAX_EMAIL_B64_CHARS)
     raw_text: str | None = Field(None, max_length=MAX_TEXT_CHARS)
     sender_email: str | None = Field(None, max_length=512)
@@ -216,6 +245,7 @@ class AttachmentRequest(BaseModel):
     """One attachment (10 MB at most once decoded). mime_type is a hint;
     the real type is sniffed. parent_email carries the trust flags of the
     email it came from."""
+
     content_b64: str = Field(max_length=MAX_ATTACHMENT_B64_CHARS)
     filename: str | None = Field(None, max_length=1024)
     mime_type: str | None = Field(None, max_length=255)
@@ -261,11 +291,14 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     return body, merge_link_urls(urls, ctx.get("link_urls")), headers, raw_bytes
 
 
-def _run_agents(body: str, urls: list[str], headers: dict[str, str],
-                raw_email: bytes | None) -> tuple[float, float, float]:
-    return (text_model.text_agent(body),
-            structured_agents.url_agent(urls, body_text=body),
-            structured_agents.metadata_agent(headers, raw_email=raw_email))
+def _run_agents(
+    body: str, urls: list[str], headers: dict[str, str], raw_email: bytes | None
+) -> tuple[float, float, float]:
+    return (
+        text_model.text_agent(body),
+        structured_agents.url_agent(urls, body_text=body),
+        structured_agents.metadata_agent(headers, raw_email=raw_email),
+    )
 
 
 async def _check_urls(urls: list[str]) -> list[dict[str, Any]]:
@@ -279,26 +312,42 @@ async def _check_urls(urls: list[str]) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------
 @app.get("/")
 def root():
-    return {"status": "ok", "version": VERSION,
-            "endpoints": ["/analyse", "/explain", "/analyse_attachment", "/health",
-                          "/reputation/stats"]}
+    return {
+        "status": "ok",
+        "version": VERSION,
+        "endpoints": [
+            "/analyse",
+            "/explain",
+            "/analyse_attachment",
+            "/health",
+            "/reputation/stats",
+        ],
+    }
 
 
 @app.get("/health")
 def health():
     """Liveness, version, and which agents run a trained model."""
-    return {"status": "ok", "version": VERSION,
-            "agents": {"text": "model" if text_model.STATE else "not_loaded",
-                       "url": "model" if structured_agents.url_model_ready() else "rules",
-                       "metadata": "model" if structured_agents.metadata_model_ready() else "rules"}}
+    return {
+        "status": "ok",
+        "version": VERSION,
+        "agents": {
+            "text": "model" if text_model.STATE else "not_loaded",
+            "url": "model" if structured_agents.url_model_ready() else "rules",
+            "metadata": "model" if structured_agents.metadata_model_ready() else "rules",
+        },
+    }
 
 
 @app.get("/reputation/stats")
 def reputation_stats():
     """Cache hit rate, Safe Browsing quota, PhishTank feed size."""
     if not _REPUTATION_AVAILABLE:
-        return {"enabled": False, "reason": "reputation module not loaded",
-                "result_cache": _RESULT_CACHE.stats()}
+        return {
+            "enabled": False,
+            "reason": "reputation module not loaded",
+            "result_cache": _RESULT_CACHE.stats(),
+        }
     return {"enabled": True, **_reputation.stats(), "result_cache": _RESULT_CACHE.stats()}
 
 
@@ -331,8 +380,9 @@ async def analyse(request: Request, req: AnalyseRequest):
     cache_key = make_key("analyse", req.model_dump())
     cached = _RESULT_CACHE.get(cache_key)
     if cached is not None:
-        _count_verdict("/analyse", cached.get("verdict") == "phishing",
-                       cached.get("trust_path", "default"))
+        _count_verdict(
+            "/analyse", cached.get("verdict") == "phishing", cached.get("trust_path", "default")
+        )
         return {**cached, "cached": True}
 
     body, urls, headers, raw_bytes = _resolve_email(req)
@@ -346,8 +396,11 @@ async def analyse(request: Request, req: AnalyseRequest):
 
     # Sender authentication and URL reputation are network calls: started
     # first, collected after the model inference.
-    auth_task = (asyncio.create_task(build_metadata_auth_signal(headers, enable_dbl=ENABLE_DBL))
-                 if _AUTH_HEADERS_AVAILABLE else None)
+    auth_task = (
+        asyncio.create_task(build_metadata_auth_signal(headers, enable_dbl=ENABLE_DBL))
+        if _AUTH_HEADERS_AVAILABLE
+        else None
+    )
     rep_task = asyncio.create_task(_check_urls(urls))
 
     # Headers from Gmail's "Show original" are modern provider headers
@@ -356,16 +409,22 @@ async def analyse(request: Request, req: AnalyseRequest):
     # SPF/DKIM/DMARC results are used for them instead.
     raw_for_meta_model = None if ctx.get("headers_source") == "gmail_show_original" else raw_bytes
     try:
-        p_text, p_url, p_meta = await run_in_threadpool(_run_agents, body, urls, headers,
-                                                        raw_for_meta_model)
+        p_text, p_url, p_meta = await run_in_threadpool(
+            _run_agents, body, urls, headers, raw_for_meta_model
+        )
     except Exception as e:
         for task in (auth_task, rep_task):
             if task:
                 task.cancel()
         raise _server_error("Inference") from e
 
-    cacheable = True                    # a partial result is not cached
-    auth_signal: dict[str, Any] = {"score_delta": 0.0, "reasons": [], "auth": {}, "spamhaus_dbl": {}}
+    cacheable = True  # a partial result is not cached
+    auth_signal: dict[str, Any] = {
+        "score_delta": 0.0,
+        "reasons": [],
+        "auth": {},
+        "spamhaus_dbl": {},
+    }
     if auth_task:
         try:
             auth_signal = await auth_task
@@ -391,8 +450,11 @@ async def analyse(request: Request, req: AnalyseRequest):
     # Outlook on the web shows only the name of senders from the user's own
     # organisation; that mail was authenticated by the organisation's
     # server, and the organisation's domain stands in for the sender's.
-    outlook_internal = (ctx.get("origin") == "outlook" and ctx.get("outlook_internal") is True
-                        and not crypto_verified)
+    outlook_internal = (
+        ctx.get("origin") == "outlook"
+        and ctx.get("outlook_internal") is True
+        and not crypto_verified
+    )
     if outlook_internal and not domain:
         org = str(ctx.get("org_domain") or "").strip().lower()[:253]
         if is_hostname(org):
@@ -409,18 +471,32 @@ async def analyse(request: Request, req: AnalyseRequest):
     trusted_sender = allowlisted and (crypto_verified or outlook_internal)
     # Gmail delivered the message to the inbox after its own SPF/DKIM/DMARC
     # checks: a soft signal, used when nothing stronger is available.
-    inbox_soft = (not crypto_verified and not forwarded["detected"]
-                  and ((ctx.get("origin") == "gmail" and bool(ctx.get("gmail_in_inbox")))
-                       or outlook_internal)
-                  and auth.get("dmarc") != "fail" and auth.get("dkim") != "fail")
+    inbox_soft = (
+        not crypto_verified
+        and not forwarded["detected"]
+        and ((ctx.get("origin") == "gmail" and bool(ctx.get("gmail_in_inbox"))) or outlook_internal)
+        and auth.get("dmarc") != "fail"
+        and auth.get("dkim") != "fail"
+    )
 
-    path = fusion.choose_trust_path(trusted_sender=trusted_sender, crypto_verified=crypto_verified,
-                                    inbox_soft=inbox_soft, outlook_internal=outlook_internal)
+    path = fusion.choose_trust_path(
+        trusted_sender=trusted_sender,
+        crypto_verified=crypto_verified,
+        inbox_soft=inbox_soft,
+        outlook_internal=outlook_internal,
+    )
     if trusted_sender:
         p_meta = min(p_meta, TRUSTED_META_CEILING)
     text_used = len(body.split()) >= MIN_TEXT_WORDS
-    verdict = fusion.decide_email(p_text, p_url, p_meta, text_used=text_used, path=path, rep=rep,
-                                  url_rule_score=structured_agents.url_heuristic(urls))
+    verdict = fusion.decide_email(
+        p_text,
+        p_url,
+        p_meta,
+        text_used=text_used,
+        path=path,
+        rep=rep,
+        url_rule_score=structured_agents.url_heuristic(urls),
+    )
     _count_verdict("/analyse", verdict.is_phishing, verdict.trust_path)
 
     auth_header = headers.get("authentication-results", "") or ""
@@ -449,22 +525,43 @@ async def analyse(request: Request, req: AnalyseRequest):
         },
         "url_reputation": rep.as_dict(),
         "agents": {
-            "text": {"phishing_probability": p_text, "verdict": _verdict_label(p_text),
-                     "source": "model"},
-            "url": {"phishing_probability": p_url, "phishing_probability_raw": p_url_raw,
-                    "verdict": _verdict_label(p_url),
-                    "source": ("none" if not urls else
-                               "model" if structured_agents.url_model_ready()
-                               and any(u in body for u in urls) else "rules")},
-            "metadata": {"phishing_probability": p_meta, "phishing_probability_raw": p_meta_raw,
-                         "verdict": _verdict_label(p_meta),
-                         "source": ("model" if structured_agents.metadata_model_ready()
-                                    and raw_for_meta_model else "rules")},
+            "text": {
+                "phishing_probability": p_text,
+                "verdict": _verdict_label(p_text),
+                "source": "model",
+            },
+            "url": {
+                "phishing_probability": p_url,
+                "phishing_probability_raw": p_url_raw,
+                "verdict": _verdict_label(p_url),
+                "source": (
+                    "none"
+                    if not urls
+                    else "model"
+                    if structured_agents.url_model_ready() and any(u in body for u in urls)
+                    else "rules"
+                ),
+            },
+            "metadata": {
+                "phishing_probability": p_meta,
+                "phishing_probability_raw": p_meta_raw,
+                "verdict": _verdict_label(p_meta),
+                "source": (
+                    "model"
+                    if structured_agents.metadata_model_ready() and raw_for_meta_model
+                    else "rules"
+                ),
+            },
         },
         # Where the sender checks came from: real headers, or the values
         # Gmail shows (Gmail verified them, we did not).
-        "auth_source": ("gmail_ui" if auth_header.startswith("gmail-client-context")
-                        else "headers" if auth_header else "none"),
+        "auth_source": (
+            "gmail_ui"
+            if auth_header.startswith("gmail-client-context")
+            else "headers"
+            if auth_header
+            else "none"
+        ),
         "cached": False,
     }
     if cacheable:
@@ -477,12 +574,18 @@ async def analyse(request: Request, req: AnalyseRequest):
 # ---------------------------------------------------------------------
 # Inner-file features worth naming in the per-file report of an archive.
 _INNER_REASONS = {
-    "contains_macros": "macros", "remote_template": "remote template",
-    "dde_field": "DDE field", "contains_activex": "ActiveX control",
-    "embedded_ole_object": "embedded object", "contains_javascript": "JavaScript",
-    "auto_execute_on_open": "runs on open", "launch_external_action": "launches a program",
-    "contains_password_field": "password form", "submits_form_to_url": "sends a form",
-    "encrypted_document": "password-protected", "contains_qr_code": "QR code",
+    "contains_macros": "macros",
+    "remote_template": "remote template",
+    "dde_field": "DDE field",
+    "contains_activex": "ActiveX control",
+    "embedded_ole_object": "embedded object",
+    "contains_javascript": "JavaScript",
+    "auto_execute_on_open": "runs on open",
+    "launch_external_action": "launches a program",
+    "contains_password_field": "password form",
+    "submits_form_to_url": "sends a form",
+    "encrypted_document": "password-protected",
+    "contains_qr_code": "QR code",
 }
 
 
@@ -538,8 +641,12 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         raise HTTPException(501, "Attachment analysis is not available on this server.")
     try:
         # Parsing, OCR and decompression are CPU-bound: worker thread.
-        extracted = await run_in_threadpool(_attachments.analyse_attachment, req.content_b64,
-                                            filename=req.filename or "", mime_type=req.mime_type)
+        extracted = await run_in_threadpool(
+            _attachments.analyse_attachment,
+            req.content_b64,
+            filename=req.filename or "",
+            mime_type=req.mime_type,
+        )
     except ValueError as e:
         # Unsupported type, oversized, bad base64: our own messages, for the user.
         raise HTTPException(400, str(e)) from e
@@ -567,19 +674,35 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
     # softens the caller's own result, and Safe Browsing hits and dropper
     # techniques override it. Never use it for anything shared.
     parent = req.parent_email or {}
-    parent_trusted = bool(parent.get("crypto_verified") or parent.get("gmail_inbox_soft_verified")
-                          or parent.get("trusted_sender") or parent.get("gmail_delivered"))
+    parent_trusted = bool(
+        parent.get("crypto_verified")
+        or parent.get("gmail_inbox_soft_verified")
+        or parent.get("trusted_sender")
+        or parent.get("gmail_delivered")
+    )
     verdict = fusion.decide_attachment(
-        p_text, p_url, feature_bonus=feature_bonus, parent_trusted=parent_trusted, rep=rep,
-        dropper=dropper, url_rule_score=structured_agents.url_heuristic(urls))
-    _count_verdict("/analyse_attachment", verdict.is_phishing,
-                   "parent_trusted" if parent_trusted else "default")
+        p_text,
+        p_url,
+        feature_bonus=feature_bonus,
+        parent_trusted=parent_trusted,
+        rep=rep,
+        dropper=dropper,
+        url_rule_score=structured_agents.url_heuristic(urls),
+    )
+    _count_verdict(
+        "/analyse_attachment",
+        verdict.is_phishing,
+        "parent_trusted" if parent_trusted else "default",
+    )
 
     is_archive = extracted.get("kind") == "archive"
-    suspicious_files = (await run_in_threadpool(_archive_file_report, extracted, rep.verdicts)
-                        if is_archive else [])
-    inner_public = [{k: v for k, v in f.items() if not k.startswith("_")}
-                    for f in (extracted.get("inner_files") or [])]
+    suspicious_files = (
+        await run_in_threadpool(_archive_file_report, extracted, rep.verdicts) if is_archive else []
+    )
+    inner_public = [
+        {k: v for k, v in f.items() if not k.startswith("_")}
+        for f in (extracted.get("inner_files") or [])
+    ]
     return {
         "verdict": "phishing" if verdict.is_phishing else "safe",
         "fused_score": float(verdict.fused),
@@ -612,9 +735,15 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         "url_reputation": rep.as_dict(),
         "agents": {
             "text": {"phishing_probability": p_text, "verdict": _verdict_label(p_text)},
-            "url": {"phishing_probability": p_url, "phishing_probability_raw": p_url_raw,
-                    "verdict": _verdict_label(p_url)},
-            "metadata": {"phishing_probability": 0.0, "verdict": "Safe",
-                         "note": "not applicable to attachments"},
+            "url": {
+                "phishing_probability": p_url,
+                "phishing_probability_raw": p_url_raw,
+                "verdict": _verdict_label(p_url),
+            },
+            "metadata": {
+                "phishing_probability": 0.0,
+                "verdict": "Safe",
+                "note": "not applicable to attachments",
+            },
         },
     }

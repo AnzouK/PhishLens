@@ -17,27 +17,28 @@ The dispatcher (analyse_attachment) returns a JSON-serialisable dict
 whose shape mirrors /analyse as closely as possible so the extension
 and landing widgets can share their rendering code.
 """
+
 from __future__ import annotations
 
 import base64
 import io
+import logging
 import re
 from typing import Any
-
-import logging
-logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
 import archive_analysis as archives
 import ocr
 import office_analysis as office
 
+logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
+
 # ---------------------------------------------------------------------
 # Limits: enforced BEFORE decoding to protect the process.
 # ---------------------------------------------------------------------
-MAX_ATTACHMENT_BYTES  = 10 * 1024 * 1024      # 10 MB hard cap
-MAX_EXTRACTED_TEXT    = 20_000                # chars fed to the text agent
-MAX_EXTRACTED_URLS    = 200                   # URLs sent to reputation cascade
-PDF_PAGE_LIMIT        = 50                    # abort text extraction past this
+MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  # 10 MB hard cap
+MAX_EXTRACTED_TEXT = 20_000  # chars fed to the text agent
+MAX_EXTRACTED_URLS = 200  # URLs sent to reputation cascade
+PDF_PAGE_LIMIT = 50  # abort text extraction past this
 # A PDF with fewer extracted characters than this per page (on average)
 # is treated as scanned / image-only and sent to OCR.
 SCANNED_CHARS_PER_PAGE = 50
@@ -47,14 +48,16 @@ SCANNED_CHARS_PER_PAGE = 50
 # returns a clear error) if the module isn't in the runtime image.
 # ---------------------------------------------------------------------
 try:
-    import pdfplumber                         # type: ignore
+    import pdfplumber  # type: ignore
+
     _PDFPLUMBER_OK = True
 except Exception as _e:
     _PDFPLUMBER_OK = False
     logger.warning(f"pdfplumber not available ({_e}); PDF attachments will be rejected.")
 
 try:
-    from bs4 import BeautifulSoup             # type: ignore
+    from bs4 import BeautifulSoup  # type: ignore
+
     _BS4_OK = True
 except Exception as _e:
     _BS4_OK = False
@@ -67,16 +70,16 @@ except Exception as _e:
 # don't trust it blindly.
 # ---------------------------------------------------------------------
 _MIME_BY_EXT = {
-    ".pdf":  "application/pdf",
+    ".pdf": "application/pdf",
     ".html": "text/html",
-    ".htm":  "text/html",
-    ".xhtml":"application/xhtml+xml",
-    ".txt":  "text/plain",
+    ".htm": "text/html",
+    ".xhtml": "application/xhtml+xml",
+    ".txt": "text/plain",
     # Archives and calendar invites
-    ".zip":  "application/zip",
-    ".rar":  "application/vnd.rar",
-    ".7z":   "application/x-7z-compressed",
-    ".ics":  "text/calendar",
+    ".zip": "application/zip",
+    ".rar": "application/vnd.rar",
+    ".7z": "application/x-7z-compressed",
+    ".ics": "text/calendar",
     # Office, modern (zip + xml)
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".docm": "application/vnd.ms-word.document.macroenabled.12",
@@ -85,21 +88,22 @@ _MIME_BY_EXT = {
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     ".pptm": "application/vnd.ms-powerpoint.presentation.macroenabled.12",
     # Office, legacy (OLE2)
-    ".doc":  "application/msword",
-    ".xls":  "application/vnd.ms-excel",
-    ".ppt":  "application/vnd.ms-powerpoint",
+    ".doc": "application/msword",
+    ".xls": "application/vnd.ms-excel",
+    ".ppt": "application/vnd.ms-powerpoint",
     # Images
-    ".png":  "image/png",
-    ".jpg":  "image/jpeg",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
-    ".gif":  "image/gif",
+    ".gif": "image/gif",
     ".webp": "image/webp",
-    ".bmp":  "image/bmp",
-    ".tif":  "image/tiff",
+    ".bmp": "image/bmp",
+    ".tif": "image/tiff",
     ".tiff": "image/tiff",
 }
 
 IMAGE_MIMES = {m for m in _MIME_BY_EXT.values() if m.startswith("image/")}
+
 
 def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> str:
     """
@@ -147,8 +151,9 @@ def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> s
 # URL extraction: same regex the /analyse endpoint uses, plus we also
 # pick up bare-domain "click here" style links (missing scheme).
 # ---------------------------------------------------------------------
-_URL_RE      = re.compile(r"https?://[^\s\"'<>)\]}]+", re.IGNORECASE)
+_URL_RE = re.compile(r"https?://[^\s\"'<>)\]}]+", re.IGNORECASE)
 _URL_DEDUP_N = MAX_EXTRACTED_URLS
+
 
 def extract_urls(text: str) -> list[str]:
     seen, out = set(), []
@@ -169,16 +174,16 @@ def extract_urls(text: str) -> list[str]:
 # Suspicious PDF markers: presence of any of these is worth surfacing
 # to the user, they're the classic phishing / malware droppers.
 _PDF_SUSPICIOUS_MARKERS = {
-    b"/JavaScript":    "contains_javascript",
-    b"/JS":            "contains_javascript",
-    b"/AcroForm":      "contains_form",
-    b"/OpenAction":    "auto_execute_on_open",
-    b"/Launch":        "launch_external_action",
-    b"/EmbeddedFile":  "embeds_another_file",
-    b"/GoToR":         "remote_link_action",
-    b"/RichMedia":     "flash_or_richmedia",
-    b"/URI":           "contains_link_annotation",
-    b"/SubmitForm":    "submits_form_to_url",
+    b"/JavaScript": "contains_javascript",
+    b"/JS": "contains_javascript",
+    b"/AcroForm": "contains_form",
+    b"/OpenAction": "auto_execute_on_open",
+    b"/Launch": "launch_external_action",
+    b"/EmbeddedFile": "embeds_another_file",
+    b"/GoToR": "remote_link_action",
+    b"/RichMedia": "flash_or_richmedia",
+    b"/URI": "contains_link_annotation",
+    b"/SubmitForm": "submits_form_to_url",
 }
 
 
@@ -228,17 +233,17 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
             # Password-protected PDF: nothing to read, which is the point
             # when the password travels in the email body.
             return {
-                "kind":              "pdf",
-                "filename":          filename,
-                "size_bytes":        len(raw),
-                "page_count":        0,
-                "pages_read":        0,
-                "extracted_text":    "",
+                "kind": "pdf",
+                "filename": filename,
+                "size_bytes": len(raw),
+                "page_count": 0,
+                "pages_read": 0,
+                "extracted_text": "",
                 "extracted_text_chars": 0,
-                "extracted_urls":    [],
-                "notable_features":  markers + ["encrypted_document"],
+                "extracted_urls": [],
+                "notable_features": markers + ["encrypted_document"],
             }
-        raise RuntimeError(f"PDF parse failed: {e}")
+        raise RuntimeError(f"PDF parse failed: {e}") from e
 
     text = "\n".join(text_chunks)[:MAX_EXTRACTED_TEXT]
 
@@ -290,18 +295,18 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
         markers.append("text_from_ocr")
 
     return {
-        "kind":              "pdf",
-        "filename":          filename,
-        "size_bytes":        len(raw),
-        "page_count":        page_count,
-        "pages_read":        pages_read,
-        "extracted_text":    text,
+        "kind": "pdf",
+        "filename": filename,
+        "size_bytes": len(raw),
+        "page_count": page_count,
+        "pages_read": pages_read,
+        "extracted_text": text,
         "extracted_text_chars": len(text),
-        "extracted_urls":    urls[:MAX_EXTRACTED_URLS],
-        "notable_features":  markers,
-        "qr_urls":           qr_found,
-        "ocr_used":          ocr_used,
-        "capabilities":      caps,
+        "extracted_urls": urls[:MAX_EXTRACTED_URLS],
+        "notable_features": markers,
+        "qr_urls": qr_found,
+        "ocr_used": ocr_used,
+        "capabilities": caps,
     }
 
 
@@ -323,18 +328,18 @@ def analyse_image(raw: bytes, filename: str) -> dict[str, Any]:
     if text:
         flags.append("text_from_ocr")
     return {
-        "kind":              "image",
-        "filename":          filename,
-        "size_bytes":        len(raw),
-        "width":             img.size[0],
-        "height":            img.size[1],
-        "extracted_text":    text,
+        "kind": "image",
+        "filename": filename,
+        "size_bytes": len(raw),
+        "width": img.size[0],
+        "height": img.size[1],
+        "extracted_text": text,
         "extracted_text_chars": len(text),
-        "extracted_urls":    urls[:MAX_EXTRACTED_URLS],
-        "notable_features":  flags,
-        "qr_urls":           scan["qr_urls"],
-        "ocr_used":          bool(text),
-        "capabilities":      caps,
+        "extracted_urls": urls[:MAX_EXTRACTED_URLS],
+        "notable_features": flags,
+        "qr_urls": scan["qr_urls"],
+        "ocr_used": bool(text),
+        "capabilities": caps,
     }
 
 
@@ -354,7 +359,7 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     try:
         soup = BeautifulSoup(raw, "html.parser")
     except Exception as e:
-        raise RuntimeError(f"HTML parse failed: {e}")
+        raise RuntimeError(f"HTML parse failed: {e}") from e
 
     # Strip noisy tags before extracting visible text
     for tag in soup(["script", "style", "noscript"]):
@@ -379,7 +384,11 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
         flags.append("contains_form")
     if soup.find(["input"], attrs={"type": "password"}):
         flags.append("contains_password_field")
-    if soup.find(["script"]) or soup.find(attrs={"onclick": True}) or soup.find(attrs={"onload": True}):
+    if (
+        soup.find(["script"])
+        or soup.find(attrs={"onclick": True})
+        or soup.find(attrs={"onload": True})
+    ):
         flags.append("contains_javascript")
     if soup.find("iframe"):
         flags.append("contains_iframe")
@@ -387,22 +396,22 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
         flags.append("meta_refresh_redirect")
 
     return {
-        "kind":              "html",
-        "filename":          filename,
-        "size_bytes":        len(raw),
-        "extracted_text":    text,
+        "kind": "html",
+        "filename": filename,
+        "size_bytes": len(raw),
+        "extracted_text": text,
         "extracted_text_chars": len(text),
-        "extracted_urls":    urls,
-        "notable_features":  flags,
+        "extracted_urls": urls,
+        "notable_features": flags,
     }
 
 
 # =====================================================================
 # Dispatcher: the public entry point.
 # =====================================================================
-def analyse_attachment(content_b64: str,
-                       filename: str = "",
-                       mime_type: str | None = None) -> dict[str, Any]:
+def analyse_attachment(
+    content_b64: str, filename: str = "", mime_type: str | None = None
+) -> dict[str, Any]:
     """
     Decode the base64 payload, dispatch by MIME, return a
     JSON-serialisable dict.
@@ -419,10 +428,10 @@ def analyse_attachment(content_b64: str,
     try:
         raw = base64.b64decode(content_b64, validate=False)
     except Exception as e:
-        raise ValueError(f"Base64 decode failed: {e}")
+        raise ValueError(f"Base64 decode failed: {e}") from e
 
     if len(raw) > MAX_ATTACHMENT_BYTES:
-        raise ValueError(f"Attachment exceeds {MAX_ATTACHMENT_BYTES // (1024*1024)} MB limit.")
+        raise ValueError(f"Attachment exceeds {MAX_ATTACHMENT_BYTES // (1024 * 1024)} MB limit.")
     if not raw:
         raise ValueError("Attachment is empty after decode.")
 
@@ -443,18 +452,19 @@ def _dangerous_type(raw: bytes, filename: str) -> dict[str, Any] | None:
     else:
         return None
     return {
-        "kind":              "executable" if flags[0] == "dangerous_file_type" else "disk_image",
-        "filename":          filename,
-        "size_bytes":        len(raw),
-        "extracted_text":    "",
+        "kind": "executable" if flags[0] == "dangerous_file_type" else "disk_image",
+        "filename": filename,
+        "size_bytes": len(raw),
+        "extracted_text": "",
         "extracted_text_chars": 0,
-        "extracted_urls":    [],
-        "notable_features":  flags,
+        "extracted_urls": [],
+        "notable_features": flags,
     }
 
 
-def dispatch_raw(raw: bytes, filename: str, mime_type: str | None = None,
-                 depth: int = 0) -> dict[str, Any]:
+def dispatch_raw(
+    raw: bytes, filename: str, mime_type: str | None = None, depth: int = 0
+) -> dict[str, Any]:
     """Analyse decoded bytes. depth > 0 inside an archive (nested
     archives are flagged, not opened)."""
     danger = _dangerous_type(raw, filename)
@@ -469,8 +479,9 @@ def dispatch_raw(raw: bytes, filename: str, mime_type: str | None = None,
         if depth:
             raise ValueError("Nested archive.")
         opener = archives.analyse_rar if fmt == "rar" else archives.analyse_7z
-        return opener(raw, filename,
-                      inner=lambda data, name: dispatch_raw(data, name, None, depth + 1))
+        return opener(
+            raw, filename, inner=lambda data, name: dispatch_raw(data, name, None, depth + 1)
+        )
     if mime == "text/calendar" or raw.lstrip()[:15].upper().startswith(b"BEGIN:VCALENDAR"):
         return archives.analyse_ics(raw, filename, extract_urls)
 
@@ -480,8 +491,8 @@ def dispatch_raw(raw: bytes, filename: str, mime_type: str | None = None,
             if depth:
                 raise ValueError("Nested archive.")
             return archives.analyse_zip(
-                raw, filename,
-                inner=lambda data, name: dispatch_raw(data, name, None, depth + 1))
+                raw, filename, inner=lambda data, name: dispatch_raw(data, name, None, depth + 1)
+            )
         return office.analyse_ooxml(raw, filename)
     if mime in office.OOXML_MIMES:
         if raw.startswith(office.OLE2_MAGIC):

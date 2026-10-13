@@ -8,6 +8,7 @@ Who sent the email, and can we believe it.
   the "signed-by" / "mailed-by" values Gmail shows, so auth_headers can
   check alignment the same way as for real headers.
 """
+
 from __future__ import annotations
 
 import re
@@ -17,9 +18,11 @@ from trusted_domains import TRUSTED_DOMAINS
 
 try:
     from auth_headers import org_domain
-except Exception:                       # auth_headers missing: strict fallback
+except Exception:  # auth_headers missing: strict fallback
+
     def org_domain(d: str) -> str:
         return (d or "").lower().strip(".")
+
 
 _HOST_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789-")
 
@@ -46,8 +49,11 @@ def is_hostname(name: str) -> bool:
     """A DNS hostname with at least two labels, checked without a regex
     (linear on any input)."""
     labels = name.split(".")
-    return (0 < len(name) <= 253 and len(labels) >= 2
-            and all(0 < len(lab) <= 63 and set(lab) <= _HOST_CHARS for lab in labels))
+    return (
+        0 < len(name) <= 253
+        and len(labels) >= 2
+        and all(0 < len(lab) <= 63 and set(lab) <= _HOST_CHARS for lab in labels)
+    )
 
 
 def synthesize_auth_results(ctx: Any, sender_email: str | None) -> str:

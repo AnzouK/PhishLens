@@ -1,0 +1,37 @@
+# Ruff: lint and format for every Python file of the repository
+# (backend/ and scripts/). CI runs `ruff check` and `ruff format --check`.
+line-length = 100
+target-version = "py310"
+
+[lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "B",        # bugbear: likely bugs
+    "UP",       # pyupgrade: modern syntax for the target version
+    "SIM",      # simplifications
+    "I",        # import order
+    "C90",      # complexity
+]
+ignore = [
+    "E501",     # long lines: the formatter wraps code, long strings stay
+    "SIM105",   # contextlib.suppress: try/except is clearer here
+    "SIM108",   # ternary operators are not always clearer
+]
+
+[lint.mccabe]
+# The attachment parsers walk file formats branch by branch; above 25 is
+# a function to split.
+max-complexity = 25
+
+[lint.per-file-ignores]
+"backend/tests/*" = ["B011", "B017"]
+
+[lint.isort]
+known-first-party = [
+    "agent_io", "archive_analysis", "attachment_analysis", "auth_headers",
+    "email_parsing", "extension_backend", "feature_extraction", "fusion",
+    "metadata_agent", "ocr", "office_analysis", "reputation", "result_cache",
+    "rf_agent", "sender_trust", "settings", "structured_agents", "text_model",
+    "trusted_domains", "url_agent",
+]

@@ -7,6 +7,7 @@ published state (skops, see agent_io.py) and scores one email at a
 time. The state is the dict the training code saves: model, scaler,
 feature_names, is_trained, training_history, best_params.
 """
+
 from __future__ import annotations
 
 import logging
@@ -69,6 +70,8 @@ class RandomForestAgent:
         """Load a joblib (pickle) state file. Only used while
         AGENTS_ALLOW_PICKLE is on; production loads skops files."""
         import joblib
+
         import agent_io
+
         agent_io.apply_state(self, joblib.load(filepath))
         logger.info("Loaded %s (%d features)", filepath, len(self.feature_names))

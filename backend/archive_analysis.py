@@ -24,44 +24,99 @@ fields and land in the calendar even when the email is ignored.
 Standard library at import time (rarfile and py7zr are imported lazily):
 safe to import anywhere.
 """
+
 from __future__ import annotations
 
 import io
 import re
 import tempfile
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 # ---------------------------------------------------------------------
 # Limits (zip-bomb and abuse protection)
 # ---------------------------------------------------------------------
-MAX_ENTRIES          = 500                 # entries listed
-MAX_INNER_FILES      = 5                   # supported inner files analysed
-MAX_INNER_BYTES      = 5 * 1024 * 1024     # per inner file, uncompressed
-MAX_TOTAL_INNER      = 15 * 1024 * 1024    # all inner files together
-MAX_RATIO            = 100                 # uncompressed / compressed
+MAX_ENTRIES = 500  # entries listed
+MAX_INNER_FILES = 5  # supported inner files analysed
+MAX_INNER_BYTES = 5 * 1024 * 1024  # per inner file, uncompressed
+MAX_TOTAL_INNER = 15 * 1024 * 1024  # all inner files together
+MAX_RATIO = 100  # uncompressed / compressed
 
 RAR_MAGIC = (b"Rar!\x1a\x07\x00", b"Rar!\x1a\x07\x01\x00")
 SEVENZ_MAGIC = b"7z\xbc\xaf\x27\x1c"
 
 EXECUTABLE_EXTS = {
-    "exe", "scr", "com", "pif", "cpl", "dll", "msi", "msix", "msp", "appx",
-    "jar", "apk", "app", "dmg", "pkg", "reg", "sys",
+    "exe",
+    "scr",
+    "com",
+    "pif",
+    "cpl",
+    "dll",
+    "msi",
+    "msix",
+    "msp",
+    "appx",
+    "jar",
+    "apk",
+    "app",
+    "dmg",
+    "pkg",
+    "reg",
+    "sys",
 }
 SCRIPT_EXTS = {
-    "js", "jse", "vbs", "vbe", "wsf", "wsh", "wsc", "hta", "bat", "cmd",
-    "ps1", "psm1", "sct", "vb", "scf", "inf", "chm",
+    "js",
+    "jse",
+    "vbs",
+    "vbe",
+    "wsf",
+    "wsh",
+    "wsc",
+    "hta",
+    "bat",
+    "cmd",
+    "ps1",
+    "psm1",
+    "sct",
+    "vb",
+    "scf",
+    "inf",
+    "chm",
 }
 SHORTCUT_EXTS = {"lnk", "url", "desktop", "website", "library-ms", "search-ms"}
 DISK_IMAGE_EXTS = {"iso", "img", "vhd", "vhdx"}
 ARCHIVE_EXTS = {"zip", "rar", "7z", "gz", "tgz", "tar", "cab", "arj", "ace", "xz", "bz2"}
-DOCUMENT_EXTS = {"pdf", "doc", "docx", "docm", "xls", "xlsx", "xlsm", "ppt", "pptx",
-                 "pptm", "txt", "rtf", "jpg", "jpeg", "png", "gif", "html", "htm", "csv"}
+DOCUMENT_EXTS = {
+    "pdf",
+    "doc",
+    "docx",
+    "docm",
+    "xls",
+    "xlsx",
+    "xlsm",
+    "ppt",
+    "pptx",
+    "pptm",
+    "txt",
+    "rtf",
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "html",
+    "htm",
+    "csv",
+}
 
 # Types whose presence forces the phishing verdict (like Office macros).
-DROPPER_FLAGS = {"executable_in_archive", "script_in_archive",
-                 "shortcut_in_archive", "double_extension"}
+DROPPER_FLAGS = {
+    "executable_in_archive",
+    "script_in_archive",
+    "shortcut_in_archive",
+    "double_extension",
+}
 
 
 def _ext(name: str) -> str:
@@ -76,7 +131,8 @@ def _double_extension(name: str) -> bool:
     if len(parts) < 3:
         return False
     return parts[-2].strip() in DOCUMENT_EXTS and parts[-1].strip() in (
-        EXECUTABLE_EXTS | SCRIPT_EXTS | SHORTCUT_EXTS)
+        EXECUTABLE_EXTS | SCRIPT_EXTS | SHORTCUT_EXTS
+    )
 
 
 def classify_names(names: list[str]) -> list[str]:
@@ -106,12 +162,12 @@ def classify_names(names: list[str]) -> list[str]:
 
 # Plain-English reason for each risky name flag (per-file report).
 NAME_REASONS = {
-    "double_extension":      "fake extension",
+    "double_extension": "fake extension",
     "executable_in_archive": "program",
-    "script_in_archive":     "script",
-    "shortcut_in_archive":   "shortcut",
+    "script_in_archive": "script",
+    "shortcut_in_archive": "shortcut",
     "disk_image_in_archive": "disk image",
-    "nested_archive":        "archive inside the archive",
+    "nested_archive": "archive inside the archive",
 }
 
 
@@ -130,16 +186,23 @@ def is_rar_or_7z(raw: bytes) -> str | None:
 
 class _Entry:
     """One archive member, whatever the format."""
+
     __slots__ = ("name", "size", "packed", "is_dir")
 
     def __init__(self, name: str, size: int | None, packed: int | None, is_dir: bool):
         self.name, self.size, self.packed, self.is_dir = name, size, packed, is_dir
 
 
-def _analyse_listing(raw: bytes, filename: str, fmt: str, entries: list[_Entry],
-                     encrypted: bool, read: Callable[[list[str]], dict[str, bytes]] | None,
-                     inner: Callable[[bytes, str], dict[str, Any]] | None,
-                     flags: list[str] | None = None) -> dict[str, Any]:
+def _analyse_listing(
+    raw: bytes,
+    filename: str,
+    fmt: str,
+    entries: list[_Entry],
+    encrypted: bool,
+    read: Callable[[list[str]], dict[str, bytes]] | None,
+    inner: Callable[[bytes, str], dict[str, Any]] | None,
+    flags: list[str] | None = None,
+) -> dict[str, Any]:
     """Shared by ZIP, RAR and 7z: flag risky names, pick the supported
     inner files within the size limits, read them through `read(names)`
     (format specific) and analyse them with `inner`."""
@@ -193,16 +256,18 @@ def _analyse_listing(raw: bytes, filename: str, fmt: str, entries: list[_Entry],
                 res = inner(data[:MAX_INNER_BYTES], name)
             except (ValueError, RuntimeError, zipfile.BadZipFile, NotImplementedError):
                 continue
-            inner_results.append({
-                "filename": name,
-                "kind": res.get("kind"),
-                "notable_features": res.get("notable_features", []),
-                "url_count": len(res.get("extracted_urls", []) or []),
-                # Private, for the per-file report; removed by
-                # the endpoint before the response is sent.
-                "_text": (res.get("extracted_text") or "")[:4000],
-                "_urls": list(res.get("extracted_urls", []) or [])[:50],
-            })
+            inner_results.append(
+                {
+                    "filename": name,
+                    "kind": res.get("kind"),
+                    "notable_features": res.get("notable_features", []),
+                    "url_count": len(res.get("extracted_urls", []) or []),
+                    # Private, for the per-file report; removed by
+                    # the endpoint before the response is sent.
+                    "_text": (res.get("extracted_text") or "")[:4000],
+                    "_urls": list(res.get("extracted_urls", []) or [])[:50],
+                }
+            )
             if res.get("extracted_text"):
                 texts.append(res["extracted_text"])
             for u in res.get("extracted_urls", []) or []:
@@ -213,18 +278,18 @@ def _analyse_listing(raw: bytes, filename: str, fmt: str, entries: list[_Entry],
 
     text = "\n".join(texts)
     return {
-        "kind":              "archive",
-        "filename":          filename,
-        "size_bytes":        len(raw),
-        "archive_format":    fmt,
-        "entries":           names[:50],
-        "entry_count":       len(names),
-        "encrypted":         encrypted,
-        "inner_files":       inner_results,
-        "extracted_text":    text,
+        "kind": "archive",
+        "filename": filename,
+        "size_bytes": len(raw),
+        "archive_format": fmt,
+        "entries": names[:50],
+        "entry_count": len(names),
+        "encrypted": encrypted,
+        "inner_files": inner_results,
+        "extracted_text": text,
         "extracted_text_chars": len(text),
-        "extracted_urls":    urls,
-        "notable_features":  flags,
+        "extracted_urls": urls,
+        "notable_features": flags,
     }
 
 
@@ -244,8 +309,9 @@ def _looks_like_password_error(e: Exception) -> bool:
     return "password" in text or "encrypt" in text
 
 
-def analyse_zip(raw: bytes, filename: str,
-                inner: Callable[[bytes, str], dict[str, Any]] | None = None) -> dict[str, Any]:
+def analyse_zip(
+    raw: bytes, filename: str, inner: Callable[[bytes, str], dict[str, Any]] | None = None
+) -> dict[str, Any]:
     """List a ZIP archive, flag risky content, analyse supported files.
 
     `inner(raw, name)` analyses one inner file (the attachment dispatcher,
@@ -255,7 +321,7 @@ def analyse_zip(raw: bytes, filename: str,
         zf = zipfile.ZipFile(io.BytesIO(raw))
         infos = zf.infolist()[:MAX_ENTRIES]
     except zipfile.BadZipFile as e:
-        raise RuntimeError(f"ZIP parse failed: {e}")
+        raise RuntimeError(f"ZIP parse failed: {e}") from e
 
     entries = [_Entry(i.filename, i.file_size, i.compress_size, i.is_dir()) for i in infos]
     encrypted = any(i.flag_bits & 0x1 for i in infos)
@@ -272,8 +338,9 @@ def analyse_zip(raw: bytes, filename: str,
     return _analyse_listing(raw, filename, "zip", entries, encrypted, read, inner)
 
 
-def analyse_7z(raw: bytes, filename: str,
-               inner: Callable[[bytes, str], dict[str, Any]] | None = None) -> dict[str, Any]:
+def analyse_7z(
+    raw: bytes, filename: str, inner: Callable[[bytes, str], dict[str, Any]] | None = None
+) -> dict[str, Any]:
     """7z, with py7zr. Members are extracted to a private
     temporary folder that is deleted at once; only the chosen supported
     files (size-checked first) are written."""
@@ -296,9 +363,15 @@ def analyse_7z(raw: bytes, filename: str,
             if _looks_like_password_error(e):
                 return _encrypted_unlisted(raw, filename, "7z")
             return analyse_uninspectable_archive(raw, filename, "7z")
-        entries = [_Entry(i.filename, getattr(i, "uncompressed", None),
-                          getattr(i, "compressed", None), bool(getattr(i, "is_directory", False)))
-                   for i in infos]
+        entries = [
+            _Entry(
+                i.filename,
+                getattr(i, "uncompressed", None),
+                getattr(i, "compressed", None),
+                bool(getattr(i, "is_directory", False)),
+            )
+            for i in infos
+        ]
 
         def read(names: list[str]) -> dict[str, bytes]:
             out: dict[str, bytes] = {}
@@ -308,11 +381,11 @@ def analyse_7z(raw: bytes, filename: str,
                     szf.reset()
                     szf.extract(path=tmp, targets=names)
                 except Exception as e:
-                    raise _NotExtracted(str(e))
+                    raise _NotExtracted(str(e)) from e
                 for n in names:
                     p = (root / n).resolve()
                     if root not in p.parents or not p.is_file():
-                        continue        # path traversal or not written: ignore
+                        continue  # path traversal or not written: ignore
                     with open(p, "rb") as fh:
                         out[n] = fh.read(MAX_INNER_BYTES)
             return out
@@ -320,8 +393,9 @@ def analyse_7z(raw: bytes, filename: str,
         return _analyse_listing(raw, filename, "7z", entries, encrypted, read, inner)
 
 
-def analyse_rar(raw: bytes, filename: str,
-                inner: Callable[[bytes, str], dict[str, Any]] | None = None) -> dict[str, Any]:
+def analyse_rar(
+    raw: bytes, filename: str, inner: Callable[[bytes, str], dict[str, Any]] | None = None
+) -> dict[str, Any]:
     """RAR 4 and 5, with rarfile. The listing (names, sizes,
     encryption) is pure Python; decompressing members needs an external
     tool (unrar, unar, 7z or bsdtar; the Docker image ships bsdtar). Without
@@ -347,8 +421,10 @@ def analyse_rar(raw: bytes, filename: str,
             # Nothing listed: truncated or damaged headers.
             return analyse_uninspectable_archive(raw, filename, "rar")
 
-        entries = [_Entry(i.filename, i.file_size, getattr(i, "compress_size", None), i.is_dir())
-                   for i in infos]
+        entries = [
+            _Entry(i.filename, i.file_size, getattr(i, "compress_size", None), i.is_dir())
+            for i in infos
+        ]
 
         def read(names: list[str]) -> dict[str, bytes]:
             out: dict[str, bytes] = {}
@@ -372,18 +448,18 @@ def analyse_uninspectable_archive(raw: bytes, filename: str, fmt: str) -> dict[s
     """RAR / 7z the server cannot open (library missing, multi-volume or
     damaged archive): recognised, reported as not inspectable."""
     return {
-        "kind":              "archive",
-        "filename":          filename,
-        "size_bytes":        len(raw),
-        "archive_format":    fmt,
-        "entries":           [],
-        "entry_count":       None,
-        "encrypted":         None,
-        "inner_files":       [],
-        "extracted_text":    "",
+        "kind": "archive",
+        "filename": filename,
+        "size_bytes": len(raw),
+        "archive_format": fmt,
+        "entries": [],
+        "entry_count": None,
+        "encrypted": None,
+        "inner_files": [],
+        "extracted_text": "",
         "extracted_text_chars": 0,
-        "extracted_urls":    [],
-        "notable_features":  ["uninspectable_archive"],
+        "extracted_urls": [],
+        "notable_features": ["uninspectable_archive"],
     }
 
 
@@ -405,7 +481,9 @@ def _strip_tags(html: str) -> str:
 _ICS_FIELDS = ("SUMMARY", "DESCRIPTION", "LOCATION", "URL", "ATTACH", "ORGANIZER", "X-ALT-DESC")
 
 
-def analyse_ics(raw: bytes, filename: str, extract_urls: Callable[[str], list[str]]) -> dict[str, Any]:
+def analyse_ics(
+    raw: bytes, filename: str, extract_urls: Callable[[str], list[str]]
+) -> dict[str, Any]:
     text = raw.decode("utf-8", errors="ignore")
     # RFC 5545 line unfolding: a line starting with a space continues the previous one.
     text = re.sub(r"\r?\n[ \t]", "", text)
@@ -428,12 +506,12 @@ def analyse_ics(raw: bytes, filename: str, extract_urls: Callable[[str], list[st
     if urls:
         flags.append("calendar_with_links")
     return {
-        "kind":              "calendar",
-        "filename":          filename,
-        "size_bytes":        len(raw),
-        "organizer":         organizer,
-        "extracted_text":    body,
+        "kind": "calendar",
+        "filename": filename,
+        "size_bytes": len(raw),
+        "organizer": organizer,
+        "extracted_text": body,
         "extracted_text_chars": len(body),
-        "extracted_urls":    urls,
-        "notable_features":  flags,
+        "extracted_urls": urls,
+        "notable_features": flags,
     }

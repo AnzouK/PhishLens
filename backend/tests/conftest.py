@@ -16,6 +16,7 @@ Hub...) probe for torch with ``importlib.util.find_spec`` or
 Hugging Face Hub is forced offline so importing the backend never
 downloads the Random Forest agents during the tests.
 """
+
 from __future__ import annotations
 
 import contextlib

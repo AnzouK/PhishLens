@@ -3,6 +3,7 @@ Tests for agent_io: the skops round trip of a Random Forest agent and
 the type allowlist that refuses anything outside scikit-learn / NumPy.
 Skipped when scikit-learn or skops is not installed (CI installs both).
 """
+
 from __future__ import annotations
 
 import pytest

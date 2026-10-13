@@ -7,6 +7,7 @@ trained models were trained on older mail: the callers below only use
 them where they are reliable (see url_agent and the headers_source rule
 in the API).
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,8 +20,22 @@ from settings import AGENTS_ALLOW_PICKLE, HF_AGENTS_REPO
 
 logger = logging.getLogger("phishlens.structured_agents")
 
-SUSPICIOUS_TLDS = {"zip", "review", "click", "country", "kim", "cricket",
-                   "science", "work", "party", "gq", "tk", "ml", "ga", "cf"}
+SUSPICIOUS_TLDS = {
+    "zip",
+    "review",
+    "click",
+    "country",
+    "kim",
+    "cricket",
+    "science",
+    "work",
+    "party",
+    "gq",
+    "tk",
+    "ml",
+    "ga",
+    "cf",
+}
 
 _URL_AGENT = None
 _METADATA_AGENT = None
@@ -30,10 +45,15 @@ _FEATURE_EXTRACT = None
 def _hf_fetch(filename: str) -> Path | None:
     try:
         from huggingface_hub import hf_hub_download
-        return Path(hf_hub_download(
-            repo_id=HF_AGENTS_REPO, filename=filename,
-            repo_type="model", local_dir="./agents",
-        ))
+
+        return Path(
+            hf_hub_download(
+                repo_id=HF_AGENTS_REPO,
+                filename=filename,
+                repo_type="model",
+                local_dir="./agents",
+            )
+        )
     except Exception as e:
         logger.info("%s not fetched from %s: %s", filename, HF_AGENTS_REPO, e)
         return None
@@ -50,9 +70,12 @@ def _resolve_agent_file(stem: str, env_var: str) -> Path | None:
     if AGENTS_ALLOW_PICKLE:
         path = _hf_fetch(f"{stem}.joblib")
         if path:
-            logger.warning("Loading %s with pickle: publish %s.skops "
-                           "(convert_agents_to_skops.py) and set AGENTS_ALLOW_PICKLE=0.",
-                           path.name, stem)
+            logger.warning(
+                "Loading %s with pickle: publish %s.skops "
+                "(convert_agents_to_skops.py) and set AGENTS_ALLOW_PICKLE=0.",
+                path.name,
+                stem,
+            )
         return path
     return None
 
@@ -60,6 +83,7 @@ def _resolve_agent_file(stem: str, env_var: str) -> Path | None:
 def _load_agent(agent, path: Path):
     if path.suffix == ".skops":
         import agent_io
+
         return agent_io.apply_state(agent, agent_io.load_skops_state(path))
     if not AGENTS_ALLOW_PICKLE:
         raise RuntimeError(f"{path.name} is a pickle file and AGENTS_ALLOW_PICKLE=0")
@@ -87,14 +111,20 @@ def url_heuristic(urls: list[str]) -> float:
     bad = 0.0
     for u in urls:
         score = 0.0
-        if u.startswith("http://"):                              score += 0.25
-        if re.match(r"https?://\d{1,3}(\.\d{1,3}){3}", u):       score += 0.40
-        if "@" in u.split("://", 1)[-1]:                         score += 0.35
-        if len(u) > 75:                                          score += 0.15
+        if u.startswith("http://"):
+            score += 0.25
+        if re.match(r"https?://\d{1,3}(\.\d{1,3}){3}", u):
+            score += 0.40
+        if "@" in u.split("://", 1)[-1]:
+            score += 0.35
+        if len(u) > 75:
+            score += 0.15
         host = u.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
         tld = host.rsplit(".", 1)[-1].lower()
-        if tld in SUSPICIOUS_TLDS:                               score += 0.30
-        if re.search(r"(login|verify|account|update|secure)", u, re.I): score += 0.10
+        if tld in SUSPICIOUS_TLDS:
+            score += 0.30
+        if re.search(r"(login|verify|account|update|secure)", u, re.I):
+            score += 0.10
         bad = max(bad, min(score, 1.0))
     return bad
 
@@ -125,7 +155,7 @@ def url_agent(urls: list[str], body_text: str = "") -> float:
         if _URL_AGENT is not None and _FEATURE_EXTRACT is not None:
             try:
                 feats = _FEATURE_EXTRACT.extract_url_features(body_text)
-                pred  = _URL_AGENT.get_prediction_with_confidence(feats)
+                pred = _URL_AGENT.get_prediction_with_confidence(feats)
                 score = float(pred["phishing_probability"])
             except Exception as e:
                 logger.warning("url_agent trained path failed (%s); rules used", e)
@@ -140,17 +170,19 @@ def metadata_agent(headers: dict[str, str], raw_email: bytes | None = None) -> f
     if _METADATA_AGENT is not None and _FEATURE_EXTRACT is not None and raw_email:
         try:
             feats = _FEATURE_EXTRACT.extract_metadata_features(raw_email)
-            pred  = _METADATA_AGENT.get_prediction_with_confidence(feats)
+            pred = _METADATA_AGENT.get_prediction_with_confidence(feats)
             return float(pred["phishing_probability"])
         except Exception as e:
             logger.warning("metadata_agent trained path failed (%s); rules used", e)
     score = 0.0
     sender = headers.get("from", "").lower()
     reply_to = headers.get("reply-to", "").lower()
+
     # Reply-To differs from From
     def domain(addr: str) -> str:
         m = re.search(r"@([^>\s]+)", addr)
         return m.group(1).lower() if m else ""
+
     if reply_to and domain(reply_to) and domain(reply_to) != domain(sender):
         score += 0.45
     # No DKIM / SPF / Authentication-Results
@@ -181,6 +213,7 @@ def load() -> None:
         from feature_extraction import FeatureExtractor
         from metadata_agent import MetadataAgent
         from url_agent import URLAgent
+
         _FEATURE_EXTRACT = FeatureExtractor()
         _URL_AGENT = _init_agent("url_agent", "URL_AGENT_PATH", URLAgent)
         _METADATA_AGENT = _init_agent("metadata_agent", "METADATA_AGENT_PATH", MetadataAgent)

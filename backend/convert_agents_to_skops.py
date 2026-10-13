@@ -18,6 +18,7 @@ before writing or uploading anything.
 HF_AGENTS_REPO. It is read from HF_TOKEN or asked interactively; it is
 never printed or stored.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -81,7 +82,9 @@ def upload(files: list[Path]) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--folder", default="agents", type=Path)
     ap.add_argument("--upload", action="store_true", help=f"publish the .skops files to {REPO}")
     args = ap.parse_args()

@@ -6,16 +6,31 @@ email or an attachment lives here and is unit-tested directly
 (tests/test_fusion.py). The constants come from settings.py; the trust
 paths are described in docs/architecture.md.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
-from settings import (ATTACHMENT_FEATURE_BONUS_MAX, ATTACHMENT_THRESHOLD,
-                      ATTACHMENT_TRUSTED_TEXT_FACTOR, ATTACHMENT_TRUSTED_THRESHOLD,
-                      GSB_URL_FLOOR, HIGH_CONF_OVERRIDE, PATH_CRYPTO, PATH_DEFAULT,
-                      PATH_INBOX_SOFT, PATH_OUTLOOK_INTERNAL, PATH_TRUSTED, REP_BLEND,
-                      URL_OVERRIDE_RULE_MIN, W_META, W_TEXT, W_URL, TrustPath)
+from settings import (
+    ATTACHMENT_FEATURE_BONUS_MAX,
+    ATTACHMENT_THRESHOLD,
+    ATTACHMENT_TRUSTED_TEXT_FACTOR,
+    ATTACHMENT_TRUSTED_THRESHOLD,
+    GSB_URL_FLOOR,
+    HIGH_CONF_OVERRIDE,
+    PATH_CRYPTO,
+    PATH_DEFAULT,
+    PATH_INBOX_SOFT,
+    PATH_OUTLOOK_INTERNAL,
+    PATH_TRUSTED,
+    REP_BLEND,
+    URL_OVERRIDE_RULE_MIN,
+    W_META,
+    W_TEXT,
+    W_URL,
+    TrustPath,
+)
 
 GSB = "google_safe_browsing"
 
@@ -26,6 +41,7 @@ GSB = "google_safe_browsing"
 @dataclass
 class Reputation:
     """What the URL reputation cascade said about the links."""
+
     verdicts: list[dict[str, Any]] = field(default_factory=list)
     max_score: float = 0.0
     sources: set[str] = field(default_factory=set)
@@ -81,8 +97,9 @@ class Verdict:
     trust_path: str
 
 
-def choose_trust_path(*, trusted_sender: bool, crypto_verified: bool,
-                      inbox_soft: bool, outlook_internal: bool) -> TrustPath:
+def choose_trust_path(
+    *, trusted_sender: bool, crypto_verified: bool, inbox_soft: bool, outlook_internal: bool
+) -> TrustPath:
     """trusted_sender > crypto_verified > Gmail inbox / Outlook internal > default."""
     if trusted_sender:
         return PATH_TRUSTED
@@ -93,8 +110,9 @@ def choose_trust_path(*, trusted_sender: bool, crypto_verified: bool,
     return PATH_DEFAULT
 
 
-def fuse(p_text: float, p_url: float, p_meta: float, *, text_used: bool,
-         text_factor: float = 1.0) -> float:
+def fuse(
+    p_text: float, p_url: float, p_meta: float, *, text_used: bool, text_factor: float = 1.0
+) -> float:
     """Weighted sum of the agents. Without usable text, the URL and
     metadata agents share the whole weight."""
     if text_used:
@@ -109,18 +127,32 @@ def url_confirmed(rep: Reputation, url_rule_score: float) -> bool:
     return rep.any_hit or url_rule_score >= URL_OVERRIDE_RULE_MIN
 
 
-def decide_email(p_text: float, p_url: float, p_meta: float, *, text_used: bool,
-                 path: TrustPath, rep: Reputation, url_rule_score: float) -> Verdict:
+def decide_email(
+    p_text: float,
+    p_url: float,
+    p_meta: float,
+    *,
+    text_used: bool,
+    path: TrustPath,
+    rep: Reputation,
+    url_rule_score: float,
+) -> Verdict:
     """Verdict for an email. On the softer paths only a Safe Browsing hit
     can force phishing; on the default path any confident agent can."""
     fused = fuse(p_text, p_url, p_meta, text_used=text_used, text_factor=path.text_factor)
     if path is PATH_DEFAULT:
-        high_conf = (max(p_text if text_used else 0.0, p_meta) >= HIGH_CONF_OVERRIDE
-                     or (p_url >= HIGH_CONF_OVERRIDE and url_confirmed(rep, url_rule_score)))
+        high_conf = max(p_text if text_used else 0.0, p_meta) >= HIGH_CONF_OVERRIDE or (
+            p_url >= HIGH_CONF_OVERRIDE and url_confirmed(rep, url_rule_score)
+        )
     else:
         high_conf = rep.gsb_hit
-    return Verdict(is_phishing=fused >= path.threshold or high_conf, fused=fused,
-                   threshold=path.threshold, high_conf=high_conf, trust_path=path.name)
+    return Verdict(
+        is_phishing=fused >= path.threshold or high_conf,
+        fused=fused,
+        threshold=path.threshold,
+        high_conf=high_conf,
+        trust_path=path.name,
+    )
 
 
 # ---------------------------------------------------------------------
@@ -136,31 +168,31 @@ FEATURE_RISK: dict[str, float] = {
     "launch_external_action": 0.35,
     "embeds_another_file": 0.20,
     "submits_form_to_url": 0.25,
-    "contains_link_annotation": 0.00,   # too common in legitimate PDFs
+    "contains_link_annotation": 0.00,  # too common in legitimate PDFs
     "remote_link_action": 0.10,
     "flash_or_richmedia": 0.15,
     # HTML
     "contains_form": 0.15,
-    "contains_password_field": 0.40,    # a login page as an attachment
+    "contains_password_field": 0.40,  # a login page as an attachment
     "contains_iframe": 0.10,
     "meta_refresh_redirect": 0.20,
     # Images and scanned PDFs
-    "image_only_pdf": 0.10,             # no text layer: evasion, or a real scan
-    "contains_qr_code": 0.20,           # quishing: the link hides from text scanners
-    "text_from_ocr": 0.00,              # informational
+    "image_only_pdf": 0.10,  # no text layer: evasion, or a real scan
+    "contains_qr_code": 0.20,  # quishing: the link hides from text scanners
+    "text_from_ocr": 0.00,  # informational
     # Office documents
     "contains_macros": 0.45,
-    "remote_template": 0.45,            # template injection
+    "remote_template": 0.45,  # template injection
     "dde_field": 0.40,
     "contains_activex": 0.25,
     "embedded_ole_object": 0.20,
     "external_data_connection": 0.20,
-    "encrypted_document": 0.30,         # the password in the email blinds scanners
+    "encrypted_document": 0.30,  # the password in the email blinds scanners
     "legacy_office_format": 0.10,
     "suspicious_xml_doctype": 0.20,
     # Archives, calendar invites, risky file types
-    "encrypted_archive": 0.35,          # scanners cannot open it
-    "uninspectable_archive": 0.20,      # RAR / 7z the server cannot open
+    "encrypted_archive": 0.35,  # scanners cannot open it
+    "uninspectable_archive": 0.20,  # RAR / 7z the server cannot open
     "inner_files_not_extracted": 0.10,
     "nested_archive": 0.10,
     "zip_bomb_suspected": 0.30,
@@ -175,17 +207,24 @@ FEATURE_RISK: dict[str, float] = {
 # Safe Browsing hit: an authenticated parent email says nothing about what
 # a macro or an executable does, and compromised accounts are how they
 # travel.
-DROPPER_FEATURES = frozenset({
-    "contains_macros", "remote_template", "dde_field",
-    "dangerous_file_type", "executable_in_archive", "script_in_archive",
-    "shortcut_in_archive", "double_extension",
-})
+DROPPER_FEATURES = frozenset(
+    {
+        "contains_macros",
+        "remote_template",
+        "dde_field",
+        "dangerous_file_type",
+        "executable_in_archive",
+        "script_in_archive",
+        "shortcut_in_archive",
+        "double_extension",
+    }
+)
 
 
 def attachment_feature_bonus(notable: list[str]) -> float:
     bonus = sum(FEATURE_RISK.get(f, 0.0) for f in notable)
     if "contains_form" in notable and "contains_password_field" in notable:
-        bonus += 0.10                   # a full login page
+        bonus += 0.10  # a full login page
     return min(bonus, ATTACHMENT_FEATURE_BONUS_MAX)
 
 
@@ -193,23 +232,39 @@ def dropper_techniques(notable: list[str]) -> list[str]:
     return sorted(set(notable) & DROPPER_FEATURES)
 
 
-def decide_attachment(p_text: float, p_url: float, *, feature_bonus: float,
-                      parent_trusted: bool, rep: Reputation, dropper: list[str],
-                      url_rule_score: float) -> Verdict:
+def decide_attachment(
+    p_text: float,
+    p_url: float,
+    *,
+    feature_bonus: float,
+    parent_trusted: bool,
+    rep: Reputation,
+    dropper: list[str],
+    url_rule_score: float,
+) -> Verdict:
     """Verdict for an attachment. An authenticated parent email softens
     the text agent (legitimate documents share phishing vocabulary),
     unless threat intelligence or a dropper technique says otherwise."""
     if parent_trusted and not rep.gsb_hit and not dropper:
-        fused = (ATTACHMENT_TRUSTED_TEXT_FACTOR * 0.5 * p_text + 0.5 * p_url + feature_bonus)
+        fused = ATTACHMENT_TRUSTED_TEXT_FACTOR * 0.5 * p_text + 0.5 * p_url + feature_bonus
         threshold = ATTACHMENT_TRUSTED_THRESHOLD
         high_conf = False
         path = "parent_trusted"
     else:
         fused = 0.5 * p_text + 0.5 * p_url + feature_bonus
         threshold = ATTACHMENT_THRESHOLD
-        high_conf = (rep.gsb_hit or bool(dropper) or p_text >= HIGH_CONF_OVERRIDE
-                     or (p_url >= HIGH_CONF_OVERRIDE and url_confirmed(rep, url_rule_score)))
+        high_conf = (
+            rep.gsb_hit
+            or bool(dropper)
+            or p_text >= HIGH_CONF_OVERRIDE
+            or (p_url >= HIGH_CONF_OVERRIDE and url_confirmed(rep, url_rule_score))
+        )
         path = "default"
     fused = min(1.0, fused)
-    return Verdict(is_phishing=fused >= threshold or high_conf, fused=fused,
-                   threshold=threshold, high_conf=high_conf, trust_path=path)
+    return Verdict(
+        is_phishing=fused >= threshold or high_conf,
+        fused=fused,
+        threshold=threshold,
+        high_conf=high_conf,
+        trust_path=path,
+    )

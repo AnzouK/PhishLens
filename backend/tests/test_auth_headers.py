@@ -3,6 +3,7 @@ Tests for auth_headers.parse_authentication_results and the derived
 alignment / crypto-verified logic. These are pure-function tests, no
 network, no I/O, so they run in ~10 ms.
 """
+
 from __future__ import annotations
 
 import sys
@@ -11,7 +12,7 @@ from pathlib import Path
 # Let the tests find the module without an install step
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from auth_headers import parse_authentication_results, _org_domain
+from auth_headers import _org_domain, parse_authentication_results
 
 
 # ---------------------------------------------------------------------
@@ -43,7 +44,6 @@ class TestOrgDomain:
 # Authentication-Results parsing
 # ---------------------------------------------------------------------
 class TestParseAuthResults:
-
     def test_no_header_present(self):
         v = parse_authentication_results({"from": "x@paypal.com"})
         assert v.header_present is False
@@ -53,12 +53,15 @@ class TestParseAuthResults:
     def test_legit_all_pass_aligned(self):
         # PayPal signs with @paypal.com, mailfrom @paypal.com,
         # header.from paypal.com: canonical happy path.
-        ar = ("mx.google.com; "
-              "dkim=pass header.i=@paypal.com header.s=s1; "
-              "spf=pass smtp.mailfrom=service@paypal.com; "
-              "dmarc=pass header.from=paypal.com")
-        v = parse_authentication_results({"from": "service@paypal.com",
-                                          "authentication-results": ar})
+        ar = (
+            "mx.google.com; "
+            "dkim=pass header.i=@paypal.com header.s=s1; "
+            "spf=pass smtp.mailfrom=service@paypal.com; "
+            "dmarc=pass header.from=paypal.com"
+        )
+        v = parse_authentication_results(
+            {"from": "service@paypal.com", "authentication-results": ar}
+        )
         assert v.spf == "pass"
         assert v.dkim == "pass"
         assert v.dmarc == "pass"
@@ -69,48 +72,52 @@ class TestParseAuthResults:
         # This is the case that broke the old static allowlist:
         # attacker DKIM-signs their own domain but puts From: paypal.com.
         # The alignment check must reject this.
-        ar = ("mx.google.com; "
-              "dkim=pass header.i=@attacker.tld header.s=x; "
-              "spf=pass smtp.mailfrom=noreply@attacker.tld; "
-              "dmarc=fail header.from=paypal.com")
-        v = parse_authentication_results({"from": "service@paypal.com",
-                                          "authentication-results": ar})
-        assert v.dkim == "pass"           # DKIM verdict itself is a "pass"…
-        assert v.aligned is False          # …but it aligns with attacker.tld, not paypal.com
+        ar = (
+            "mx.google.com; "
+            "dkim=pass header.i=@attacker.tld header.s=x; "
+            "spf=pass smtp.mailfrom=noreply@attacker.tld; "
+            "dmarc=fail header.from=paypal.com"
+        )
+        v = parse_authentication_results(
+            {"from": "service@paypal.com", "authentication-results": ar}
+        )
+        assert v.dkim == "pass"  # DKIM verdict itself is a "pass"…
+        assert v.aligned is False  # …but it aligns with attacker.tld, not paypal.com
         assert v.cryptographically_verified is False
 
     def test_subdomain_alignment(self):
         # DKIM signed by mail.paypal.com must count as aligned with
         # From: paypal.com: that's the organisational-domain rule.
-        ar = ("mx.google.com; "
-              "dkim=pass header.i=@mail.paypal.com; "
-              "spf=pass smtp.mailfrom=x@mail.paypal.com; "
-              "dmarc=pass header.from=paypal.com")
-        v = parse_authentication_results({"from": "service@paypal.com",
-                                          "authentication-results": ar})
+        ar = (
+            "mx.google.com; "
+            "dkim=pass header.i=@mail.paypal.com; "
+            "spf=pass smtp.mailfrom=x@mail.paypal.com; "
+            "dmarc=pass header.from=paypal.com"
+        )
+        v = parse_authentication_results(
+            {"from": "service@paypal.com", "authentication-results": ar}
+        )
         assert v.aligned is True
         assert v.cryptographically_verified is True
 
     def test_dkim_fail_disables_crypto_verified_even_when_spf_passes(self):
         # SPF passing on an aligned domain is not enough for
         # cryptographically_verified: DKIM is the crypto piece.
-        ar = ("mx.google.com; "
-              "spf=pass smtp.mailfrom=x@paypal.com; "
-              "dkim=fail header.i=@paypal.com; "
-              "dmarc=fail header.from=paypal.com")
-        v = parse_authentication_results({"from": "x@paypal.com",
-                                          "authentication-results": ar})
+        ar = (
+            "mx.google.com; "
+            "spf=pass smtp.mailfrom=x@paypal.com; "
+            "dkim=fail header.i=@paypal.com; "
+            "dmarc=fail header.from=paypal.com"
+        )
+        v = parse_authentication_results({"from": "x@paypal.com", "authentication-results": ar})
         assert v.cryptographically_verified is False
 
     def test_alignment_requires_pass_not_just_matching_domain(self):
         # A dmarc=fail with header.from=paypal.com must NOT count as
         # aligned even if the domains happen to match: the verdict is
         # what matters.
-        ar = ("mx.google.com; "
-              "dkim=none; spf=none; "
-              "dmarc=fail header.from=paypal.com")
-        v = parse_authentication_results({"from": "x@paypal.com",
-                                          "authentication-results": ar})
+        ar = "mx.google.com; dkim=none; spf=none; dmarc=fail header.from=paypal.com"
+        v = parse_authentication_results({"from": "x@paypal.com", "authentication-results": ar})
         assert v.aligned is False
 
 
@@ -136,9 +143,11 @@ class TestOrgDomainPublicSuffixes:
         assert _org_domain("example.ng") == "example.ng"
 
     def test_dkim_from_other_org_under_same_suffix_is_not_verified(self):
-        v = parse_authentication_results({
-            "from": "PayPal <service@paypal.co.uk>",
-            "authentication-results": "mx.google.com; dkim=pass header.i=@attacker.co.uk; "
-                                      "spf=pass smtp.mailfrom=attacker.co.uk",
-        })
+        v = parse_authentication_results(
+            {
+                "from": "PayPal <service@paypal.co.uk>",
+                "authentication-results": "mx.google.com; dkim=pass header.i=@attacker.co.uk; "
+                "spf=pass smtp.mailfrom=attacker.co.uk",
+            }
+        )
         assert v.aligned is False and v.cryptographically_verified is False

@@ -20,6 +20,7 @@ at most ``OCR_MAX_PAGES`` pages rendered, images downscaled so the long
 side is at most ``OCR_MAX_SIDE`` pixels, a Tesseract timeout per page,
 and Pillow's decompression-bomb guard.
 """
+
 from __future__ import annotations
 
 import io
@@ -93,7 +94,7 @@ def capabilities() -> dict[str, bool]:
 # ---------------------------------------------------------------------
 # Images
 # ---------------------------------------------------------------------
-def _downscale(img: "Image.Image") -> "Image.Image":
+def _downscale(img: Image.Image) -> Image.Image:
     w, h = img.size
     longest = max(w, h)
     if longest <= OCR_MAX_SIDE:
@@ -102,7 +103,7 @@ def _downscale(img: "Image.Image") -> "Image.Image":
     return img.resize((max(1, int(w * ratio)), max(1, int(h * ratio))))
 
 
-def load_image(raw: bytes) -> "Image.Image":
+def load_image(raw: bytes) -> Image.Image:
     """Decode image bytes into an RGB Pillow image, size-capped.
 
     Raises ValueError for undecodable or oversized (decompression bomb)
@@ -116,15 +117,15 @@ def load_image(raw: bytes) -> "Image.Image":
         img.seek(0)
         img.load()
     except Image.DecompressionBombError as e:  # type: ignore[attr-defined]
-        raise ValueError(f"Image is too large to analyse safely: {e}")
+        raise ValueError(f"Image is too large to analyse safely: {e}") from e
     except Exception as e:
-        raise ValueError(f"Unsupported or corrupt image: {e}")
+        raise ValueError(f"Unsupported or corrupt image: {e}") from e
     if img.mode not in ("RGB", "L"):
         img = img.convert("RGB")
     return _downscale(img)
 
 
-def ocr_image(img: "Image.Image") -> str:
+def ocr_image(img: Image.Image) -> str:
     """Tesseract OCR on one image. Returns '' when OCR is unavailable,
     times out, or finds nothing."""
     if not _TESSERACT_OK:
@@ -160,7 +161,7 @@ def _qr_payload_to_url(payload: str) -> str | None:
     return None
 
 
-def decode_qr(img: "Image.Image") -> list[str]:
+def decode_qr(img: Image.Image) -> list[str]:
     """Return the raw payloads of every QR code found in the image."""
     if not _CV2_OK:
         return []
@@ -197,7 +198,7 @@ def qr_urls(payloads: list[str]) -> list[str]:
 # ---------------------------------------------------------------------
 # PDF pages
 # ---------------------------------------------------------------------
-def render_pdf_pages(raw: bytes, max_pages: int = OCR_MAX_PAGES) -> list["Image.Image"]:
+def render_pdf_pages(raw: bytes, max_pages: int = OCR_MAX_PAGES) -> list[Image.Image]:
     """Render the first ``max_pages`` pages of a PDF to Pillow images.
 
     The scale is chosen per page so that the long side never exceeds
@@ -232,7 +233,7 @@ def render_pdf_pages(raw: bytes, max_pages: int = OCR_MAX_PAGES) -> list["Image.
     return images
 
 
-def scan_images(images: list["Image.Image"], do_ocr: bool) -> dict[str, Any]:
+def scan_images(images: list[Image.Image], do_ocr: bool) -> dict[str, Any]:
     """OCR (optional) and QR decoding over a list of page images."""
     texts, payloads = [], []
     for img in images:

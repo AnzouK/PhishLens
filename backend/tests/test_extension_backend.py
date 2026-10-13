@@ -10,6 +10,7 @@ logic we want to pin: request parsing, the heuristic agents, the trust
 paths (trusted sender / crypto verified / Gmail inbox soft / default),
 and the attachment scoring rules.
 """
+
 from __future__ import annotations
 
 import base64
@@ -17,7 +18,7 @@ import base64
 import pytest
 
 pytest.importorskip("fastapi")
-pytest.importorskip("httpx")          # TestClient transport
+pytest.importorskip("httpx")  # TestClient transport
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -83,8 +84,10 @@ class TestHelpers:
         assert eb._verdict_label(0.49) == "Safe"
 
     def test_parse_eml_extracts_body_urls_headers(self):
-        raw = (b"From: a@b.com\r\nSubject: hi\r\nContent-Type: text/plain\r\n\r\n"
-               b"see https://example.com/x please")
+        raw = (
+            b"From: a@b.com\r\nSubject: hi\r\nContent-Type: text/plain\r\n\r\n"
+            b"see https://example.com/x please"
+        )
         body, urls, headers = ep.parse_eml(raw)
         assert "please" in body
         assert urls == ["https://example.com/x"]
@@ -125,6 +128,7 @@ class TestHeuristicAgents:
         class AlwaysPhishy:
             def get_prediction_with_confidence(self, _feats):
                 return {"phishing_probability": 0.9}
+
         monkeypatch.setattr(sa, "_URL_AGENT", AlwaysPhishy())
         monkeypatch.setattr(sa, "_FEATURE_EXTRACT", object())
         assert sa.url_agent([], body_text="Meeting moved to 3pm.") == pytest.approx(0.05)
@@ -137,6 +141,7 @@ class TestHeuristicAgents:
         class NoFeatures:
             def extract_url_features(self, _text):
                 return {}
+
         monkeypatch.setattr(sa, "_URL_AGENT", AlwaysPhishy())
         monkeypatch.setattr(sa, "_FEATURE_EXTRACT", NoFeatures())
         r = client.post("/analyse", json={"raw_text": "Hi team, the meeting moved to 3pm."})
@@ -152,14 +157,16 @@ class TestHeuristicAgents:
 
     def test_metadata_real_brand_not_penalised(self, monkeypatch):
         monkeypatch.setattr(sa, "_METADATA_AGENT", None)
-        score = sa.metadata_agent({"from": "PayPal <service@paypal.com>",
-                                   "authentication-results": "spf=pass"})
+        score = sa.metadata_agent(
+            {"from": "PayPal <service@paypal.com>", "authentication-results": "spf=pass"}
+        )
         assert score == pytest.approx(0.0)
 
     def test_metadata_reply_to_mismatch(self, monkeypatch):
         monkeypatch.setattr(sa, "_METADATA_AGENT", None)
-        score = sa.metadata_agent({"from": "a@x.com", "reply-to": "b@y.com",
-                                   "authentication-results": "spf=pass"})
+        score = sa.metadata_agent(
+            {"from": "a@x.com", "reply-to": "b@y.com", "authentication-results": "spf=pass"}
+        )
         assert score == pytest.approx(0.45)
 
     def test_metadata_huge_from_header_is_fast(self, monkeypatch):
@@ -194,14 +201,20 @@ class TestLimitsAndErrors:
         assert r.status_code == 422
 
     def test_declared_huge_body_is_refused_before_parsing(self, client):
-        r = client.post("/analyse", content=b"{}",
-                        headers={"content-type": "application/json",
-                                 "content-length": str(eb.MAX_BODY_BYTES + 1)})
+        r = client.post(
+            "/analyse",
+            content=b"{}",
+            headers={
+                "content-type": "application/json",
+                "content-length": str(eb.MAX_BODY_BYTES + 1),
+            },
+        )
         assert r.status_code == 413
 
     def test_internal_error_details_are_not_returned(self, client, monkeypatch):
         def boom(_body):
             raise RuntimeError("secret internal path /home/user/app/model")
+
         monkeypatch.setattr(tm, "text_agent", boom)
         r = client.post("/analyse", json={"raw_text": "Hello there, see you tomorrow."})
         assert r.status_code == 500
@@ -246,11 +259,14 @@ class TestAnalyse:
 
     def test_trusted_sender_softens_text_agent(self, client, monkeypatch):
         text_score(monkeypatch, 0.97)
-        r = client.post("/analyse", json={
-            "raw_text": "Your debit alert. Verify your account balance.",
-            "sender_email": "alerts@gtbank.com",
-            "client_context": {"origin": "gmail", "gmail_signed_by": "gtbank.com"},
-        })
+        r = client.post(
+            "/analyse",
+            json={
+                "raw_text": "Your debit alert. Verify your account balance.",
+                "sender_email": "alerts@gtbank.com",
+                "client_context": {"origin": "gmail", "gmail_signed_by": "gtbank.com"},
+            },
+        )
         j = r.json()
         assert j["trusted_sender"] is True
         assert j["sender_domain"] == "gtbank.com"
@@ -261,21 +277,27 @@ class TestAnalyse:
         # Audit H1 (v1.16): the From: text alone used to unlock the
         # allowlist, so a forged bank address got the softest path.
         text_score(monkeypatch, 0.97)
-        j = client.post("/analyse", json={
-            "raw_text": "Your debit alert. Verify your account balance.",
-            "sender_email": "alerts@gtbank.com",
-        }).json()
+        j = client.post(
+            "/analyse",
+            json={
+                "raw_text": "Your debit alert. Verify your account balance.",
+                "sender_email": "alerts@gtbank.com",
+            },
+        ).json()
         assert j["trusted_sender"] is False
         assert j["trust_path"] == "default"
         assert j["verdict"] == "phishing"
 
     def test_allowlist_needs_aligned_signature(self, client, monkeypatch):
         text_score(monkeypatch, 0.97)
-        j = client.post("/analyse", json={
-            "raw_text": "Your debit alert. Verify your account balance.",
-            "sender_email": "alerts@gtbank.com",
-            "client_context": {"origin": "gmail", "gmail_signed_by": "attacker.example"},
-        }).json()
+        j = client.post(
+            "/analyse",
+            json={
+                "raw_text": "Your debit alert. Verify your account balance.",
+                "sender_email": "alerts@gtbank.com",
+                "client_context": {"origin": "gmail", "gmail_signed_by": "attacker.example"},
+            },
+        ).json()
         assert j["trusted_sender"] is False
         assert j["verdict"] == "phishing"
 
@@ -286,19 +308,30 @@ class TestAnalyse:
         import types
 
         async def fake_check_urls(urls):
-            return [{"url": u, "malicious": True, "score": 1.0,
-                     "sources": ["google_safe_browsing"],
-                     "threat_types": ["SOCIAL_ENGINEERING"]} for u in urls]
+            return [
+                {
+                    "url": u,
+                    "malicious": True,
+                    "score": 1.0,
+                    "sources": ["google_safe_browsing"],
+                    "threat_types": ["SOCIAL_ENGINEERING"],
+                }
+                for u in urls
+            ]
+
         monkeypatch.setattr(eb, "_REPUTATION_AVAILABLE", True)
-        monkeypatch.setattr(eb, "_reputation",
-                            types.SimpleNamespace(check_urls=fake_check_urls),
-                            raising=False)
+        monkeypatch.setattr(
+            eb, "_reputation", types.SimpleNamespace(check_urls=fake_check_urls), raising=False
+        )
         text_score(monkeypatch, 0.10)
-        r = client.post("/analyse", json={
-            "raw_text": "Your statement: https://gtbank-secure.example/login",
-            "sender_email": "alerts@gtbank.com",
-            "client_context": {"origin": "gmail", "gmail_signed_by": "gtbank.com"},
-        })
+        r = client.post(
+            "/analyse",
+            json={
+                "raw_text": "Your statement: https://gtbank-secure.example/login",
+                "sender_email": "alerts@gtbank.com",
+                "client_context": {"origin": "gmail", "gmail_signed_by": "gtbank.com"},
+            },
+        )
         j = r.json()
         assert j["trust_path"] == "trusted_sender"
         assert j["url_reputation"]["sources_hit"] == ["google_safe_browsing"]
@@ -306,11 +339,14 @@ class TestAnalyse:
 
     def test_gmail_inbox_soft_path(self, client, monkeypatch):
         text_score(monkeypatch, 0.90)
-        r = client.post("/analyse", json={
-            "raw_text": "Please confirm your email address to continue.",
-            "sender_email": "hello@unknownco.com",
-            "client_context": {"origin": "gmail", "gmail_in_inbox": True},
-        })
+        r = client.post(
+            "/analyse",
+            json={
+                "raw_text": "Please confirm your email address to continue.",
+                "sender_email": "hello@unknownco.com",
+                "client_context": {"origin": "gmail", "gmail_in_inbox": True},
+            },
+        )
         j = r.json()
         assert j["sender_auth"]["gmail_inbox_soft_verified"] is True
         assert j["trust_path"] == "gmail_inbox_soft"
@@ -318,22 +354,30 @@ class TestAnalyse:
 
     def test_same_text_without_gmail_context_is_phishing(self, client, monkeypatch):
         text_score(monkeypatch, 0.90)
-        r = client.post("/analyse", json={
-            "raw_text": "Please confirm your email address to continue.",
-            "sender_email": "hello@unknownco.com",
-        })
+        r = client.post(
+            "/analyse",
+            json={
+                "raw_text": "Please confirm your email address to continue.",
+                "sender_email": "hello@unknownco.com",
+            },
+        )
         assert r.json()["verdict"] == "phishing"
 
     def test_crypto_verified_path(self, client, monkeypatch):
         text_score(monkeypatch, 0.90)
-        r = client.post("/analyse", json={
-            "raw_text": "Your statement is ready.",
-            # not in TRUSTED_DOMAINS, so only the DKIM alignment can save it
-            "sender_email": "billing@acme-corp.io",
-            "client_context": {"origin": "gmail",
-                               "gmail_signed_by": "acme-corp.io",
-                               "gmail_mailed_by": "mail.acme-corp.io"},
-        })
+        r = client.post(
+            "/analyse",
+            json={
+                "raw_text": "Your statement is ready.",
+                # not in TRUSTED_DOMAINS, so only the DKIM alignment can save it
+                "sender_email": "billing@acme-corp.io",
+                "client_context": {
+                    "origin": "gmail",
+                    "gmail_signed_by": "acme-corp.io",
+                    "gmail_mailed_by": "mail.acme-corp.io",
+                },
+            },
+        )
         j = r.json()
         assert j["sender_auth"]["cryptographically_verified"] is True
         assert j["trust_path"] == "crypto_verified"
@@ -360,22 +404,31 @@ class TestAnalyse:
 # ---------------------------------------------------------------------
 # /analyse_attachment
 # ---------------------------------------------------------------------
-LOGIN_PAGE = (b"<html><body><form action='http://attacker.tld/login'>"
-              b"<input type='password' name='p'></form></body></html>")
+LOGIN_PAGE = (
+    b"<html><body><form action='http://attacker.tld/login'>"
+    b"<input type='password' name='p'></form></body></html>"
+)
 NOTES_PAGE = b"<html><body><p>Minutes of the board meeting, action items below.</p></body></html>"
 
 
 class TestAnalyseAttachment:
     def test_unsupported_type_is_400(self, client):
-        r = client.post("/analyse_attachment", json={
-            "content_b64": b64(b"PK\x03\x04garbage"), "filename": "x.docx"})
+        r = client.post(
+            "/analyse_attachment",
+            json={"content_b64": b64(b"PK\x03\x04garbage"), "filename": "x.docx"},
+        )
         assert r.status_code == 400
 
     def test_html_login_page_is_phishing(self, client, monkeypatch):
         text_score(monkeypatch, 0.10)
-        r = client.post("/analyse_attachment", json={
-            "content_b64": b64(LOGIN_PAGE), "filename": "invoice.html",
-            "mime_type": "text/html"})
+        r = client.post(
+            "/analyse_attachment",
+            json={
+                "content_b64": b64(LOGIN_PAGE),
+                "filename": "invoice.html",
+                "mime_type": "text/html",
+            },
+        )
         assert r.status_code == 200
         j = r.json()
         assert j["verdict"] == "phishing"
@@ -383,39 +436,55 @@ class TestAnalyseAttachment:
 
     def test_trusted_parent_does_not_hide_login_page(self, client, monkeypatch):
         text_score(monkeypatch, 0.10)
-        r = client.post("/analyse_attachment", json={
-            "content_b64": b64(LOGIN_PAGE), "filename": "invoice.html",
-            "mime_type": "text/html",
-            "parent_email": {"gmail_delivered": True}})
+        r = client.post(
+            "/analyse_attachment",
+            json={
+                "content_b64": b64(LOGIN_PAGE),
+                "filename": "invoice.html",
+                "mime_type": "text/html",
+                "parent_email": {"gmail_delivered": True},
+            },
+        )
         j = r.json()
         assert j["parent_trusted"] is True
         assert j["verdict"] == "phishing"
 
     def test_trusted_parent_absorbs_text_false_positive(self, client, monkeypatch):
         text_score(monkeypatch, 0.90)
-        payload = {"content_b64": b64(NOTES_PAGE), "filename": "notes.html",
-                   "mime_type": "text/html"}
+        payload = {
+            "content_b64": b64(NOTES_PAGE),
+            "filename": "notes.html",
+            "mime_type": "text/html",
+        }
         untrusted = client.post("/analyse_attachment", json=payload).json()
-        trusted = client.post("/analyse_attachment", json={
-            **payload, "parent_email": {"gmail_delivered": True}}).json()
+        trusted = client.post(
+            "/analyse_attachment", json={**payload, "parent_email": {"gmail_delivered": True}}
+        ).json()
         assert untrusted["verdict"] == "phishing"
         assert trusted["verdict"] == "safe"
-
 
     def test_macro_document_forces_phishing_even_from_trusted_parent(self, client, monkeypatch):
         import io
         import zipfile
+
         text_score(monkeypatch, 0.05)
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as z:
             z.writestr("[Content_Types].xml", "<Types/>")
-            z.writestr("word/document.xml",
-                       '<w:document xmlns:w="x"><w:body><w:p><w:r><w:t>Enable content</w:t>'
-                       '</w:r></w:p></w:body></w:document>')
+            z.writestr(
+                "word/document.xml",
+                '<w:document xmlns:w="x"><w:body><w:p><w:r><w:t>Enable content</w:t>'
+                "</w:r></w:p></w:body></w:document>",
+            )
             z.writestr("word/vbaProject.bin", b"x")
-        r = client.post("/analyse_attachment", json={
-            "content_b64": b64(buf.getvalue()), "filename": "invoice.docm",
-            "parent_email": {"gmail_delivered": True}})
+        r = client.post(
+            "/analyse_attachment",
+            json={
+                "content_b64": b64(buf.getvalue()),
+                "filename": "invoice.docm",
+                "parent_email": {"gmail_delivered": True},
+            },
+        )
         assert r.status_code == 200
         j = r.json()
         assert j["attachment"]["dropper_techniques"] == ["contains_macros"]
@@ -441,15 +510,23 @@ class TestLinkUrls:
     def test_merge_filters_and_dedupes(self):
         out = ep.merge_link_urls(
             ["https://a.example/x"],
-            ["https://a.example/x", "javascript:alert(1)", "mailto:x@y.z",
-             42, "http://b.example/" + "p" * 3000, " https://c.example/login "],
+            [
+                "https://a.example/x",
+                "javascript:alert(1)",
+                "mailto:x@y.z",
+                42,
+                "http://b.example/" + "p" * 3000,
+                " https://c.example/login ",
+            ],
         )
         assert out == ["https://a.example/x", "https://c.example/login"]
 
     def test_merge_caps_and_ignores_non_lists(self):
         many = [f"https://h{i}.example/" for i in range(200)]
         assert len(ep.merge_link_urls([], many)) == eb.MAX_LINK_URLS
-        assert ep.merge_link_urls(["https://a.example/"], "https://b.example/") == ["https://a.example/"]
+        assert ep.merge_link_urls(["https://a.example/"], "https://b.example/") == [
+            "https://a.example/"
+        ]
 
     def test_hidden_link_reaches_url_agent(self, client, monkeypatch):
         seen = {}
@@ -457,12 +534,18 @@ class TestLinkUrls:
         def fake_url_agent(urls, body_text=""):
             seen["urls"] = list(urls)
             return 0.0
+
         monkeypatch.setattr(sa, "url_agent", fake_url_agent)
-        client.post("/analyse", json={
-            "raw_text": "Your parcel is waiting. Click here to schedule delivery.",
-            "client_context": {"origin": "gmail",
-                               "link_urls": ["https://parcel-redelivery.example/track"]},
-        })
+        client.post(
+            "/analyse",
+            json={
+                "raw_text": "Your parcel is waiting. Click here to schedule delivery.",
+                "client_context": {
+                    "origin": "gmail",
+                    "link_urls": ["https://parcel-redelivery.example/track"],
+                },
+            },
+        )
         assert seen["urls"] == ["https://parcel-redelivery.example/track"]
 
 
@@ -473,49 +556,73 @@ class TestLinkUrls:
 class TestV114:
     def test_forwarded_from_trusted_sender_gets_no_discount(self, client, monkeypatch):
         text_score(monkeypatch, 0.95)
-        body = ("FYI, is this real?\n\n---------- Forwarded message ---------\n"
-                "From: GTBank <alerts@gtbank-secure.xyz>\n"
-                "Your account is suspended, verify your identity immediately.")
-        j = client.post("/analyse", json={
-            "raw_text": body, "sender_email": "colleague@gtbank.com",
-            "client_context": {"origin": "gmail", "gmail_in_inbox": True},
-        }).json()
+        body = (
+            "FYI, is this real?\n\n---------- Forwarded message ---------\n"
+            "From: GTBank <alerts@gtbank-secure.xyz>\n"
+            "Your account is suspended, verify your identity immediately."
+        )
+        j = client.post(
+            "/analyse",
+            json={
+                "raw_text": body,
+                "sender_email": "colleague@gtbank.com",
+                "client_context": {"origin": "gmail", "gmail_in_inbox": True},
+            },
+        ).json()
         assert j["forwarded"] == {"detected": True, "original_sender": "alerts@gtbank-secure.xyz"}
         assert j["trust_path"] == "default"
         assert j["trusted_sender"] is False
         assert j["verdict"] == "phishing"
 
     def test_detect_forwarded_variants(self):
-        assert ep.detect_forwarded("-------- Message transféré --------\nDe : <a@b.fr>")["original_sender"] == "a@b.fr"
+        assert (
+            ep.detect_forwarded("-------- Message transféré --------\nDe : <a@b.fr>")[
+                "original_sender"
+            ]
+            == "a@b.fr"
+        )
         assert ep.detect_forwarded("Begin forwarded message:\n\nFrom: x@y.io")["detected"]
         assert ep.detect_forwarded("hello", "TR: facture")["detected"]
         assert not ep.detect_forwarded("hello", "Re: meeting")["detected"]
 
     def test_short_text_is_left_out_of_fusion(self, client, monkeypatch):
-        text_score(monkeypatch, 0.99)          # would trigger the override alone
+        text_score(monkeypatch, 0.99)  # would trigger the override alone
         j = client.post("/analyse", json={"raw_text": "Invoice attached"}).json()
         assert j["text_agent_used"] is False
         assert j["high_confidence_override"] is False
         assert j["verdict"] == "safe"
 
     def test_shared_links_reported(self, client):
-        j = client.post("/analyse", json={
-            "raw_text": "Please review the document I shared with you today, thanks.",
-            "client_context": {"link_urls": ["https://docs.google.com/forms/d/e/x/viewform",
-                                             "https://www.dropbox.com/s/abc/file.pdf"]},
-        }).json()
+        j = client.post(
+            "/analyse",
+            json={
+                "raw_text": "Please review the document I shared with you today, thanks.",
+                "client_context": {
+                    "link_urls": [
+                        "https://docs.google.com/forms/d/e/x/viewform",
+                        "https://www.dropbox.com/s/abc/file.pdf",
+                    ]
+                },
+            },
+        ).json()
         assert j["shared_links"]["services"] == ["Google Forms", "Dropbox"]
 
     def test_encrypted_zip_scored(self, client, monkeypatch):
         import io
         import zipfile
+
         text_score(monkeypatch, 0.05)
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as z:
             z.writestr("run.js", "x")
-        j = client.post("/analyse_attachment", json={
-            "content_b64": b64(buf.getvalue()), "filename": "invoice.zip",
-            "parent_email": {"gmail_delivered": True}}).json()
+        j = client.post(
+            "/analyse_attachment",
+            json={
+                "content_b64": b64(buf.getvalue()),
+                "filename": "invoice.zip",
+                "parent_email": {"gmail_delivered": True},
+            },
+        ).json()
         assert j["attachment"]["kind"] == "archive"
         assert j["attachment"]["dropper_techniques"] == ["script_in_archive"]
         assert j["verdict"] == "phishing"
@@ -527,19 +634,23 @@ def test_forwarded_sender_parsing_is_bounded():
 
 
 def test_eml_html_href_targets_are_extracted():
-    eml = (b"From: a@b.co\r\nSubject: hi\r\nMIME-Version: 1.0\r\n"
-           b"Content-Type: multipart/alternative; boundary=X\r\n\r\n"
-           b"--X\r\nContent-Type: text/plain\r\n\r\nClick here to verify\r\n"
-           b"--X\r\nContent-Type: text/html\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n"
-           b"<a href=3D\"https://evil.example/login\">Click here</a>\r\n--X--\r\n")
+    eml = (
+        b"From: a@b.co\r\nSubject: hi\r\nMIME-Version: 1.0\r\n"
+        b"Content-Type: multipart/alternative; boundary=X\r\n\r\n"
+        b"--X\r\nContent-Type: text/plain\r\n\r\nClick here to verify\r\n"
+        b"--X\r\nContent-Type: text/html\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n"
+        b'<a href=3D"https://evil.example/login">Click here</a>\r\n--X--\r\n'
+    )
     _body, urls, _headers = ep.parse_eml(eml)
     assert urls == ["https://evil.example/login"]
 
 
 def test_html_to_text_drops_css_and_scripts():
-    html = ('<html><head><style>.itinerarytable{font:25px roboto}</style></head>'
-            '<body><h1 class="heading">Your flight</h1><p>Check &amp; confirm</p>'
-            '<script>var x = 1</script></body></html>')
+    html = (
+        "<html><head><style>.itinerarytable{font:25px roboto}</style></head>"
+        '<body><h1 class="heading">Your flight</h1><p>Check &amp; confirm</p>'
+        "<script>var x = 1</script></body></html>"
+    )
     text = ep.html_to_text(html)
     assert "Your flight" in text and "Check & confirm" in text
     for noise in ("25px", "roboto", "itinerarytable", "var x"):
@@ -547,9 +658,11 @@ def test_html_to_text_drops_css_and_scripts():
 
 
 class TestShowOriginal:
-    EML = (b"From: Bank <alerts@bank.example>\r\nSubject: Statement ready\r\n"
-           b"Authentication-Results: mx.google.com; dkim=pass header.i=@bank.example\r\n"
-           b"Content-Type: text/plain\r\n\r\nYour monthly statement is ready to view online.\r\n")
+    EML = (
+        b"From: Bank <alerts@bank.example>\r\nSubject: Statement ready\r\n"
+        b"Authentication-Results: mx.google.com; dkim=pass header.i=@bank.example\r\n"
+        b"Content-Type: text/plain\r\n\r\nYour monthly statement is ready to view online.\r\n"
+    )
 
     def test_trained_meta_model_skipped_for_gmail_show_original(self, client, monkeypatch):
         calls = []
@@ -557,17 +670,25 @@ class TestShowOriginal:
         def fake_meta(headers, raw_email=None):
             calls.append(raw_email)
             return 0.1
+
         monkeypatch.setattr(sa, "metadata_agent", fake_meta)
         client.post("/analyse", json={"raw_email_b64": b64(self.EML)})
-        client.post("/analyse", json={"raw_email_b64": b64(self.EML),
-                                      "client_context": {"origin": "gmail", "headers_source": "gmail_show_original"}})
+        client.post(
+            "/analyse",
+            json={
+                "raw_email_b64": b64(self.EML),
+                "client_context": {"origin": "gmail", "headers_source": "gmail_show_original"},
+            },
+        )
         assert calls[0] is not None and calls[1] is None
 
     def test_attachment_only_eml_is_scored(self, client):
-        eml = (b"From: a@b.example\r\nSubject: Invoice\r\nMIME-Version: 1.0\r\n"
-               b"Content-Type: multipart/mixed; boundary=X\r\n\r\n--X\r\n"
-               b"Content-Type: application/pdf\r\nContent-Disposition: attachment; filename=a.pdf\r\n\r\n"
-               b"--X--\r\n")
+        eml = (
+            b"From: a@b.example\r\nSubject: Invoice\r\nMIME-Version: 1.0\r\n"
+            b"Content-Type: multipart/mixed; boundary=X\r\n\r\n--X\r\n"
+            b"Content-Type: application/pdf\r\nContent-Disposition: attachment; filename=a.pdf\r\n\r\n"
+            b"--X--\r\n"
+        )
         r = client.post("/analyse", json={"raw_email_b64": b64(eml)})
         assert r.status_code == 200
         assert r.json()["text_agent_used"] is False
@@ -583,6 +704,7 @@ class TestV115Scoring:
             @staticmethod
             def extract_url_features(text):
                 return {}
+
         monkeypatch.setattr(sa, "_URL_AGENT", RF())
         monkeypatch.setattr(sa, "_FEATURE_EXTRACT", FX())
         text = "Your CI run failed. View results."
@@ -599,19 +721,25 @@ class TestV115Scoring:
         def fake_text(body):
             seen["body"] = body
             return 0.1
+
         monkeypatch.setattr(tm, "text_agent", fake_text)
-        eml = (b"From: a@b.example\r\nSubject: CI\r\nContent-Type: text/plain\r\n\r\n"
-               b"View results: https://github.com/x/y/actions/runs/1\r\n")
-        client.post("/analyse", json={"raw_email_b64": b64(eml),
-                                      "raw_text": "Run failed. View results"})
+        eml = (
+            b"From: a@b.example\r\nSubject: CI\r\nContent-Type: text/plain\r\n\r\n"
+            b"View results: https://github.com/x/y/actions/runs/1\r\n"
+        )
+        client.post(
+            "/analyse", json={"raw_email_b64": b64(eml), "raw_text": "Run failed. View results"}
+        )
         assert seen["body"] == "Run failed. View results"
 
     def test_eml_prefers_rendered_html_part(self):
-        eml = (b"From: a@b.co\r\nSubject: CI\r\nMIME-Version: 1.0\r\n"
-               b"Content-Type: multipart/alternative; boundary=X\r\n\r\n"
-               b"--X\r\nContent-Type: text/plain\r\n\r\nView results: https://github.com/x/y/actions/runs/1\r\n"
-               b"--X\r\nContent-Type: text/html\r\n\r\n<p>Run failed. <a href=\"https://github.com/x/y/actions/runs/1\">View results</a></p>\r\n"
-               b"--X--\r\n")
+        eml = (
+            b"From: a@b.co\r\nSubject: CI\r\nMIME-Version: 1.0\r\n"
+            b"Content-Type: multipart/alternative; boundary=X\r\n\r\n"
+            b"--X\r\nContent-Type: text/plain\r\n\r\nView results: https://github.com/x/y/actions/runs/1\r\n"
+            b'--X\r\nContent-Type: text/html\r\n\r\n<p>Run failed. <a href="https://github.com/x/y/actions/runs/1">View results</a></p>\r\n'
+            b"--X--\r\n"
+        )
         body, urls, _h = ep.parse_eml(eml)
         assert body == "Run failed. View results"
         assert urls == ["https://github.com/x/y/actions/runs/1"]
@@ -624,16 +752,24 @@ class TestUrlOverrideNeedsConfirmation:
     def test_clean_link_alone_does_not_force_phishing(self, client, monkeypatch):
         text_score(monkeypatch, 0.10)
         self._rf(monkeypatch, 0.95)
-        j = client.post("/analyse", json={
-            "raw_text": "The agenda for Monday is at https://github.com/AnzouK/PhishLens/wiki today."}).json()
+        j = client.post(
+            "/analyse",
+            json={
+                "raw_text": "The agenda for Monday is at https://github.com/AnzouK/PhishLens/wiki today."
+            },
+        ).json()
         assert j["high_confidence_override"] is False
         assert j["verdict"] == "safe"
 
     def test_risky_link_still_forces_phishing(self, client, monkeypatch):
         text_score(monkeypatch, 0.10)
         self._rf(monkeypatch, 0.95)
-        j = client.post("/analyse", json={
-            "raw_text": "Please confirm your details at http://192.168.10.5/login before Monday."}).json()
+        j = client.post(
+            "/analyse",
+            json={
+                "raw_text": "Please confirm your details at http://192.168.10.5/login before Monday."
+            },
+        ).json()
         assert j["high_confidence_override"] is True
         assert j["verdict"] == "phishing"
 
@@ -643,30 +779,63 @@ class TestOutlookInternal:
 
     def test_internal_sender_from_trusted_org(self, client, monkeypatch):
         text_score(monkeypatch, 0.99)
-        j = client.post("/analyse", json={"raw_text": self.BODY, "client_context": {
-            "origin": "outlook", "outlook_internal": True, "org_domain": "gtbank.com"}}).json()
+        j = client.post(
+            "/analyse",
+            json={
+                "raw_text": self.BODY,
+                "client_context": {
+                    "origin": "outlook",
+                    "outlook_internal": True,
+                    "org_domain": "gtbank.com",
+                },
+            },
+        ).json()
         assert j["trust_path"] == "trusted_sender"
         assert j["verdict"] == "safe"
 
     def test_internal_sender_soft_path(self, client, monkeypatch):
         text_score(monkeypatch, 0.99)
-        j = client.post("/analyse", json={"raw_text": self.BODY, "client_context": {
-            "origin": "outlook", "outlook_internal": True, "org_domain": "example-university.edu"}}).json()
+        j = client.post(
+            "/analyse",
+            json={
+                "raw_text": self.BODY,
+                "client_context": {
+                    "origin": "outlook",
+                    "outlook_internal": True,
+                    "org_domain": "example-university.edu",
+                },
+            },
+        ).json()
         assert j["trust_path"] == "outlook_internal"
         assert j["sender_auth"]["outlook_internal"] is True
         assert j["verdict"] == "safe"
 
     def test_outlook_external_unknown_gets_no_discount(self, client, monkeypatch):
         text_score(monkeypatch, 0.99)
-        j = client.post("/analyse", json={"raw_text": self.BODY, "sender_email": "x@unknown.example",
-                                          "client_context": {"origin": "outlook"}}).json()
+        j = client.post(
+            "/analyse",
+            json={
+                "raw_text": self.BODY,
+                "sender_email": "x@unknown.example",
+                "client_context": {"origin": "outlook"},
+            },
+        ).json()
         assert j["trust_path"] == "default"
         assert j["verdict"] == "phishing"
 
     def test_bad_org_domain_ignored(self, client, monkeypatch):
         text_score(monkeypatch, 0.10)
-        j = client.post("/analyse", json={"raw_text": self.BODY, "client_context": {
-            "origin": "outlook", "outlook_internal": True, "org_domain": "not a domain"}}).json()
+        j = client.post(
+            "/analyse",
+            json={
+                "raw_text": self.BODY,
+                "client_context": {
+                    "origin": "outlook",
+                    "outlook_internal": True,
+                    "org_domain": "not a domain",
+                },
+            },
+        ).json()
         assert j["sender_domain"] is None
 
 
@@ -697,8 +866,10 @@ class TestResultCache:
     def test_auto_scan_flag_shares_the_entry(self, client):
         ctx = {"origin": "gmail", "auto_scan": True}
         client.post("/analyse", json={"raw_text": self.BODY, "client_context": ctx})
-        r = client.post("/analyse", json={"raw_text": self.BODY,
-                                          "client_context": {"origin": "gmail", "auto_scan": False}})
+        r = client.post(
+            "/analyse",
+            json={"raw_text": self.BODY, "client_context": {"origin": "gmail", "auto_scan": False}},
+        )
         assert r.json()["cached"] is True
 
     def test_different_email_is_not_cached(self, client):
@@ -725,6 +896,7 @@ class TestArchiveFileReport:
     def _zip(self, files):
         import io
         import zipfile
+
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
             for n, d in files.items():
@@ -733,10 +905,16 @@ class TestArchiveFileReport:
 
     def test_risky_names_and_phishing_text_are_named(self, client, monkeypatch):
         text_score(monkeypatch, 0.93)
-        raw = self._zip({"invoice.pdf.exe": "MZ",
-                         "notes.txt": "Your account is suspended, verify your payment now",
-                         "photo.txt": "x"})
-        r = client.post("/analyse_attachment", json={"content_b64": b64(raw), "filename": "docs.zip"})
+        raw = self._zip(
+            {
+                "invoice.pdf.exe": "MZ",
+                "notes.txt": "Your account is suspended, verify your payment now",
+                "photo.txt": "x",
+            }
+        )
+        r = client.post(
+            "/analyse_attachment", json={"content_b64": b64(raw), "filename": "docs.zip"}
+        )
         a = r.json()["attachment"]
         files = {f["name"]: f["reasons"] for f in a["suspicious_files"]}
         assert files["invoice.pdf.exe"] == ["fake extension", "program"]
@@ -751,7 +929,10 @@ class TestArchiveFileReport:
         assert r.json()["attachment"]["suspicious_files"] == []
 
     def test_non_archive_has_no_report(self, client):
-        r = client.post("/analyse_attachment", json={"content_b64": b64(b"hello there team"), "filename": "a.txt"})
+        r = client.post(
+            "/analyse_attachment",
+            json={"content_b64": b64(b"hello there team"), "filename": "a.txt"},
+        )
         assert r.json()["attachment"]["suspicious_files"] == []
 
 
@@ -761,20 +942,29 @@ class TestArchiveFileReport:
 class TestGmailSignedByAlignment:
     def test_synthetic_header_no_dmarc_pass_across_organisations(self):
         h = st.synthesize_auth_results(
-            {"origin": "gmail", "gmail_signed_by": "attacker.co.uk"}, "billing@paypal.co.uk")
+            {"origin": "gmail", "gmail_signed_by": "attacker.co.uk"}, "billing@paypal.co.uk"
+        )
         assert "dkim=pass header.i=@attacker.co.uk" in h and "dmarc=pass" not in h
 
     def test_synthetic_header_dmarc_pass_same_organisation(self):
         h = st.synthesize_auth_results(
-            {"origin": "gmail", "gmail_signed_by": "mail.paypal.co.uk"}, "billing@paypal.co.uk")
+            {"origin": "gmail", "gmail_signed_by": "mail.paypal.co.uk"}, "billing@paypal.co.uk"
+        )
         assert "dmarc=pass header.from=paypal.co.uk" in h
 
     def test_foreign_signed_by_does_not_give_crypto_trust(self, client):
-        r = client.post("/analyse", json={
-            "raw_text": "Your account is on hold, confirm your details to keep using online banking.",
-            "sender_email": "alerts@firstbank.com.ng",
-            "client_context": {"origin": "gmail", "gmail_signed_by": "attacker.com.ng",
-                               "gmail_in_inbox": True}}).json()
+        r = client.post(
+            "/analyse",
+            json={
+                "raw_text": "Your account is on hold, confirm your details to keep using online banking.",
+                "sender_email": "alerts@firstbank.com.ng",
+                "client_context": {
+                    "origin": "gmail",
+                    "gmail_signed_by": "attacker.com.ng",
+                    "gmail_in_inbox": True,
+                },
+            },
+        ).json()
         assert r["sender_auth"]["cryptographically_verified"] is False
         assert r["trust_path"] != "crypto_verified"
         assert r["auth_source"] == "gmail_ui"
@@ -788,8 +978,11 @@ class TestAgentProvenance:
         assert h["agents"]["url"] in {"model", "rules"}
 
     def test_analyse_reports_rules_when_models_missing(self, client):
-        r = client.post("/analyse", json={"raw_text": "Meeting notes are at https://example.com/notes for the team."}).json()
-        assert r["agents"]["url"]["source"] == "rules"        # client fixture unloads the RFs
+        r = client.post(
+            "/analyse",
+            json={"raw_text": "Meeting notes are at https://example.com/notes for the team."},
+        ).json()
+        assert r["agents"]["url"]["source"] == "rules"  # client fixture unloads the RFs
         assert r["agents"]["metadata"]["source"] == "rules"
         assert r["agents"]["text"]["source"] == "model"
         assert r["auth_source"] == "none"

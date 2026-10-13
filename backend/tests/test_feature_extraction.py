@@ -4,6 +4,7 @@ the trained URL and metadata Random Forests consume at inference, so a
 silent change in names or semantics would quietly degrade the models.
 Pure functions, numpy only, no network.
 """
+
 from __future__ import annotations
 
 import sys
@@ -160,8 +161,8 @@ class TestHelpers:
     def test_html_body_fallback(self, fx):
         from email import policy
         from email.parser import BytesParser
-        raw = (b"From: a@b.com\r\nContent-Type: text/html\r\n\r\n"
-               b"<p>Hello <b>there</b></p>")
+
+        raw = b"From: a@b.com\r\nContent-Type: text/html\r\n\r\n<p>Hello <b>there</b></p>"
         msg = BytesParser(policy=policy.default).parsebytes(raw)
         body = fx._get_email_body(msg)
         assert "Hello" in body and "<b>" not in body

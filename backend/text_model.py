@@ -6,6 +6,7 @@ load() runs once at startup (FastAPI lifespan); text_agent() and
 explain() are synchronous and CPU-bound, so the API calls them from a
 worker thread.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,8 +15,15 @@ from typing import Any
 
 import numpy as np
 
-from settings import (CLASS_NAMES, HF_MODEL_REPO, LIME_MAX_CHARS, LIME_NUM_SAMPLES,
-                      MAX_LEN, MODEL_DIR, MODEL_DTYPE)
+from settings import (
+    CLASS_NAMES,
+    HF_MODEL_REPO,
+    LIME_MAX_CHARS,
+    LIME_NUM_SAMPLES,
+    MAX_LEN,
+    MODEL_DIR,
+    MODEL_DTYPE,
+)
 
 logger = logging.getLogger("phishlens.text_model")
 
@@ -25,6 +33,7 @@ STATE: dict[str, Any] = {}
 def _pick_device() -> str:
     """Apple Silicon GPU (MPS), then CUDA, then CPU."""
     import torch
+
     if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return "mps"
     if torch.cuda.is_available():
@@ -44,7 +53,8 @@ def ensure_model_available(model_dir: Path = MODEL_DIR) -> Path:
     except ImportError as e:
         raise RuntimeError(
             f"{model_dir} is empty and huggingface_hub is not installed: put the "
-            "checkpoint there or install huggingface_hub.") from e
+            "checkpoint there or install huggingface_hub."
+        ) from e
     model_dir.mkdir(parents=True, exist_ok=True)
     snapshot_download(repo_id=HF_MODEL_REPO, local_dir=str(model_dir))
     return model_dir
@@ -62,8 +72,12 @@ def load() -> None:
     tok = AutoTokenizer.from_pretrained(str(model_dir))
     model = AutoModelForSequenceClassification.from_pretrained(str(model_dir), torch_dtype=dtype)
     model.to(device).eval()
-    STATE.update(tokenizer=tok, model=model, device=device,
-                 lime=LimeTextExplainer(class_names=CLASS_NAMES, bow=False))
+    STATE.update(
+        tokenizer=tok,
+        model=model,
+        device=device,
+        lime=LimeTextExplainer(class_names=CLASS_NAMES, bow=False),
+    )
     logger.info("Text model loaded from %s on %s.", model_dir, device)
 
 
@@ -75,9 +89,11 @@ def predict_proba_batch(texts: list[str]) -> np.ndarray:
     """N x 2 array of [P(safe), P(phishing)] (the shape LIME expects)."""
     import torch
     import torch.nn.functional as F
+
     tok, model, device = STATE["tokenizer"], STATE["model"], STATE["device"]
-    inputs = tok(list(texts), truncation=True, max_length=MAX_LEN,
-                 padding=True, return_tensors="pt")
+    inputs = tok(
+        list(texts), truncation=True, max_length=MAX_LEN, padding=True, return_tensors="pt"
+    )
     inputs.pop("token_type_ids", None)
     inputs = {k: v.to(device) for k, v in inputs.items()}
     with torch.no_grad():
@@ -98,12 +114,16 @@ def explain(body: str) -> list[dict[str, Any]]:
     thinly across many words.
     """
     exp = STATE["lime"].explain_instance(
-        body[:LIME_MAX_CHARS], predict_proba_batch,
-        num_samples=LIME_NUM_SAMPLES, num_features=12,
-        labels=(1,),                    # explain in the phishing direction
+        body[:LIME_MAX_CHARS],
+        predict_proba_batch,
+        num_samples=LIME_NUM_SAMPLES,
+        num_features=12,
+        labels=(1,),  # explain in the phishing direction
     )
-    feats = [{"token": word, "weight": float(w), "supports": "phishing" if w > 0 else "safe"}
-             for word, w in exp.as_list(label=1)]
+    feats = [
+        {"token": word, "weight": float(w), "supports": "phishing" if w > 0 else "safe"}
+        for word, w in exp.as_list(label=1)
+    ]
     feats.sort(key=lambda f: abs(f["weight"]), reverse=True)
     strong = [f for f in feats if abs(f["weight"]) >= 0.003]
     return strong if len(strong) >= 5 else feats[:8]

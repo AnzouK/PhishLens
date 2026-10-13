@@ -4,6 +4,7 @@ Metadata agent: a Random Forest over the header features of an email
 in the PhishingDetector repository by Udodinachukwu David Nwoke; this
 module only runs inference (rf_agent.py).
 """
+
 from rf_agent import RandomForestAgent
 
 

@@ -6,6 +6,7 @@ Environment variables are read once, at import. The scoring constants
 (weights, thresholds, overrides) are documented where they are defined;
 docs/architecture.md explains the trust paths that use them.
 """
+
 from __future__ import annotations
 
 import os
@@ -25,12 +26,12 @@ MODEL_DIR = Path(os.environ.get("MODEL_DIR", Path(__file__).parent / "model"))
 HF_MODEL_REPO = os.environ.get("HF_MODEL_REPO", "AnzouKiona/phishlens-distilbert")
 # float32 by default: faster than float16 on most CPUs.
 MODEL_DTYPE = os.environ.get("MODEL_DTYPE", "float32")
-MAX_LEN = 256                       # tokens; the value used in training
+MAX_LEN = 256  # tokens; the value used in training
 CLASS_NAMES = ["Safe", "Phishing"]
 # LIME forward passes per explanation: 100 gives the same top words as
 # 200 at half the latency on a CPU host.
 LIME_NUM_SAMPLES = int(os.environ.get("LIME_NUM_SAMPLES", "100"))
-LIME_MAX_CHARS = 800                # LIME explains the start of the body
+LIME_MAX_CHARS = 800  # LIME explains the start of the body
 
 # ---------------------------------------------------------------------
 # URL and metadata agents (trained Random Forests, optional)
@@ -81,6 +82,7 @@ class TrustPath:
     text_factor   multiplies the text agent's weight (1 = full weight)
     threshold     fused score from which the verdict is phishing
     """
+
     name: str
     text_factor: float
     threshold: float

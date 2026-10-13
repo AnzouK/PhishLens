@@ -14,6 +14,7 @@ phishing verdict is a true positive, a "Wrong" one a false positive; a
 email. Standard library only. Prints no subject or sender, so the output
 can go into a report as is.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -82,14 +83,18 @@ def main() -> None:
         ts = sorted(e["ts"] for e in reviewed if "ts" in e)
         if ts:
             import datetime as dt
+
             day = lambda t: dt.datetime.fromtimestamp(t / 1000).date().isoformat()  # noqa: E731
             lines.append(f"Period: {day(ts[0])} to {day(ts[-1])}")
     lines.append("")
     lines.append(f"{h}Confusion matrix")
     if args.markdown:
-        lines += ["| | Actually phishing | Actually legitimate |", "| --- | --- | --- |",
-                  f"| Flagged phishing | {m['tp']} (TP) | {m['fp']} (FP) |",
-                  f"| Marked safe | {m['fn']} (FN) | {m['tn']} (TN) |"]
+        lines += [
+            "| | Actually phishing | Actually legitimate |",
+            "| --- | --- | --- |",
+            f"| Flagged phishing | {m['tp']} (TP) | {m['fp']} (FP) |",
+            f"| Marked safe | {m['fn']} (FN) | {m['tn']} (TN) |",
+        ]
     else:
         lines += [f"  TP {m['tp']}   FP {m['fp']}", f"  FN {m['fn']}   TN {m['tn']}"]
     lines.append("")
@@ -102,7 +107,9 @@ def main() -> None:
         for src, rows in sorted(by_source.items()):
             sm = confusion(rows)
             acc = metrics(sm)["accuracy"]
-            lines.append(f"{'- ' if args.markdown else '  '}{src}: {len(rows)} reviewed, accuracy {fmt(*acc)}")
+            lines.append(
+                f"{'- ' if args.markdown else '  '}{src}: {len(rows)} reviewed, accuracy {fmt(*acc)}"
+            )
     if 0 < len(reviewed) < 30:
         lines.append("")
         lines.append("Note: fewer than 30 reviewed scans; the intervals are wide.")

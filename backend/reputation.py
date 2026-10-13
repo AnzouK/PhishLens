@@ -31,46 +31,48 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import logging
 import os
 import re
 import socket
 import sqlite3
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import urlparse
 
-import logging
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
 try:
     import httpx
+
     _HTTPX_AVAILABLE = True
 except ImportError:
     _HTTPX_AVAILABLE = False
-    logger.warning("httpx not installed: reputation lookups disabled. "
-          "pip install httpx>=0.27")
+    logger.warning("httpx not installed: reputation lookups disabled. pip install httpx>=0.27")
 
 
 # ---------------------------------------------------------------------
 # Configuration (env-tunable)
 # ---------------------------------------------------------------------
-GSB_API_KEY         = os.environ.get("GSB_API_KEY", "").strip()
-GSB_DAILY_LIMIT     = int(os.environ.get("GSB_DAILY_LIMIT", "10000"))
-GSB_SAFETY_BUFFER   = int(os.environ.get("GSB_SAFETY_BUFFER", "500"))
+GSB_API_KEY = os.environ.get("GSB_API_KEY", "").strip()
+GSB_DAILY_LIMIT = int(os.environ.get("GSB_DAILY_LIMIT", "10000"))
+GSB_SAFETY_BUFFER = int(os.environ.get("GSB_SAFETY_BUFFER", "500"))
 # Per-user cache folder by default, not the shared /tmp.
-CACHE_DB_PATH       = os.environ.get(
+CACHE_DB_PATH = os.environ.get(
     "REPUTATION_CACHE_DB",
-    os.path.join(os.path.expanduser("~"), ".cache", "phishlens", "reputation.db"))
-CACHE_TTL_SEC       = int(os.environ.get("REPUTATION_CACHE_TTL", str(24 * 3600)))
+    os.path.join(os.path.expanduser("~"), ".cache", "phishlens", "reputation.db"),
+)
+CACHE_TTL_SEC = int(os.environ.get("REPUTATION_CACHE_TTL", str(24 * 3600)))
 PHISHTANK_REFRESH_S = int(os.environ.get("PHISHTANK_REFRESH_S", "3600"))
-PHISHTANK_API_KEY   = os.environ.get("PHISHTANK_API_KEY", "").strip()  # optional
-ENABLE_URLHAUS      = os.environ.get("REPUTATION_ENABLE_URLHAUS", "1") != "0"
-ENABLE_PHISHTANK    = os.environ.get("REPUTATION_ENABLE_PHISHTANK", "1") != "0"
-ENABLE_GSB          = os.environ.get("REPUTATION_ENABLE_GSB", "1") != "0"
-HTTP_TIMEOUT        = float(os.environ.get("REPUTATION_HTTP_TIMEOUT", "3.0"))
+PHISHTANK_API_KEY = os.environ.get("PHISHTANK_API_KEY", "").strip()  # optional
+ENABLE_URLHAUS = os.environ.get("REPUTATION_ENABLE_URLHAUS", "1") != "0"
+ENABLE_PHISHTANK = os.environ.get("REPUTATION_ENABLE_PHISHTANK", "1") != "0"
+ENABLE_GSB = os.environ.get("REPUTATION_ENABLE_GSB", "1") != "0"
+HTTP_TIMEOUT = float(os.environ.get("REPUTATION_HTTP_TIMEOUT", "3.0"))
 
 USER_AGENT = "PhishLens/1.10 (+https://github.com/AnzouK/PhishLens)"
 
@@ -171,7 +173,7 @@ class Cache:
                 db.execute("DELETE FROM reputation_cache WHERE stored_at <= ?", (cutoff,))
         except sqlite3.OperationalError as e:
             if "no such table" in str(e).lower():
-                self._init_db()          # no rows to purge but future writes work
+                self._init_db()  # no rows to purge but future writes work
             else:
                 raise
 
@@ -234,7 +236,7 @@ class GoogleSafeBrowsing:
     ENDPOINT = "https://safebrowsing.googleapis.com/v4/threatMatches:find"
     THREAT_TYPES = [
         "MALWARE",
-        "SOCIAL_ENGINEERING",   # this is the phishing bucket
+        "SOCIAL_ENGINEERING",  # this is the phishing bucket
         "UNWANTED_SOFTWARE",
         "POTENTIALLY_HARMFUL_APPLICATION",
     ]
@@ -244,10 +246,11 @@ class GoogleSafeBrowsing:
         self.quota = quota
         self._client: httpx.AsyncClient | None = None
 
-    async def _get_client(self) -> "httpx.AsyncClient":
+    async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=HTTP_TIMEOUT,
-                                             headers={"User-Agent": USER_AGENT})
+            self._client = httpx.AsyncClient(
+                timeout=HTTP_TIMEOUT, headers={"User-Agent": USER_AGENT}
+            )
         return self._client
 
     async def close(self):
@@ -278,8 +281,7 @@ class GoogleSafeBrowsing:
         }
         try:
             client = await self._get_client()
-            r = await client.post(f"{self.ENDPOINT}?key={self.api_key}",
-                                  json=payload)
+            r = await client.post(f"{self.ENDPOINT}?key={self.api_key}", json=payload)
             r.raise_for_status()
             body = r.json()
         except Exception as e:
@@ -300,11 +302,14 @@ class GoogleSafeBrowsing:
             url = match.get("threat", {}).get("url", "")
             if not url:
                 continue
-            results.setdefault(url, {
-                "source": "google_safe_browsing",
-                "threat_types": [],
-                "platforms": [],
-            })
+            results.setdefault(
+                url,
+                {
+                    "source": "google_safe_browsing",
+                    "threat_types": [],
+                    "platforms": [],
+                },
+            )
             results[url]["threat_types"].append(match.get("threatType", "UNKNOWN"))
             results[url]["platforms"].append(match.get("platformType", "UNKNOWN"))
         return results
@@ -338,9 +343,9 @@ class PhishTank:
     async def refresh(self) -> int:
         """Download and load the feed. Returns the number of entries."""
         try:
-            async with httpx.AsyncClient(timeout=30,
-                                         headers={"User-Agent": USER_AGENT},
-                                         follow_redirects=True) as c:
+            async with httpx.AsyncClient(
+                timeout=30, headers={"User-Agent": USER_AGENT}, follow_redirects=True
+            ) as c:
                 r = await c.get(self._feed_url())
                 r.raise_for_status()
                 data = r.json()
@@ -405,15 +410,17 @@ class URLhaus:
     URLhaus lookup API: free, no key required, generous rate limit.
     https://urlhaus.abuse.ch/api/
     """
+
     LOOKUP_URL = "https://urlhaus-api.abuse.ch/v1/url/"
 
     def __init__(self):
         self._client: httpx.AsyncClient | None = None
 
-    async def _get_client(self) -> "httpx.AsyncClient":
+    async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=HTTP_TIMEOUT,
-                                             headers={"User-Agent": USER_AGENT})
+            self._client = httpx.AsyncClient(
+                timeout=HTTP_TIMEOUT, headers={"User-Agent": USER_AGENT}
+            )
         return self._client
 
     async def close(self):
@@ -460,15 +467,15 @@ async def _spamhaus_dbl(domain: str) -> dict[str, Any] | None:
     """
     # Real listings: dbl.spamhaus.org threat classifications.
     _CODES = {
-        "127.0.1.2":   ("SPAM",               "spam"),
-        "127.0.1.4":   ("SOCIAL_ENGINEERING", "phish"),
-        "127.0.1.5":   ("MALWARE",            "malware"),
-        "127.0.1.6":   ("BOTNET_CC",          "botnet_cc"),
-        "127.0.1.102": ("SPAM",               "abused_legit_spam"),
-        "127.0.1.103": ("SUSPICIOUS",         "abused_legit_redirector"),
+        "127.0.1.2": ("SPAM", "spam"),
+        "127.0.1.4": ("SOCIAL_ENGINEERING", "phish"),
+        "127.0.1.5": ("MALWARE", "malware"),
+        "127.0.1.6": ("BOTNET_CC", "botnet_cc"),
+        "127.0.1.102": ("SPAM", "abused_legit_spam"),
+        "127.0.1.103": ("SUSPICIOUS", "abused_legit_redirector"),
         "127.0.1.104": ("SOCIAL_ENGINEERING", "abused_legit_phish"),
-        "127.0.1.105": ("MALWARE",            "abused_legit_malware"),
-        "127.0.1.106": ("BOTNET_CC",          "abused_legit_botnet_cc"),
+        "127.0.1.105": ("MALWARE", "abused_legit_malware"),
+        "127.0.1.106": ("BOTNET_CC", "abused_legit_botnet_cc"),
     }
     # Policy / error codes: the query was NOT answered. Treat as
     # "check unavailable", NOT as "domain malicious".
@@ -494,10 +501,12 @@ async def _spamhaus_dbl(domain: str) -> dict[str, Any] | None:
     if resp.startswith(_POLICY_ERROR_PREFIX):
         # Log once so we know DBL is effectively disabled on this host.
         if not _spamhaus_policy_logged["done"]:
-            logger.warning(f"Spamhaus DBL policy response ({resp}): the DNS resolver "
-                  "used by this host is blocked by Spamhaus. DBL lookups will "
-                  "be treated as unavailable. Use a private recursive resolver "
-                  "or the Spamhaus DQS commercial feed to enable DBL.")
+            logger.warning(
+                f"Spamhaus DBL policy response ({resp}): the DNS resolver "
+                "used by this host is blocked by Spamhaus. DBL lookups will "
+                "be treated as unavailable. Use a private recursive resolver "
+                "or the Spamhaus DQS commercial feed to enable DBL."
+            )
             _spamhaus_policy_logged["done"] = True
         return None
 
@@ -535,7 +544,7 @@ _spamhaus_policy_logged = {"done": False}
 class UrlVerdict:
     url: str
     malicious: bool = False
-    score: float = 0.0             # 0.0 clean → 1.0 malicious
+    score: float = 0.0  # 0.0 clean → 1.0 malicious
     threat_types: list[str] = field(default_factory=list)
     sources: list[str] = field(default_factory=list)
     tiers_run: list[str] = field(default_factory=list)
@@ -564,7 +573,9 @@ class ReputationEngine:
     def __init__(self):
         self.cache = Cache(CACHE_DB_PATH)
         self.quota = GsbQuota(GSB_DAILY_LIMIT, GSB_SAFETY_BUFFER)
-        self.gsb = GoogleSafeBrowsing(GSB_API_KEY, self.quota) if (GSB_API_KEY and ENABLE_GSB) else None
+        self.gsb = (
+            GoogleSafeBrowsing(GSB_API_KEY, self.quota) if (GSB_API_KEY and ENABLE_GSB) else None
+        )
         self.phishtank = PhishTank(PHISHTANK_API_KEY) if ENABLE_PHISHTANK else None
         self.urlhaus = URLhaus() if ENABLE_URLHAUS else None
         self._hits = 0
@@ -577,9 +588,7 @@ class ReputationEngine:
             if n:
                 logger.info(f"PhishTank initial load: {n} entries")
             # Fire-and-forget refresh loop
-            self.phishtank._refresh_task = asyncio.create_task(
-                self.phishtank.start_refresh_loop()
-            )
+            self.phishtank._refresh_task = asyncio.create_task(self.phishtank.start_refresh_loop())
         await self.cache.purge_expired()
 
     async def shutdown(self):
@@ -604,10 +613,20 @@ class ReputationEngine:
     async def check_urls(self, urls: Iterable[str]) -> list[dict[str, Any]]:
         """Cascade lookup: returns one verdict dict per input URL."""
         if not _HTTPX_AVAILABLE:
-            return [{"url": u, "malicious": False, "score": 0.0,
-                     "sources": [], "threat_types": [],
-                     "tiers_run": [], "cached": False, "raw_matches": [],
-                     "note": "httpx not installed"} for u in urls]
+            return [
+                {
+                    "url": u,
+                    "malicious": False,
+                    "score": 0.0,
+                    "sources": [],
+                    "threat_types": [],
+                    "tiers_run": [],
+                    "cached": False,
+                    "raw_matches": [],
+                    "note": "httpx not installed",
+                }
+                for u in urls
+            ]
 
         norm = [self._normalize(u) for u in urls if u]
         norm = [u for u in norm if u]
@@ -674,9 +693,11 @@ class ReputationEngine:
             uh_result = await uh_result_task if uh_result_task else None
             sh_result = await sh_task if sh_task else None
 
-            for tier_name, r in (("phishtank", pt_result),
-                                 ("urlhaus", uh_result),
-                                 ("spamhaus_dbl", sh_result)):
+            for tier_name, r in (
+                ("phishtank", pt_result),
+                ("urlhaus", uh_result),
+                ("spamhaus_dbl", sh_result),
+            ):
                 v.tiers_run.append(tier_name)
                 if r:
                     v.malicious = True
@@ -689,13 +710,13 @@ class ReputationEngine:
                 if "google_safe_browsing" in v.sources:
                     v.score = 1.0
                 else:
-                    n_fallback = sum(1 for s in v.sources
-                                     if s in ("phishtank", "urlhaus", "spamhaus_dbl"))
+                    n_fallback = sum(
+                        1 for s in v.sources if s in ("phishtank", "urlhaus", "spamhaus_dbl")
+                    )
                     v.score = min(1.0, 0.4 * n_fallback + 0.2)
 
         if need_fallback:
-            await asyncio.gather(*(_fallback_for(u) for u in need_fallback),
-                                 return_exceptions=True)
+            await asyncio.gather(*(_fallback_for(u) for u in need_fallback), return_exceptions=True)
 
         # ---- 4. Persist to cache ----
         for u in uncached:

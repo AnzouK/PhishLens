@@ -1,4 +1,5 @@
 """Inference wrapper of the Random Forest agents (rf_agent.py)."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -25,7 +26,7 @@ def _state():
 @pytest.mark.parametrize("cls", [URLAgent, MetadataAgent])
 def test_prediction_pads_missing_and_ignores_extra_features(cls):
     agent = agent_io.apply_state(cls(), _state())
-    out = agent.get_prediction_with_confidence({"a": 6, "extra": 1})   # "b" missing -> 0
+    out = agent.get_prediction_with_confidence({"a": 6, "extra": 1})  # "b" missing -> 0
     assert set(out) == {"verdict", "confidence", "phishing_probability", "legitimate_probability"}
     assert out["phishing_probability"] + out["legitimate_probability"] == pytest.approx(1.0)
     high = agent.get_prediction_with_confidence({"a": 6, "b": 9})

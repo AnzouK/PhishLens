@@ -25,12 +25,12 @@ Public API:
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 import socket
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass
 from typing import Any
 
-import logging
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
 
@@ -52,30 +52,31 @@ _METHOD_RE = re.compile(
 )
 
 # Extracts the authenticated identity for each method.
-_SPF_ID_RE   = re.compile(r"smtp\.mailfrom=([^\s;]+)", re.IGNORECASE)
-_DKIM_ID_RE  = re.compile(r"header\.(?:i|d)=@?([^\s;]+)", re.IGNORECASE)
+_SPF_ID_RE = re.compile(r"smtp\.mailfrom=([^\s;]+)", re.IGNORECASE)
+_DKIM_ID_RE = re.compile(r"header\.(?:i|d)=@?([^\s;]+)", re.IGNORECASE)
 _DMARC_ID_RE = re.compile(r"header\.from=([^\s;]+)", re.IGNORECASE)
 
 
 @dataclass
 class AuthVerdict:
     """Structured result of Authentication-Results parsing."""
+
     # Raw verdicts as reported by the receiving MTA
-    spf:   str = "none"        # "pass" | "fail" | "softfail" | "none" | ...
-    dkim:  str = "none"
+    spf: str = "none"  # "pass" | "fail" | "softfail" | "none" | ...
+    dkim: str = "none"
     dmarc: str = "none"
 
     # Domain the receiving MTA actually authenticated (may differ from From:)
-    spf_domain:   str = ""
-    dkim_domain:  str = ""
+    spf_domain: str = ""
+    dkim_domain: str = ""
     dmarc_domain: str = ""
 
     # Higher-level signals derived from the above
     from_domain: str = ""
-    aligned:     bool = False   # From: domain matches at least one authenticated domain
-    all_pass:    bool = False   # all three of SPF/DKIM/DMARC are "pass"
-    cryptographically_verified: bool = False   # aligned AND at least DKIM pass
-    header_present: bool = False   # Authentication-Results was actually there
+    aligned: bool = False  # From: domain matches at least one authenticated domain
+    all_pass: bool = False  # all three of SPF/DKIM/DMARC are "pass"
+    cryptographically_verified: bool = False  # aligned AND at least DKIM pass
+    header_present: bool = False  # Authentication-Results was actually there
 
     # Extras: the raw header for debug / logging
     raw: str = ""
@@ -97,15 +98,56 @@ def _domain_of(addr: str) -> str:
 # Second-level labels that registries use under country-code TLDs
 # (paypal.co.uk, firstbank.com.ng, unilag.edu.ng, uct.ac.za, ...): under a
 # two-letter TLD, a domain ending in one of these keeps three labels.
-_GENERIC_SLDS = {"co", "com", "net", "org", "gov", "edu", "ac", "sch", "mil", "gob",
-                 "gouv", "nic", "or", "ne", "go", "ltd", "plc", "info", "biz", "nom",
-                 "int", "res", "lg", "ad", "ed", "gr", "mod", "police", "nhs"}
+_GENERIC_SLDS = {
+    "co",
+    "com",
+    "net",
+    "org",
+    "gov",
+    "edu",
+    "ac",
+    "sch",
+    "mil",
+    "gob",
+    "gouv",
+    "nic",
+    "or",
+    "ne",
+    "go",
+    "ltd",
+    "plc",
+    "info",
+    "biz",
+    "nom",
+    "int",
+    "res",
+    "lg",
+    "ad",
+    "ed",
+    "gr",
+    "mod",
+    "police",
+    "nhs",
+}
 # Shared hosting suffixes where every customer gets a subdomain: the
 # customer label is the organisation, never the suffix itself.
-_SHARED_SUFFIXES = {"github.io", "herokuapp.com", "web.app", "firebaseapp.com",
-                    "pages.dev", "netlify.app", "vercel.app", "blogspot.com",
-                    "duckdns.org", "azurewebsites.net", "cloudfront.net",
-                    "appspot.com", "wixsite.com", "weebly.com", "glitch.me"}
+_SHARED_SUFFIXES = {
+    "github.io",
+    "herokuapp.com",
+    "web.app",
+    "firebaseapp.com",
+    "pages.dev",
+    "netlify.app",
+    "vercel.app",
+    "blogspot.com",
+    "duckdns.org",
+    "azurewebsites.net",
+    "cloudfront.net",
+    "appspot.com",
+    "wixsite.com",
+    "weebly.com",
+    "glitch.me",
+}
 
 
 def _org_domain(domain: str) -> str:
@@ -172,19 +214,15 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
         setattr(verdict, method, result)
 
     # Extract authenticated identifiers
-    if (m := _SPF_ID_RE.search(ar)):
+    if m := _SPF_ID_RE.search(ar):
         verdict.spf_domain = _domain_of(m.group(1))
-    if (m := _DKIM_ID_RE.search(ar)):
+    if m := _DKIM_ID_RE.search(ar):
         verdict.dkim_domain = _domain_of(m.group(1))
-    if (m := _DMARC_ID_RE.search(ar)):
+    if m := _DMARC_ID_RE.search(ar):
         verdict.dmarc_domain = _domain_of(m.group(1))
 
     # Compute derived signals
-    verdict.all_pass = (
-        verdict.spf == "pass"
-        and verdict.dkim == "pass"
-        and verdict.dmarc == "pass"
-    )
+    verdict.all_pass = verdict.spf == "pass" and verdict.dkim == "pass" and verdict.dmarc == "pass"
 
     # Alignment: the visible From: domain must match an authenticated one at
     # the organizational-domain level, AND that method must have passed.
@@ -194,23 +232,19 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     # not authenticated). Only "pass" verdicts count.
     fod = _org_domain(verdict.from_domain)
     aligned_domains = []
-    if verdict.spf   == "pass" and verdict.spf_domain:
+    if verdict.spf == "pass" and verdict.spf_domain:
         aligned_domains.append(verdict.spf_domain)
-    if verdict.dkim  == "pass" and verdict.dkim_domain:
+    if verdict.dkim == "pass" and verdict.dkim_domain:
         aligned_domains.append(verdict.dkim_domain)
     if verdict.dmarc == "pass" and verdict.dmarc_domain:
         aligned_domains.append(verdict.dmarc_domain)
-    verdict.aligned = bool(fod) and any(
-        _org_domain(d) == fod for d in aligned_domains
-    )
+    verdict.aligned = bool(fod) and any(_org_domain(d) == fod for d in aligned_domains)
 
     # Cryptographic verification requires DKIM (the only crypto method: SPF
     # is envelope-only, DMARC is a policy layer on top of the other two) to
     # have passed AND the DKIM-signing domain to align with From:.
     dkim_aligned = (
-        verdict.dkim == "pass"
-        and verdict.dkim_domain
-        and _org_domain(verdict.dkim_domain) == fod
+        verdict.dkim == "pass" and verdict.dkim_domain and _org_domain(verdict.dkim_domain) == fod
     )
     verdict.cryptographically_verified = bool(dkim_aligned)
 
@@ -226,16 +260,16 @@ DBL_ZONE = "dbl.spamhaus.org"
 # Spamhaus DBL return codes.
 # See https://www.spamhaus.org/faq/section/Spamhaus%20DBL#291
 _DBL_CODES = {
-    "127.0.1.2":  "spam",
-    "127.0.1.4":  "phish",
-    "127.0.1.5":  "malware",
-    "127.0.1.6":  "botnet_cc",
+    "127.0.1.2": "spam",
+    "127.0.1.4": "phish",
+    "127.0.1.5": "malware",
+    "127.0.1.6": "botnet_cc",
     "127.0.1.102": "abused_legit_spam",
     "127.0.1.103": "abused_legit_redirector",
     "127.0.1.104": "abused_legit_phish",
     "127.0.1.105": "abused_legit_malware",
     "127.0.1.106": "abused_legit_botnet_cc",
-    "127.0.1.255": "test",   # used to verify the resolver actually queries the zone
+    "127.0.1.255": "test",  # used to verify the resolver actually queries the zone
 }
 
 
@@ -279,7 +313,7 @@ async def check_spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any
             result["category"] = _DBL_CODES.get(response, "listed_unknown_code")
         # Any other response shape → not a documented DBL result, ignore
     except (socket.gaierror, socket.herror):
-        pass                       # NXDOMAIN -> clean
+        pass  # NXDOMAIN -> clean
     except asyncio.TimeoutError:
         result["error"] = "dns_timeout"
     except Exception as e:
@@ -291,8 +325,10 @@ async def check_spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any
 # High-level convenience: one call, everything you need
 # =====================================================================
 
-async def build_metadata_auth_signal(headers: dict[str, str],
-                                     enable_dbl: bool = True) -> dict[str, Any]:
+
+async def build_metadata_auth_signal(
+    headers: dict[str, str], enable_dbl: bool = True
+) -> dict[str, Any]:
     """
     Convenience wrapper used by extension_backend's metadata_agent().
 
@@ -352,8 +388,10 @@ async def build_metadata_auth_signal(headers: dict[str, str],
 # Sync wrapper: for callers not in an async context.
 # =====================================================================
 
-def build_metadata_auth_signal_sync(headers: dict[str, str],
-                                    enable_dbl: bool = True) -> dict[str, Any]:
+
+def build_metadata_auth_signal_sync(
+    headers: dict[str, str], enable_dbl: bool = True
+) -> dict[str, Any]:
     """
     Synchronous variant. Runs the async coroutine to completion.
     Safe to call from FastAPI sync endpoints (which run in a threadpool).
@@ -364,9 +402,9 @@ def build_metadata_auth_signal_sync(headers: dict[str, str],
             # Rare but possible: called from inside an event loop.
             # Schedule in a fresh loop on a helper thread instead of deadlocking.
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                fut = ex.submit(asyncio.run,
-                                build_metadata_auth_signal(headers, enable_dbl))
+                fut = ex.submit(asyncio.run, build_metadata_auth_signal(headers, enable_dbl))
                 return fut.result(timeout=5)
     except RuntimeError:
         pass

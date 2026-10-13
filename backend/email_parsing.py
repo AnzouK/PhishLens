@@ -6,6 +6,7 @@ links to file-sharing services).
 Every parser here is linear on its input (no backtracking regex on
 attacker-controlled text) and caps what it reads.
 """
+
 from __future__ import annotations
 
 import re
@@ -35,6 +36,7 @@ def html_to_text(html_src: str) -> str:
     html_src = html_src[:1_000_000]
     try:
         from bs4 import BeautifulSoup  # type: ignore
+
         soup = BeautifulSoup(html_src, "html.parser")
         for tag in soup(["style", "script", "head", "noscript", "title"]):
             tag.decompose()
@@ -43,7 +45,9 @@ def html_to_text(html_src: str) -> str:
         low = html_src.lower()
         out, i = [], 0
         while True:
-            j = min([k for k in (low.find("<style", i), low.find("<script", i)) if k >= 0], default=-1)
+            j = min(
+                [k for k in (low.find("<style", i), low.find("<script", i)) if k >= 0], default=-1
+            )
             if j < 0:
                 out.append(html_src[i:])
                 break
@@ -64,6 +68,7 @@ def html_to_text(html_src: str) -> str:
                 stripped.append(ch)
         text = "".join(stripped)
         import html as _html
+
         text = _html.unescape(text)
     # Collapse whitespace line by line (no regex: linear on any input).
     lines = (" ".join(line.split()) for line in text.splitlines())
@@ -110,7 +115,7 @@ def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
     # urls: from the text, then the real link targets of the HTML part
     # (an HTML email shows "Click here", the address is in the href).
     urls = urls_in_text(body)
-    for part in (msg.walk() if msg.is_multipart() else [msg]):
+    for part in msg.walk() if msg.is_multipart() else [msg]:
         if part.get_content_type() != "text/html":
             continue
         try:
@@ -169,7 +174,7 @@ def detect_forwarded(body: str, subject: str | None = None) -> dict[str, Any]:
     detected = bool(m) or bool(subject and _FORWARD_SUBJECT.match(subject))
     original = None
     if detected:
-        tail = body[m.end():] if m else body
+        tail = body[m.end() :] if m else body
         original = _forwarded_sender(tail[:5000])
     return {"detected": detected, "original_sender": original}
 
@@ -185,7 +190,11 @@ _SHARE_SERVICES = [
     (re.compile(r"(?:^|\.)forms\.gle$"), None, "Google Forms"),
     (re.compile(r"(?:^|\.)drive\.google\.com$"), None, "Google Drive"),
     (re.compile(r"(?:^|\.)docs\.google\.com$"), None, "Google Docs"),
-    (re.compile(r"(?:^|\.)(?:firebasestorage|storage)\.googleapis\.com$"), None, "Google Cloud Storage"),
+    (
+        re.compile(r"(?:^|\.)(?:firebasestorage|storage)\.googleapis\.com$"),
+        None,
+        "Google Cloud Storage",
+    ),
     (re.compile(r"(?:^|\.)(?:1drv\.ms|onedrive\.live\.com)$"), None, "OneDrive"),
     (re.compile(r"(?:^|\.)sharepoint\.com$"), None, "SharePoint"),
     (re.compile(r"(?:^|\.)forms\.(?:office|microsoft)\.com$"), None, "Microsoft Forms"),
