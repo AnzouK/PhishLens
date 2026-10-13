@@ -1,0 +1,16 @@
+# Optional local hooks, the same checks as CI:  pip install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.10
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: version
+        name: same version in backend and extension
+        entry: python scripts/check_version.py
+        language: system
+        pass_filenames: false
+        files: ^(backend/settings\.py|extension/manifest\.json)$

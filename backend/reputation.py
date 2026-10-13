@@ -44,6 +44,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from settings import VERSION
+
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
 try:
@@ -74,7 +76,7 @@ ENABLE_PHISHTANK = os.environ.get("REPUTATION_ENABLE_PHISHTANK", "1") != "0"
 ENABLE_GSB = os.environ.get("REPUTATION_ENABLE_GSB", "1") != "0"
 HTTP_TIMEOUT = float(os.environ.get("REPUTATION_HTTP_TIMEOUT", "3.0"))
 
-USER_AGENT = "PhishLens/1.10 (+https://github.com/AnzouK/PhishLens)"
+USER_AGENT = f"PhishLens/{VERSION} (+https://github.com/AnzouK/PhishLens)"
 
 
 # =====================================================================
@@ -271,7 +273,7 @@ class GoogleSafeBrowsing:
             return {}
 
         payload = {
-            "client": {"clientId": "phishlens", "clientVersion": "1.6.0"},
+            "client": {"clientId": "phishlens", "clientVersion": VERSION},
             "threatInfo": {
                 "threatTypes": self.THREAT_TYPES,
                 "platformTypes": ["ANY_PLATFORM"],
@@ -325,8 +327,9 @@ class PhishTank:
     and answer lookups from an in-memory set for zero-cost O(1) checks.
     """
 
-    FEED_URL = "http://data.phishtank.com/data/online-valid.json"
-    FEED_URL_AUTH = "http://data.phishtank.com/data/{key}/online-valid.json"
+    # HTTPS: over plain HTTP anyone on the path could rewrite the list.
+    FEED_URL = "https://data.phishtank.com/data/online-valid.json"
+    FEED_URL_AUTH = "https://data.phishtank.com/data/{key}/online-valid.json"
 
     def __init__(self, api_key: str = ""):
         self.api_key = api_key

@@ -16,7 +16,12 @@ OpenCV, scikit-learn, skops) skip themselves when it is missing.
 | `test_feature_extraction.py` | URL and metadata features consumed by the Random Forest agents |
 | `test_reputation.py` | SQLite cache and TTL, GSB daily quota, cascade scoring, cache reuse |
 | `test_agent_io.py` | skops round trip of the agents and the type allowlist |
-| `test_extension_backend.py` | endpoints, the four trust paths, attachment trust inheritance, `/metrics` |
+| `test_reputation_clients.py` | Safe Browsing, PhishTank and URLhaus clients against fake HTTP servers |
+| `test_fusion.py` | every verdict rule: trust-path precedence, weights, overrides, attachment bonus and droppers |
+| `test_text_model.py` | text agent wrapper and LIME selection with stand-ins for torch / transformers / LIME |
+| `test_structured_agents.py` | loading the trained URL / metadata agents, pickle refusal, rule fallback |
+| `test_rf_agent.py` | inference of the Random Forest agents (feature padding, joblib fallback) |
+| `test_extension_backend.py` | endpoints, request limits and errors, the trust paths (allowlist only for authenticated senders), attachment trust inheritance, `/metrics` |
 
 Run locally:
 
@@ -25,7 +30,7 @@ cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install pytest pytest-cov fastapi httpx prometheus-fastapi-instrumentator \
             numpy pandas beautifulsoup4 pdfplumber pypdfium2 pillow pytesseract \
-            opencv-python-headless reportlab scikit-learn joblib skops
+            opencv-python-headless reportlab scikit-learn joblib skops rarfile py7zr defusedxml
 pytest -q --cov=. --cov-config=.coveragerc
 ```
 

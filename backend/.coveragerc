@@ -5,6 +5,8 @@ omit =
     convert_agents_to_skops.py
 
 [report]
+# CI fails below this (83.8% when it was set, October 2026).
+fail_under = 80
 precision = 1
 show_missing = True
 skip_empty = True

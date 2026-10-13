@@ -28,6 +28,33 @@ backend share one version number.
 - **Chrome Web Store:** the manifest description is under the 132
   character limit.
 
+
+### Changed
+- **Backend split by responsibility (audit phase 1):** the 1,688-line
+  `extension_backend.py` now only holds the HTTP layer; `settings.py`
+  (version, environment, every scoring constant), `email_parsing.py`,
+  `sender_trust.py` with `trusted_domains.py`, `text_model.py`,
+  `structured_agents.py`, `fusion.py` (verdict rules as pure functions)
+  and `rf_agent.py` (inference-only Random Forest wrapper; the training
+  code stays in PhishingDetector). Same API, same verdicts.
+- **Extension:** one shared library (`lib/shared.js`) for the server
+  URL, HTML escaping and error messages, which were copied in three
+  files (the popup fell back to the local server where the rest used
+  PhishLens Cloud). The service worker no longer pings the server every
+  10 minutes, and the `alarms` permission is gone. API errors such as an
+  oversized email are shown as readable text.
+- `/health` and `/` report the version; `/health` says when the text
+  model is not loaded. The PhishTank feed is downloaded over HTTPS.
+- Version history moved out of code comments into this changelog.
+
+### Development
+- Ruff lint (pycodestyle, pyflakes, bugbear, pyupgrade, simplify,
+  isort, complexity) and format on `backend/` and `scripts/`, pinned in
+  CI; a version check between the backend and the extension; coverage
+  minimum 80% (83.8%), with new tests for the fusion rules, the text
+  model wrapper, agent loading and the reputation clients; optional
+  pre-commit hooks.
+
 ## [1.15.5] - 2026-10-13
 
 Security fix from an external code review, and clearer reporting of which
