@@ -156,7 +156,13 @@ sender list are explained in
 
 ```
 backend/               FastAPI app, agents, sender auth, threat intel, attachments
-  extension_backend.py   API and fusion
+  extension_backend.py   HTTP API (endpoints, limits, metrics)
+  settings.py            version, environment, scoring constants
+  email_parsing.py       text, links and headers of an email
+  sender_trust.py        sender domain, allowlist, Gmail auth hints
+  text_model.py          text agent and LIME
+  structured_agents.py   URL and metadata agents
+  fusion.py              scores to verdict (pure functions)
   auth_headers.py        SPF / DKIM / DMARC and Spamhaus DBL
   reputation.py          threat-intel cascade with SQLite cache
   attachment_analysis.py attachment dispatcher (PDF, HTML, text)

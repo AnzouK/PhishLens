@@ -1,0 +1,198 @@
+"""
+The URL and metadata agents.
+
+Each agent has a trained Random Forest (from AnzouKiona/phishlens-agents,
+or local files) and a rule-based fallback that is always available. The
+trained models were trained on older mail: the callers below only use
+them where they are reliable (see url_agent and the headers_source rule
+in the API).
+"""
+from __future__ import annotations
+
+import logging
+import os
+import re
+from email.utils import parseaddr
+from pathlib import Path
+
+from settings import AGENTS_ALLOW_PICKLE, HF_AGENTS_REPO
+
+logger = logging.getLogger("phishlens.structured_agents")
+
+SUSPICIOUS_TLDS = {"zip", "review", "click", "country", "kim", "cricket",
+                   "science", "work", "party", "gq", "tk", "ml", "ga", "cf"}
+
+_URL_AGENT = None
+_METADATA_AGENT = None
+_FEATURE_EXTRACT = None
+
+
+def _hf_fetch(filename: str) -> Path | None:
+    try:
+        from huggingface_hub import hf_hub_download
+        return Path(hf_hub_download(
+            repo_id=HF_AGENTS_REPO, filename=filename,
+            repo_type="model", local_dir="./agents",
+        ))
+    except Exception as e:
+        logger.info("%s not fetched from %s: %s", filename, HF_AGENTS_REPO, e)
+        return None
+
+
+def _resolve_agent_file(stem: str, env_var: str) -> Path | None:
+    """Local override first, then <stem>.skops, then <stem>.joblib."""
+    local = os.environ.get(env_var)
+    if local and Path(local).exists():
+        return Path(local)
+    path = _hf_fetch(f"{stem}.skops")
+    if path:
+        return path
+    if AGENTS_ALLOW_PICKLE:
+        path = _hf_fetch(f"{stem}.joblib")
+        if path:
+            logger.warning("Loading %s with pickle: publish %s.skops "
+                           "(convert_agents_to_skops.py) and set AGENTS_ALLOW_PICKLE=0.",
+                           path.name, stem)
+        return path
+    return None
+
+
+def _load_agent(agent, path: Path):
+    if path.suffix == ".skops":
+        import agent_io
+        return agent_io.apply_state(agent, agent_io.load_skops_state(path))
+    if not AGENTS_ALLOW_PICKLE:
+        raise RuntimeError(f"{path.name} is a pickle file and AGENTS_ALLOW_PICKLE=0")
+    agent.load_model(str(path))
+    return agent
+
+
+def _init_agent(stem: str, env_var: str, factory):
+    """Load one trained agent; any failure leaves the heuristic in place."""
+    try:
+        path = _resolve_agent_file(stem, env_var)
+        if not path:
+            return None
+        agent = _load_agent(factory(), path)
+        logger.info("Loaded trained %s from %s", stem, path)
+        return agent
+    except Exception as e:
+        logger.warning("Could not load %s, using the rules instead: %s", stem, e)
+        return None
+
+
+def url_heuristic(urls: list[str]) -> float:
+    """Rule-based URL score (worst URL): plain http, raw IP host, "@" in
+    the URL, very long URL, suspicious TLD, credential keywords."""
+    bad = 0.0
+    for u in urls:
+        score = 0.0
+        if u.startswith("http://"):                              score += 0.25
+        if re.match(r"https?://\d{1,3}(\.\d{1,3}){3}", u):       score += 0.40
+        if "@" in u.split("://", 1)[-1]:                         score += 0.35
+        if len(u) > 75:                                          score += 0.15
+        host = u.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
+        tld = host.rsplit(".", 1)[-1].lower()
+        if tld in SUSPICIOUS_TLDS:                               score += 0.30
+        if re.search(r"(login|verify|account|update|secure)", u, re.I): score += 0.10
+        bad = max(bad, min(score, 1.0))
+    return bad
+
+
+def url_agent(urls: list[str], body_text: str = "") -> float:
+    """URL score.
+
+    The trained Random Forest extracts its features from the text, and
+    was trained on emails whose links were written out in the text: it
+    only judges the URLs that appear in `body_text`. URLs that are not in
+    the text (Gmail link targets, HTML hrefs, QR codes) get the rule-based
+    score instead: on real 2026 mail the RF scores almost any URL with a
+    path at ~0.95 (github.com/user/repo, wikipedia.org/wiki/...), so
+    feeding it hidden link targets flagged nearly every HTML email. Those
+    hidden URLs are still checked against threat intelligence by the
+    caller, which is where most of their value lies.
+    """
+    # No links, no URL risk. Checked before the trained path on purpose:
+    # on an all-zero feature vector the RF outputs a high probability.
+    if not urls:
+        return 0.05
+    visible = [u for u in urls if u in body_text]
+    hidden = [u for u in urls if u not in body_text]
+
+    score = 0.05
+    if visible:
+        score = url_heuristic(visible)
+        if _URL_AGENT is not None and _FEATURE_EXTRACT is not None:
+            try:
+                feats = _FEATURE_EXTRACT.extract_url_features(body_text)
+                pred  = _URL_AGENT.get_prediction_with_confidence(feats)
+                score = float(pred["phishing_probability"])
+            except Exception as e:
+                logger.warning("url_agent trained path failed (%s); rules used", e)
+    if hidden:
+        score = max(score, url_heuristic(hidden))
+    return score
+
+
+def metadata_agent(headers: dict[str, str], raw_email: bytes | None = None) -> float:
+    """Metadata score: trained RF on the raw email when available,
+    heuristic on the parsed header dict otherwise."""
+    if _METADATA_AGENT is not None and _FEATURE_EXTRACT is not None and raw_email:
+        try:
+            feats = _FEATURE_EXTRACT.extract_metadata_features(raw_email)
+            pred  = _METADATA_AGENT.get_prediction_with_confidence(feats)
+            return float(pred["phishing_probability"])
+        except Exception as e:
+            logger.warning("metadata_agent trained path failed (%s); rules used", e)
+    score = 0.0
+    sender = headers.get("from", "").lower()
+    reply_to = headers.get("reply-to", "").lower()
+    # Reply-To differs from From
+    def domain(addr: str) -> str:
+        m = re.search(r"@([^>\s]+)", addr)
+        return m.group(1).lower() if m else ""
+    if reply_to and domain(reply_to) and domain(reply_to) != domain(sender):
+        score += 0.45
+    # No DKIM / SPF / Authentication-Results
+    auth = headers.get("authentication-results", "")
+    if "dkim=fail" in auth or "spf=fail" in auth:
+        score += 0.40
+    if "authentication-results" not in headers:
+        score += 0.15
+    # Display name impersonation: 'PayPal' from a non-paypal address.
+    # Use stdlib email.utils.parseaddr instead of a regex so we can't
+    # be hit by ReDoS on a crafted From: header. Header is sliced to
+    # 400 chars first as a belt-and-braces cap.
+    display_name, _addr = parseaddr(headers.get("from", "")[:400])
+    display = display_name.lower()[:200]
+    if display:
+        for brand in ("paypal", "apple", "google", "microsoft", "amazon", "facebook"):
+            if brand in display and brand not in domain(sender):
+                score += 0.35
+                break
+    return min(score, 1.0)
+
+
+def load() -> None:
+    """Load the feature extractor and whichever trained agents are
+    available; anything missing leaves the rule-based fallback in place."""
+    global _URL_AGENT, _METADATA_AGENT, _FEATURE_EXTRACT
+    try:
+        from feature_extraction import FeatureExtractor
+        from metadata_agent import MetadataAgent
+        from url_agent import URLAgent
+        _FEATURE_EXTRACT = FeatureExtractor()
+        _URL_AGENT = _init_agent("url_agent", "URL_AGENT_PATH", URLAgent)
+        _METADATA_AGENT = _init_agent("metadata_agent", "METADATA_AGENT_PATH", MetadataAgent)
+        if not _URL_AGENT and not _METADATA_AGENT:
+            logger.info("No trained agents loaded: rule-based fallbacks only.")
+    except Exception as e:
+        logger.warning("Feature extractor init failed, rules only: %s", e)
+
+
+def url_model_ready() -> bool:
+    return _URL_AGENT is not None and _FEATURE_EXTRACT is not None
+
+
+def metadata_model_ready() -> bool:
+    return _METADATA_AGENT is not None and _FEATURE_EXTRACT is not None

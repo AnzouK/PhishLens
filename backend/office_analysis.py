@@ -12,7 +12,7 @@ of XML parts. Legacy formats (.doc .xls .ppt) and password-protected
 modern files are OLE2 compound files; for those we only scan the raw
 bytes for macro and encryption markers and pull out URLs.
 
-Flags raised (scored in extension_backend._RISK):
+Flags raised (scored in fusion.FEATURE_RISK):
 
 * contains_macros           VBA project or Excel 4.0 macro sheet
 * remote_template           template loaded from an external URL

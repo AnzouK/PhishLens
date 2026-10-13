@@ -1,9 +1,8 @@
 """
 Email authentication header parsing + Spamhaus DBL DNS lookup.
 
-Adds a real sender-authentication signal to the metadata pipeline. Where the
-old code relied on a static TRUSTED_DOMAINS allowlist (which is spoofable:
-"paypal.com" in the From: line means nothing on its own), this module reads
+Adds a real sender-authentication signal to the metadata pipeline.
+"paypal.com" in the From: line means nothing on its own, so this module reads
 the Authentication-Results header that Gmail (and most modern MTAs) adds to
 every message, and reports whether SPF / DKIM / DMARC actually passed.
 

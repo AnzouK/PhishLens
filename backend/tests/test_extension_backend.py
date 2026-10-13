@@ -1,5 +1,6 @@
 """
-Endpoint and fusion tests for extension_backend.py.
+Endpoint tests for the PhishLens API (extension_backend.py) and the
+modules it wires: email_parsing, sender_trust, structured_agents.
 
 The DistilBERT model is never loaded: TestClient is used without a
 `with` block, so the lifespan hook does not run, and `text_agent` is
@@ -23,6 +24,10 @@ from fastapi.testclient import TestClient  # noqa: E402
 from tests.conftest import import_extension_backend  # noqa: E402
 
 eb = import_extension_backend()
+import email_parsing as ep  # noqa: E402
+import sender_trust as st  # noqa: E402
+import structured_agents as sa  # noqa: E402
+import text_model as tm  # noqa: E402
 
 
 def b64(data: bytes) -> str:
@@ -47,14 +52,14 @@ def _fresh_result_cache():
 def client(monkeypatch):
     monkeypatch.setenv("REPUTATION_ENABLE_DBL", "0")
     monkeypatch.setattr(eb, "_REPUTATION_AVAILABLE", False)
-    monkeypatch.setattr(eb, "_URL_AGENT", None)
-    monkeypatch.setattr(eb, "_METADATA_AGENT", None)
-    monkeypatch.setattr(eb, "text_agent", lambda _body: 0.02)
+    monkeypatch.setattr(sa, "_URL_AGENT", None)
+    monkeypatch.setattr(sa, "_METADATA_AGENT", None)
+    monkeypatch.setattr(tm, "text_agent", lambda _body: 0.02)
     return TestClient(eb.app)
 
 
 def text_score(monkeypatch, p: float):
-    monkeypatch.setattr(eb, "text_agent", lambda _body: p)
+    monkeypatch.setattr(tm, "text_agent", lambda _body: p)
 
 
 # ---------------------------------------------------------------------
@@ -62,42 +67,42 @@ def text_score(monkeypatch, p: float):
 # ---------------------------------------------------------------------
 class TestHelpers:
     def test_sender_domain(self):
-        assert eb._sender_domain('"Bank" <alerts@GTBank.com>') == "gtbank.com"
-        assert eb._sender_domain("") is None
-        assert eb._sender_domain("no-at-sign") is None
+        assert st.sender_domain('"Bank" <alerts@GTBank.com>') == "gtbank.com"
+        assert st.sender_domain("") is None
+        assert st.sender_domain("no-at-sign") is None
 
     def test_trusted_domain_and_subdomain(self):
-        assert eb.is_trusted_domain("gtbank.com")
-        assert eb.is_trusted_domain("mail.gtbank.com")
-        assert not eb.is_trusted_domain("gtbank.com.evil.tld")
-        assert not eb.is_trusted_domain("gmail.com")
-        assert not eb.is_trusted_domain(None)
+        assert st.is_trusted_domain("gtbank.com")
+        assert st.is_trusted_domain("mail.gtbank.com")
+        assert not st.is_trusted_domain("gtbank.com.evil.tld")
+        assert not st.is_trusted_domain("gmail.com")
+        assert not st.is_trusted_domain(None)
 
     def test_verdict_label(self):
-        assert eb.verdict_label(0.5) == "Phishing"
-        assert eb.verdict_label(0.49) == "Safe"
+        assert eb._verdict_label(0.5) == "Phishing"
+        assert eb._verdict_label(0.49) == "Safe"
 
     def test_parse_eml_extracts_body_urls_headers(self):
         raw = (b"From: a@b.com\r\nSubject: hi\r\nContent-Type: text/plain\r\n\r\n"
                b"see https://example.com/x please")
-        body, urls, headers = eb.parse_eml(raw)
+        body, urls, headers = ep.parse_eml(raw)
         assert "please" in body
         assert urls == ["https://example.com/x"]
         assert headers["subject"] == "hi"
 
     def test_synthesized_auth_only_for_gmail(self):
-        assert eb._synthesize_auth_results({"origin": "outlook"}, "a@b.com") == ""
-        assert eb._synthesize_auth_results({"origin": "gmail"}, "a@b.com") == ""
+        assert st.synthesize_auth_results({"origin": "outlook"}, "a@b.com") == ""
+        assert st.synthesize_auth_results({"origin": "gmail"}, "a@b.com") == ""
 
     def test_synthesized_auth_aligned_gives_dmarc_pass(self):
         ctx = {"origin": "gmail", "gmail_signed_by": "mail.paypal.com"}
-        h = eb._synthesize_auth_results(ctx, "service@paypal.com")
+        h = st.synthesize_auth_results(ctx, "service@paypal.com")
         assert "dkim=pass" in h
         assert "dmarc=pass" in h
 
     def test_synthesized_auth_misaligned_no_dmarc(self):
         ctx = {"origin": "gmail", "gmail_signed_by": "evil.tld"}
-        h = eb._synthesize_auth_results(ctx, "service@paypal.com")
+        h = st.synthesize_auth_results(ctx, "service@paypal.com")
         assert "dkim=pass" in h
         assert "dmarc=pass" not in h
 
@@ -107,12 +112,12 @@ class TestHelpers:
 # ---------------------------------------------------------------------
 class TestHeuristicAgents:
     def test_url_agent_no_urls_is_low(self, monkeypatch):
-        monkeypatch.setattr(eb, "_URL_AGENT", None)
-        assert eb.url_agent([]) == pytest.approx(0.05)
+        monkeypatch.setattr(sa, "_URL_AGENT", None)
+        assert sa.url_agent([]) == pytest.approx(0.05)
 
     def test_url_agent_ip_url_is_high(self, monkeypatch):
-        monkeypatch.setattr(eb, "_URL_AGENT", None)
-        assert eb.url_agent(["http://10.0.0.1/login"]) >= 0.7
+        monkeypatch.setattr(sa, "_URL_AGENT", None)
+        assert sa.url_agent(["http://10.0.0.1/login"]) >= 0.7
 
     def test_trained_url_agent_skipped_without_urls(self, monkeypatch):
         # Regression (v1.10.1): the trained RF returned ~0.9 on link-free
@@ -120,9 +125,9 @@ class TestHeuristicAgents:
         class AlwaysPhishy:
             def get_prediction_with_confidence(self, _feats):
                 return {"phishing_probability": 0.9}
-        monkeypatch.setattr(eb, "_URL_AGENT", AlwaysPhishy())
-        monkeypatch.setattr(eb, "_FEATURE_EXTRACT", object())
-        assert eb.url_agent([], body_text="Meeting moved to 3pm.") == pytest.approx(0.05)
+        monkeypatch.setattr(sa, "_URL_AGENT", AlwaysPhishy())
+        monkeypatch.setattr(sa, "_FEATURE_EXTRACT", object())
+        assert sa.url_agent([], body_text="Meeting moved to 3pm.") == pytest.approx(0.05)
 
     def test_link_free_text_is_safe_with_trained_url_agent(self, client, monkeypatch):
         class AlwaysPhishy:
@@ -132,37 +137,37 @@ class TestHeuristicAgents:
         class NoFeatures:
             def extract_url_features(self, _text):
                 return {}
-        monkeypatch.setattr(eb, "_URL_AGENT", AlwaysPhishy())
-        monkeypatch.setattr(eb, "_FEATURE_EXTRACT", NoFeatures())
+        monkeypatch.setattr(sa, "_URL_AGENT", AlwaysPhishy())
+        monkeypatch.setattr(sa, "_FEATURE_EXTRACT", NoFeatures())
         r = client.post("/analyse", json={"raw_text": "Hi team, the meeting moved to 3pm."})
         j = r.json()
         assert j["agents"]["url"]["phishing_probability"] == pytest.approx(0.05)
         assert j["verdict"] == "safe"
 
     def test_metadata_display_name_impersonation(self, monkeypatch):
-        monkeypatch.setattr(eb, "_METADATA_AGENT", None)
-        score = eb.metadata_agent({"from": "PayPal Support <support@evil.tld>"})
+        monkeypatch.setattr(sa, "_METADATA_AGENT", None)
+        score = sa.metadata_agent({"from": "PayPal Support <support@evil.tld>"})
         # +0.15 (no auth header) +0.35 (brand in display name, not in domain)
         assert score == pytest.approx(0.50)
 
     def test_metadata_real_brand_not_penalised(self, monkeypatch):
-        monkeypatch.setattr(eb, "_METADATA_AGENT", None)
-        score = eb.metadata_agent({"from": "PayPal <service@paypal.com>",
+        monkeypatch.setattr(sa, "_METADATA_AGENT", None)
+        score = sa.metadata_agent({"from": "PayPal <service@paypal.com>",
                                    "authentication-results": "spf=pass"})
         assert score == pytest.approx(0.0)
 
     def test_metadata_reply_to_mismatch(self, monkeypatch):
-        monkeypatch.setattr(eb, "_METADATA_AGENT", None)
-        score = eb.metadata_agent({"from": "a@x.com", "reply-to": "b@y.com",
+        monkeypatch.setattr(sa, "_METADATA_AGENT", None)
+        score = sa.metadata_agent({"from": "a@x.com", "reply-to": "b@y.com",
                                    "authentication-results": "spf=pass"})
         assert score == pytest.approx(0.45)
 
     def test_metadata_huge_from_header_is_fast(self, monkeypatch):
         # Regression for CodeQL py/polynomial-redos: a crafted From: must
         # not hang the heuristic.
-        monkeypatch.setattr(eb, "_METADATA_AGENT", None)
+        monkeypatch.setattr(sa, "_METADATA_AGENT", None)
         evil = '"' + "!" + " " * 50_000 + "<x@y.z>"
-        assert 0.0 <= eb.metadata_agent({"from": evil}) <= 1.0
+        assert 0.0 <= sa.metadata_agent({"from": evil}) <= 1.0
 
 
 # ---------------------------------------------------------------------
@@ -197,7 +202,7 @@ class TestLimitsAndErrors:
     def test_internal_error_details_are_not_returned(self, client, monkeypatch):
         def boom(_body):
             raise RuntimeError("secret internal path /home/user/app/model")
-        monkeypatch.setattr(eb, "text_agent", boom)
+        monkeypatch.setattr(tm, "text_agent", boom)
         r = client.post("/analyse", json={"raw_text": "Hello there, see you tomorrow."})
         assert r.status_code == 500
         assert "secret" not in r.text and "reference" in r.json()["detail"]
@@ -434,7 +439,7 @@ class TestMetrics:
 # ---------------------------------------------------------------------
 class TestLinkUrls:
     def test_merge_filters_and_dedupes(self):
-        out = eb._merge_link_urls(
+        out = ep.merge_link_urls(
             ["https://a.example/x"],
             ["https://a.example/x", "javascript:alert(1)", "mailto:x@y.z",
              42, "http://b.example/" + "p" * 3000, " https://c.example/login "],
@@ -443,8 +448,8 @@ class TestLinkUrls:
 
     def test_merge_caps_and_ignores_non_lists(self):
         many = [f"https://h{i}.example/" for i in range(200)]
-        assert len(eb._merge_link_urls([], many)) == eb.MAX_LINK_URLS
-        assert eb._merge_link_urls(["https://a.example/"], "https://b.example/") == ["https://a.example/"]
+        assert len(ep.merge_link_urls([], many)) == eb.MAX_LINK_URLS
+        assert ep.merge_link_urls(["https://a.example/"], "https://b.example/") == ["https://a.example/"]
 
     def test_hidden_link_reaches_url_agent(self, client, monkeypatch):
         seen = {}
@@ -452,7 +457,7 @@ class TestLinkUrls:
         def fake_url_agent(urls, body_text=""):
             seen["urls"] = list(urls)
             return 0.0
-        monkeypatch.setattr(eb, "url_agent", fake_url_agent)
+        monkeypatch.setattr(sa, "url_agent", fake_url_agent)
         client.post("/analyse", json={
             "raw_text": "Your parcel is waiting. Click here to schedule delivery.",
             "client_context": {"origin": "gmail",
@@ -481,10 +486,10 @@ class TestV114:
         assert j["verdict"] == "phishing"
 
     def test_detect_forwarded_variants(self):
-        assert eb.detect_forwarded("-------- Message transféré --------\nDe : <a@b.fr>")["original_sender"] == "a@b.fr"
-        assert eb.detect_forwarded("Begin forwarded message:\n\nFrom: x@y.io")["detected"]
-        assert eb.detect_forwarded("hello", "TR: facture")["detected"]
-        assert not eb.detect_forwarded("hello", "Re: meeting")["detected"]
+        assert ep.detect_forwarded("-------- Message transféré --------\nDe : <a@b.fr>")["original_sender"] == "a@b.fr"
+        assert ep.detect_forwarded("Begin forwarded message:\n\nFrom: x@y.io")["detected"]
+        assert ep.detect_forwarded("hello", "TR: facture")["detected"]
+        assert not ep.detect_forwarded("hello", "Re: meeting")["detected"]
 
     def test_short_text_is_left_out_of_fusion(self, client, monkeypatch):
         text_score(monkeypatch, 0.99)          # would trigger the override alone
@@ -518,7 +523,7 @@ class TestV114:
 
 def test_forwarded_sender_parsing_is_bounded():
     body = "---------- Forwarded message ---------\nFrom: " + "a" * 200_000
-    assert eb.detect_forwarded(body) == {"detected": True, "original_sender": None}
+    assert ep.detect_forwarded(body) == {"detected": True, "original_sender": None}
 
 
 def test_eml_html_href_targets_are_extracted():
@@ -527,7 +532,7 @@ def test_eml_html_href_targets_are_extracted():
            b"--X\r\nContent-Type: text/plain\r\n\r\nClick here to verify\r\n"
            b"--X\r\nContent-Type: text/html\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n"
            b"<a href=3D\"https://evil.example/login\">Click here</a>\r\n--X--\r\n")
-    _body, urls, _headers = eb.parse_eml(eml)
+    _body, urls, _headers = ep.parse_eml(eml)
     assert urls == ["https://evil.example/login"]
 
 
@@ -535,7 +540,7 @@ def test_html_to_text_drops_css_and_scripts():
     html = ('<html><head><style>.itinerarytable{font:25px roboto}</style></head>'
             '<body><h1 class="heading">Your flight</h1><p>Check &amp; confirm</p>'
             '<script>var x = 1</script></body></html>')
-    text = eb.html_to_text(html)
+    text = ep.html_to_text(html)
     assert "Your flight" in text and "Check & confirm" in text
     for noise in ("25px", "roboto", "itinerarytable", "var x"):
         assert noise not in text
@@ -552,7 +557,7 @@ class TestShowOriginal:
         def fake_meta(headers, raw_email=None):
             calls.append(raw_email)
             return 0.1
-        monkeypatch.setattr(eb, "metadata_agent", fake_meta)
+        monkeypatch.setattr(sa, "metadata_agent", fake_meta)
         client.post("/analyse", json={"raw_email_b64": b64(self.EML)})
         client.post("/analyse", json={"raw_email_b64": b64(self.EML),
                                       "client_context": {"origin": "gmail", "headers_source": "gmail_show_original"}})
@@ -578,15 +583,15 @@ class TestV115Scoring:
             @staticmethod
             def extract_url_features(text):
                 return {}
-        monkeypatch.setattr(eb, "_URL_AGENT", RF())
-        monkeypatch.setattr(eb, "_FEATURE_EXTRACT", FX())
+        monkeypatch.setattr(sa, "_URL_AGENT", RF())
+        monkeypatch.setattr(sa, "_FEATURE_EXTRACT", FX())
         text = "Your CI run failed. View results."
         # hidden, harmless link: rules only
-        assert eb.url_agent(["https://github.com/AnzouK/PhishLens/actions/runs/1"], text) < 0.2
+        assert sa.url_agent(["https://github.com/AnzouK/PhishLens/actions/runs/1"], text) < 0.2
         # hidden, risky link: the rules still catch it
-        assert eb.url_agent(["http://192.168.0.1/login-verify"], text) >= 0.7
+        assert sa.url_agent(["http://192.168.0.1/login-verify"], text) >= 0.7
         # a link written in the text: the trained model decides
-        assert eb.url_agent(["https://x.example/a"], "see https://x.example/a") == 0.95
+        assert sa.url_agent(["https://x.example/a"], "see https://x.example/a") == 0.95
 
     def test_page_text_wins_over_eml_text_part(self, client, monkeypatch):
         seen = {}
@@ -594,7 +599,7 @@ class TestV115Scoring:
         def fake_text(body):
             seen["body"] = body
             return 0.1
-        monkeypatch.setattr(eb, "text_agent", fake_text)
+        monkeypatch.setattr(tm, "text_agent", fake_text)
         eml = (b"From: a@b.example\r\nSubject: CI\r\nContent-Type: text/plain\r\n\r\n"
                b"View results: https://github.com/x/y/actions/runs/1\r\n")
         client.post("/analyse", json={"raw_email_b64": b64(eml),
@@ -607,14 +612,14 @@ class TestV115Scoring:
                b"--X\r\nContent-Type: text/plain\r\n\r\nView results: https://github.com/x/y/actions/runs/1\r\n"
                b"--X\r\nContent-Type: text/html\r\n\r\n<p>Run failed. <a href=\"https://github.com/x/y/actions/runs/1\">View results</a></p>\r\n"
                b"--X--\r\n")
-        body, urls, _h = eb.parse_eml(eml)
+        body, urls, _h = ep.parse_eml(eml)
         assert body == "Run failed. View results"
         assert urls == ["https://github.com/x/y/actions/runs/1"]
 
 
 class TestUrlOverrideNeedsConfirmation:
     def _rf(self, monkeypatch, p):
-        monkeypatch.setattr(eb, "url_agent", lambda urls, body_text="": p)
+        monkeypatch.setattr(sa, "url_agent", lambda urls, body_text="": p)
 
     def test_clean_link_alone_does_not_force_phishing(self, client, monkeypatch):
         text_score(monkeypatch, 0.10)
@@ -666,11 +671,11 @@ class TestOutlookInternal:
 
 
 def test_is_hostname():
-    assert eb._is_hostname("nileuniversity.edu.ng")
-    assert not eb._is_hostname("not a domain")
-    assert not eb._is_hostname("localhost")
-    assert not eb._is_hostname("a..b")
-    assert not eb._is_hostname("-" * 300 + ".com")
+    assert st.is_hostname("nileuniversity.edu.ng")
+    assert not st.is_hostname("not a domain")
+    assert not st.is_hostname("localhost")
+    assert not st.is_hostname("a..b")
+    assert not st.is_hostname("-" * 300 + ".com")
 
 
 # ---------------------------------------------------------------------
@@ -681,7 +686,7 @@ class TestResultCache:
 
     def test_second_identical_scan_is_cached(self, client, monkeypatch):
         calls = []
-        monkeypatch.setattr(eb, "text_agent", lambda b: calls.append(b) or 0.9)
+        monkeypatch.setattr(tm, "text_agent", lambda b: calls.append(b) or 0.9)
         first = client.post("/analyse", json={"raw_text": self.BODY}).json()
         second = client.post("/analyse", json={"raw_text": self.BODY}).json()
         assert first["cached"] is False and second["cached"] is True
@@ -755,12 +760,12 @@ class TestArchiveFileReport:
 # ---------------------------------------------------------------------
 class TestGmailSignedByAlignment:
     def test_synthetic_header_no_dmarc_pass_across_organisations(self):
-        h = eb._synthesize_auth_results(
+        h = st.synthesize_auth_results(
             {"origin": "gmail", "gmail_signed_by": "attacker.co.uk"}, "billing@paypal.co.uk")
         assert "dkim=pass header.i=@attacker.co.uk" in h and "dmarc=pass" not in h
 
     def test_synthetic_header_dmarc_pass_same_organisation(self):
-        h = eb._synthesize_auth_results(
+        h = st.synthesize_auth_results(
             {"origin": "gmail", "gmail_signed_by": "mail.paypal.co.uk"}, "billing@paypal.co.uk")
         assert "dmarc=pass header.from=paypal.co.uk" in h
 

@@ -2,9 +2,11 @@
 # PhishLens: local docker-compose
 # =====================================================================
 #  Usage:
-#    1. Unzip phishing_model.zip into ./model/   (one-time)
+#    1. Put the text model in ./model/ (one-time), for example:
+#         huggingface-cli download AnzouKiona/phishlens-distilbert --local-dir model
 #    2. docker compose up --build
-#    3. open chrome://extensions and load extension/phishlens/
+#    3. chrome://extensions > Developer mode > Load unpacked > extension/,
+#       then choose "Local backend (Docker)" in the PhishLens settings
 # =====================================================================
 services:
   phishlens-backend:
@@ -16,7 +18,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Mount the DistilBERT checkpoint read-only into the container.
+      # The text model, read-only.
       # The image reads it from /app/model (overridable via MODEL_DIR).
       - ./model:/app/model:ro
     environment:

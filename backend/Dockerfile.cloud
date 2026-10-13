@@ -1,19 +1,21 @@
 # =====================================================================
-# PhishLens backend: cloud deployment image (Oracle Cloud / any Docker host).
+# PhishLens backend: production image (PhishLens Cloud, any Docker host).
 # =====================================================================
-# Differences from the local backend Dockerfile:
-#   - listens on $PORT (HF Spaces inject 7860 by default)
-#   - runs as a non-root user (HF requirement)
-#   - does NOT bundle the DistilBERT checkpoint into the image; it is
-#     downloaded from HF Hub on first run (HF_MODEL_REPO).
+# Differences from Dockerfile.local:
+#   - listens on $PORT (7860 by default; scripts/redeploy.sh and the
+#     Caddy reverse proxy expect it)
+#   - runs as an unprivileged user (uid 1000)
+#   - the text model is not in the image: it is downloaded from the
+#     Hugging Face Hub on first start (HF_MODEL_REPO) into MODEL_DIR
+# Deployment: docs/operations.md.
 # =====================================================================
 
 FROM python:3.12-slim
 
-# System packages for attachment analysis (v1.12):
+# System packages for attachment analysis:
 #   - tesseract-ocr: OCR for images and scanned PDFs (English data included)
-#   - libarchive-tools (v1.15.3): bsdtar, used by rarfile to decompress
-#     the members of RAR attachments (the listing itself is pure Python)
+#   - libarchive-tools: bsdtar, used by rarfile to decompress the members
+#     of RAR attachments (the listing itself is pure Python)
 # Installed as root, before switching to the unprivileged user.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends tesseract-ocr libarchive-tools \
@@ -32,9 +34,8 @@ ENV HF_HOME=/home/user/.cache/huggingface \
 
 # Install Python dependencies.
 COPY --chown=user:user requirements.txt .
-# torch first, from the CPU-only wheel index: skips ~3.5 GB of NVIDIA CUDA
-# runtime packages that ship as hard deps of the default torch 2.14+ wheels.
-# The Oracle Cloud ARM VM has no GPU, so those packages are pure bloat.
+# torch first, from the CPU-only wheel index: the default wheels pull
+# ~3.5 GB of NVIDIA CUDA runtime, useless on a CPU-only host.
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
         "torch>=2.0,<3.0" \
@@ -44,7 +45,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 # scripts are not copied). Same set as Dockerfile.local.
 COPY --chown=user:user *.py ./
 
-# HF Spaces sets PORT=7860 by default; honour it.
 ENV PORT=7860
 EXPOSE 7860
 

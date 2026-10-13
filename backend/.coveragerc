@@ -1,11 +1,7 @@
 [run]
-# Measure the runtime code only. url_agent.py and metadata_agent.py are
-# the training-side wrappers copied from PhishingDetector; at inference
-# they only load a pickled model, which CI does not download.
+# Measure the runtime code only (the one-time conversion script is a tool).
 omit =
     tests/*
-    url_agent.py
-    metadata_agent.py
     convert_agents_to_skops.py
 
 [report]

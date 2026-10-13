@@ -40,9 +40,15 @@ flowchart LR
 | Module | Responsibility |
 | --- | --- |
 | `extension/content_scripts/gmail.js` | Injects the scan buttons and verdict banner into Gmail, scrapes body, sender, `mailed-by` / `signed-by`, Inbox state, attachments |
-| `extension/background.js` | Proxies requests to the backend (Gmail's CSP blocks direct fetches) and pings `/health` to keep the backend warm |
+| `extension/background.js` | Proxies requests to the backend (Gmail's CSP blocks direct fetches) and saves scans to the history |
 | `extension/lib/history.js`, `lime_cache.js` | Local scan history and analytics; SHA-256 keyed LIME cache |
-| `backend/extension_backend.py` | HTTP API, request parsing, the three agents, fusion and trust paths, rate limiting, metrics |
+| `backend/extension_backend.py` | HTTP API: endpoints, request limits, rate limiting, metrics, result cache |
+| `backend/settings.py` | Version, environment variables, every scoring constant (weights, thresholds, trust paths) |
+| `backend/email_parsing.py` | Visible text, links and headers of an email; forwarded emails; links to file-sharing services |
+| `backend/sender_trust.py`, `trusted_domains.py` | Sender domain, allowlist (authenticated senders only), Gmail "signed-by" / "mailed-by" as an Authentication-Results header |
+| `backend/text_model.py` | Text agent and its LIME explanation |
+| `backend/structured_agents.py` | URL and metadata agents: trained Random Forests with rule-based fallbacks |
+| `backend/fusion.py` | Agent scores and evidence to a verdict, for emails and attachments (pure functions) |
 | `backend/auth_headers.py` | RFC 7489 parsing of `Authentication-Results`, organisational-domain alignment, Spamhaus DBL on the From: domain |
 | `backend/reputation.py` | URL reputation cascade with a SQLite cache and a daily Google Safe Browsing quota |
 | `backend/attachment_analysis.py` | MIME sniffing, PDF and HTML text/URL extraction, risky-feature flags |
@@ -101,19 +107,19 @@ metric.
 
 ### Scoring reference
 
-Base weights on the default path (constants in `extension_backend.py`):
+Base weights on the default path (constants in `settings.py`):
 
 | Knob | Value |
 | --- | --- |
 | `W_TEXT` / `W_URL` / `W_META` | 0.34 / 0.33 / 0.33 |
-| `FUSION_THRESHOLD` | 0.5 |
+| `PATH_DEFAULT.threshold` | 0.5 |
 | `HIGH_CONF_OVERRIDE` (any single agent) | 0.85 |
 
 How each trust path changes them:
 
 | Path | Text weight | Single-agent override | Threshold | Extra |
 | --- | --- | --- | --- | --- |
-| `trusted_sender` | x0.5 | only on a Safe Browsing hit | 0.65 | metadata score floored at 0.05 |
+| `trusted_sender` | x0.5 | only on a Safe Browsing hit | 0.65 | authenticated sender only; metadata score capped at 0.05 |
 | `crypto_verified` | x0.5 | only on a Safe Browsing hit | 0.65 | |
 | `gmail_inbox_soft` | x0.6 | only on a Safe Browsing hit | 0.62 | |
 | `outlook_internal` | x0.6 | only on a Safe Browsing hit | 0.62 | Outlook sender from the user's own organisation (address hidden by Outlook, mail authenticated by the organisation's server); the organisation's domain is used for the allowlist check, so an allowlisted organisation gets `trusted_sender` instead |
