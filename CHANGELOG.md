@@ -7,6 +7,31 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [1.15.5] - 2026-10-13
+
+Security fix from an external code review, and clearer reporting of which
+checks ran.
+
+### Security
+- **Sender alignment under shared public suffixes:** the alignment built
+  from Gmail's "signed-by" compared only the last two labels of each
+  domain, so a message from `billing@paypal.co.uk` signed by
+  `attacker.co.uk` was treated as DMARC-aligned and could get the softer
+  trust path; the header parser had a short list of two-part suffixes
+  with the same gap for others (`attacker.com.ng` vs `firstbank.com.ng`).
+  Both now use one organisational-domain rule that keeps three labels
+  under country-code registries (co, com, org, gov, edu, ac, ...) and on
+  shared-hosting suffixes (github.io, web.app, duckdns.org, ...), with
+  regression tests.
+
+### Added
+- **Which checks ran:** `/analyse` returns `agents.<name>.source`
+  (`model`, `rules` or `none`), so a missing or bypassed trained model is
+  visible in every result, and `auth_source` (`headers` when the real
+  Authentication-Results header was read, `gmail_ui` when the result comes
+  from the "signed-by" / "mailed-by" that Gmail shows, `none`). `/health`
+  lists which agents run a trained model.
+
 ### Fixed
 - **Website upload box:** a long file name no longer spills out of the
   box; it wraps on two lines at most (full name on hover) and the size
@@ -616,6 +641,7 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[1.15.5]: https://github.com/AnzouK/PhishLens/compare/v1.15.4...v1.15.5
 [1.15.4]: https://github.com/AnzouK/PhishLens/compare/v1.15.3...v1.15.4
 [1.15.3]: https://github.com/AnzouK/PhishLens/compare/v1.15.2...v1.15.3
 [1.15.2]: https://github.com/AnzouK/PhishLens/compare/v1.15.1...v1.15.2

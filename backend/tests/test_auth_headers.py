@@ -112,3 +112,33 @@ class TestParseAuthResults:
         v = parse_authentication_results({"from": "x@paypal.com",
                                           "authentication-results": ar})
         assert v.aligned is False
+
+
+class TestOrgDomainPublicSuffixes:
+    """v1.15.5: two organisations under the same public suffix never align."""
+
+    def test_country_code_registries(self):
+        assert _org_domain("billing.paypal.co.uk") == "paypal.co.uk"
+        assert _org_domain("attacker.co.uk") != _org_domain("paypal.co.uk")
+        assert _org_domain("ib.firstbank.com.ng") == "firstbank.com.ng"
+        assert _org_domain("attacker.com.ng") != _org_domain("firstbank.com.ng")
+        assert _org_domain("portal.unilag.edu.ng") == "unilag.edu.ng"
+        assert _org_domain("mail.uct.ac.za") == "uct.ac.za"
+
+    def test_shared_hosting_suffixes(self):
+        assert _org_domain("victim.github.io") == "victim.github.io"
+        assert _org_domain("evil.github.io") != _org_domain("victim.github.io")
+        assert _org_domain("x.anzouk.duckdns.org") == "anzouk.duckdns.org"
+
+    def test_suffix_alone_and_plain_domains(self):
+        assert _org_domain("co.uk") == "co.uk"
+        assert _org_domain("a.b.example.com") == "example.com"
+        assert _org_domain("example.ng") == "example.ng"
+
+    def test_dkim_from_other_org_under_same_suffix_is_not_verified(self):
+        v = parse_authentication_results({
+            "from": "PayPal <service@paypal.co.uk>",
+            "authentication-results": "mx.google.com; dkim=pass header.i=@attacker.co.uk; "
+                                      "spf=pass smtp.mailfrom=attacker.co.uk",
+        })
+        assert v.aligned is False and v.cryptographically_verified is False

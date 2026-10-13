@@ -95,25 +95,49 @@ def _domain_of(addr: str) -> str:
     return addr.rstrip(".").split(">")[0].strip()
 
 
+# Second-level labels that registries use under country-code TLDs
+# (paypal.co.uk, firstbank.com.ng, unilag.edu.ng, uct.ac.za, ...): under a
+# two-letter TLD, a domain ending in one of these keeps three labels.
+_GENERIC_SLDS = {"co", "com", "net", "org", "gov", "edu", "ac", "sch", "mil", "gob",
+                 "gouv", "nic", "or", "ne", "go", "ltd", "plc", "info", "biz", "nom",
+                 "int", "res", "lg", "ad", "ed", "gr", "mod", "police", "nhs"}
+# Shared hosting suffixes where every customer gets a subdomain: the
+# customer label is the organisation, never the suffix itself.
+_SHARED_SUFFIXES = {"github.io", "herokuapp.com", "web.app", "firebaseapp.com",
+                    "pages.dev", "netlify.app", "vercel.app", "blogspot.com",
+                    "duckdns.org", "azurewebsites.net", "cloudfront.net",
+                    "appspot.com", "wixsite.com", "weebly.com", "glitch.me"}
+
+
 def _org_domain(domain: str) -> str:
     """
-    Best-effort organizational-domain reduction: 'mail.paypal.com' -> 'paypal.com'.
-    Proper eTLD+1 extraction would need the Public Suffix List, but for our
-    alignment check the last-two-labels heuristic is right in >95% of cases
-    and doesn't add a runtime dependency.
+    Organisational domain ("registrable" domain): 'mail.paypal.com' ->
+    'paypal.com', 'billing.paypal.co.uk' -> 'paypal.co.uk',
+    'x.firstbank.com.ng' -> 'firstbank.com.ng'.
+
+    Not the full Public Suffix List, but it covers every country-code
+    registry that uses generic second-level labels (co, com, org, gov, edu,
+    ac, ...) and common shared-hosting suffixes, so two different
+    organisations under the same public suffix never compare equal
+    (attacker.co.uk vs paypal.co.uk). v1.15.5: used by every alignment
+    check, including the one built from Gmail's "signed-by".
     """
     if not domain:
         return ""
-    parts = domain.lower().strip(".").split(".")
+    parts = [p for p in domain.lower().strip().strip(".").split(".") if p]
     if len(parts) <= 2:
         return ".".join(parts)
-    # Two-part TLDs we know about (co.uk, com.br, ...): keep three labels.
-    two_part_tlds = {"co.uk", "co.jp", "co.kr", "co.nz", "co.za", "com.br",
-                     "com.au", "com.mx", "com.ar", "org.uk", "gov.uk", "ac.uk"}
     tail2 = ".".join(parts[-2:])
-    if tail2 in two_part_tlds and len(parts) >= 3:
+    if tail2 in _SHARED_SUFFIXES:
         return ".".join(parts[-3:])
-    return ".".join(parts[-2:])
+    if len(parts[-1]) == 2 and parts[-2] in _GENERIC_SLDS:
+        return ".".join(parts[-3:])
+    return tail2
+
+
+def org_domain(domain: str) -> str:
+    """Public name for _org_domain (used by extension_backend)."""
+    return _org_domain(domain)
 
 
 def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:

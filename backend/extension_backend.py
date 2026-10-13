@@ -763,7 +763,12 @@ def root():
 def health():
     """Lightweight liveness probe. Used by the extension to warm the container
     so users don't hit a cold-start on their first scan."""
-    return {"status": "ok", "model": "DistilBERT"}
+    # v1.15.5: say which agents run a trained model and which fall back to
+    # rules, so a running server never hides a missing model.
+    return {"status": "ok", "model": "DistilBERT",
+            "agents": {"text": "model",
+                       "url": "model" if _URL_AGENT is not None and _FEATURE_EXTRACT is not None else "rules",
+                       "metadata": "model" if _METADATA_AGENT is not None and _FEATURE_EXTRACT is not None else "rules"}}
 
 
 @app.get("/reputation/stats")
@@ -830,6 +835,13 @@ def explain(request: Request, req: AnalyseRequest):
     return result
 
 
+try:
+    from auth_headers import org_domain as _org_domain
+except Exception:                                   # auth_headers missing: strict fallback
+    def _org_domain(d: str) -> str:
+        return (d or "").lower().strip(".")
+
+
 def _synthesize_auth_results(ctx: dict, sender_email: str | None) -> str:
     """
     Build a synthetic Authentication-Results header from Gmail DOM signals.
@@ -870,11 +882,10 @@ def _synthesize_auth_results(ctx: dict, sender_email: str | None) -> str:
         parts.append(f"spf=pass smtp.mailfrom={spf_domain}")
     # DMARC pass only when the signed-by aligns with From: at the org level.
     if signed_by and from_domain:
-        # cheap org-domain compare: mirrors auth_headers._org_domain
-        def _od(d):
-            ps = d.split(".")
-            return ".".join(ps[-2:]) if len(ps) >= 2 else d
-        if _od(signed_by) == _od(from_domain):
+        # v1.15.5: the same organisational-domain rule as the header
+        # parser (the previous last-two-labels compare matched
+        # attacker.co.uk with paypal.co.uk).
+        if _org_domain(signed_by) == _org_domain(from_domain):
             parts.append(f"dmarc=pass header.from={from_domain}")
 
     return " ".join(parts)
@@ -1132,6 +1143,15 @@ async def analyse(request: Request, req: AnalyseRequest):
     meta_raw_for_model = raw_bytes
     if (req.client_context or {}).get("headers_source") == "gmail_show_original":
         meta_raw_for_model = None
+    # v1.15.5: record whether each structured agent used its trained model
+    # or the rules (same conditions as url_agent / metadata_agent).
+    _fx = _FEATURE_EXTRACT is not None
+    url_source = ("none" if not urls else
+                  "model" if _URL_AGENT is not None and _fx and any(u in body for u in urls) else "rules")
+    meta_source = "model" if _METADATA_AGENT is not None and _fx and meta_raw_for_model else "rules"
+    auth_header = headers.get("authentication-results", "") or ""
+    auth_source = ("gmail_ui" if auth_header.startswith("gmail-client-context")
+                   else "headers" if auth_header else "none")
     try:
         p_text = text_agent(body)
         p_url  = url_agent(urls, body_text=body)
@@ -1352,14 +1372,17 @@ async def analyse(request: Request, req: AnalyseRequest):
         },
         "agents": {
             "text":     {"phishing_probability": p_text,
-                         "verdict": verdict_label(p_text)},
+                         "verdict": verdict_label(p_text), "source": "model"},
             "url":      {"phishing_probability": p_url,
                          "phishing_probability_raw": p_url_raw,
-                         "verdict": verdict_label(p_url)},
+                         "verdict": verdict_label(p_url), "source": url_source},
             "metadata": {"phishing_probability": p_meta,
                          "phishing_probability_raw": p_meta_raw,
-                         "verdict": verdict_label(p_meta)},
+                         "verdict": verdict_label(p_meta), "source": meta_source},
         },
+        # v1.15.5: where the sender checks came from: real headers, or the
+        # "signed-by" / "mailed-by" Gmail shows (Gmail verified them, we did not).
+        "auth_source": auth_source,
         "cached": False,
     }
     if cacheable:

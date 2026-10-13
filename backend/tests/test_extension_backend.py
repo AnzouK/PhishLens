@@ -697,3 +697,43 @@ class TestArchiveFileReport:
     def test_non_archive_has_no_report(self, client):
         r = client.post("/analyse_attachment", json={"content_b64": b64(b"hello there team"), "filename": "a.txt"})
         assert r.json()["attachment"]["suspicious_files"] == []
+
+
+# ---------------------------------------------------------------------
+# v1.15.5: audit fixes (alignment from Gmail's signed-by, provenance)
+# ---------------------------------------------------------------------
+class TestGmailSignedByAlignment:
+    def test_synthetic_header_no_dmarc_pass_across_organisations(self):
+        h = eb._synthesize_auth_results(
+            {"origin": "gmail", "gmail_signed_by": "attacker.co.uk"}, "billing@paypal.co.uk")
+        assert "dkim=pass header.i=@attacker.co.uk" in h and "dmarc=pass" not in h
+
+    def test_synthetic_header_dmarc_pass_same_organisation(self):
+        h = eb._synthesize_auth_results(
+            {"origin": "gmail", "gmail_signed_by": "mail.paypal.co.uk"}, "billing@paypal.co.uk")
+        assert "dmarc=pass header.from=paypal.co.uk" in h
+
+    def test_foreign_signed_by_does_not_give_crypto_trust(self, client):
+        r = client.post("/analyse", json={
+            "raw_text": "Your account is on hold, confirm your details to keep using online banking.",
+            "sender_email": "alerts@firstbank.com.ng",
+            "client_context": {"origin": "gmail", "gmail_signed_by": "attacker.com.ng",
+                               "gmail_in_inbox": True}}).json()
+        assert r["sender_auth"]["cryptographically_verified"] is False
+        assert r["trust_path"] != "crypto_verified"
+        assert r["auth_source"] == "gmail_ui"
+
+
+class TestAgentProvenance:
+    def test_health_lists_agent_sources(self, client):
+        h = client.get("/health").json()
+        assert h["status"] == "ok"
+        assert set(h["agents"]) == {"text", "url", "metadata"}
+        assert h["agents"]["url"] in {"model", "rules"}
+
+    def test_analyse_reports_rules_when_models_missing(self, client):
+        r = client.post("/analyse", json={"raw_text": "Meeting notes are at https://example.com/notes for the team."}).json()
+        assert r["agents"]["url"]["source"] == "rules"        # client fixture unloads the RFs
+        assert r["agents"]["metadata"]["source"] == "rules"
+        assert r["agents"]["text"]["source"] == "model"
+        assert r["auth_source"] == "none"
