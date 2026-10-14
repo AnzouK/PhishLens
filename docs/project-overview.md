@@ -2,8 +2,8 @@
 
 This page is the entry point to everything that makes up the project.
 PhishLens is spread over two repositories, two Hugging Face model repos,
-a live deployment and a written report; each piece is linked below with
-what it is for.
+a live deployment, a user guide and a written report; each piece is
+linked below with what it is for.
 
 ## The artefacts
 
@@ -13,7 +13,8 @@ what it is for.
 | [dodi-ctrl/PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector) | The research side: the three Colab training notebooks, dataset loaders, augmentation cell, per-agent metrics and known model limitations. What you clone to retrain or reproduce the models. |
 | [AnzouKiona/phishlens-distilbert](https://huggingface.co/AnzouKiona/phishlens-distilbert) | The fine-tuned DistilBERT text agent (model card, weights, tokenizer). Pulled by the backend at startup. |
 | [AnzouKiona/phishlens-agents](https://huggingface.co/AnzouKiona/phishlens-agents) | The trained URL and metadata Random Forest agents (joblib). Pulled by the backend at startup. |
-| [anzouk.duckdns.org](https://anzouk.duckdns.org) | Website: landing page, try-it widget, and the PhishLens Cloud backend used by the extension's "PhishLens Cloud" setting. |
+| [anzouk.duckdns.org](https://anzouk.duckdns.org) | Website in 8 languages: landing page, try-it widget, privacy policy and terms, and the PhishLens Cloud backend used by the extension's "PhishLens Cloud" setting. |
+| [Wiki](https://github.com/AnzouK/PhishLens/wiki) | The user guide: installing, using PhishLens in Gmail and Outlook, reading a verdict, settings, troubleshooting. |
 | Project report | B.Sc. final-year report (Department of Cybersecurity, Nile University of Nigeria, 2025/2026): literature review, methodology, evaluation. Not published here; available on request through the university. |
 
 ## Documentation map
@@ -21,7 +22,10 @@ what it is for.
 | Question | Where to look |
 | --- | --- |
 | How do I install and use it? | [README](../README.md), Quickstart section |
+| How do I use it day to day? | The [wiki](https://github.com/AnzouK/PhishLens/wiki) |
 | How is the system built, and why that way? | [architecture.md](architecture.md) |
+| Which languages are supported, and how are translations made and checked? | [languages.md](languages.md) |
+| Which text model is running, and how is it switched? | [architecture.md, text model](architecture.md#text-model) and [operations.md](operations.md#switch-the-text-model) |
 | What can go wrong security-wise, and what stops it? | [threat-model.md](threat-model.md) |
 | How do I run, monitor and load-test a deployment? | [operations.md](operations.md) |
 | How were the models trained and how good are they? | [PhishingDetector README](https://github.com/dodi-ctrl/PhishingDetector#at-a-glance) and the Hugging Face model cards |
@@ -36,9 +40,9 @@ what it is for.
 | --- | --- |
 | Requirements and scope | Project report (problem statement, objectives); README "What it does" |
 | Design | [architecture.md](architecture.md), including the design decisions and their rationale |
-| Implementation | Conventional commits, semantic version tags, one tag per release |
+| Implementation | Conventional commits, semantic version tags, one tag per release; Ruff and ESLint in CI |
 | Security (SSDLC) | [threat-model.md](threat-model.md), CodeQL on every push, Dependabot alerts and weekly version updates, [SECURITY.md](../SECURITY.md), per-IP rate limiting, least-privilege CI token |
-| Testing | Offline pytest suite in `backend/tests/` with coverage reported in CI; extension unit tests (node:test) and popup UI tests (Playwright); model evaluation in the PhishingDetector notebooks |
+| Testing | Offline pytest suite in `backend/tests/` (80% coverage minimum in CI); extension unit tests (node:test), including the translation checks; popup and website UI tests (Playwright); model evaluation in the PhishingDetector notebooks |
 | Deployment | Docker images (`Dockerfile.local`, `Dockerfile.cloud`), Caddy with Let's Encrypt on an Oracle Cloud VM |
 | Operations | Structured logging, Prometheus `/metrics`, `/health` and `/reputation/stats`, Locust load test ([operations.md](operations.md)) |
 | Maintenance | [CHANGELOG.md](../CHANGELOG.md), Dependabot, GitHub Releases, roadmap in the README |

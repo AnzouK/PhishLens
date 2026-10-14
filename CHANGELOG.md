@@ -94,6 +94,18 @@ backend share one version number.
   model wrapper, agent loading and the reputation clients; optional
   pre-commit hooks.
 
+### Documentation
+- `docs/languages.md`: how the interface, the website, the OCR and the
+  text model handle languages, how translations are checked and how to
+  add one.
+- `docs/architecture.md`: every extension and backend module after the
+  split, and the text-model settings file. `docs/operations.md`:
+  switching the text model, OCR language packs, building the website.
+  `docs/threat-model.md`: request limits, model switching, PhishTank on
+  shared hosts, escaped translations; reviewed for this version.
+- README, project overview and contributing guide point to the user
+  guide (wiki) and describe the translation workflow.
+
 ## [1.15.5] - 2026-10-13
 
 Security fix from an external code review, and clearer reporting of which

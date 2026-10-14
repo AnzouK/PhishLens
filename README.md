@@ -4,7 +4,7 @@
 
 # PhishLens
 
-**Detect and explain phishing emails in real time, inside Gmail.**
+**Detect and explain phishing emails in real time, inside Gmail and Outlook.**
 
 [![CI](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml/badge.svg)](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/AnzouK/PhishLens?color=blueviolet)](https://github.com/AnzouK/PhishLens/releases/latest)
@@ -30,7 +30,9 @@ pages, Word / Excel / PowerPoint files, ZIP, RAR and 7z archives, calendar invit
 and attached emails, with QR codes decoded and macros, executables,
 password-protected archives and other dropper tricks flagged. The
 scanner handles real-inbox cases: conversations, forwarded emails,
-image-only emails and links hidden behind "Click here".
+image-only emails and links hidden behind "Click here". The extension
+and the website are available in English, French, Portuguese, Spanish,
+German, Italian, Dutch and Hausa.
 
 <div align="center">
   <picture>
@@ -110,7 +112,7 @@ pip install -r requirements.txt
 uvicorn extension_backend:app --host 127.0.0.1 --port 8000
 ```
 
-The backend is ready when the logs show `Model loaded on device=cpu`.
+The backend is ready when the logs show `Text model loaded from ...`, or when `/health` answers.
 
 ## Usage
 
@@ -120,8 +122,14 @@ The backend is ready when the logs show `Model loaded on device=cpu`.
   get a **Scan N attachments** button.
 - **In the popup:** drop a `.eml` file or an attachment (PDF, image,
   Word, Excel, PowerPoint, HTML, ZIP, RAR, 7z, .ics), or paste the text of an email.
+- **In Outlook on the web:** the same **Scan with PhishLens** button on
+  an open email (manual scans).
 - **History:** every scan is kept locally in the browser, with a small
   analytics view and CSV / JSON export.
+- **Language:** Settings > Language; by default the browser's language.
+
+The [user guide](https://github.com/AnzouK/PhishLens/wiki) covers each
+of these step by step.
 
 <div align="center">
   <picture>
@@ -143,7 +151,9 @@ The backend is configured with environment variables. The most useful:
 | `LIME_NUM_SAMPLES` | `100` | Forward passes per explanation: higher is sharper and slower |
 | `OCR_MAX_PAGES` / `OCR_TIMEOUT_S` | `3` / `10` | Pages of a scanned PDF sent to OCR, and the time limit per page |
 | `AGENTS_ALLOW_PICKLE` | `1` | Set to `0` once the `.skops` agents are published, to refuse pickle files |
-| `MODEL_DIR` / `HF_MODEL_REPO` | `./model` / `AnzouKiona/phishlens-distilbert` | Where the model is loaded from, or downloaded from if missing |
+| `MODEL_DIR` / `HF_MODEL_REPO` | `./model` / `AnzouKiona/phishlens-distilbert` | Where the text model is stored, and which Hugging Face repository it comes from ([switching models](docs/operations.md#switch-the-text-model)) |
+| `HF_TOKEN` | empty | Read-only token, only for a private model repository |
+| `OCR_LANG` | `auto` | Tesseract languages; `auto` picks them from the script of each image |
 | `METRICS_ENABLED` | `1` | Prometheus metrics on `/metrics` (keep it private) |
 | `LOG_LEVEL` | `INFO` | Log level for the `phishlens.*` loggers |
 
@@ -185,9 +195,11 @@ both repositories, the models, the report and every guide.
 
 | Document | Contents |
 | --- | --- |
-| [Architecture](docs/architecture.md) | Components, request flow, trust paths, design decisions |
+| [User guide (wiki)](https://github.com/AnzouK/PhishLens/wiki) | Install, use in Gmail and Outlook, read a verdict, settings, troubleshooting |
+| [Architecture](docs/architecture.md) | Components, request flow, trust paths, text model, design decisions |
+| [Languages](docs/languages.md) | Interface and website translations, OCR languages, text model languages |
 | [Threat model](docs/threat-model.md) | STRIDE analysis, mitigations, residual risks |
-| [Operations](docs/operations.md) | Deploy, logs, metrics, load testing |
+| [Operations](docs/operations.md) | Deploy, switch the text model, logs, metrics, load testing, backups |
 | [Changelog](CHANGELOG.md) | What changed in each version |
 | [Contributing](CONTRIBUTING.md) | Setup, checks, guidelines |
 | [Security policy](SECURITY.md) | How to report a vulnerability |
@@ -203,8 +215,10 @@ both repositories, the models, the report and every guide.
   `scripts/live_eval.py` are in place; the next step is a few hundred
   reviewed real emails, plus phishing reported after the training
   cut-off.
-- **Multilingual detection:** French, Portuguese, Hausa, Yoruba and
-  other languages (the text model and the OCR are English-only today).
+- **Multilingual detection:** the interface, the website and the OCR
+  handle several languages since v1.16, and the backend can load a
+  multilingual text model; that model is being evaluated before it
+  replaces the English DistilBERT on PhishLens Cloud.
 - **Research:** SHAP as a comparison for LIME, retraining the agents on
   OCR text and QR-code phishing.
 

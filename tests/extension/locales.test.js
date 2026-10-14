@@ -88,3 +88,17 @@ test("store listing strings exist for every _locales folder", () => {
         assert.ok(msgs.extDescription.message.length <= 132, `${lang} description too long for the store`);
     }
 });
+
+test("translated text is escaped wherever it is built into HTML", () => {
+    // t() values can carry email data ({sender}, {services}...): inside a
+    // template literal they must go through escapeHTML. Only the static
+    // *_html keys are inserted as is.
+    const files = ["popup/popup.js"]
+        .concat(fs.readdirSync(path.join(EXT, "content_scripts")).map((f) => `content_scripts/${f}`));
+    for (const f of files) {
+        const src = fs.readFileSync(path.join(EXT, f), "utf8");
+        for (const m of src.matchAll(/\$\{\s*(tn?)\(\s*"(\w+)"/g)) {
+            assert.ok(m[2].endsWith("_html"), `${f}: \${${m[1]}("${m[2]}") is not escaped`);
+        }
+    }
+});

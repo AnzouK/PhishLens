@@ -32,12 +32,12 @@ docker run -d --restart=always \
   -v ~/phishlens_model:/home/user/app/model \
   -v ~/phishlens_agents:/home/user/app/agents \
   --name phishlens phishlens
-docker logs -f phishlens          # wait for "Model loaded on device=cpu"
+docker logs -f phishlens          # wait for "Text model loaded from ..."
 ```
 
-The two extra volumes keep the DistilBERT checkpoint and the Random
-Forest joblibs across container re-creations, so only the first boot
-downloads them from Hugging Face. Create them once with
+The two extra volumes keep the text model and the Random Forest agents
+across container re-creations, so only the first boot downloads them
+from Hugging Face. Create them once with
 `mkdir -p ~/phishlens_model ~/phishlens_agents` (the container runs as
 uid 1000, the same uid as the `opc` user). To pick up a new model
 version published on Hugging Face, empty the folder
@@ -45,7 +45,10 @@ version published on Hugging Face, empty the folder
 
 `~/.phishlens.env` holds the secrets and tuning knobs (`GSB_API_KEY`,
 `REPUTATION_CACHE_DB=/data/reputation.db`, rate limits). It is never
-committed. The website is static and deployed separately. Its texts
+committed. The website is static and deployed separately; Caddy serves
+`/fr/`, `/pt/` and the other language folders as they are, and its
+`handle_errors` block serves `404.html` for unknown paths in every
+language. Its texts
 live in `site-src/` (one file per language, legal pages translated from
 `PRIVACY.md` and `TERMS.md`); rebuild it after any change, then copy it:
 `python3 scripts/build_site.py` (needs pandoc), then
@@ -71,11 +74,49 @@ Afterwards add `AGENTS_ALLOW_PICKLE=0` to `~/.phishlens.env`, re-create
 the container, and check that the logs say `Loaded trained url_agent
 from agents/url_agent.skops`.
 
+### Switch the text model
+
+The text model is chosen with `HF_MODEL_REPO` in `~/.phishlens.env`
+(default `AnzouKiona/phishlens-distilbert`). Each repository is
+downloaded into its own subfolder of the model volume
+(`~/phishlens_model/<owner>--<name>`), so switching back and forth costs
+one download per model and never mixes files. A private repository also
+needs `HF_TOKEN` (a read-only token). How the model is fed and how its
+scores are read comes from `phishlens_text_agent.json` in the repository
+([architecture.md, text model](architecture.md#text-model)).
+
+```bash
+# in ~/.phishlens.env
+HF_MODEL_REPO=<owner>/<model>
+HF_TOKEN=hf_...                     # private repositories only
+```
+
+Re-create the container, then check what answers:
+
+```bash
+curl -s https://anzouk.duckdns.org/health | python3 -m json.tool
+```
+
+`text_model` shows the repository, the display name, `normalize`,
+`temperature` and `override_threshold`. To go back, restore the previous
+`HF_MODEL_REPO` and re-create the container: the old model is still in
+its folder. To pick up a new revision of the same repository, delete its
+folder only.
+
+### OCR languages
+
+The Docker images install the Tesseract packs for English, French,
+Spanish, Portuguese, German, Italian, Dutch, Russian, Ukrainian, Arabic,
+simplified Chinese, Japanese, Korean and Hindi, and `OCR_LANG=auto`
+picks them per image ([languages.md](languages.md#ocr)). On a host
+without Docker, install the `tesseract-ocr-<lang>` packages you need;
+missing packs are skipped.
+
 ## Health and status endpoints
 
 | Endpoint | Use |
 | --- | --- |
-| `GET /health` | Liveness, version, and which agents run a trained model (`model`) or rules. |
+| `GET /health` | Liveness, server version, which agents run a trained model (`model`) or rules, and which text model is loaded (`text_model`). |
 | `GET /reputation/stats` | Cache hit rate, GSB quota consumed and remaining, PhishTank feed size. |
 | `GET /metrics` | Prometheus metrics (see below). Internal only. |
 
