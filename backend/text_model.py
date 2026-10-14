@@ -5,25 +5,43 @@ email, and its LIME explanation.
 load() runs once at startup (FastAPI lifespan); text_agent() and
 explain() are synchronous and CPU-bound, so the API calls them from a
 worker thread.
+
+A model directory can carry phishlens_text_agent.json, describing how the
+model expects its input and how to read its output:
+
+    {"normalize": true,            # text_normalize.normalize_text first
+     "max_length": 256,            # tokens
+     "temperature": 0.447,         # calibrated scores: softmax(logits / T)
+     "override_threshold": 0.7}    # text score that can force the verdict
+
+Without it (the v1 DistilBERT), the text is used as is, T = 1 and the
+override threshold is settings.HIGH_CONF_OVERRIDE. A calibration.json
+from the training code ({"temperature": T}) is read too.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+from text_normalize import normalize_text
 
 from settings import (
     CLASS_NAMES,
     HF_MODEL_REPO,
+    HIGH_CONF_OVERRIDE,
     LIME_MAX_CHARS,
     LIME_NUM_SAMPLES,
     MAX_LEN,
     MODEL_DIR,
     MODEL_DTYPE,
 )
+
+LEGACY_REPO = "AnzouKiona/phishlens-distilbert"
+META_FILE = "phishlens_text_agent.json"
 
 logger = logging.getLogger("phishlens.text_model")
 
@@ -41,23 +59,53 @@ def _pick_device() -> str:
     return "cpu"
 
 
-def ensure_model_available(model_dir: Path = MODEL_DIR) -> Path:
-    """Use model_dir when it holds a checkpoint, otherwise download
-    HF_MODEL_REPO into it."""
+def _complete(path: Path) -> bool:
     must_have = {"config.json", "tokenizer_config.json"}
-    if model_dir.exists() and must_have.issubset({p.name for p in model_dir.iterdir()}):
+    return path.is_dir() and must_have.issubset({p.name for p in path.iterdir()})
+
+
+def ensure_model_available(model_dir: Path = MODEL_DIR, repo: str = HF_MODEL_REPO) -> Path:
+    """Directory of the text model to load.
+
+    Each Hugging Face repository gets its own subfolder of model_dir
+    (model_dir/<owner>--<name>), so switching HF_MODEL_REPO never loads the
+    previous model by mistake. A checkpoint placed directly in model_dir
+    (the layout of earlier versions, and of a local Docker setup) is used
+    for the original v1 repository only.
+    """
+    target = model_dir / repo.replace("/", "--")
+    if _complete(target):
+        return target
+    if repo == LEGACY_REPO and _complete(model_dir):
         return model_dir
-    logger.info("No model in %s: downloading %s.", model_dir, HF_MODEL_REPO)
+    logger.info("No local copy of %s: downloading it into %s.", repo, target)
     try:
         from huggingface_hub import snapshot_download
     except ImportError as e:
         raise RuntimeError(
-            f"{model_dir} is empty and huggingface_hub is not installed: put the "
+            f"{target} is empty and huggingface_hub is not installed: put the "
             "checkpoint there or install huggingface_hub."
         ) from e
-    model_dir.mkdir(parents=True, exist_ok=True)
-    snapshot_download(repo_id=HF_MODEL_REPO, local_dir=str(model_dir))
-    return model_dir
+    target.mkdir(parents=True, exist_ok=True)
+    # A private repository needs HF_TOKEN in the environment (read-only token).
+    snapshot_download(repo_id=repo, local_dir=str(target))
+    return target
+
+
+def read_meta(model_dir: Path) -> dict[str, Any]:
+    """How to feed and read this model (see the module docstring)."""
+    meta: dict[str, Any] = {
+        "normalize": False,
+        "max_length": MAX_LEN,
+        "temperature": 1.0,
+        "override_threshold": HIGH_CONF_OVERRIDE,
+    }
+    for name in ("calibration.json", META_FILE):
+        path = model_dir / name
+        if path.is_file():
+            meta.update(json.loads(path.read_text()))
+    meta["temperature"] = float(meta["temperature"]) or 1.0
+    return meta
 
 
 def load() -> None:
@@ -72,17 +120,35 @@ def load() -> None:
     tok = AutoTokenizer.from_pretrained(str(model_dir))
     model = AutoModelForSequenceClassification.from_pretrained(str(model_dir), torch_dtype=dtype)
     model.to(device).eval()
+    meta = read_meta(model_dir)
     STATE.update(
         tokenizer=tok,
         model=model,
         device=device,
+        meta=meta,
+        source=model_dir.name,
         lime=LimeTextExplainer(class_names=CLASS_NAMES, bow=False),
     )
-    logger.info("Text model loaded from %s on %s.", model_dir, device)
+    logger.info("Text model loaded from %s on %s (%s).", model_dir, device, meta)
 
 
 def unload() -> None:
     STATE.clear()
+
+
+def _meta() -> dict[str, Any]:
+    return STATE.get("meta") or {
+        "normalize": False,
+        "max_length": MAX_LEN,
+        "temperature": 1.0,
+        "override_threshold": HIGH_CONF_OVERRIDE,
+    }
+
+
+def override_threshold() -> float:
+    """Text score from which the text agent alone can force the phishing
+    verdict on the default path (calibrated models need a lower one)."""
+    return float(_meta()["override_threshold"])
 
 
 def predict_proba_batch(texts: list[str]) -> np.ndarray:
@@ -91,14 +157,20 @@ def predict_proba_batch(texts: list[str]) -> np.ndarray:
     import torch.nn.functional as F
 
     tok, model, device = STATE["tokenizer"], STATE["model"], STATE["device"]
+    meta = _meta()
+    texts = [normalize_text(t) for t in texts] if meta["normalize"] else list(texts)
     inputs = tok(
-        list(texts), truncation=True, max_length=MAX_LEN, padding=True, return_tensors="pt"
+        texts,
+        truncation=True,
+        max_length=int(meta["max_length"]),
+        padding=True,
+        return_tensors="pt",
     )
     inputs.pop("token_type_ids", None)
     inputs = {k: v.to(device) for k, v in inputs.items()}
     with torch.no_grad():
         logits = model(**inputs).logits
-    return F.softmax(logits, dim=-1).cpu().numpy()
+    return F.softmax(logits / meta["temperature"], dim=-1).cpu().numpy()
 
 
 def text_agent(body: str) -> float:

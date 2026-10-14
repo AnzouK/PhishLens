@@ -111,6 +111,21 @@ class TestDecideEmail:
         v = self.decide(p_text=0.99, p_url=0.6, p_meta=0.6, text_used=False)
         assert v.fused == pytest.approx(0.6)
 
+    def test_text_override_follows_the_model(self):
+        # a calibrated model forces the verdict from its own threshold
+        v = fusion.decide_email(
+            0.75,
+            0.0,
+            0.0,
+            text_used=True,
+            path=PATH_DEFAULT,
+            rep=NO_REP,
+            url_rule_score=0.0,
+            text_override=0.7,
+        )
+        assert v.high_conf and v.is_phishing
+        assert not self.decide(p_text=0.75).high_conf
+
     def test_url_model_alone_needs_a_confirming_sign(self):
         assert not self.decide(p_url=0.95, rule=0.15).high_conf
         assert self.decide(p_url=0.95, rule=0.25).high_conf

@@ -1279,8 +1279,9 @@ console.log(TAG, "Gmail content script loaded.");
 // and sent to /analyse one at a time. A phishing verdict puts a red
 // "Phishing?" pill on the row and raises a desktop notification. Results
 // are cached by thread id, so an email is scanned once.
-// v3: results from before the v1.15 scoring fixes are not reused.
-const AUTO_CACHE_KEY = "autoScanCache.v3";
+// The version changes with the scoring (v4: multilingual text model):
+// verdicts from an earlier version are not reused.
+const AUTO_CACHE_KEY = "autoScanCache.v4";
 const AUTO_CACHE_MAX = 500;
 const AUTO_MAX_PER_PASS = 10;     // stays well under the backend rate limit
 const AUTO_DELAY_MS = 1500;       // between two emails

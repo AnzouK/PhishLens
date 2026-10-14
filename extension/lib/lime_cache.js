@@ -10,7 +10,8 @@
 // {backend_url, sha256(payload)}. A hit returns instantly; a miss falls
 // through to the network as before, then writes the result back.
 //
-// Storage: one key `limeCache` -> { [key]: {features, ts} }.
+// Storage: one key `limeCache.v2` -> { [key]: {features, ts} }. The
+// version changes with the text model: older explanations are not reused.
 // Cap: LRU by timestamp. Bytes stay well under the 5 MB chrome.storage cap.
 //
 // This whole file is wrapped in an IIFE so that internals (constants,
@@ -21,7 +22,7 @@
 (function () {
 "use strict";
 
-const CACHE_KEY   = "limeCache";
+const CACHE_KEY   = "limeCache.v2";
 const MAX_ENTRIES = 200;
 const TTL_MS      = 30 * 24 * 3600 * 1000;    // 30 days
 

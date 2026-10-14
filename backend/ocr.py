@@ -36,7 +36,19 @@ OCR_MAX_PAGES = int(os.environ.get("OCR_MAX_PAGES", "3"))
 OCR_DPI = int(os.environ.get("OCR_DPI", "200"))
 OCR_MAX_SIDE = int(os.environ.get("OCR_MAX_SIDE", "3000"))
 OCR_TIMEOUT_S = int(os.environ.get("OCR_TIMEOUT_S", "10"))
-OCR_LANG = os.environ.get("OCR_LANG", "eng")
+# "auto": Tesseract's script detection (OSD) picks the language packs per
+# image (SCRIPT_LANGS); any other value is passed to Tesseract as is
+# ("eng", "eng+fra"...).
+OCR_LANG = os.environ.get("OCR_LANG", "auto")
+SCRIPT_LANGS = {
+    "Latin": "eng+fra+spa+por+deu+ita+nld",
+    "Cyrillic": "rus+ukr+eng",
+    "Arabic": "ara+eng",
+    "Han": "chi_sim+eng",
+    "Japanese": "jpn+eng",
+    "Hangul": "kor+eng",
+    "Devanagari": "hin+eng",
+}
 IMAGE_MAX_PIXELS = 40_000_000  # about 6300 x 6300; beyond that it is a bomb, not a scan
 
 # ---------------------------------------------------------------------
@@ -125,14 +137,49 @@ def load_image(raw: bytes) -> Image.Image:
     return _downscale(img)
 
 
+_INSTALLED_LANGS: set[str] | None = None
+
+
+def installed_languages() -> set[str]:
+    """Tesseract language packs present on this server (cached)."""
+    global _INSTALLED_LANGS
+    if _INSTALLED_LANGS is None:
+        try:
+            _INSTALLED_LANGS = set(pytesseract.get_languages(config=""))
+        except Exception:
+            _INSTALLED_LANGS = {"eng"}
+    return _INSTALLED_LANGS
+
+
+def ocr_language(img: Image.Image) -> str:
+    """Tesseract languages for this image: OCR_LANG when set, otherwise
+    the packs of the script OSD detects (Latin when it cannot tell, e.g.
+    too little text), limited to the installed packs."""
+    if OCR_LANG != "auto":
+        return OCR_LANG
+    script = "Latin"
+    if "osd" in installed_languages():
+        try:
+            osd = pytesseract.image_to_osd(
+                img, output_type=pytesseract.Output.DICT, timeout=OCR_TIMEOUT_S
+            )
+            script = str(osd.get("script") or "Latin")
+        except Exception:  # too little text to tell, or a timeout
+            script = "Latin"
+    wanted = SCRIPT_LANGS.get(script, SCRIPT_LANGS["Latin"]).split("+")
+    langs = [lang for lang in wanted if lang in installed_languages()]
+    return "+".join(langs) or "eng"
+
+
 def ocr_image(img: Image.Image) -> str:
     """Tesseract OCR on one image. Returns '' when OCR is unavailable,
     times out, or finds nothing."""
     if not _TESSERACT_OK:
         return ""
     try:
+        gray = img.convert("L")
         text = pytesseract.image_to_string(
-            img.convert("L"), lang=OCR_LANG, timeout=OCR_TIMEOUT_S, config="--psm 3"
+            gray, lang=ocr_language(gray), timeout=OCR_TIMEOUT_S, config="--psm 3"
         )
     except RuntimeError:
         # pytesseract raises RuntimeError on timeout

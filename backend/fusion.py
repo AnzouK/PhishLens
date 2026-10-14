@@ -136,13 +136,18 @@ def decide_email(
     path: TrustPath,
     rep: Reputation,
     url_rule_score: float,
+    text_override: float = HIGH_CONF_OVERRIDE,
 ) -> Verdict:
     """Verdict for an email. On the softer paths only a Safe Browsing hit
-    can force phishing; on the default path any confident agent can."""
+    can force phishing; on the default path any confident agent can.
+    text_override is the text model's own threshold (lower for a
+    calibrated model, see text_model.override_threshold)."""
     fused = fuse(p_text, p_url, p_meta, text_used=text_used, text_factor=path.text_factor)
     if path is PATH_DEFAULT:
-        high_conf = max(p_text if text_used else 0.0, p_meta) >= HIGH_CONF_OVERRIDE or (
-            p_url >= HIGH_CONF_OVERRIDE and url_confirmed(rep, url_rule_score)
+        high_conf = (
+            (text_used and p_text >= text_override)
+            or p_meta >= HIGH_CONF_OVERRIDE
+            or (p_url >= HIGH_CONF_OVERRIDE and url_confirmed(rep, url_rule_score))
         )
     else:
         high_conf = rep.gsb_hit
@@ -241,6 +246,7 @@ def decide_attachment(
     rep: Reputation,
     dropper: list[str],
     url_rule_score: float,
+    text_override: float = HIGH_CONF_OVERRIDE,
 ) -> Verdict:
     """Verdict for an attachment. An authenticated parent email softens
     the text agent (legitimate documents share phishing vocabulary),
@@ -256,7 +262,7 @@ def decide_attachment(
         high_conf = (
             rep.gsb_hit
             or bool(dropper)
-            or p_text >= HIGH_CONF_OVERRIDE
+            or p_text >= text_override
             or (p_url >= HIGH_CONF_OVERRIDE and url_confirmed(rep, url_rule_score))
         )
         path = "default"

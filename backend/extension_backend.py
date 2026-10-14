@@ -336,6 +336,10 @@ def health():
             "url": "model" if structured_agents.url_model_ready() else "rules",
             "metadata": "model" if structured_agents.metadata_model_ready() else "rules",
         },
+        # which text model runs, and how its input and scores are handled
+        "text_model": {"source": text_model.STATE.get("source"), **text_model.STATE.get("meta", {})}
+        if text_model.STATE
+        else None,
     }
 
 
@@ -496,6 +500,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         path=path,
         rep=rep,
         url_rule_score=structured_agents.url_heuristic(urls),
+        text_override=text_model.override_threshold(),
     )
     _count_verdict("/analyse", verdict.is_phishing, verdict.trust_path)
 
@@ -688,6 +693,7 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         rep=rep,
         dropper=dropper,
         url_rule_score=structured_agents.url_heuristic(urls),
+        text_override=text_model.override_threshold(),
     )
     _count_verdict(
         "/analyse_attachment",
