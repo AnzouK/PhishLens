@@ -12,7 +12,9 @@ model expects its input and how to read its output:
     {"normalize": true,            # text_normalize.normalize_text first
      "max_length": 256,            # tokens
      "temperature": 0.447,         # calibrated scores: softmax(logits / T)
-     "override_threshold": 0.7}    # text score that can force the verdict
+     "override_threshold": 0.7,    # text score that can force the verdict
+     "name": "...",                # shown in /health and the extension
+     "version": "..."}
 
 Without it (the v1 DistilBERT), the text is used as is, T = 1 and the
 override threshold is settings.HIGH_CONF_OVERRIDE. A calibration.json
@@ -108,6 +110,14 @@ def read_meta(model_dir: Path) -> dict[str, Any]:
     return meta
 
 
+def display_name(meta: dict[str, Any], repo: str = HF_MODEL_REPO) -> str:
+    """Human-readable model name for /health: the meta file's "name" (and
+    "version"), else the repository id."""
+    name = meta.get("name") or ("DistilBERT (English)" if repo == LEGACY_REPO else repo)
+    version = meta.get("version")
+    return f"{name} {version}" if version else name
+
+
 def load() -> None:
     """Load the tokenizer, the model and the LIME explainer into STATE."""
     import torch
@@ -126,7 +136,8 @@ def load() -> None:
         model=model,
         device=device,
         meta=meta,
-        source=model_dir.name,
+        source=HF_MODEL_REPO,
+        name=display_name(meta),
         lime=LimeTextExplainer(class_names=CLASS_NAMES, bow=False),
     )
     logger.info("Text model loaded from %s on %s (%s).", model_dir, device, meta)

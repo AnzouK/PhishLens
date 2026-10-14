@@ -972,10 +972,13 @@ testConnBtn.addEventListener("click", async () => {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json().catch(() => null);
         connStatus.className = "conn-status conn-status--ok";
-        connStatus.textContent = t("connected", {
-            version: data?.version || t("unknown"),
-            model: data?.text_model?.source || data?.model || t("unknown"),
-        });
+        // Servers before 1.15.5 report neither their version nor the model.
+        connStatus.textContent = data?.version
+            ? t("connected", {
+                version: data.version,
+                model: data.text_model?.name || data.text_model?.source || t("unknown"),
+            })
+            : t("connected_old");
     } catch (e) {
         connStatus.className = "conn-status conn-status--err";
         const msg = String(e?.message || e);

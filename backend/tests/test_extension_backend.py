@@ -976,6 +976,9 @@ class TestAgentProvenance:
         assert h["status"] == "ok"
         assert set(h["agents"]) == {"text", "url", "metadata"}
         assert h["agents"]["url"] in {"model", "rules"}
+        assert h["version"]
+        if h["text_model"] is not None:
+            assert h["text_model"]["name"] and h["text_model"]["source"]
 
     def test_analyse_reports_rules_when_models_missing(self, client):
         r = client.post(

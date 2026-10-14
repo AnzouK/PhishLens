@@ -193,6 +193,13 @@ def test_meta_files_are_read(tmp_path):
     }
 
 
+def test_display_name():
+    assert text_model.display_name({}, text_model.LEGACY_REPO) == "DistilBERT (English)"
+    assert text_model.display_name({}, "owner/model") == "owner/model"
+    meta = {"name": "PhishLens multilingual", "version": "r4p"}
+    assert text_model.display_name(meta, "owner/model") == "PhishLens multilingual r4p"
+
+
 def test_each_repository_has_its_own_folder(tmp_path, monkeypatch):
     for d in (tmp_path, tmp_path / "AnzouKiona--phishlens-v2"):
         d.mkdir(exist_ok=True)

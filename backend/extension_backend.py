@@ -337,7 +337,11 @@ def health():
             "metadata": "model" if structured_agents.metadata_model_ready() else "rules",
         },
         # which text model runs, and how its input and scores are handled
-        "text_model": {"source": text_model.STATE.get("source"), **text_model.STATE.get("meta", {})}
+        "text_model": {
+            **text_model.STATE.get("meta", {}),
+            "source": text_model.STATE.get("source"),
+            "name": text_model.STATE.get("name"),
+        }
         if text_model.STATE
         else None,
     }
