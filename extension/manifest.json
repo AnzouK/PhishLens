@@ -1,6 +1,7 @@
 {
-  "name": "PhishLens",
-  "description": "Detects phishing emails in Gmail and explains why: wording, links, sender checks, threat intelligence and attachments.",
+  "name": "__MSG_extName__",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
   "version": "1.15.5",
   "manifest_version": 3,
   "icons": {

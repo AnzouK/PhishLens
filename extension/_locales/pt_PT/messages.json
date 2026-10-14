@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "PhishLens"
+  },
+  "extDescription": {
+    "message": "Deteta e-mails de phishing no Gmail e explica porquê: texto, links, remetente, informação sobre ameaças e anexos."
+  }
+}

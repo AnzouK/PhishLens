@@ -77,3 +77,14 @@ test("every t() / tn() key used in the code exists", () => {
         }
     }
 });
+
+test("store listing strings exist for every _locales folder", () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(EXT, "manifest.json"), "utf8"));
+    const dir = path.join(EXT, "_locales");
+    assert.ok(fs.existsSync(path.join(dir, manifest.default_locale, "messages.json")));
+    for (const lang of fs.readdirSync(dir)) {
+        const msgs = JSON.parse(fs.readFileSync(path.join(dir, lang, "messages.json"), "utf8"));
+        assert.ok(msgs.extName.message, `${lang} name`);
+        assert.ok(msgs.extDescription.message.length <= 132, `${lang} description too long for the store`);
+    }
+});
