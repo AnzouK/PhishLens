@@ -7,6 +7,20 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Added
+- **Multilingual text model support:** the backend reads how a text
+  model expects its input and how to read its scores from
+  `phishlens_text_agent.json` next to the model (text normalisation,
+  temperature calibration, its own override threshold), so the
+  multilingual model can replace the English DistilBERT by changing
+  `HF_MODEL_REPO`. Each model repository is stored in its own folder.
+- **Multilingual OCR:** Tesseract's script detection picks the language
+  packs per image (Latin languages, Cyrillic, Arabic, Chinese, Japanese,
+  Korean, Hindi); the Docker images install them.
+- Gmail's "mailed-by" / "signed-by" rows are recognised in Spanish,
+  Portuguese, German, Italian and Dutch too (fallback when the full
+  headers are not available).
+
 ### Security
 - **Allowlist only for authenticated senders:** a domain in
   `TRUSTED_DOMAINS` gave the softest trust path on the From: text alone,

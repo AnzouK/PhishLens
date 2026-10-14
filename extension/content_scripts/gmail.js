@@ -670,18 +670,32 @@ async function extractGmailAuthSignals(emailView, msg = null) {
 }
 
 // --- helpers for the DOM scrape ---
+// The labels of the details panel in the languages of the Gmail interface
+// PhishLens supports (lower case, without the final colon). Only a
+// fallback: with "Full headers" on, the real Authentication-Results
+// header is read instead, whatever the interface language.
+const GMAIL_MAILED_BY = new Set([
+    "mailed-by", "envoyé par", "enviado por", "gesendet von", "inviato da", "verzonden door",
+]);
+const GMAIL_SIGNED_BY = new Set([
+    "signed-by", "signé par", "firmado por", "assinado por", "signiert von", "firmato da",
+    "ondertekend door",
+]);
+
+function _authLabel(text) {
+    return text.trim().toLowerCase().replace(/\s*:$/, "");
+}
+
 function _scrapeAuthRows(emailView, out) {
     const nodes = emailView.querySelectorAll("td, span, div");
     for (const el of nodes) {
-        const t = (el.textContent || "").trim().toLowerCase();
-        if (!t) continue;
-        if (t === "mailed-by:" || t === "envoyé par :" || t === "envoyé par:") {
-            const val = el.nextElementSibling?.textContent?.trim();
-            if (val && /\./.test(val)) out.mailedBy = val;
-        } else if (t === "signed-by:" || t === "signé par :" || t === "signé par:") {
-            const val = el.nextElementSibling?.textContent?.trim();
-            if (val && /\./.test(val)) out.signedBy = val;
-        }
+        const raw = el.textContent || "";
+        if (!raw || raw.length > 40) continue;
+        const label = _authLabel(raw);
+        const kind = GMAIL_MAILED_BY.has(label) ? "mailedBy" : GMAIL_SIGNED_BY.has(label) ? "signedBy" : null;
+        if (!kind) continue;
+        const val = el.nextElementSibling?.textContent?.trim();
+        if (val && /\./.test(val) && !/\s/.test(val)) out[kind] = val;
     }
 }
 
