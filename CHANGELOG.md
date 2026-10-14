@@ -30,6 +30,12 @@ backend share one version number.
   builds on; the same list is in the README.
 - `/health` names the running text model, and "Test connection" shows
   the server version and that name.
+- **Website in 8 languages:** the same languages as the extension, each
+  at its own address (`/fr/`, `/pt/`, ...), with a language menu,
+  `hreflang` links for search engines and, on an English page, a link to
+  the visitor's own language. The privacy policy and terms are
+  translated too; the English version prevails. Built by
+  `scripts/build_site.py` from `site-src/`.
 
 ### Security
 - **Allowlist only for authenticated senders:** a domain in

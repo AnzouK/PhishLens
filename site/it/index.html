@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhishLens: scopri perché un'email è phishing</title>
+<meta name="description" content="Estensione per Chrome gratuita e open source che controlla le email in Gmail e Outlook e mostra perché sono sospette: il testo, i link, l'autenticazione del mittente e gli allegati.">
+<link rel="canonical" href="https://anzouk.duckdns.org/it/">
+<link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/">
+<link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/">
+<link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/">
+<link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/">
+<link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/">
+<link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/">
+<link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/">
+<link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/">
+<link rel="alternate" hreflang="x-default" href="https://anzouk.duckdns.org/">
+<meta name="theme-color" content="#16181c">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PhishLens">
+<meta property="og:locale" content="it_IT">
+<meta property="og:title" content="PhishLens: scopri perché un'email è phishing">
+<meta property="og:description" content="Estensione open source per Chrome in Gmail e Outlook: un verdetto sopra ogni email, un punteggio per controllo e le parole e i segnali che lo spiegano.">
+<meta property="og:url" content="https://anzouk.duckdns.org/it/">
+<meta property="og:image" content="https://anzouk.duckdns.org/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PhishLens: scopri perché un'email è phishing. Gmail e Outlook.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="icon" href="../icon.png" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="stylesheet" href="../style.css">
+<script src="../i18n/it.js" defer></script>
+<script src="../lang.js" defer></script>
+<script src="../app.js" defer></script>
+</head>
+<body>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h10M4 18h7"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2L20 3M16 7l3 3M14 9l2 2"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="M21 11l-8.6 8.6a5 5 0 01-7-7L14 4a3.5 3.5 0 015 5l-8.6 8.6a2 2 0 01-2.8-2.8L15 7.5"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 2h6l1-2h5"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="1"/><path d="M8 11V7a4 4 0 018 0v4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4l2-2z"/><path d="M10 20a2 2 0 004 0"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 7l9 6 9-6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 17v2a1 1 0 001 1h14a1 1 0 001-1v-2"/></symbol>
+  <symbol id="i-paste" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="1"/><path d="M9 4V3h6v1M9 9h6M9 13h6M9 17h4"/></symbol>
+</svg>
+<a class="skip" href="#main">Vai al contenuto</a>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="../it/"><img src="../icon.png" alt="" width="28" height="28">PhishLens</a>
+    <nav class="site-nav" aria-label="Navigazione principale">
+      <a href="#checks">Cosa controlla</a>
+      <a href="#features">Funzionalità</a>
+      <a href="#try">Provalo</a>
+      <details class="lang-menu">
+        <summary aria-label="Lingua: Italiano">IT</summary>
+        <ul>
+          <li><a href="../" hreflang="en" lang="en">English</a></li>
+          <li><a href="../fr/" hreflang="fr" lang="fr">Français</a></li>
+          <li><a href="../pt/" hreflang="pt" lang="pt">Português</a></li>
+          <li><a href="../es/" hreflang="es" lang="es">Español</a></li>
+          <li><a href="../de/" hreflang="de" lang="de">Deutsch</a></li>
+          <li><a href="../it/" hreflang="it" lang="it" aria-current="page">Italiano</a></li>
+          <li><a href="../nl/" hreflang="nl" lang="nl">Nederlands</a></li>
+          <li><a href="../ha/" hreflang="ha" lang="ha">Hausa</a></li>
+        </ul>
+      </details>
+      <a class="cta" href="#install">Installa PhishLens</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero">
+    <div class="wrap">
+      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> Estensione di Chrome · Gmail + Outlook · 8 lingue · open source</p>
+      <h1>Scopri perché un'email è phishing.</h1>
+      <p class="lead">PhishLens aggiunge un verdetto sopra ogni email in Gmail e Outlook: un punteggio per controllo, i segnali trovati e le parole che hanno pesato di più. Fai clic su Analizza, o lascia che controlli da solo le nuove email.</p>
+      <div class="row">
+        <a class="cta" href="#install">Installa PhishLens</a>
+        <span class="status" aria-live="polite"><span id="status"><span class="spinner" aria-hidden="true"></span> verifica del server</span><span id="version"></span></span>
+      </div>
+      <figure class="shot">
+        <img src="../img/gmail-verdicts.svg" width="860" height="540"
+             alt="Due avvisi di PhishLens sopra delle email in Gmail. Il primo dice che l'email sembra phishing, con punteggi del 97% per il testo, 88% per i link e 74% per il mittente, etichette per un rilevamento di Safe Browsing, un errore DMARC e una presenza in Spamhaus, e le parole che hanno portato al verdetto. Il secondo dice che l'email sembra sicura perché il mittente è nella lista di fiducia.">
+        <figcaption>L'avviso che PhishLens aggiunge sopra un'email (disegno dell'interfaccia reale, in inglese; prova la stessa analisi più in basso).</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sec" id="results">
+    <div class="wrap">
+      <h2><span class="n">01</span>Risultati</h2>
+      <div class="strip">
+        <div class="cell"><div class="big">0.967</div><div class="lbl">F1, modello del testo (DistilBERT)</div></div>
+        <div class="cell"><div class="big">0.991</div><div class="lbl">F1, modello dei link (Random Forest)</div></div>
+        <div class="cell"><div class="big">77 ms</div><div class="lbl">analisi mediana su un server senza GPU</div></div>
+        <div class="cell"><div class="big">4</div><div class="lbl">fonti di threat intelligence</div></div>
+      </div>
+      <p class="note">Set di test offline e un test di carico su PhishLens Cloud. Le caselle di posta reali sono più difficili: vedi i <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limiti noti</a>.</p>
+
+      <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, in questo momento</h3>
+      <div class="strip" id="live" aria-live="polite">
+        <div class="cell"><div class="big"><span class="spinner" aria-hidden="true"></span></div><div class="lbl">caricamento dei contatori del server</div></div>
+      </div>
+      <p class="note">Letti dal server al caricamento della pagina. I contatori si azzerano quando il server si riavvia.</p>
+    </div>
+  </section>
+
+  <section class="sec" id="checks">
+    <div class="wrap">
+      <h2><span class="n">02</span>Cosa controlla</h2>
+      <p class="intro">Le vere email di banche e università usano le stesse parole del phishing, quindi un modello del testo da solo le segnala. PhishLens verifica le prove prima di decidere.</p>
+      <div class="pair">
+        <ul class="rows">
+          <li><svg class="ic"><use href="#i-text"/></svg><b>Testo</b><span>DistilBERT, perfezionato su circa 29.500 email, valuta il testo; LIME mostra le parole che hanno orientato il verdetto.</span></li>
+          <li><svg class="ic"><use href="#i-link"/></svg><b>Link</b><span>Ogni vera destinazione dei link, compresa quella dietro «Clicca qui», verificata con Safe Browsing, PhishTank, URLhaus e Spamhaus.</span></li>
+          <li><svg class="ic"><use href="#i-key"/></svg><b>Mittente</b><span>SPF, DKIM e DMARC mostrano chi l'ha davvero inviata. Un'email inoltrata non eredita la fiducia di chi l'ha inoltrata.</span></li>
+          <li><svg class="ic"><use href="#i-clip"/></svg><b>Allegati</b><span>PDF (anche scansionati, tramite OCR), codici QR, macro e modelli remoti di Office, archivi ZIP, RAR e 7z e inviti di calendario.</span></li>
+          <li><svg class="ic"><use href="#i-inbox"/></svg><b>Caselle di posta reali</b><span>Conversazioni, email fatte solo di immagini e link a file condivisi su Drive, OneDrive o Dropbox.</span></li>
+        </ul>
+        <figure class="frame">
+          <img src="../img/popup.svg" width="400" height="620" loading="lazy"
+               alt="La finestra di PhishLens dopo l'analisi di un'email: un verdetto di phishing, un punteggio per controllo, indicatori di threat intelligence e le parole dietro la decisione.">
+          <figcaption>La finestra dell'estensione, per file e testo incollato.</figcaption>
+        </figure>
+      </div>
+      <figure class="frame wide">
+        <img src="../img/attachments.svg" width="860" height="200" loading="lazy"
+             alt="Risultati degli allegati sotto un'email: una fattura PDF scansionata con un codice QR segnalata come phishing, un documento Word con macro segnalato come phishing e un PDF giudicato sicuro.">
+        <figcaption>Risultati degli allegati, mostrati sotto gli allegati dell'email.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sec" id="features">
+    <div class="wrap">
+      <h2><span class="n">03</span>Funzionalità</h2>
+      <ul class="feats">
+        <li><svg class="ic"><use href="#i-eye"/></svg><div><b>Verdetti spiegati</b><span>Un punteggio per controllo, i segnali trovati e le parole che hanno orientato il modello del testo, così puoi giudicare da solo.</span></div></li>
+        <li><svg class="ic"><use href="#i-mail"/></svg><div><b>Gmail e Outlook</b><span>Un pulsante Analizza accanto all'oggetto in Gmail e Outlook sul web; file e testo incollato nella finestra dell'estensione.</span></div></li>
+        <li><svg class="ic"><use href="#i-bell"/></svg><div><b>Controllo automatico</b><span>Facoltativo: le nuove email vengono controllate all'arrivo, contrassegnate come Sicura o Phishing? nell'elenco, con una notifica.</span></div></li>
+        <li><svg class="ic"><use href="#i-lock"/></svg><div><b>Privacy fin dalla progettazione</b><span>Nessun account, niente salvato sul server, cronologia nel tuo browser. Con il tuo server, nulla lascia il tuo computer.</span></div></li>
+        <li><svg class="ic"><use href="#i-chart"/></svg><div><b>La tua precisione</b><span>Indica se ogni verdetto era giusto o sbagliato e guarda come si comporta PhishLens sulle tue email reali, con esportazione CSV.</span></div></li>
+        <li><svg class="ic"><use href="#i-code"/></svg><div><b>Aperto e testato</b><span>Licenza MIT, con un modello delle minacce, CodeQL e più di 300 test automatici eseguiti a ogni modifica.</span></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="sec" id="how">
+    <div class="wrap">
+      <h2><span class="n">04</span>Come funziona</h2>
+      <ol class="rows">
+        <li><b>Leggere</b><span>Il testo, le vere destinazioni dei link, il mittente e, in Gmail, le intestazioni originali complete.</span></li>
+        <li><b>Valutare</b><span>DistilBERT per il testo, due Random Forest per i link e le intestazioni.</span></li>
+        <li><b>Verificare</b><span>I risultati di autenticazione e quattro fonti di threat intelligence, prima di qualsiasi verdetto.</span></li>
+        <li><b>Spiegare</b><span>Un verdetto, un punteggio per controllo, i segnali trovati e le parole che lo spiegano, sopra l'email.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="sec" id="try">
+    <div class="wrap">
+      <h2><span class="n">05</span>Provalo</h2>
+      <p class="intro">Questo modulo usa lo stesso server dell'estensione. Non viene salvato nulla, ma usa email di prova, non private.</p>
+      <div class="demo">
+        <form class="panel" id="demo-form" novalidate>
+          <div class="tabs" role="tablist" aria-label="Cosa controllare">
+            <button type="button" class="tab" role="tab" id="tab-text" aria-selected="true" aria-controls="pane-text">Incolla testo</button>
+            <button type="button" class="tab" role="tab" id="tab-file" aria-selected="false" aria-controls="pane-file">Carica un file</button>
+          </div>
+
+          <div class="pane" id="pane-text" role="tabpanel" aria-labelledby="tab-text">
+            <label class="sr" for="demo-text">Testo dell'email</label>
+            <textarea id="demo-text" name="text" maxlength="20000" placeholder="Incolla il corpo di un'email…" aria-describedby="demo-text-error"></textarea>
+            <div class="tools">
+              <button type="button" class="btn" id="paste-btn"><svg class="ic ic--s"><use href="#i-paste"/></svg> Incolla</button>
+              <button type="button" class="btn" data-sample="phish">Esempio di phishing</button>
+              <button type="button" class="btn" data-sample="safe">Email normale</button>
+            </div>
+            <p class="error-msg" id="demo-text-error" role="alert"></p>
+          </div>
+
+          <div class="pane" id="pane-file" role="tabpanel" aria-labelledby="tab-file" hidden>
+            <label class="drop" id="drop-zone" for="demo-file">
+              <svg class="ic"><use href="#i-upload"/></svg>
+              <strong id="drop-title">Trascina qui un file, o fai clic per sceglierne uno</strong>
+              <span id="drop-size" class="drop-size" hidden></span>
+              <span>Email .eml, PDF, immagine, Word, Excel, PowerPoint, ZIP, RAR, 7z o .ics</span>
+              <small>Al massimo 10 MB. Analizzato, mai salvato.</small>
+              <input type="file" id="demo-file" name="file" aria-describedby="demo-file-error"
+                     accept=".eml,.pdf,.html,.htm,.png,.jpg,.jpeg,.gif,.webp,.docx,.docm,.doc,.xlsx,.xlsm,.xls,.pptx,.pptm,.ppt,.zip,.rar,.7z,.ics,.txt">
+            </label>
+            <div class="tools"><span class="small muted">Niente da scegliere? Passa a Incolla testo e usa un esempio.</span></div>
+            <p class="error-msg" id="demo-file-error" role="alert"></p>
+          </div>
+
+          <!-- Left empty by people; bots that fill every field are ignored. -->
+          <div class="hp" aria-hidden="true">
+            <label for="website">Lascia vuoto questo campo</label>
+            <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+          </div>
+
+          <div class="row foot">
+            <button type="submit" class="btn btn--strong" id="demo-submit">Controlla questa email</button>
+            <span class="small muted">o Ctrl + Invio</span>
+          </div>
+        </form>
+
+        <div class="panel result" id="demo-result" aria-live="polite">
+          <p class="result-empty">Qui compaiono il verdetto, il punteggio di ogni controllo e le parole che lo spiegano.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="install">
+    <div class="wrap">
+      <h2><span class="n">06</span>Installa</h2>
+      <p class="intro">La scheda del Chrome Web Store è in preparazione. Nel frattempo carica l'estensione dal repository: circa due minuti.</p>
+      <div class="install">
+        <div>
+          <h3>1. L'estensione</h3>
+          <ol class="steps">
+            <li>Scarica l'<a href="https://github.com/AnzouK/PhishLens/releases/latest">ultima versione</a> (Source code, zip) ed estraila, oppure clona <a href="https://github.com/AnzouK/PhishLens">il repository</a>.</li>
+            <li>Apri <code>chrome://extensions</code> e attiva la <b>Modalità sviluppatore</b> (in alto a destra).</li>
+            <li>Fai clic su <b>Carica estensione non pacchettizzata</b> e seleziona la cartella <code>extension/</code>.</li>
+            <li>Apri un'email in Gmail o Outlook sul web e fai clic su <b>Analizza con PhishLens</b> accanto all'oggetto.</li>
+          </ol>
+        </div>
+        <div>
+          <h3>2. Un server</h3>
+          <ol class="steps">
+            <li><b>PhishLens Cloud</b> (predefinito): niente da fare.</li>
+            <li><b>Il tuo, privato:</b> avvialo con Docker, poi scegli <b>Locale</b> nelle impostazioni dell'estensione.</li>
+          </ol>
+<pre>huggingface-cli download AnzouKiona/phishlens-distilbert \
+  --local-dir backend/model
+cd backend &amp;&amp; docker compose up --build</pre>
+          <p class="small muted">Python senza Docker, configurazione e distribuzione: vedi la <a href="https://github.com/AnzouK/PhishLens#quickstart">guida rapida</a> (in inglese).</p>
+        </div>
+      </div>
+      <p class="mt"><a class="cta" href="https://github.com/AnzouK/PhishLens/releases/latest">Installa PhishLens</a></p>
+    </div>
+  </section>
+</main>
+<footer class="site-foot">
+  <div class="wrap">
+    <div>PhishLens. Gratuito e open source, licenza MIT. Nessun cookie su questo sito.</div>
+    <nav aria-label="Piè di pagina">
+      <a href="../it/privacy.html">Privacy</a>
+      <a href="../it/terms.html">Termini</a>
+      <a href="https://github.com/AnzouK/PhishLens">GitHub</a>
+      <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/architecture.md">Architettura</a>
+      <a href="https://github.com/AnzouK/PhishLens/blob/main/SECURITY.md">Sicurezza</a>
+      <a href="https://huggingface.co/AnzouKiona/phishlens-distilbert">Modello</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>
+

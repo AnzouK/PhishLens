@@ -171,8 +171,9 @@ backend/               FastAPI app, agents, sender auth, threat intel, attachmen
   agent_io.py            loads the Random Forests without pickle (skops)
   tests/                 offline pytest suite
 extension/             Chrome MV3 extension (plain JS, no build step)
-tests/                 extension unit tests (node:test) and popup UI tests (Playwright)
-site/                  landing page of the live demo
+tests/                 extension unit tests (node:test), popup and website UI tests (Playwright)
+site/                  website, built in 8 languages (do not edit by hand)
+site-src/              its template, texts and translated legal pages
 docs/                  architecture, threat model, operations, overview
 scripts/locustfile.py  load test
 ```

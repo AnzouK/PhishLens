@@ -45,8 +45,12 @@ version published on Hugging Face, empty the folder
 
 `~/.phishlens.env` holds the secrets and tuning knobs (`GSB_API_KEY`,
 `REPUTATION_CACHE_DB=/data/reputation.db`, rate limits). It is never
-committed. The landing page is static and deployed separately:
-`rsync -avz --delete site/ <vm>:~/phishlens-site/`.
+committed. The website is static and deployed separately. Its texts
+live in `site-src/` (one file per language, legal pages translated from
+`PRIVACY.md` and `TERMS.md`); rebuild it after any change, then copy it:
+`python3 scripts/build_site.py` (needs pandoc), then
+`rsync -avz --delete site/ <vm>:~/phishlens-site/`. When `PRIVACY.md` or
+`TERMS.md` changes, update the translations in `site-src/legal/` too.
 
 ### Random Forest agents without pickle (one-time, v1.12)
 

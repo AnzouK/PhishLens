@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ha">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhishLens: ga dalilin da yasa imel yake phishing</title>
+<meta name="description" content="Ƙarin Chrome kyauta mai buɗaɗɗen tushe wanda ke duba imel a Gmail da Outlook kuma yana nuna dalili: rubutu, hanyoyin haɗi, tabbatar da mai aikawa da haɗe-haɗe.">
+<link rel="canonical" href="https://anzouk.duckdns.org/ha/">
+<link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/">
+<link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/">
+<link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/">
+<link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/">
+<link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/">
+<link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/">
+<link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/">
+<link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/">
+<link rel="alternate" hreflang="x-default" href="https://anzouk.duckdns.org/">
+<meta name="theme-color" content="#16181c">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PhishLens">
+<meta property="og:locale" content="ha_NG">
+<meta property="og:title" content="PhishLens: ga dalilin da yasa imel yake phishing">
+<meta property="og:description" content="Ƙarin Chrome mai buɗaɗɗen tushe don Gmail da Outlook: hukunci a saman kowane imel, maki ɗaya ga kowane bincike, da kalmomi da alamun da ke bayan sa.">
+<meta property="og:url" content="https://anzouk.duckdns.org/ha/">
+<meta property="og:image" content="https://anzouk.duckdns.org/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PhishLens: ga dalilin da yasa imel yake phishing. Gmail da Outlook.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="icon" href="../icon.png" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="stylesheet" href="../style.css">
+<script src="../i18n/ha.js" defer></script>
+<script src="../lang.js" defer></script>
+<script src="../app.js" defer></script>
+</head>
+<body>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h10M4 18h7"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2L20 3M16 7l3 3M14 9l2 2"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="M21 11l-8.6 8.6a5 5 0 01-7-7L14 4a3.5 3.5 0 015 5l-8.6 8.6a2 2 0 01-2.8-2.8L15 7.5"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 2h6l1-2h5"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="1"/><path d="M8 11V7a4 4 0 018 0v4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4l2-2z"/><path d="M10 20a2 2 0 004 0"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 7l9 6 9-6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 17v2a1 1 0 001 1h14a1 1 0 001-1v-2"/></symbol>
+  <symbol id="i-paste" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="1"/><path d="M9 4V3h6v1M9 9h6M9 13h6M9 17h4"/></symbol>
+</svg>
+<a class="skip" href="#main">Tsallaka zuwa abin da ke ciki</a>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="../ha/"><img src="../icon.png" alt="" width="28" height="28">PhishLens</a>
+    <nav class="site-nav" aria-label="Babban kewayawa">
+      <a href="#checks">Abin da yake dubawa</a>
+      <a href="#features">Fasaloli</a>
+      <a href="#try">Gwada shi</a>
+      <details class="lang-menu">
+        <summary aria-label="Harshe: Hausa">HA</summary>
+        <ul>
+          <li><a href="../" hreflang="en" lang="en">English</a></li>
+          <li><a href="../fr/" hreflang="fr" lang="fr">Français</a></li>
+          <li><a href="../pt/" hreflang="pt" lang="pt">Português</a></li>
+          <li><a href="../es/" hreflang="es" lang="es">Español</a></li>
+          <li><a href="../de/" hreflang="de" lang="de">Deutsch</a></li>
+          <li><a href="../it/" hreflang="it" lang="it">Italiano</a></li>
+          <li><a href="../nl/" hreflang="nl" lang="nl">Nederlands</a></li>
+          <li><a href="../ha/" hreflang="ha" lang="ha" aria-current="page">Hausa</a></li>
+        </ul>
+      </details>
+      <a class="cta" href="#install">Girka PhishLens</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero">
+    <div class="wrap">
+      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> Ƙarin Chrome · Gmail + Outlook · harsuna 8 · buɗaɗɗen tushe</p>
+      <h1>Ga dalilin da yasa imel yake phishing.</h1>
+      <p class="lead">PhishLens yana ƙara hukunci a saman kowane imel a Gmail da Outlook: maki ɗaya ga kowane bincike, alamun da ya samu, da kalmomin da suka fi nauyi. Danna Duba, ko bari ya duba sababbin imel da kansa.</p>
+      <div class="row">
+        <a class="cta" href="#install">Girka PhishLens</a>
+        <span class="status" aria-live="polite"><span id="status"><span class="spinner" aria-hidden="true"></span> ana duba sabar</span><span id="version"></span></span>
+      </div>
+      <figure class="shot">
+        <img src="../img/gmail-verdicts.svg" width="860" height="540"
+             alt="Tutoci biyu na PhishLens a saman imel a Gmail. Na farko ya ce imel ɗin yana kama da phishing, da maki 97% na rubutu, 88% na hanyoyin haɗi da 74% na mai aikawa, alamomi na gano Safe Browsing, gazawar DMARC da kasancewa cikin jerin Spamhaus, da kalmomin da suka kawo hukuncin. Na biyu ya ce imel ɗin yana kama da amintacce saboda mai aikawa yana cikin jerin amintattu.">
+        <figcaption>Tutar da PhishLens ke ƙarawa a saman imel (zanen ainihin manhajar, da Turanci; gwada irin wannan bincike a ƙasa).</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sec" id="results">
+    <div class="wrap">
+      <h2><span class="n">01</span>Sakamako</h2>
+      <div class="strip">
+        <div class="cell"><div class="big">0.967</div><div class="lbl">F1, samfurin rubutu (DistilBERT)</div></div>
+        <div class="cell"><div class="big">0.991</div><div class="lbl">F1, samfurin hanyoyin haɗi (Random Forest)</div></div>
+        <div class="cell"><div class="big">77 ms</div><div class="lbl">matsakaicin lokacin bincike a sabar da ba ta da GPU</div></div>
+        <div class="cell"><div class="big">4</div><div class="lbl">majiyoyin bayanan barazana</div></div>
+      </div>
+      <p class="note">Gwaje-gwaje ba tare da intanet ba da gwajin nauyi a PhishLens Cloud. Ainihin akwatunan saƙo sun fi wahala: duba <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">iyakokin da aka sani</a>.</p>
+
+      <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, a yanzu</h3>
+      <div class="strip" id="live" aria-live="polite">
+        <div class="cell"><div class="big"><span class="spinner" aria-hidden="true"></span></div><div class="lbl">ana loda ƙididdigar sabar</div></div>
+      </div>
+      <p class="note">An karanta daga sabar lokacin da shafin ya buɗe. Ƙididdigar tana komawa sifili idan sabar ta sake farawa.</p>
+    </div>
+  </section>
+
+  <section class="sec" id="checks">
+    <div class="wrap">
+      <h2><span class="n">02</span>Abin da yake dubawa</h2>
+      <p class="intro">Imel na gaske daga bankuna da jami'o'i suna amfani da kalmomi iri ɗaya da phishing, don haka samfurin rubutu shi kaɗai yana yi musu alama. PhishLens yana duba shaida kafin ya yanke hukunci.</p>
+      <div class="pair">
+        <ul class="rows">
+          <li><svg class="ic"><use href="#i-text"/></svg><b>Rubutu</b><span>DistilBERT, wanda aka horar a kan imel kusan 29,500, yana ba rubutu maki; LIME yana nuna kalmomin da suka karkatar da hukuncin.</span></li>
+          <li><svg class="ic"><use href="#i-link"/></svg><b>Hanyoyin haɗi</b><span>Kowace ainihin hanyar haɗi, har da wadda ke bayan &quot;Danna nan&quot;, ana duba ta a Safe Browsing, PhishTank, URLhaus da Spamhaus.</span></li>
+          <li><svg class="ic"><use href="#i-key"/></svg><b>Mai aikawa</b><span>SPF, DKIM da DMARC suna nuna wanda ya aiko shi da gaske. Imel da aka tura ba ya ɗaukar amincewar wanda ya tura shi.</span></li>
+          <li><svg class="ic"><use href="#i-clip"/></svg><b>Haɗe-haɗe</b><span>PDF (har da waɗanda aka ɗauki hoto, ta OCR), lambobin QR, macros da samfuran nesa na Office, ma'ajiyar ZIP, RAR da 7z, da gayyatar kalanda.</span></li>
+          <li><svg class="ic"><use href="#i-inbox"/></svg><b>Ainihin akwatunan saƙo</b><span>Tattaunawa, imel na hotuna kawai, da hanyoyin haɗi zuwa fayilolin da aka raba a Drive, OneDrive ko Dropbox.</span></li>
+        </ul>
+        <figure class="frame">
+          <img src="../img/popup.svg" width="400" height="620" loading="lazy"
+               alt="Tagar PhishLens bayan duba imel: hukuncin phishing, maki ɗaya ga kowane bincike, alamomin bayanan barazana da kalmomin da ke bayan hukuncin.">
+          <figcaption>Tagar ƙarin, don fayiloli da rubutun da aka liƙa.</figcaption>
+        </figure>
+      </div>
+      <figure class="frame wide">
+        <img src="../img/attachments.svg" width="860" height="200" loading="lazy"
+             alt="Sakamakon haɗe-haɗe a ƙarƙashin imel: takardar biyan kuɗi ta PDF da aka ɗauki hoto mai lambar QR da aka yi wa alamar phishing, takardar Word mai macros da aka yi wa alamar phishing, da PDF da aka ce amintacce ne.">
+        <figcaption>Sakamakon haɗe-haɗe, ana nuna su a ƙarƙashin haɗe-haɗen imel.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sec" id="features">
+    <div class="wrap">
+      <h2><span class="n">03</span>Fasaloli</h2>
+      <ul class="feats">
+        <li><svg class="ic"><use href="#i-eye"/></svg><div><b>Hukunci mai bayani</b><span>Maki ɗaya ga kowane bincike, alamun da aka samu, da kalmomin da suka karkatar da samfurin rubutu, don ka yanke hukunci da kanka.</span></div></li>
+        <li><svg class="ic"><use href="#i-mail"/></svg><div><b>Gmail da Outlook</b><span>Maɓallin Duba kusa da jigo a Gmail da Outlook a yanar gizo; fayiloli da rubutun da aka liƙa a tagar ƙarin.</span></div></li>
+        <li><svg class="ic"><use href="#i-bell"/></svg><div><b>Bincike ta atomatik</b><span>Na zaɓi: ana duba sababbin imel idan sun iso, ana yi musu alamar Amintacce ko Phishing? a jerin, tare da sanarwa.</span></div></li>
+        <li><svg class="ic"><use href="#i-lock"/></svg><div><b>Sirri tun daga tsari</b><span>Babu asusu, babu abin da ake ajiyewa a sabar, tarihi yana cikin burauzarka. Da sabarka ta kanka, babu abin da zai bar kwamfutarka.</span></div></li>
+        <li><svg class="ic"><use href="#i-chart"/></svg><div><b>Daidaitonka na kanka</b><span>Nuna ko kowane hukunci daidai ne ko ba daidai ba, ka ga yadda PhishLens ke aiki a kan imel ɗinka na gaske, tare da fitarwa ta CSV.</span></div></li>
+        <li><svg class="ic"><use href="#i-code"/></svg><div><b>Buɗaɗɗe kuma an gwada shi</b><span>Lasisin MIT, tare da samfurin barazana, CodeQL da gwaje-gwaje na atomatik sama da 300 a kowane canji.</span></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="sec" id="how">
+    <div class="wrap">
+      <h2><span class="n">04</span>Yadda yake aiki</h2>
+      <ol class="rows">
+        <li><b>Karantawa</b><span>Rubutun, ainihin inda hanyoyin haɗi ke zuwa, mai aikawa, kuma a Gmail, cikakkun kanun saƙo na asali.</span></li>
+        <li><b>Ba da maki</b><span>DistilBERT don rubutu, Random Forests biyu don hanyoyin haɗi da kanun saƙo.</span></li>
+        <li><b>Tabbatarwa</b><span>Sakamakon tabbatarwa da majiyoyin bayanan barazana guda huɗu, kafin kowane hukunci.</span></li>
+        <li><b>Bayyanawa</b><span>Hukunci, maki ɗaya ga kowane bincike, alamun da aka samu da kalmomin da ke bayan sa, a saman imel.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="sec" id="try">
+    <div class="wrap">
+      <h2><span class="n">05</span>Gwada shi</h2>
+      <p class="intro">Wannan fom yana amfani da sabar ɗaya da ƙarin. Ba a ajiye komai, amma don Allah yi amfani da imel na gwaji, ba na sirri ba.</p>
+      <div class="demo">
+        <form class="panel" id="demo-form" novalidate>
+          <div class="tabs" role="tablist" aria-label="Abin da za a duba">
+            <button type="button" class="tab" role="tab" id="tab-text" aria-selected="true" aria-controls="pane-text">Liƙa rubutu</button>
+            <button type="button" class="tab" role="tab" id="tab-file" aria-selected="false" aria-controls="pane-file">Ɗora fayil</button>
+          </div>
+
+          <div class="pane" id="pane-text" role="tabpanel" aria-labelledby="tab-text">
+            <label class="sr" for="demo-text">Rubutun imel</label>
+            <textarea id="demo-text" name="text" maxlength="20000" placeholder="Liƙa jikin imel…" aria-describedby="demo-text-error"></textarea>
+            <div class="tools">
+              <button type="button" class="btn" id="paste-btn"><svg class="ic ic--s"><use href="#i-paste"/></svg> Liƙa</button>
+              <button type="button" class="btn" data-sample="phish">Misalin phishing</button>
+              <button type="button" class="btn" data-sample="safe">Imel na al'ada</button>
+            </div>
+            <p class="error-msg" id="demo-text-error" role="alert"></p>
+          </div>
+
+          <div class="pane" id="pane-file" role="tabpanel" aria-labelledby="tab-file" hidden>
+            <label class="drop" id="drop-zone" for="demo-file">
+              <svg class="ic"><use href="#i-upload"/></svg>
+              <strong id="drop-title">Jefa fayil a nan, ko danna don zaɓar ɗaya</strong>
+              <span id="drop-size" class="drop-size" hidden></span>
+              <span>Imel .eml, PDF, hoto, Word, Excel, PowerPoint, ZIP, RAR, 7z ko .ics</span>
+              <small>Mafi yawa 10 MB. Ana dubawa, ba a taɓa ajiyewa.</small>
+              <input type="file" id="demo-file" name="file" aria-describedby="demo-file-error"
+                     accept=".eml,.pdf,.html,.htm,.png,.jpg,.jpeg,.gif,.webp,.docx,.docm,.doc,.xlsx,.xlsm,.xls,.pptx,.pptm,.ppt,.zip,.rar,.7z,.ics,.txt">
+            </label>
+            <div class="tools"><span class="small muted">Babu abin zaɓa? Koma Liƙa rubutu ka yi amfani da misali.</span></div>
+            <p class="error-msg" id="demo-file-error" role="alert"></p>
+          </div>
+
+          <!-- Left empty by people; bots that fill every field are ignored. -->
+          <div class="hp" aria-hidden="true">
+            <label for="website">Bar wannan wuri babu komai</label>
+            <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+          </div>
+
+          <div class="row foot">
+            <button type="submit" class="btn btn--strong" id="demo-submit">Duba wannan imel</button>
+            <span class="small muted">ko Ctrl + Enter</span>
+          </div>
+        </form>
+
+        <div class="panel result" id="demo-result" aria-live="polite">
+          <p class="result-empty">Hukuncin, makin kowane bincike da kalmomin da ke bayan sa za su bayyana a nan.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="install">
+    <div class="wrap">
+      <h2><span class="n">06</span>Girkawa</h2>
+      <p class="intro">Ana shirya shafin Chrome Web Store. Kafin nan, loda ƙarin daga ma'ajiyar lambar: kusan minti biyu.</p>
+      <div class="install">
+        <div>
+          <h3>1. Ƙarin</h3>
+          <ol class="steps">
+            <li>Sauke <a href="https://github.com/AnzouK/PhishLens/releases/latest">sabuwar siga</a> (Source code, zip) ka buɗe ta, ko ka kwafi <a href="https://github.com/AnzouK/PhishLens">ma'ajiyar lambar</a>.</li>
+            <li>Buɗe <code>chrome://extensions</code> ka kunna <b>Developer mode</b> (sama a dama).</li>
+            <li>Danna <b>Load unpacked</b> ka zaɓi babban fayil <code>extension/</code>.</li>
+            <li>Buɗe imel a Gmail ko Outlook a yanar gizo ka danna <b>Duba da PhishLens</b> kusa da jigo.</li>
+          </ol>
+        </div>
+        <div>
+          <h3>2. Sabar</h3>
+          <ol class="steps">
+            <li><b>PhishLens Cloud</b> (na asali): babu abin yi.</li>
+            <li><b>Taka ta kanka, ta sirri:</b> kunna ta da Docker, sannan ka zaɓi <b>Local</b> a saitunan ƙarin.</li>
+          </ol>
+<pre>huggingface-cli download AnzouKiona/phishlens-distilbert \
+  --local-dir backend/model
+cd backend &amp;&amp; docker compose up --build</pre>
+          <p class="small muted">Python ba tare da Docker ba, saituna da girkawa: duba <a href="https://github.com/AnzouK/PhishLens#quickstart">jagorar farawa</a> (da Turanci).</p>
+        </div>
+      </div>
+      <p class="mt"><a class="cta" href="https://github.com/AnzouK/PhishLens/releases/latest">Girka PhishLens</a></p>
+    </div>
+  </section>
+</main>
+<footer class="site-foot">
+  <div class="wrap">
+    <div>PhishLens. Kyauta kuma buɗaɗɗen tushe, lasisin MIT. Babu kukis a wannan shafin.</div>
+    <nav aria-label="Ƙasan shafi">
+      <a href="../ha/privacy.html">Sirri</a>
+      <a href="../ha/terms.html">Sharuɗɗa</a>
+      <a href="https://github.com/AnzouK/PhishLens">GitHub</a>
+      <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/architecture.md">Tsari</a>
+      <a href="https://github.com/AnzouK/PhishLens/blob/main/SECURITY.md">Tsaro</a>
+      <a href="https://huggingface.co/AnzouKiona/phishlens-distilbert">Samfuri</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>
+

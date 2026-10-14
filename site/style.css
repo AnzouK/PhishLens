@@ -260,3 +260,19 @@ main, section, .wrap > * { min-width: 0; }
   .site-foot .wrap { align-items: center; text-align: center; }
   .site-foot nav { justify-content: center; }
 }
+
+/* language menu (header) and suggestion bar */
+.lang-menu { position: relative; }
+.lang-menu summary { list-style: none; cursor: pointer; font: 0.85rem var(--mono); color: var(--ink-2);
+  padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--radius); }
+.lang-menu summary::-webkit-details-marker { display: none; }
+.lang-menu summary:hover, .lang-menu[open] summary { color: var(--ink); border-color: var(--ink-3); }
+.lang-menu ul { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; margin: 0; padding: 6px 0;
+  list-style: none; min-width: 160px; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); }
+.lang-menu li a { display: block; padding: 6px 14px; color: var(--ink-2); text-decoration: none; font-size: 0.93rem; }
+.lang-menu li a:hover { color: var(--ink); background: var(--bg-3); }
+.lang-menu li a[aria-current="page"] { color: var(--accent); }
+.site-nav .lang-menu a { display: block; }
+.lang-suggest { margin: 0; padding: 8px 28px; text-align: center; font-size: 0.93rem;
+  background: var(--bg-2); border-bottom: 1px solid var(--line); }
+.legal-note { font-size: 0.9rem; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius); }
