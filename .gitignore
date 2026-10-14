@@ -99,3 +99,6 @@ loadtest_*.csv
 
 # ---- Node (ESLint installed on the fly, no package.json) ----
 node_modules/
+# Playwright output
+test-results/
+playwright-report/

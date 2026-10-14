@@ -898,9 +898,10 @@ body {
 .live-eval__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px; text-align: center; }
 .live-eval__grid strong { display: block; font-size: 16px; }
 .live-eval__grid span { font-size: 11px; color: var(--text-mute); }
-.history-item__review { display: flex; gap: 4px; margin-left: 6px; }
+.history-item__review { display: flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; }
 .review-btn { font: inherit; font-size: 10.5px; padding: 2px 6px; border-radius: 6px; cursor: pointer;
-              border: 1px solid var(--border); background: transparent; color: var(--text-mute); }
+              border: 1px solid var(--border); background: transparent; color: var(--text-mute);
+              white-space: nowrap; flex: none; }
 .review-btn--on { color: #fff; background: #1a7f37; border-color: #1a7f37; }
 .review-btn--wrong.review-btn--on { background: #c5221f; border-color: #c5221f; }
 .backend-option__tag { font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 6px; margin-left: 4px; color: var(--text-mute); border: 1px solid var(--border); vertical-align: middle; }
@@ -955,7 +956,9 @@ body {
 :root { accent-color: var(--accent); }
 :focus-visible { outline: 1px solid var(--accent) !important; outline-offset: 2px; box-shadow: none !important; }
 .backend-option:has(input:checked) { background: var(--bg-elev-2); }
-.app-footer { white-space: nowrap; gap: 5px; overflow: hidden; }
+/* Long translations wrap between items, never inside one. */
+.app-footer { flex-wrap: wrap; gap: 2px 5px; }
+.app-footer > span { white-space: nowrap; }
 .brand__logo { border-radius: 6px; }
 .btn--primary, .btn--primary:hover:not(:disabled) {
   background: var(--accent) !important; color: var(--bg) !important;
