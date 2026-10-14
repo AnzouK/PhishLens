@@ -10,8 +10,9 @@ the [MIT license](LICENSE), which governs copying and modifying it.
 ## The service
 
 PhishLens checks emails for signs of phishing and explains its verdict.
-It is a final-year student project from Nile University of Nigeria,
-offered free of charge, without accounts and without advertising.
+It started as a final-year student project at Nile University of
+Nigeria and is offered free of charge, without accounts and without
+advertising.
 
 ## What PhishLens is not
 

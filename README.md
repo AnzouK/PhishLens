@@ -207,14 +207,33 @@ both repositories, the models, the report and every guide.
 - **Research:** SHAP as a comparison for LIME, retraining the agents on
   OCR text and QR-code phishing.
 
-## Academic context
+## Origin
 
-Final-year project, B.Sc. Cybersecurity,
-[Nile University of Nigeria](https://nileuniversity.edu.ng/), 2025/2026.
-Model training and evaluation live in the companion repository
-[PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector).
-The accompanying paper describes PhishLens as it was when it was written;
+PhishLens started as a final-year project for a B.Sc. in Cybersecurity at
+[Nile University of Nigeria](https://nileuniversity.edu.ng/) (2025/2026)
+and is now maintained independently. The training and evaluation of the
+original models live in the companion repository
+[PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector). The
+accompanying paper describes PhishLens as it was when it was written;
 everything added since is in the [CHANGELOG](CHANGELOG.md).
+
+## Credits
+
+PhishLens builds on the work and data of others:
+
+- **Threat intelligence:** [Google Safe Browsing](https://safebrowsing.google.com/)
+  (Safe Browsing warnings are advisories provided by Google),
+  [PhishTank](https://phishtank.org/), [URLhaus](https://urlhaus.abuse.ch/)
+  by abuse.ch and the [Spamhaus](https://www.spamhaus.org/) Domain Block List.
+- **Models and libraries:** [Hugging Face Transformers](https://github.com/huggingface/transformers)
+  and DistilBERT, [scikit-learn](https://scikit-learn.org/),
+  [LIME](https://github.com/marcotcr/lime),
+  [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) and
+  [FastAPI](https://fastapi.tiangolo.com/); the full list of backend
+  dependencies is in [`backend/requirements.txt`](backend/requirements.txt).
+- **Training data:** the public phishing and legitimate email datasets
+  listed in [PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector),
+  each under its own license.
 
 ## License
 

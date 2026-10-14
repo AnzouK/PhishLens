@@ -25,6 +25,11 @@ backend share one version number.
   banners, attachment results and notifications. The language follows
   the browser by default and can be changed in Settings. The Hausa
   translation is a draft awaiting review by a native speaker.
+- **About and credits in Settings:** link to the source code and the
+  threat-intelligence sources, models, libraries and datasets PhishLens
+  builds on; the same list is in the README.
+- `/health` names the running text model, and "Test connection" shows
+  the server version and that name.
 
 ### Security
 - **Allowlist only for authenticated senders:** a domain in
@@ -49,6 +54,8 @@ backend share one version number.
 
 
 ### Changed
+- The popup footer and the website no longer present PhishLens as a
+  student project; the README explains where it started.
 - **Backend split by responsibility:** the 1,688-line
   `extension_backend.py` now only holds the HTTP layer; `settings.py`
   (version, environment, every scoring constant), `email_parsing.py`,

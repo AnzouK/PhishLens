@@ -48,7 +48,7 @@ FOOT = """</article>
 </main>
 <footer class="site-foot">
   <div class="wrap">
-    <div>PhishLens, final-year project, B.Sc. Cybersecurity, Nile University of Nigeria, 2025/2026. MIT license. No cookies on this site.</div>
+    <div>PhishLens. Free and open source, MIT license. No cookies on this site.</div>
     <nav aria-label="Footer">
       <a href="{b}privacy.html">Privacy</a>
       <a href="{b}terms.html">Terms</a>

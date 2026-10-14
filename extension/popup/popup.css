@@ -894,6 +894,18 @@ body {
                background: var(--bg-elev-2); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; }
 .lang-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
+/* About and credits in Settings */
+.about { font-size: 12px; line-height: 1.5; color: var(--text-mute); padding-bottom: 8px; }
+.about__text, .about__note { margin: 0 0 8px; }
+.about__note { font-size: 11px; color: var(--text-subtle); }
+.about__link, .credits a { color: var(--accent); text-decoration: none; }
+.about__link:hover, .credits a:hover { text-decoration: underline; }
+.about__link { display: inline-block; margin-bottom: 4px; }
+.about__title { margin: 12px 0 6px; font-size: 12.5px; font-weight: 600; color: var(--text); }
+.credits { margin: 0 0 8px; }
+.credits dt { font-weight: 600; color: var(--text); margin-top: 6px; }
+.credits dd { margin: 0; }
+
 /* Live evaluation + review buttons */
 .live-eval__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px; text-align: center; }
 .live-eval__grid strong { display: block; font-size: 16px; }
