@@ -1,8 +1,8 @@
 // =====================================================================
 // PhishLens content script: Outlook on the web.
 // =====================================================================
-// Loaded after gmail.js, whose banner, explanation and helper functions
-// it reuses (gmail.js only starts its Gmail watchers on Gmail).
+// Loaded after core.js and banner.js, whose helpers and verdict banner it
+// reuses.
 //
 // Outlook page structure (Outlook on the web, 2026):
 //   reading pane   [data-app-section="MailReadCompose"]
@@ -11,8 +11,6 @@
 // Outlook shows only the sender's NAME for people in the same
 // organisation; the address is read from the "From" line when present.
 // =====================================================================
-
-/* global PLL_ICON, PLL_INSTANCE, pllAlive, pllShutdownIfDead, PLL_OBSERVERS, textOf, linkTargetsOf, showBanner, attachExplanation, setBtnLoading */
 
 const OL_PANE_SEL = '[data-app-section="MailReadCompose"]';
 const OL_SUBJECT_SEL = '[role="heading"][id^="CONV_"][id$="_SUBJECT"]';

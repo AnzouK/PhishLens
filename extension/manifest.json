@@ -39,6 +39,11 @@
       "js": [
         "lib/shared.js",
         "lib/lime_cache.js",
+        "content_scripts/core.js",
+        "content_scripts/banner.js",
+        "content_scripts/gmail_scan.js",
+        "content_scripts/attachments.js",
+        "content_scripts/autoscan.js",
         "content_scripts/gmail.js"
       ],
       "css": [
@@ -55,7 +60,8 @@
       "js": [
         "lib/shared.js",
         "lib/lime_cache.js",
-        "content_scripts/gmail.js",
+        "content_scripts/core.js",
+        "content_scripts/banner.js",
         "content_scripts/outlook.js"
       ],
       "css": [
