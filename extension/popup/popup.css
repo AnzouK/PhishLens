@@ -890,6 +890,9 @@ body {
            border: 1px solid var(--border, rgba(127,127,127,.25)); border-radius: 10px; font-size: 12.5px; line-height: 1.45; cursor: pointer; }
 .opt-row input { margin-top: 3px; flex: none; }
 .opt-row strong { font-size: 13px; }
+.lang-select { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px;
+               background: var(--bg-elev-2); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; }
+.lang-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 /* Live evaluation + review buttons */
 .live-eval__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px; text-align: center; }

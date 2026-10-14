@@ -64,6 +64,8 @@ export default [
         ...globals.serviceworker,
         // Shared between files through globalThis (see lib/*.js).
         PhishLensHistory: "readonly",
+        PhishLensI18n: "readonly",
+        PhishLensLocales: "writable",
         PhishLensLimeCache: "readonly",
         PhishLensShared: "readonly",
       },

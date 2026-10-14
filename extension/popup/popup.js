@@ -5,6 +5,8 @@
 // Server choice (chrome.storage "backend"): "cloud" (PhishLens Cloud, the
 // default), "local" (Docker on this computer) or "custom" (a typed URL).
 const { DEFAULT_BACKEND, resolveBackend, escapeHTML, apiErrorMessage } = window.PhishLensShared;
+const I18N = window.PhishLensI18n;
+const { t, tn, flagLabel, reasonLabel } = I18N;
 
 let backendChoice = DEFAULT_BACKEND;     // "local" | "cloud" | "custom"
 let backendCustomUrl = "";
@@ -137,8 +139,8 @@ function setSelectedFile(file) {
         dropZone.innerHTML = `
             <input id="file-input" type="file" accept="${FILE_ACCEPT}" hidden />
             <div class="drop-zone__icon">${icon("upload")}</div>
-            <div class="drop-zone__label">Drag &amp; drop an email (<code>.eml</code>) or an attachment (PDF, image, Word, Excel, PowerPoint, HTML, ZIP, RAR, 7z, .ics)</div>
-            <div class="drop-zone__hint">or click to browse · 10 MB max</div>`;
+            <div class="drop-zone__label">${t("drop_label_html")}</div>
+            <div class="drop-zone__hint">${escapeHTML(t("drop_hint"))}</div>`;
         rewireFileInput();
         updateAnalyzeEnabled();
         return;
@@ -148,7 +150,7 @@ function setSelectedFile(file) {
         <input id="file-input" type="file" accept="${FILE_ACCEPT}" hidden />
         <div class="drop-zone__icon">${icon("file")}</div>
         <div class="drop-zone__filename">${escapeHTML(file.name)}</div>
-        <div class="drop-zone__hint">Click to change file</div>`;
+        <div class="drop-zone__hint">${escapeHTML(t("click_to_change"))}</div>`;
     rewireFileInput();
     updateAnalyzeEnabled();
     hideStatus();
@@ -168,7 +170,7 @@ pasteClipboardBtn.addEventListener("click", async () => {
     try {
         const txt = await navigator.clipboard.readText();
         if (!txt) {
-            showStatus("Clipboard is empty.");
+            showStatus(t("clipboard_empty"));
             return;
         }
         pasteInput.value = txt;
@@ -178,7 +180,7 @@ pasteClipboardBtn.addEventListener("click", async () => {
         hideStatus();
         pasteInput.focus();
     } catch (e) {
-        showStatus("Could not read clipboard. Try Cmd+V.");
+        showStatus(t("clipboard_error"));
     }
 });
 
@@ -207,7 +209,7 @@ dropZone.addEventListener("drop", (e) => {
     if (ext === "eml" || ATTACHMENT_EXTS.includes(ext)) {
         setSelectedFile(f);
     } else {
-        showStatus("Please drop a .eml file, a PDF, an image or an Office document.");
+        showStatus(t("drop_wrong_type"));
     }
 });
 
@@ -243,9 +245,9 @@ analyzeBtn.addEventListener("click", async () => {
     let endpointPath = "/analyse";
     try {
         if (activeTab === "file") {
-            if (!selectedFile) throw new Error("Pick an email (.eml) or an attachment first.");
+            if (!selectedFile) throw new Error(t("pick_first"));
             if (selectedFile.size > 10 * 1024 * 1024)
-                throw new Error("File too large: 10 MB max.");
+                throw new Error(t("file_too_large"));
             const ext = fileExt(selectedFile.name);
             const b64 = await fileToB64(selectedFile);
             if (ATTACHMENT_EXTS.includes(ext)) {
@@ -260,7 +262,7 @@ analyzeBtn.addEventListener("click", async () => {
             }
         } else {
             if (pastedText.trim().length < 20)
-                throw new Error("Paste at least 20 characters of email body.");
+                throw new Error(t("paste_min"));
             payload = { raw_text: pastedText };
         }
     } catch (e) {
@@ -327,7 +329,7 @@ analyzeBtn.addEventListener("click", async () => {
         showView("upload");
         showStatus(
             String(e?.message || e).startsWith("Failed to fetch")
-                ? "Could not reach the backend. Check the backend in the settings (gear icon)."
+                ? t("unreachable")
                 : String(e.message || e)
         );
     }
@@ -350,10 +352,9 @@ function renderResult(data) {
     const flags = data.attachment?.notable_features || [];
     const caution = isAttachment && !isPhishing && flags.some((f) => CAUTION_FLAGS.includes(f));
     renderArchiveFiles(data.attachment, isPhishing);
-    const what = isAttachment ? "file" : "email";
     $("verdict-label").textContent = isPhishing
-        ? `This ${what} looks like phishing`
-        : caution ? "Could not look inside this file" : `This ${what} looks safe`;
+        ? t(isAttachment ? "verdict_file_phishing" : "verdict_phishing")
+        : caution ? t("verdict_file_caution") : t(isAttachment ? "verdict_file_safe" : "verdict_safe");
 
     // Verified-sender pill: three tiers:
     //   1. Trusted allowlist (static list, highest trust: kept for legacy)
@@ -364,38 +365,35 @@ function renderResult(data) {
     const gmailSoftVerified = !!data.sender_auth?.gmail_inbox_soft_verified;
     if (data.trusted_sender) {
         trustedEl.hidden = false;
-        trustedEl.textContent = "Trusted sender";
-        trustedEl.title = `Sender domain in allowlist: ${data.sender_domain || ""}`;
+        trustedEl.textContent = t("badge_trusted");
+        trustedEl.title = t("trusted_title_popup", { domain: data.sender_domain || "" });
     } else if (cryptoVerified) {
         trustedEl.hidden = false;
-        trustedEl.textContent = "DKIM verified";
-        trustedEl.title =
-            `DKIM signature aligned with From: ${data.sender_domain || ""}\n` +
-            `SPF=${data.sender_auth.spf} DKIM=${data.sender_auth.dkim} DMARC=${data.sender_auth.dmarc}`;
+        trustedEl.textContent = t("badge_dkim");
+        trustedEl.title = t("dkim_title_popup", { domain: data.sender_domain || "", spf: data.sender_auth.spf,
+                                                  dkim: data.sender_auth.dkim, dmarc: data.sender_auth.dmarc });
     } else if (gmailSoftVerified) {
         trustedEl.hidden = false;
-        trustedEl.textContent = "Delivered by Gmail";
-        trustedEl.title =
-            "Gmail delivered this message to Inbox, so its own SPF/DKIM/DMARC checks passed. " +
-            "This is a soft trust signal, weaker than a full DKIM verification.";
+        trustedEl.textContent = t("badge_gmail");
+        trustedEl.title = t("badge_gmail_title");
     } else {
         trustedEl.hidden = true;
     }
 
-    const flagText = flags.length ? " Found: " + flags.map((f) => f.replace(/_/g, " ")).join(", ") + "." : "";
+    const flagText = flags.length ? t("found_flags", { flags: flags.map(flagLabel).join(", ") }) : "";
     $("verdict-sub").textContent = isPhishing
-        ? "We recommend not clicking any links." + flagText
+        ? t("sub_phishing") + flagText
         : caution
-        ? "It is password-protected, a disk image or an archive PhishLens cannot open: attackers use this to get past scanners. Open it only if you expected it." + flagText
+        ? t("sub_caution") + flagText
         : data.forwarded?.detected
-        ? "Forwarded email: the forwarder's trust was not applied to the content."
+        ? t("sub_forwarded")
         : data.shared_links?.count
-        ? `Links to a shared file or form (${(data.shared_links.services || []).join(", ")}): open it only if you expected it.`
+        ? t("sub_shared", { services: (data.shared_links.services || []).join(", ") })
         : (data.trusted_sender
-            ? "Sender domain is in the verified allowlist."
+            ? t("sub_trusted")
             : cryptoVerified
-                ? "Sender identity confirmed by DKIM signature."
-                : "Unlikely to be a phishing attempt.");
+                ? t("sub_crypto")
+                : t("verdict_safe_sub"));
 
     // helper to fill an agent block
     const fillAgent = (key, scoreEl, barEl, hintEl, hintCopy) => {
@@ -411,21 +409,15 @@ function renderResult(data) {
 
     fillAgent(
         "text", $("text-score"), $("text-bar"), $("text-hint"),
-        (p) => p >= 0.7 ? "The message content reads like a scam."
-             : p >= 0.4 ? "The message has some suspicious wording."
-             : "The message itself reads normally."
+        (p) => t(p >= 0.7 ? "text_high" : p >= 0.4 ? "text_mid" : "text_low")
     );
     fillAgent(
         "url", $("url-score"), $("url-bar"), $("url-hint"),
-        (p) => p >= 0.7 ? "The links look dangerous."
-             : p >= 0.4 ? "Some links look suspicious."
-             : "No suspicious links found."
+        (p) => t(p >= 0.7 ? "url_high" : p >= 0.4 ? "url_mid" : "url_low")
     );
     fillAgent(
         "metadata", $("meta-score"), $("meta-bar"), $("meta-hint"),
-        (p) => p >= 0.7 ? "The sender's identity could not be verified."
-             : p >= 0.4 ? "The sender's identity looks unusual."
-             : "The sender appears legitimate."
+        (p) => t(p >= 0.7 ? "meta_high" : p >= 0.4 ? "meta_mid" : "meta_low")
     );
 
     // Reputation & auth badges
@@ -440,15 +432,15 @@ function renderResult(data) {
 
 // ---------- sender and threat-intel badges ----------
 // Human-readable labels for the raw threat-intel enum values.
-const _THREAT_LABEL = {
-    "MALWARE":                          "malware",
-    "SOCIAL_ENGINEERING":               "phishing",
-    "UNWANTED_SOFTWARE":                "unwanted software",
-    "POTENTIALLY_HARMFUL_APPLICATION":  "harmful app",
-    "SPAM":                             "spam",
-    "BOTNET_CC":                        "botnet C&C",
-    "SUSPICIOUS":                       "suspicious",
-    "PHISHING":                         "phishing",
+const _THREAT_KEY = {
+    "MALWARE":                          "threat_malware",
+    "SOCIAL_ENGINEERING":               "threat_phishing",
+    "UNWANTED_SOFTWARE":                "threat_unwanted",
+    "POTENTIALLY_HARMFUL_APPLICATION":  "threat_harmful_app",
+    "SPAM":                             "threat_spam",
+    "BOTNET_CC":                        "threat_botnet",
+    "SUSPICIOUS":                       "threat_suspicious",
+    "PHISHING":                         "threat_phishing",
 };
 const _SOURCE_LABEL = {
     "google_safe_browsing":  "Google Safe Browsing",
@@ -489,13 +481,13 @@ function renderArchiveFiles(att, isPhishing) {
     const entries = Array.isArray(att.entries) ? att.entries : [];
     if (risky.length) {
         const block = el("div", "archive-files__risky archive-files__risky--" + (isPhishing ? "bad" : "warn"));
-        block.append(el("div", "archive-files__title", isPhishing ? "Do not open" : "Check before opening"));
+        block.append(el("div", "archive-files__title", isPhishing ? t("att_do_not_open") : t("att_check_before")));
         const ul = el("ul");
         risky.forEach((f) => {
             const li = el("li");
             const name = el("span", "archive-files__name", f.name);
             name.title = f.name;
-            li.append(name, el("span", "archive-files__why", (f.reasons || []).join(", ")));
+            li.append(name, el("span", "archive-files__why", (f.reasons || []).map(reasonLabel).join(", ")));
             ul.append(li);
         });
         block.append(ul);
@@ -503,7 +495,7 @@ function renderArchiveFiles(att, isPhishing) {
     }
     if (entries.length) {
         const det = el("details", "archive-files__all");
-        det.append(el("summary", "", `Files inside (${att.entry_count || entries.length})`));
+        det.append(el("summary", "", t("att_files_list", { count: att.entry_count || entries.length })));
         const ul = el("ul");
         entries.forEach((n) => {
             const li = el("li");
@@ -512,7 +504,7 @@ function renderArchiveFiles(att, isPhishing) {
             li.append(name);
             ul.append(li);
         });
-        if (att.entry_count > entries.length) ul.append(el("li", "archive-files__more", `and ${att.entry_count - entries.length} more`));
+        if (att.entry_count > entries.length) ul.append(el("li", "archive-files__more", t("att_and_more", { count: att.entry_count - entries.length })));
         det.append(ul);
         box.append(det);
     }
@@ -524,20 +516,18 @@ function renderUrlBadges(rep) {
     host.innerHTML = "";
     if (!rep || !rep.checked) { host.hidden = true; return; }
     if (rep.malicious_count === 0) {
-        host.appendChild(_mkBadge(`${rep.checked} link${rep.checked > 1 ? "s" : ""} checked, none flagged`,
-                                  "good",
-                                  "URL reputation cascade returned clean"));
+        host.appendChild(_mkBadge(tn("links_checked", rep.checked), "good", t("links_clean_title")));
     } else {
         // Per-source badges: one per intel source that fired
         for (const src of rep.sources_hit || []) {
             const label = _SOURCE_LABEL[src] || src;
-            host.appendChild(_mkBadge(`Flagged by ${label}`, "bad",
-                                      `${label} flagged ${rep.malicious_count} URL(s)`));
+            host.appendChild(_mkBadge(t("chip_flagged_by", { source: label }), "bad",
+                                      t("chip_flagged_title", { source: label, count: rep.malicious_count })));
         }
         // Threat-type badges: collapse enum values into words
         for (const tt of rep.threat_types || []) {
-            const label = _THREAT_LABEL[tt] || tt.toLowerCase();
-            host.appendChild(_mkBadge(label, "bad", `Threat type reported: ${tt}`));
+            const label = _THREAT_KEY[tt] ? t(_THREAT_KEY[tt]) : tt.toLowerCase();
+            host.appendChild(_mkBadge(label, "bad", t("threat_type_title", { type: tt })));
         }
     }
     host.hidden = false;
@@ -550,8 +540,7 @@ function renderMetaBadges(auth) {
 
     const badges = [];
     if (auth.cryptographically_verified) {
-        badges.push(_mkBadge("DKIM aligned", "good",
-                             "DKIM signature aligned with the From: domain; sender proven"));
+        badges.push(_mkBadge(t("dkim_aligned"), "good", t("dkim_aligned_title")));
     }
     const results = {
         SPF:   auth.spf,
@@ -560,24 +549,20 @@ function renderMetaBadges(auth) {
     };
     for (const [name, verdict] of Object.entries(results)) {
         if (verdict === "pass") {
-            badges.push(_mkBadge(`${name} pass`, "good", `${name} check passed`));
+            badges.push(_mkBadge(t("auth_pass", { name }), "good", t("auth_pass_title", { name })));
         } else if (verdict === "fail") {
-            badges.push(_mkBadge(`${name} fail`, "bad",
-                                 `${name} check FAILED: possible spoofing`));
+            badges.push(_mkBadge(t("auth_fail", { name }), "bad", t("auth_fail_title", { name })));
         } else if (verdict === "softfail") {
-            badges.push(_mkBadge(`${name} softfail`, "warn",
-                                 `${name} soft-failed: sender not authorised but not blocked`));
+            badges.push(_mkBadge(t("auth_softfail", { name }), "warn", t("auth_softfail_title", { name })));
         }
         // "none" / "neutral" / "temperror" → no badge (silent)
     }
     if (auth.spamhaus_dbl_listed) {
-        badges.push(_mkBadge("Sender on Spamhaus list", "bad",
-                             "Sender domain is on the Spamhaus DBL"));
+        badges.push(_mkBadge(t("chip_spamhaus"), "bad", t("chip_spamhaus_title")));
     }
     // Explicit signal that the message didn't ship with auth headers at all
     if ((auth.reasons || []).includes("no_auth_header") && badges.length === 0) {
-        badges.push(_mkBadge("no auth header", "warn",
-                             "Message shipped without SPF/DKIM/DMARC: origin unverifiable"));
+        badges.push(_mkBadge(t("no_auth_header"), "warn", t("no_auth_header_title")));
     }
 
     if (badges.length === 0) { host.hidden = true; return; }
@@ -653,20 +638,20 @@ explainPanel.addEventListener("toggle", () => {
     if (explainError) { showExplainError(); return; }
     // not done yet: show waiting state
     explainTokens.innerHTML =
-        `<span class="explain__status">Computing LIME explanation… (~5-10s)</span>`;
+        `<span class="explain__status">${escapeHTML(t("computing_lime"))}</span>`;
 });
 
 function showExplainError() {
     explainTokens.innerHTML = "";
     explainStatus.hidden = false;
-    explainStatus.textContent = `Explanation unavailable: ${explainError}`;
+    explainStatus.textContent = t("explain_unavailable", { error: explainError });
 }
 
 function renderExplain(features) {
     if (!features.length) {
         explainTokens.innerHTML = "";
         explainStatus.hidden = false;
-        explainStatus.textContent = "No salient tokens returned by the model.";
+        explainStatus.textContent = t("no_tokens_model");
         return;
     }
     // LIME weights are tiny (often < 0.01), so printing them showed "0.00".
@@ -679,7 +664,7 @@ function renderExplain(features) {
         const rel = Math.abs(w) / max;
         const cls = f.supports === "phishing" ? "token--phishing" : "token--safe";
         return `<span class="token ${cls}" style="--a:${(0.10 + rel * 0.35).toFixed(2)}"
-                      title="Pushes toward ${escapeHTML(f.supports)}: ${Math.round(rel * 100)}% of the strongest word">${escapeHTML(f.token)}</span>`;
+                      title="${escapeHTML(t("token_title_popup", { side: f.supports === "phishing" ? t("side_phishing") : t("side_safe"), pct: Math.round(rel * 100) }))}">${escapeHTML(f.token)}</span>`;
     }).join("");
     explainStatus.hidden = true;
 }
@@ -831,7 +816,7 @@ async function renderInsights() {
         const safeH  = 100 - phishH;
         const short = d.date.slice(5);   // MM-DD
         return `
-          <div class="dc-col" title="${d.date}: ${tot} scan(s), ${d.phishing} phishing / ${d.safe} safe">
+          <div class="dc-col" title="${escapeHTML(t("chart_day_title", { date: d.date, total: tot, phishing: d.phishing, safe: d.safe }))}">
             <div class="dc-stack" style="height:${h}px">
               <span class="dc-phishing" style="height:${phishH}%"></span>
               <span class="dc-safe"     style="height:${safeH}%"></span>
@@ -843,7 +828,7 @@ async function renderInsights() {
     // Top phishing tokens
     if (stats.topTokens.length === 0) {
         topTokensEl.innerHTML =
-            `<div class="empty-hint">No phishing tokens recorded yet: LIME data will accumulate as you scan.</div>`;
+            `<div class="empty-hint">${escapeHTML(t("no_top_tokens"))}</div>`;
     } else {
         const maxW = Math.max(...stats.topTokens.map((t) => t.weight));
         topTokensEl.innerHTML = stats.topTokens.map((t) => {
@@ -861,39 +846,37 @@ async function renderInsights() {
     const pctOf = (v) => (v == null ? "n/a" : `${Math.round(v * 100)}%`);
     $("live-eval").innerHTML = live.reviewed
         ? `<div class="live-eval__grid">
-             <div><strong>${live.reviewed}</strong><span>reviewed</span></div>
-             <div><strong>${pctOf(live.accuracy)}</strong><span>accuracy</span></div>
-             <div><strong>${live.fp}</strong><span>false alarms</span></div>
-             <div><strong>${live.fn}</strong><span>missed phishing</span></div>
+             <div><strong>${live.reviewed}</strong><span>${escapeHTML(t("live_reviewed"))}</span></div>
+             <div><strong>${pctOf(live.accuracy)}</strong><span>${escapeHTML(t("live_accuracy_label"))}</span></div>
+             <div><strong>${live.fp}</strong><span>${escapeHTML(t("live_fp"))}</span></div>
+             <div><strong>${live.fn}</strong><span>${escapeHTML(t("live_fn"))}</span></div>
            </div>
-           <div class="empty-hint">Precision ${pctOf(live.precision)} · recall ${pctOf(live.recall)} · false-positive rate ${pctOf(live.falsePositiveRate)}</div>`
-        : `<div class="empty-hint">Mark recent scans as right or wrong below to measure how PhishLens does on your real mail.</div>`;
+           <div class="empty-hint">${escapeHTML(t("live_detail", { precision: pctOf(live.precision), recall: pctOf(live.recall), fpr: pctOf(live.falsePositiveRate) }))}</div>`
+        : `<div class="empty-hint">${escapeHTML(t("live_empty"))}</div>`;
 
     // Recent history: last 20
     historyList.innerHTML = list.slice(0, 20).map((e) => {
         const dot = icon(e.verdict === "phishing" ? "alert" : "shield-check");
         const when = timeAgo(e.ts);
-        const subj = e.subject || "(no subject)";
-        const src = ({
-            gmail: "Gmail", "gmail-attachment": "Gmail attachment", "gmail-auto": "Gmail (automatic)", outlook: "Outlook",
-            file: ".eml file", attachment: "attachment", paste: "pasted text",
-        })[e.source] || e.source;
+        const subj = e.subject || t("no_subject");
+        const srcKey = "src_" + String(e.source || "").replace(/-/g, "_");
+        const src = I18N.has(srcKey) ? t(srcKey) : e.source;
         return `
           <div class="history-item" data-verdict="${e.verdict}" data-id="${e.id}">
             <div class="history-item__dot">${dot}</div>
             <div class="history-item__main">
               <div class="history-item__subject">${escapeHTML(subj)}</div>
               <div class="history-item__meta">
-                <span>${src}</span>
+                <span>${escapeHTML(src)}</span>
                 <span>·</span>
                 <span>${when}</span>
                 ${e.sender ? `<span>·</span><span>${escapeHTML(e.sender)}</span>` : ""}
               </div>
             </div>
             <div class="history-item__score">${Math.round((e.score || 0) * 100)}%</div>
-            <div class="history-item__review" role="group" aria-label="Was this verdict right?">
-              <button type="button" class="review-btn${e.label === "correct" ? " review-btn--on" : ""}" data-label="correct" title="The verdict was right">Right</button>
-              <button type="button" class="review-btn review-btn--wrong${e.label === "wrong" ? " review-btn--on" : ""}" data-label="wrong" title="The verdict was wrong">Wrong</button>
+            <div class="history-item__review" role="group" aria-label="${escapeHTML(t("review_group"))}">
+              <button type="button" class="review-btn${e.label === "correct" ? " review-btn--on" : ""}" data-label="correct" title="${escapeHTML(t("review_right_title"))}">${escapeHTML(t("review_right"))}</button>
+              <button type="button" class="review-btn review-btn--wrong${e.label === "wrong" ? " review-btn--on" : ""}" data-label="wrong" title="${escapeHTML(t("review_wrong_title"))}">${escapeHTML(t("review_wrong"))}</button>
             </div>
           </div>`;
     }).join("");
@@ -910,13 +893,13 @@ async function renderInsights() {
 
 function timeAgo(ts) {
     const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
-    if (s < 60)      return `${s}s ago`;
+    if (s < 60)      return t("ago_s", { n: s });
     const m = Math.floor(s / 60);
-    if (m < 60)      return `${m}m ago`;
+    if (m < 60)      return t("ago_m", { n: m });
     const h = Math.floor(m / 60);
-    if (h < 24)      return `${h}h ago`;
+    if (h < 24)      return t("ago_h", { n: h });
     const d = Math.floor(h / 24);
-    if (d < 30)      return `${d}d ago`;
+    if (d < 30)      return t("ago_d", { n: d });
     return new Date(ts).toISOString().slice(0, 10);
 }
 
@@ -955,7 +938,7 @@ exportJsonBtn.addEventListener("click", async () => {
 });
 
 clearHistoryBtn.addEventListener("click", async () => {
-    if (!confirm("Delete all locally-stored scan history? This cannot be undone.")) return;
+    if (!confirm(t("confirm_clear"))) return;
     await window.PhishLensHistory?.clearHistory();
     await renderInsights();
 });
@@ -967,7 +950,7 @@ historyList.addEventListener("click", async (ev) => {
     if (!row) return;
     if (ev.shiftKey) {
         const id = row.dataset.id;
-        if (id && confirm("Remove this entry from history?")) {
+        if (id && confirm(t("confirm_remove"))) {
             await window.PhishLensHistory?.deleteScan(id);
             await renderInsights();
         }
@@ -977,11 +960,11 @@ historyList.addEventListener("click", async (ev) => {
 testConnBtn.addEventListener("click", async () => {
     connStatus.hidden = false;
     connStatus.className = "conn-status conn-status--info";
-    connStatus.textContent = "Testing…";
+    connStatus.textContent = t("testing");
     try {
         const url = getApiBase();
         if (!url || !/^https?:\/\//.test(url)) {
-            throw new Error("URL must start with http:// or https://");
+            throw new Error(t("url_scheme"));
         }
         // Hit /health (not /) because / now serves the landing HTML
         // through Caddy on the PhishLens Cloud backend.
@@ -989,17 +972,56 @@ testConnBtn.addEventListener("click", async () => {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json().catch(() => null);
         connStatus.className = "conn-status conn-status--ok";
-        connStatus.textContent = `Connected (model: ${data?.model || "unknown"})`;
+        connStatus.textContent = t("connected", {
+            version: data?.version || t("unknown"),
+            model: data?.text_model?.source || data?.model || t("unknown"),
+        });
     } catch (e) {
         connStatus.className = "conn-status conn-status--err";
         const msg = String(e?.message || e);
         connStatus.textContent = msg.startsWith("Failed to fetch")
-            ? "Backend unreachable. Check the URL and that the server is running."
+            ? t("server_unreachable")
             : msg;
     }
 });
 
 // ---------- util ----------
+
+// ---------- language ----------
+// The static texts carry data-i18n attributes; the dynamic ones are built
+// with t() each time they are shown, so a language change re-renders them.
+const langSelect = $("ui-lang");
+function fillLanguageMenu(choice) {
+    langSelect.replaceChildren();
+    const auto = document.createElement("option");
+    auto.value = "auto";
+    auto.textContent = t("language_auto");
+    langSelect.append(auto);
+    for (const [code, name] of Object.entries(I18N.LANGUAGES)) {
+        const opt = document.createElement("option");
+        opt.value = code;
+        opt.textContent = name;
+        langSelect.append(opt);
+    }
+    langSelect.value = choice || "auto";
+}
+function applyLanguage() {
+    document.documentElement.lang = I18N.language();
+    I18N.applyTo(document);
+    fillLanguageMenu(langSelect.value);
+}
+langSelect.addEventListener("change", () => {
+    STORAGE?.set({ [I18N.STORAGE_KEY]: langSelect.value });
+    I18N.setLanguage(langSelect.value);
+});
+I18N.onChange(() => {
+    applyLanguage();
+    if (views.insights.classList.contains("view--active")) renderInsights();
+});
+I18N.init().then(() => {
+    STORAGE?.get([I18N.STORAGE_KEY], (s) => fillLanguageMenu(s?.[I18N.STORAGE_KEY]));
+    applyLanguage();
+});
 
 // boot
 showView("upload");

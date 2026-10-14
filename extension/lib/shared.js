@@ -39,11 +39,13 @@ function escapeHTML(s) {
 
 // The message of a failed API call: FastAPI returns {"detail": "..."},
 // or a list of field errors for an invalid request.
+// In the interface language when lib/i18n.js is loaded.
 function apiErrorMessage(data, status) {
     if (typeof data?.detail === "string") return data.detail;
-    if (status === 413 || status === 422) return "This email is too large or malformed for PhishLens.";
-    if (status === 429) return "Too many scans in a short time. Wait a minute and try again.";
-    return `Server error (HTTP ${status}).`;
+    const t = globalThis.PhishLensI18n?.t;
+    if (status === 413 || status === 422) return t ? t("err_too_large") : "This email is too large or malformed for PhishLens.";
+    if (status === 429) return t ? t("err_rate") : "Too many scans in a short time. Wait a minute and try again.";
+    return t ? t("err_server", { status }) : `Server error (HTTP ${status}).`;
 }
 
 const PhishLensShared = Object.freeze({

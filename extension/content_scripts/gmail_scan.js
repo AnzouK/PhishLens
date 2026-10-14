@@ -53,8 +53,8 @@ function installScanButton(subjectEl, emailView) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "pll-scan-btn";
-    btn.innerHTML = `<span class="pll-scan-btn__icon">${PLL_ICON.shield}</span><span class="pll-scan-btn__label">Scan with PhishLens</span>`;
-    btn.title = "Check this email for phishing";
+    btn.innerHTML = `<span class="pll-scan-btn__icon">${PLL_ICON.shield}</span><span class="pll-scan-btn__label">${escapeHTML(t("scan_button"))}</span>`;
+    btn.title = t("scan_button_title");
     wrap.appendChild(btn);
 
     btn.addEventListener("click", (ev) => {
@@ -97,17 +97,15 @@ async function runScan(emailView, btn) {
         if (hasAttachments) {
             showBanner(emailView, {
                 verdict: "error",
-                title: "This email has no text, only attachments",
-                error: (attBtn ? "PhishLens is scanning the attachments instead: see the results below. "
-                               : "See the attachment results below. ") +
-                       "Attachment-only emails are a common phishing trick: open the file only if you were expecting it.",
+                title: t("nothing_text_title"),
+                error: attBtn ? t("nothing_text_lead_scanning") : t("nothing_text_lead"),
             });
             if (attBtn && !attBtn.disabled) attBtn.click();
         } else {
             showBanner(emailView, {
                 verdict: "error",
-                title: "Nothing to scan in this email",
-                error: "The body is empty or too short to analyse. If the email is still loading, open it fully and scan again.",
+                title: t("nothing_title"),
+                error: t("nothing_lead"),
             });
         }
         return;
@@ -159,7 +157,7 @@ async function runScan(emailView, btn) {
         const r = await chrome.runtime.sendMessage({
             type: "phishlens.analyse", payload,
         });
-        if (!r?.ok) throw new Error(r?.error || "Unknown error");
+        if (!r?.ok) throw new Error(r?.error || t("unknown_error"));
         showBanner(emailView, { ...r.data, _threadMessages: count, _fullHeaders: !!original });
 
         // Persist this scan in the local history: background.js writes it
@@ -191,7 +189,7 @@ async function runScan(emailView, btn) {
             // Too little text for the text model: no word-level explanation.
             if (r.data.text_agent_used === false) {
                 const slot = emailView.querySelector(".pll-banner .pll-banner__tokens");
-                if (slot) slot.textContent = "This email has almost no text, so the verdict rests on its links and sender.";
+                if (slot) slot.textContent = t("almost_no_text");
                 return;
             }
             let features = null;
@@ -236,7 +234,7 @@ async function runScan(emailView, btn) {
         // Friendlier message when the extension was reloaded while this Gmail
         // tab was already open: the only fix is a page refresh.
         const friendly = /context invalidated|message port closed/i.test(errMsg)
-            ? "PhishLens was just reloaded: please refresh this Gmail tab to reconnect."
+            ? t("reloaded")
             : errMsg;
         showBanner(emailView, { verdict: "error", error: friendly });
     } finally {

@@ -37,6 +37,15 @@
         "https://mail.google.com/*"
       ],
       "js": [
+        "lib/locales/en.js",
+        "lib/locales/fr.js",
+        "lib/locales/pt.js",
+        "lib/locales/es.js",
+        "lib/locales/de.js",
+        "lib/locales/it.js",
+        "lib/locales/nl.js",
+        "lib/locales/ha.js",
+        "lib/i18n.js",
         "lib/shared.js",
         "lib/lime_cache.js",
         "content_scripts/core.js",
@@ -58,6 +67,15 @@
         "https://outlook.live.com/*"
       ],
       "js": [
+        "lib/locales/en.js",
+        "lib/locales/fr.js",
+        "lib/locales/pt.js",
+        "lib/locales/es.js",
+        "lib/locales/de.js",
+        "lib/locales/it.js",
+        "lib/locales/nl.js",
+        "lib/locales/ha.js",
+        "lib/i18n.js",
         "lib/shared.js",
         "lib/lime_cache.js",
         "content_scripts/core.js",

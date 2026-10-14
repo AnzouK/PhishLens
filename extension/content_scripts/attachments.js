@@ -209,8 +209,8 @@ function installScanAllButton(emailView, targets) {
         const label = existing.querySelector(".pll-scan-btn__label");
         if (label && !existing.disabled) {
             label.textContent = targets.length > 1
-                ? `Scan ${targets.length} attachments`
-                : "Scan attachment";
+                ? t("att_scan_n", { count: targets.length })
+                : t("att_scan_single");
         }
         existing._pllTargets = targets;
         return;
@@ -226,11 +226,9 @@ function installScanAllButton(emailView, targets) {
     btn.dataset.pllInstance = PLL_INSTANCE;
     btn._pllTargets = targets;
     btn.innerHTML = `<span class="pll-scan-btn__icon">${PLL_ICON.clip}</span>` +
-                    `<span class="pll-scan-btn__label">${
-                        targets.length > 1
-                            ? `Scan ${targets.length} attachments`
-                            : "Scan attachment"
-                    }</span>`;
+                    `<span class="pll-scan-btn__label">${escapeHTML(
+                        targets.length > 1 ? t("att_scan_n", { count: targets.length }) : t("att_scan_single")
+                    )}</span>`;
     btn.addEventListener("click", async (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
@@ -240,23 +238,22 @@ function installScanAllButton(emailView, targets) {
         const currentTargets = btn._pllTargets || targets;
 
         if (currentTargets.length >= 5 &&
-            !confirm(`This will scan ${currentTargets.length} attachments one at a time. ` +
-                     `On a CPU-only backend that can take 30–60 seconds total. Continue?`)) {
+            !confirm(t("att_confirm_many", { count: currentTargets.length }))) {
             return;
         }
         if (currentTargets.length > ATT_MAX) {
-            alert(`Too many attachments (${currentTargets.length}). Max ${ATT_MAX} per email.`);
+            alert(t("att_too_many", { count: currentTargets.length, max: ATT_MAX }));
             return;
         }
         btn.disabled = true;
         const labelEl = btn.querySelector(".pll-scan-btn__label");
         for (let i = 0; i < currentTargets.length; i++) {
             labelEl.textContent = currentTargets.length > 1
-                ? `Scanning ${i + 1} / ${currentTargets.length}…`
-                : "Scanning…";
+                ? t("att_scanning_progress", { i: i + 1, n: currentTargets.length })
+                : t("scanning");
             try { await scanOneAttachment(currentTargets[i]); } catch {}
         }
-        labelEl.textContent = "Attachments scanned";
+        labelEl.textContent = t("att_done");
         setTimeout(() => btn.remove(), 2500);
     });
     wrap.appendChild(btn);
@@ -275,9 +272,9 @@ function renderAttachmentNotice({ filename, tile, emailView }) {
     banner.className = "pll-att-banner pll-att-banner--error";
     banner.innerHTML = `
         <div class="pll-att-banner__row"><span class="pll-att-banner__icon">${PLL_ICON.alert}</span>
-        <div class="pll-att-banner__main"><div class="pll-att-banner__title">Not checked</div>
+        <div class="pll-att-banner__main"><div class="pll-att-banner__title">${escapeHTML(t("att_not_checked"))}</div>
         <div class="pll-att-banner__file" title="${escapeHTML(filename)}">${escapeHTML(filename)}</div></div></div>
-        <div class="pll-att-banner__sub">PhishLens cannot read this file type. Open it only if you were expecting it from this sender.</div>`;
+        <div class="pll-att-banner__sub">${escapeHTML(t("att_not_checked_sub"))}</div>`;
     stack.appendChild(banner);
     if (tile) tile.dataset.pllScanned = "1";
 }
@@ -303,7 +300,7 @@ async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn, 
     }
     banner.className = "pll-att-banner pll-att-banner--loading";
     banner.innerHTML = `<div class="pll-att-banner__row"><span class="pll-att-banner__icon pll-spin">${PLL_ICON.spinner}</span>` +
-        `<div class="pll-att-banner__main"><div class="pll-att-banner__title">Scanning…</div>` +
+        `<div class="pll-att-banner__main"><div class="pll-att-banner__title">${escapeHTML(t("scanning"))}</div>` +
         `<div class="pll-att-banner__file">${escapeHTML(filename)}</div></div></div>`;
     // Drop the Scan pill immediately when the loading banner shows:
     // the banner itself is the ongoing feedback. On error we'll offer
@@ -325,14 +322,14 @@ async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn, 
             const late = tile.querySelector("a[download], a[href*='view=att']");
             if (late) url = late.href;
         }
-        if (!url) throw new Error("Could not find the attachment download URL: try refreshing Gmail");
+        if (!url) throw new Error(t("att_err_no_url"));
 
         // Same-origin fetch: Gmail's session cookie is sent automatically.
         const resp = await fetch(url, { credentials: "include" });
-        if (!resp.ok) throw new Error(`Download failed (HTTP ${resp.status})`);
+        if (!resp.ok) throw new Error(t("att_err_download", { status: resp.status }));
         const buf = await resp.arrayBuffer();
         if (buf.byteLength > ATT_MAX_SIZE_MB * 1024 * 1024) {
-            throw new Error(`File too large (${(buf.byteLength / 1024 / 1024).toFixed(1)} MB, max ${ATT_MAX_SIZE_MB} MB)`);
+            throw new Error(t("att_err_too_large", { size: (buf.byteLength / 1024 / 1024).toFixed(1), max: ATT_MAX_SIZE_MB }));
         }
         const b64 = arrayBufferToBase64(buf);
 
@@ -363,7 +360,7 @@ async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn, 
                 },
             },
         });
-        if (!r?.ok) throw new Error(r?.error || "backend error");
+        if (!r?.ok) throw new Error(r?.error || t("att_err_backend"));
         renderAttachmentBanner(banner, r.data, filename);
         // Mark the tile as scanned so the MutationObserver doesn't
         // resurrect a Scan pill on the next DOM tick.
@@ -390,10 +387,10 @@ async function scanOneAttachment({ anchor, filename, ext, tile, emailView, btn, 
         banner.className = "pll-att-banner pll-att-banner--error";
         banner.innerHTML = `
             <div class="pll-att-banner__row"><span class="pll-att-banner__icon">${PLL_ICON.alert}</span>
-            <div class="pll-att-banner__main"><div class="pll-att-banner__title">Could not scan</div>
+            <div class="pll-att-banner__main"><div class="pll-att-banner__title">${escapeHTML(t("att_could_not_scan"))}</div>
             <div class="pll-att-banner__file" title="${escapeHTML(filename)}">${escapeHTML(filename)}</div></div></div>
             <div class="pll-att-banner__sub">${escapeHTML(e.message || String(e))}</div>
-            <button type="button" class="pll-att-btn">Retry</button>
+            <button type="button" class="pll-att-btn">${escapeHTML(t("retry"))}</button>
         `;
         banner.querySelector("button")?.addEventListener("click", () => {
             scanOneAttachment({ anchor, filename, ext, tile, emailView });
@@ -409,10 +406,10 @@ function renderAttachmentBanner(banner, data, filename) {
     const pct = (v) => Math.round((Number(v) || 0) * 100);
     const chips = [];
     if (data.parent_trusted) {
-        chips.push(`<span class="pll-att-chip pll-att-chip--good" title="Parent email is Gmail-delivered: softer weights applied">Trusted email</span>`);
+        chips.push(`<span class="pll-att-chip pll-att-chip--good" title="${escapeHTML(t("att_trusted_email_title"))}">${escapeHTML(t("att_trusted_email"))}</span>`);
     }
     (data.attachment?.notable_features || []).forEach((f) => {
-        chips.push(`<span class="pll-att-chip pll-att-chip--warn">${escapeHTML(f.replace(/_/g, " "))}</span>`);
+        chips.push(`<span class="pll-att-chip pll-att-chip--warn">${escapeHTML(flagLabel(f))}</span>`);
     });
     (data.url_reputation?.sources_hit || []).forEach((s) => {
         chips.push(`<span class="pll-att-chip pll-att-chip--bad">${escapeHTML(_SOURCE_LABEL_GMAIL[s] || s)}</span>`);
@@ -420,12 +417,12 @@ function renderAttachmentBanner(banner, data, filename) {
     const a = data.attachment || {};
     const isEmail = !data.attachment && !!data.agents?.metadata;   // attached .eml
     const meta = [
-        isEmail ? "EMAIL" : a.kind ? a.kind.toUpperCase() : "",
-        a.size_bytes ? `${(a.size_bytes / 1024).toFixed(0)} KB` : "",
-        a.page_count ? `${a.pages_read || a.page_count} / ${a.page_count} pages` : "",
-        a.entry_count ? `${a.entry_count} file${a.entry_count > 1 ? "s" : ""} inside` : "",
-        a.organizer ? `from ${a.organizer}` : "",
-        a.extracted_urls_count ? `${a.extracted_urls_count} URL${a.extracted_urls_count > 1 ? "s" : ""}` : "",
+        isEmail ? t("att_kind_email") : a.kind ? a.kind.toUpperCase() : "",
+        a.size_bytes ? t("att_size_kb", { size: (a.size_bytes / 1024).toFixed(0) }) : "",
+        a.page_count ? t("att_pages", { read: a.pages_read || a.page_count, total: a.page_count }) : "",
+        a.entry_count ? tn("att_files_inside", a.entry_count) : "",
+        a.organizer ? t("att_from", { organizer: a.organizer }) : "",
+        a.extracted_urls_count ? tn("att_urls", a.extracted_urls_count) : "",
     ].filter(Boolean).join(" · ");
 
     banner.innerHTML = `
@@ -433,17 +430,17 @@ function renderAttachmentBanner(banner, data, filename) {
             <span class="pll-att-banner__icon">${bad || caution ? PLL_ICON.alert : PLL_ICON.shieldCheck}</span>
             <div class="pll-att-banner__main">
                 <div class="pll-att-banner__title" title="${escapeHTML(filename)}">
-                    ${bad ? "Looks like phishing" : caution ? "Could not look inside" : "Looks safe"}
+                    ${escapeHTML(bad ? t("att_looks_phishing") : caution ? t("att_cannot_look") : t("att_looks_safe"))}
                 </div>
                 <div class="pll-att-banner__file" title="${escapeHTML(filename)}">${escapeHTML(filename)}</div>
             </div>
         </div>
         <div class="pll-att-banner__sub">
             ${meta ? `${escapeHTML(meta)}<br>` : ""}
-            ${caution ? "PhishLens could not read the content (password-protected, disk image or unsupported archive). Attackers use this to get past scanners: open it only if you expected it.<br>" : ""}
-            Wording <strong>${pct(data.agents?.text?.phishing_probability)}%</strong> ·
-            Links <strong>${pct(data.agents?.url?.phishing_probability)}%</strong>
-            ${isEmail ? ` · Sender <strong>${pct(data.agents?.metadata?.phishing_probability)}%</strong>` : ""}
+            ${caution ? `${escapeHTML(t("att_caution_text"))}<br>` : ""}
+            ${escapeHTML(t("meter_wording"))} <strong>${pct(data.agents?.text?.phishing_probability)}%</strong> ·
+            ${escapeHTML(t("meter_links"))} <strong>${pct(data.agents?.url?.phishing_probability)}%</strong>
+            ${isEmail ? ` · ${escapeHTML(t("meter_sender"))} <strong>${pct(data.agents?.metadata?.phishing_probability)}%</strong>` : ""}
         </div>
         ${chips.length ? `<div class="pll-att-banner__chips">${chips.join("")}</div>` : ""}
         ${archiveFilesHTML(a, bad)}
@@ -460,15 +457,15 @@ function archiveFilesHTML(a, bad) {
     if (risky.length) {
         const rows = risky.map((f) =>
             `<li><span class="pll-att-files__name" title="${escapeHTML(f.name)}">${escapeHTML(f.name)}</span>`
-            + `<span class="pll-att-files__why">${escapeHTML((f.reasons || []).join(", "))}</span></li>`).join("");
+            + `<span class="pll-att-files__why">${escapeHTML((f.reasons || []).map(reasonLabel).join(", "))}</span></li>`).join("");
         html += `<div class="pll-att-files pll-att-files--${bad ? "bad" : "warn"}">
-            <div class="pll-att-files__title">${bad ? "Do not open" : "Check before opening"}</div>
+            <div class="pll-att-files__title">${escapeHTML(bad ? t("att_do_not_open") : t("att_check_before"))}</div>
             <ul>${rows}</ul></div>`;
     }
     if (entries.length) {
-        const more = a.entry_count > entries.length ? `<li class="pll-att-files__more">and ${a.entry_count - entries.length} more</li>` : "";
+        const more = a.entry_count > entries.length ? `<li class="pll-att-files__more">${escapeHTML(t("att_and_more", { count: a.entry_count - entries.length }))}</li>` : "";
         html += `<details class="pll-att-files pll-att-files--all">
-            <summary>Files inside (${a.entry_count || entries.length})</summary>
+            <summary>${escapeHTML(t("att_files_list", { count: a.entry_count || entries.length }))}</summary>
             <ul>${entries.map((n) => `<li><span class="pll-att-files__name" title="${escapeHTML(n)}">${escapeHTML(n)}</span></li>`).join("")}${more}</ul>
         </details>`;
     }

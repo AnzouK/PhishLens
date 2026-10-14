@@ -20,6 +20,11 @@ backend share one version number.
 - Gmail's "mailed-by" / "signed-by" rows are recognised in Spanish,
   Portuguese, German, Italian and Dutch too (fallback when the full
   headers are not available).
+- **Interface in 8 languages:** English, French, Portuguese, Spanish,
+  German, Italian, Dutch and Hausa, for the popup, the Gmail and Outlook
+  banners, attachment results and notifications. The language follows
+  the browser by default and can be changed in Settings. The Hausa
+  translation is a draft awaiting review by a native speaker.
 
 ### Security
 - **Allowlist only for authenticated senders:** a domain in

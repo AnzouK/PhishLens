@@ -67,10 +67,9 @@ function paintAutoBadges() {
         const bad = hit.verdict === "phishing";
         const b = document.createElement("span");
         b.className = "pll-row-badge" + (bad ? "" : " pll-row-badge--safe");
-        b.textContent = bad ? "Phishing?" : "Safe";
-        b.title = bad
-            ? `PhishLens: ${Math.round((hit.score || 0) * 100)}% phishing score. Open the email and scan it for details.`
-            : `PhishLens checked this email automatically: no strong phishing signals (${Math.round((hit.score || 0) * 100)}%).`;
+        const pct = Math.round((hit.score || 0) * 100);
+        b.textContent = bad ? t("row_phishing") : t("row_safe");
+        b.title = bad ? t("row_phishing_title", { pct }) : t("row_safe_title", { pct });
         cell.prepend(b);
     }
 }
@@ -84,7 +83,7 @@ function autoToast(text, kind = "info", hideAfterMs = 0) {
         t.className = "pll-toast";
         t.setAttribute("role", "status");
         t.innerHTML = `<span class="pll-toast__icon">${PLL_ICON.shield}</span><span class="pll-toast__text"></span>` +
-                      `<button type="button" class="pll-toast__close" aria-label="Dismiss">${PLL_ICON.close}</button>`;
+                      `<button type="button" class="pll-toast__close" aria-label="${escapeHTML(t("dismiss"))}">${PLL_ICON.close}</button>`;
         t.querySelector(".pll-toast__close").addEventListener("click", () => t.remove());
         document.body.appendChild(t);
     }
@@ -105,8 +104,8 @@ async function runAutoScan() {
         for (const r of todo) {
             if (!PLL_OPTS.autoScan) break;
             autoToast(todo.length > 1
-                ? `PhishLens is checking new emails (${done + 1} of ${todo.length})…`
-                : "PhishLens is checking a new email…");
+                ? t("auto_checking_n", { i: done + 1, n: todo.length })
+                : t("auto_checking_single"));
             const original = await fetchOriginalMessage({ thread: r.id });
             if (!original) { await _autoCachePut(r.id, { verdict: "skipped", ts: Date.now() }); continue; }
             const resp = await chrome.runtime.sendMessage({
@@ -149,18 +148,18 @@ async function runAutoScan() {
                 flagged++;
                 chrome.runtime.sendMessage({
                     type: "phishlens.notify",
-                    title: "PhishLens: this email looks like phishing",
-                    message: `${r.sender || "Unknown sender"}: ${r.subject || "(no subject)"}`,
+                    title: t("notify_title"),
+                    message: `${r.sender || t("unknown_sender")}: ${r.subject || t("no_subject")}`,
                 }).catch(() => {});
             }
             await new Promise((ok) => setTimeout(ok, AUTO_DELAY_MS));
         }
         if (failed) {
-            autoToast("PhishLens could not reach the backend. It will try again on the next new email.", "warn", 6000);
+            autoToast(t("auto_unreachable"), "warn", 6000);
         } else if (done) {
-            const what = done > 1 ? `${done} new emails checked` : "New email checked";
-            if (flagged) autoToast(`${what}: ${flagged} ${flagged > 1 ? "look" : "looks"} like phishing (marked "Phishing?").`, "danger", 8000);
-            else autoToast(`${what}: nothing suspicious.`, "safe", 4000);
+            const what = tn("auto_done", done);
+            if (flagged) autoToast(tn("auto_flagged", flagged, { what }), "danger", 8000);
+            else autoToast(t("auto_clean", { what }), "safe", 4000);
         }
     } finally {
         _autoRunning = false;

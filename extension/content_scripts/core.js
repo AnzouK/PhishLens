@@ -9,6 +9,8 @@
 
 const TAG = "[PhishLens]";
 const { escapeHTML } = PhishLensShared;      // lib/shared.js, loaded first
+const { t, tn, flagLabel, reasonLabel } = PhishLensI18n;   // lib/i18n.js and lib/locales/
+PhishLensI18n.init();
 // This file is also loaded on Outlook for its banner code; the
 // Gmail-specific watchers only run on Gmail.
 const PLL_IS_GMAIL = location.hostname === "mail.google.com";
@@ -84,8 +86,7 @@ function setBtnLoading(btn, on) {
     btn.disabled = on;
     btn.classList.toggle("pll-scan-btn--loading", on);
     btn.querySelector(".pll-scan-btn__icon").innerHTML = on ? PLL_ICON.spinner : PLL_ICON.shield;
-    btn.querySelector(".pll-scan-btn__label").textContent =
-        on ? "Scanning…" : "Scan again";
+    btn.querySelector(".pll-scan-btn__label").textContent = on ? t("scanning") : t("scan_again");
 }
 
 // ---------------------------------------------------------------------

@@ -10,7 +10,7 @@
 // The server is only contacted when a scan is requested.
 // =====================================================================
 
-try { importScripts("lib/shared.js", "lib/history.js"); }
+try { importScripts("lib/locales/en.js", "lib/locales/fr.js", "lib/locales/pt.js", "lib/locales/es.js", "lib/locales/de.js", "lib/locales/it.js", "lib/locales/nl.js", "lib/locales/ha.js", "lib/i18n.js", "lib/shared.js", "lib/history.js"); self.PhishLensI18n?.init(); }
 catch (e) { console.warn("[PhishLens] shared modules not loaded:", e); }
 
 chrome.runtime.onInstalled.addListener((details) => {
@@ -110,7 +110,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const base = await self.PhishLensShared.getBackendBase();
         if (!base) {
             sendResponse({ ok: false,
-                error: "No backend URL configured. Open PhishLens settings (⚙)." });
+                error: self.PhishLensI18n?.t("no_server") || "No server configured." });
             return;
         }
         try {
@@ -130,7 +130,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             sendResponse({
                 ok: false,
                 error: String(e?.message || e).startsWith("Failed to fetch")
-                    ? "Backend unreachable. Check PhishLens settings (⚙)."
+                    ? (self.PhishLensI18n?.t("bg_unreachable") || "Server unreachable.")
                     : String(e?.message || e),
             });
         }
