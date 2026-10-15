@@ -19,6 +19,12 @@ backend share one version number.
   a browser loads the new version right after a deployment instead of a
   cached one (the language line and the report link did not show up).
 - A test replaced only the first `*` of a URL pattern (CodeQL).
+- **Redaction:** a word was treated alone only when separated by
+  spaces, so a line break could join two lines into one "username" and
+  mask a real word; and the server's second pass masked the extension's
+  own placeholders again (`<<NAME>>`). Words are now split on any
+  whitespace and placeholders are left alone; a test checks that
+  redacting twice changes nothing.
 
 ## [2.0.1] - 2026-10-15
 

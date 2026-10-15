@@ -70,11 +70,12 @@ function redact(text, terms = []) {
             (_, a, b) => a + maskNames(b));
     }
     const termSet = new Set(terms.map((x) => String(x).toLowerCase()).filter(Boolean));
-    t = t.split(" ").map((w) => {
+    t = t.replace(/\S+/gu, (w) => {
+        if (/<(?:NAME|EMAIL|NUMBER|PHONE|URL)/.test(w)) return w;
         if (isUsername(w)) return w.replace(/[\p{L}\p{N}_]+/u, "<NAME>");
         if (!termSet.size) return w;
         return w.replace(/[\p{L}]+/gu, (m) => (termSet.has(m.toLowerCase()) ? "<NAME>" : m));
-    }).join(" ");
+    });
     return t.replace(/[ \t]{2,}/g, " ").trim();
 }
 

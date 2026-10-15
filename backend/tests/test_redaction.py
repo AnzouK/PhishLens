@@ -19,6 +19,12 @@ def test_same_result_as_the_extension(case):
     assert redact(case["text"], case["terms"]) == case["expected"]
 
 
+@pytest.mark.parametrize("case", CASES, ids=[c["text"][:30] for c in CASES])
+def test_redacting_twice_changes_nothing(case):
+    # The extension redacts, then the server redacts the result again.
+    assert redact(case["expected"], case["terms"]) == case["expected"]
+
+
 def test_nothing_personal_is_left():
     out = redact(
         "Hi Kalinda, wire 250000 to FR7630006000011234567890189, call +234 803 123 4567, "

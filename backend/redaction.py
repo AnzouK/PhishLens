@@ -38,6 +38,7 @@ _IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b
 _PHONE = re.compile(r"(?<![\w])\+\d[\d ().-]{6,}\d")
 _LONG_NUMBER = re.compile(r"(?<![^\W\d_])(?<!\d)\d(?:[ .-]?\d){5,}(?!\d)(?![^\W\d_])")
 _HANDLE = re.compile(r"(?<![\w<])@[\w.]{2,}")
+_PLACEHOLDER = re.compile(r"<(?:NAME|EMAIL|NUMBER|PHONE|URL)")
 _CORE = re.compile(r"\w(?:.*\w)?", re.S)
 _ZERO_WIDTH = re.compile("[\u200b-\u200d\u2060\ufeff]")
 _LEADS = [
@@ -92,13 +93,18 @@ def redact(text: str, terms: list[str] | None = None) -> str:
     for lead in _LEADS:
         t = lead.sub(lambda m: m.group(1) + _mask_names(m.group(2)), t)
     term_set = {x.lower() for x in (terms or []) if x}
-    words = []
-    for w in t.split(" "):
+
+    def word(m: re.Match) -> str:
+        w = m.group()
+        if _PLACEHOLDER.search(w):
+            return w
         if _username(w):
-            w = re.sub(r"\w+", "<NAME>", w, count=1)
-        elif term_set:
-            w = re.sub(
-                r"[^\W\d_]+", lambda m: "<NAME>" if m.group().lower() in term_set else m.group(), w
+            return re.sub(r"\w+", "<NAME>", w, count=1)
+        if term_set:
+            return re.sub(
+                r"[^\W\d_]+", lambda x: "<NAME>" if x.group().lower() in term_set else x.group(), w
             )
-        words.append(w)
-    return re.sub(r"[ \t]{2,}", " ", " ".join(words)).strip()
+        return w
+
+    t = re.sub(r"\S+", word, t)
+    return re.sub(r"[ \t]{2,}", " ", t).strip()
