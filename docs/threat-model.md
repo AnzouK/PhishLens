@@ -28,6 +28,9 @@ flowchart LR
     A -->|B3| I["Threat intel APIs<br/>and DNS"]
     H["Hugging Face Hub"] -->|B4| A
     A --- C[("SQLite URL cache")]
+    E -->|B6 reports, redacted| P
+    X -->|B6| P
+    A --- F[("Reports<br/>FEEDBACK_DIR")]
 ```
 
 B1: email content controlled by the attacker reaches the extension.

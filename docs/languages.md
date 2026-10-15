@@ -145,5 +145,5 @@ emails in other languages get a less reliable wording score, while the
 link, sender and threat-intelligence checks work the same in every
 language. A multilingual model is being evaluated; the backend can
 already load it without code changes (see
-[architecture.md, text model](architecture.md#text-model)), and its
-model card will list the languages it was tested on and its results.
+[architecture.md, text model](architecture.md#text-model)). How it was
+built and measured: [multilingual-model.md](multilingual-model.md).

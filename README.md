@@ -65,15 +65,16 @@ These are offline numbers. Real inboxes are harder; see the
 
 ```mermaid
 flowchart LR
-    G["Gmail tab<br/>extension"] -->|body, sender, Gmail auth hints| API["FastAPI backend"]
-    API --> A["3 agents<br/>text, URLs, headers"]
+    G["Gmail / Outlook tab<br/>or popup"] -->|text, links, sender,<br/>headers, attachments| API["FastAPI backend"]
+    API --> A["3 agents<br/>multilingual text model,<br/>links, headers"]
     API --> S["Sender auth<br/>SPF / DKIM / DMARC"]
     API --> R["Threat intel<br/>Safe Browsing, PhishTank,<br/>URLhaus, Spamhaus"]
-    A & S & R --> F["Fusion<br/>4 trust paths"]
-    F -->|verdict + LIME| G
+    A & S & R --> F["Fusion<br/>trust paths"]
+    F -->|verdict, scores, language,<br/>LIME words| G
+    G -. "report a wrong verdict<br/>(redacted, on request)" .-> FB["/feedback<br/>private reports"]
 ```
 
-The key idea: DistilBERT alone flags real bank and university emails
+The key idea: a text model alone flags real bank and university emails
 because they use the same "verify your account" wording as phishing. So
 the text score is discounted only when the sender is proven (DKIM aligned
 with the From: domain) or curated, and a Safe Browsing hit on any link
@@ -199,6 +200,7 @@ both repositories, the models, the report and every guide.
 | [User guide (wiki)](https://github.com/AnzouK/PhishLens/wiki) | Install, use in Gmail and Outlook, read a verdict, settings, troubleshooting |
 | [Architecture](docs/architecture.md) | Components, request flow, trust paths, text model, design decisions |
 | [Languages](docs/languages.md) | Interface and website translations, OCR languages, text model languages |
+| [Multilingual model](docs/multilingual-model.md) | How the 2.0 text model was trained and measured, round by round |
 | [Threat model](docs/threat-model.md) | STRIDE analysis, mitigations, residual risks |
 | [Operations](docs/operations.md) | Deploy, switch the text model, logs, metrics, load testing, backups |
 | [Changelog](CHANGELOG.md) | What changed in each version |

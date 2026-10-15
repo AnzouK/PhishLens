@@ -15,25 +15,31 @@ flowchart LR
         CS["Content scripts<br/>Gmail, Outlook"]
         PU["Popup<br/>.eml / paste / file"]
         BG["Service worker<br/>fetch proxy, history"]
-        ST[("chrome.storage.local<br/>history, LIME cache, settings")]
+        ST[("chrome.storage.local<br/>history, LIME cache, settings,<br/>redacted report drafts")]
+        RD["lib/redact.js<br/>removes personal data"]
         CS --> BG
+        CS --> RD
+        PU --> RD
         PU --> BG
         PU <--> ST
         CS <--> ST
     end
 
     subgraph Server["FastAPI backend (Docker)"]
-        API["extension_backend.py<br/>/analyse /analyse_attachment /explain"]
-        TXT["Text agent<br/>transformer + LIME"]
+        API["extension_backend.py<br/>/analyse /analyse_attachment<br/>/explain /feedback"]
+        TXT["Text agent<br/>multilingual model + LIME<br/>(phishlens_text_agent.json)"]
+        LANG["language.py<br/>detected language"]
+        FB["feedback.py + redaction.py<br/>reports, redacted again"]
         URL["URL agent<br/>Random Forest or heuristic"]
         META["Metadata agent<br/>Random Forest or heuristic"]
         AUTH["auth_headers.py<br/>SPF / DKIM / DMARC + Spamhaus DBL"]
         REP["reputation.py<br/>cache, GSB, PhishTank, URLhaus, DBL"]
         ATT["attachment_analysis.py<br/>PDF, images, HTML, Office,<br/>archives, invites"]
-        API --> TXT & URL & META & AUTH & REP & ATT
+        API --> TXT & URL & META & AUTH & REP & ATT & LANG & FB
     end
+    FB --> FD[("FEEDBACK_DIR<br/>private JSON lines")]
 
-    BG -- "HTTPS JSON" --> Caddy["Caddy<br/>TLS, reverse proxy"] --> API
+    BG -- "HTTPS JSON<br/>(reports: PhishLens Cloud only)" --> Caddy["Caddy<br/>TLS, reverse proxy"] --> API
     HF[("Hugging Face Hub<br/>model + agents")] -. "startup download" .-> API
     REP -. "lookups" .-> Intel["Threat intel<br/>GSB, PhishTank, URLhaus, Spamhaus"]
 ```
@@ -73,7 +79,7 @@ flowchart LR
 
 ```mermaid
 sequenceDiagram
-    participant G as Gmail content script
+    participant G as Gmail or Outlook content script
     participant B as Backend
     participant A as auth_headers
     participant R as reputation
@@ -90,8 +96,13 @@ sequenceDiagram
     R-->>B: per-URL verdicts (cached or fresh)
     B->>B: merge reputation into URL score, auth delta into metadata score
     B->>B: pick trust path, weighted fusion, threshold
-    B-->>G: verdict, per-agent scores, sender_auth, url_reputation, trust_path
+    B-->>G: verdict, per-agent scores, sender_auth, url_reputation, trust_path, language
     G->>B: POST /explain (only when the user opens the Why panel)
+    opt the user reports a wrong verdict
+        G->>G: redact (lib/redact.js), show the text, wait for confirmation
+        G->>B: POST /feedback to PhishLens Cloud (redacted text, scores, language)
+        B-->>G: reference
+    end
 ```
 
 The LIME explanation is a separate call because it costs about 100 forward

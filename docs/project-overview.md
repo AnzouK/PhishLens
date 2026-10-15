@@ -25,6 +25,7 @@ linked below with what it is for.
 | How do I use it day to day? | The [wiki](https://github.com/AnzouK/PhishLens/wiki) |
 | How is the system built, and why that way? | [architecture.md](architecture.md) |
 | Which languages are supported, and how are translations made and checked? | [languages.md](languages.md) |
+| How was the multilingual text model built, and how good is it? | [multilingual-model.md](multilingual-model.md) |
 | Which text model is running, and how is it switched? | [architecture.md, text model](architecture.md#text-model) and [operations.md](operations.md#switch-the-text-model) |
 | What can go wrong security-wise, and what stops it? | [threat-model.md](threat-model.md) |
 | How do I run, monitor and load-test a deployment? | [operations.md](operations.md) |
