@@ -1,17 +1,20 @@
 # PhishLens terms of use
 
-Last updated: October 2, 2026.
+Last updated: October 15, 2026.
 
 These terms cover the PhishLens Chrome extension, the website
 `anzouk.duckdns.org` and PhishLens Cloud, the hosted analysis server.
 By using them you accept these terms. The code itself is published under
-the [MIT license](LICENSE), which governs copying and modifying it.
+the [GNU AGPL-3.0 license](LICENSE), which governs copying, modifying and
+redistributing it: modified versions, including ones run as a service,
+must be published under the same license.
 
 ## The service
 
 PhishLens checks emails for signs of phishing and explains its verdict.
-It is a final-year student project from Nile University of Nigeria,
-offered free of charge, without accounts and without advertising.
+It started as a final-year student project at Nile University of
+Nigeria and is offered free of charge, without accounts and without
+advertising.
 
 ## What PhishLens is not
 
@@ -54,7 +57,7 @@ not stored, and your scan history stays in your browser.
 ## Liability
 
 PhishLens is provided "as is", without warranty of any kind, as stated
-in the MIT license. To the extent the law allows, the authors are not
+in the GNU AGPL-3.0 license. To the extent the law allows, the authors are not
 liable for any loss or damage arising from its use, including a missed
 phishing email or a legitimate email flagged by mistake.
 

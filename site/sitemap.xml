@@ -1,6 +1,291 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://anzouk.duckdns.org/</loc><lastmod>2026-10-02</lastmod></url>
-  <url><loc>https://anzouk.duckdns.org/privacy.html</loc><lastmod>2026-10-02</lastmod></url>
-  <url><loc>https://anzouk.duckdns.org/terms.html</loc><lastmod>2026-10-02</lastmod></url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://anzouk.duckdns.org/</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/fr/</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/pt/</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/es/</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/de/</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/it/</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/nl/</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/ha/</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/privacy.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/privacy.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/fr/privacy.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/privacy.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/pt/privacy.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/privacy.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/es/privacy.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/privacy.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/de/privacy.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/privacy.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/it/privacy.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/privacy.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/nl/privacy.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/privacy.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/ha/privacy.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/privacy.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/terms.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/terms.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/fr/terms.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/terms.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/pt/terms.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/terms.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/es/terms.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/terms.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/de/terms.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/terms.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/it/terms.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/terms.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/nl/terms.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/terms.html"/>
+  </url>
+  <url>
+    <loc>https://anzouk.duckdns.org/ha/terms.html</loc>
+    <lastmod>2026-10-15</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/terms.html"/>
+  </url>
 </urlset>

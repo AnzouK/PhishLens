@@ -41,6 +41,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
+import feedback
 import fusion
 import structured_agents
 import text_model
@@ -51,6 +52,7 @@ from email_parsing import (
     parse_eml,
     urls_in_text,
 )
+from language import detect_language
 from result_cache import ResultCache, make_key
 from sender_trust import is_hostname, is_trusted_domain, sender_domain, synthesize_auth_results
 from settings import (
@@ -68,6 +70,7 @@ from settings import (
     RATE_LIMIT_ATTACHMENT,
     RATE_LIMIT_DEFAULT,
     RATE_LIMIT_EXPLAIN,
+    RATE_LIMIT_FEEDBACK,
     RATE_LIMIT_STORAGE,
     TRUSTED_META_CEILING,
     VERSION,
@@ -336,6 +339,14 @@ def health():
             "url": "model" if structured_agents.url_model_ready() else "rules",
             "metadata": "model" if structured_agents.metadata_model_ready() else "rules",
         },
+        # which text model runs, and how its input and scores are handled
+        "text_model": {
+            **text_model.STATE.get("meta", {}),
+            "source": text_model.STATE.get("source"),
+            "name": text_model.STATE.get("name"),
+        }
+        if text_model.STATE
+        else None,
     }
 
 
@@ -349,6 +360,22 @@ def reputation_stats():
             "result_cache": _RESULT_CACHE.stats(),
         }
     return {"enabled": True, **_reputation.stats(), "result_cache": _RESULT_CACHE.stats()}
+
+
+@app.post("/feedback")
+@_rate_limited(RATE_LIMIT_FEEDBACK)
+def send_feedback(request: Request, req: feedback.FeedbackRequest):
+    """A report the user chose to send (wrong verdict, wrong language or
+    reviewed statistics). The text is redacted again before it is stored."""
+    if not feedback.enabled():
+        raise HTTPException(503, "This server does not collect reports.")
+    try:
+        reference = feedback.store(req)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    except OSError as e:
+        raise HTTPException(503, "Reports cannot be stored right now.") from e
+    return {"ok": True, "reference": reference}
 
 
 @app.post("/explain")
@@ -496,6 +523,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         path=path,
         rep=rep,
         url_rule_score=structured_agents.url_heuristic(urls),
+        text_override=text_model.override_threshold(),
     )
     _count_verdict("/analyse", verdict.is_phishing, verdict.trust_path)
 
@@ -511,6 +539,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         "forwarded": forwarded,
         "shared_links": detect_shared_links(urls),
         "text_agent_used": text_used,
+        "language": detect_language(body),
         "sender_auth": {
             "cryptographically_verified": crypto_verified,
             "gmail_inbox_soft_verified": bool(inbox_soft and not outlook_internal),
@@ -688,6 +717,7 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         rep=rep,
         dropper=dropper,
         url_rule_score=structured_agents.url_heuristic(urls),
+        text_override=text_model.override_threshold(),
     )
     _count_verdict(
         "/analyse_attachment",
@@ -707,6 +737,7 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         "verdict": "phishing" if verdict.is_phishing else "safe",
         "fused_score": float(verdict.fused),
         "high_confidence_override": bool(verdict.high_conf),
+        "language": detect_language(text),
         "attachment": {
             "filename": extracted.get("filename"),
             "kind": extracted.get("kind"),

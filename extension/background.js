@@ -10,7 +10,7 @@
 // The server is only contacted when a scan is requested.
 // =====================================================================
 
-try { importScripts("lib/shared.js", "lib/history.js"); }
+try { importScripts("lib/locales/en.js", "lib/locales/fr.js", "lib/locales/pt.js", "lib/locales/es.js", "lib/locales/de.js", "lib/locales/it.js", "lib/locales/nl.js", "lib/locales/ha.js", "lib/i18n.js", "lib/shared.js", "lib/history.js"); self.PhishLensI18n?.init(); }
 catch (e) { console.warn("[PhishLens] shared modules not loaded:", e); }
 
 chrome.runtime.onInstalled.addListener((details) => {
@@ -45,10 +45,10 @@ async function reinjectIntoOpenTabs() {
 
 const _pllNotifTabs = new Map();
 chrome.notifications?.onClicked?.addListener((id) => {
-    const t = _pllNotifTabs.get(id);
-    if (!t) return;
-    chrome.tabs.update(t.tabId, { active: true }).catch(() => {});
-    chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
+    const tab = _pllNotifTabs.get(id);
+    if (!tab) return;
+    chrome.tabs.update(tab.tabId, { active: true }).catch(() => {});
+    chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
     chrome.notifications.clear(id);
     _pllNotifTabs.delete(id);
 });
@@ -84,6 +84,39 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: true });
         return false;
     }
+    if (msg?.type === "phishlens.history.update" || msg?.type === "phishlens.history.draft") {
+        (async () => {
+            try {
+                const H = self.PhishLensHistory;
+                if (msg.type === "phishlens.history.update") await H?.updateScan(msg.id, msg.patch);
+                else await H?.saveDraft(msg.id, msg.text);
+                sendResponse({ ok: true });
+            } catch (e) {
+                sendResponse({ ok: false, error: String(e?.message || e) });
+            }
+        })();
+        return true;
+    }
+    // Reports always go to PhishLens Cloud, whatever server analyses the
+    // mail: they are for improving PhishLens, and the user has seen and
+    // confirmed what is sent.
+    if (msg?.type === "phishlens.feedback") {
+        (async () => {
+            try {
+                const resp = await fetch(`${self.PhishLensShared.BACKEND_PRESETS.cloud}/feedback`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(msg.payload || {}),
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok) throw new Error(self.PhishLensShared.apiErrorMessage(data, resp.status));
+                sendResponse({ ok: true, reference: data.reference });
+            } catch (e) {
+                sendResponse({ ok: false, error: String(e?.message || e) });
+            }
+        })();
+        return true;
+    }
     if (msg?.type === "phishlens.history.attachTokens") {
         (async () => {
             try {
@@ -110,7 +143,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const base = await self.PhishLensShared.getBackendBase();
         if (!base) {
             sendResponse({ ok: false,
-                error: "No backend URL configured. Open PhishLens settings (⚙)." });
+                error: self.PhishLensI18n?.t("no_server") || "No server configured." });
             return;
         }
         try {
@@ -130,7 +163,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             sendResponse({
                 ok: false,
                 error: String(e?.message || e).startsWith("Failed to fetch")
-                    ? "Backend unreachable. Check PhishLens settings (⚙)."
+                    ? (self.PhishLensI18n?.t("bg_unreachable") || "Server unreachable.")
                     : String(e?.message || e),
             });
         }

@@ -6,27 +6,58 @@
 <title>Terms of use · PhishLens</title>
 <meta name="description" content="The terms for using the PhishLens extension, website and PhishLens Cloud.">
 <link rel="canonical" href="https://anzouk.duckdns.org/terms.html">
+<link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/terms.html">
+<link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/terms.html">
+<link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/terms.html">
+<link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/terms.html">
+<link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/terms.html">
+<link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/terms.html">
+<link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/terms.html">
+<link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/terms.html">
+<link rel="alternate" hreflang="x-default" href="https://anzouk.duckdns.org/terms.html">
 <meta name="theme-color" content="#16181c">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="PhishLens">
+<meta property="og:locale" content="en_US">
 <meta property="og:title" content="Terms of use · PhishLens">
 <meta property="og:description" content="The terms for using the PhishLens extension, website and PhishLens Cloud.">
+<meta property="og:url" content="https://anzouk.duckdns.org/terms.html">
 <meta property="og:image" content="https://anzouk.duckdns.org/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PhishLens: see why an email is phishing. Gmail and Outlook.">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" href="icon.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
+<script src="i18n/en.js" defer></script>
+<script src="lang.js" defer></script>
+<script src="nav.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+
 <header class="site-head">
   <div class="wrap">
     <a class="brand" href="./"><img src="icon.png" alt="" width="28" height="28">PhishLens</a>
     <nav class="site-nav" aria-label="Main">
       <a href="./#checks">What it checks</a>
-      <a href="./#how">How it works</a>
+      <a href="./#features">Features</a>
       <a href="./#try">Try it</a>
+      <details class="lang-menu">
+        <summary aria-label="Language: English">EN</summary>
+        <ul>
+          <li><a href="terms.html" hreflang="en" lang="en" aria-current="page">English</a></li>
+          <li><a href="fr/terms.html" hreflang="fr" lang="fr">Français</a></li>
+          <li><a href="pt/terms.html" hreflang="pt" lang="pt">Português</a></li>
+          <li><a href="es/terms.html" hreflang="es" lang="es">Español</a></li>
+          <li><a href="de/terms.html" hreflang="de" lang="de">Deutsch</a></li>
+          <li><a href="it/terms.html" hreflang="it" lang="it">Italiano</a></li>
+          <li><a href="nl/terms.html" hreflang="nl" lang="nl">Nederlands</a></li>
+          <li><a href="ha/terms.html" hreflang="ha" lang="ha">Hausa</a></li>
+        </ul>
+      </details>
       <a class="cta" href="./#install">Install PhishLens</a>
     </nav>
   </div>
@@ -34,10 +65,10 @@
 <main id="main" class="wrap">
 <article class="prose">
 <h1 id="phishlens-terms-of-use">PhishLens terms of use</h1>
-<p>Last updated: October 2, 2026.</p>
-<p>These terms cover the PhishLens Chrome extension, the website <code>anzouk.duckdns.org</code> and PhishLens Cloud, the hosted analysis server. By using them you accept these terms. The code itself is published under the <a href="https://github.com/AnzouK/PhishLens/blob/main/LICENSE">MIT license</a>, which governs copying and modifying it.</p>
+<p>Last updated: October 15, 2026.</p>
+<p>These terms cover the PhishLens Chrome extension, the website <code>anzouk.duckdns.org</code> and PhishLens Cloud, the hosted analysis server. By using them you accept these terms. The code itself is published under the <a href="https://github.com/AnzouK/PhishLens/blob/main/LICENSE">GNU AGPL-3.0 license</a>, which governs copying, modifying and redistributing it: modified versions, including ones run as a service, must be published under the same license.</p>
 <h2 id="the-service">The service</h2>
-<p>PhishLens checks emails for signs of phishing and explains its verdict. It is a final-year student project from Nile University of Nigeria, offered free of charge, without accounts and without advertising.</p>
+<p>PhishLens checks emails for signs of phishing and explains its verdict. It started as a final-year student project at Nile University of Nigeria and is offered free of charge, without accounts and without advertising.</p>
 <h2 id="what-phishlens-is-not">What PhishLens is not</h2>
 <ul>
 <li><strong>Not a guarantee.</strong> The verdict is an estimate from statistical models and public threat-intelligence lists. PhishLens can miss a phishing email and can flag a legitimate one. Keep your usual judgement, and check with the sender through another channel before acting on a request for money, passwords or personal data.</li>
@@ -57,14 +88,15 @@
 <h2 id="your-data">Your data</h2>
 <p>What the extension and the server handle, and what is kept, is described in the <a href="privacy.html">privacy policy</a>. In short: emails are analysed and not stored, and your scan history stays in your browser.</p>
 <h2 id="liability">Liability</h2>
-<p>PhishLens is provided "as is", without warranty of any kind, as stated in the MIT license. To the extent the law allows, the authors are not liable for any loss or damage arising from its use, including a missed phishing email or a legitimate email flagged by mistake.</p>
+<p>PhishLens is provided "as is", without warranty of any kind, as stated in the GNU AGPL-3.0 license. To the extent the law allows, the authors are not liable for any loss or damage arising from its use, including a missed phishing email or a legitimate email flagged by mistake.</p>
 <h2 id="changes-and-contact">Changes and contact</h2>
 <p>These terms may change; the date at the top shows the last update, and changes are listed in the <a href="https://github.com/AnzouK/PhishLens/blob/main/CHANGELOG.md">changelog</a>. Questions: open an issue at <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a>.</p>
 </article>
 </main>
+
 <footer class="site-foot">
   <div class="wrap">
-    <div>PhishLens, final-year project, B.Sc. Cybersecurity, Nile University of Nigeria, 2025/2026. MIT license. No cookies on this site.</div>
+    <div>PhishLens. Free and open source, GNU AGPL-3.0 license. No cookies on this site.</div>
     <nav aria-label="Footer">
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>

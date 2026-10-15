@@ -15,7 +15,7 @@ from pathlib import Path
 
 # Shared by the backend and the extension (extension/manifest.json);
 # the CI checks that both say the same.
-VERSION = "1.15.5"
+VERSION = "2.0.0"
 
 # ---------------------------------------------------------------------
 # Text model
@@ -56,6 +56,11 @@ RATE_LIMIT_STORAGE = os.environ.get("SLOWAPI_STORAGE_URI", "memory://")
 RATE_LIMIT_ANALYSE = os.environ.get("RATE_LIMIT_ANALYSE", "30/minute")
 RATE_LIMIT_ATTACHMENT = os.environ.get("RATE_LIMIT_ATTACHMENT", "20/minute")
 RATE_LIMIT_EXPLAIN = os.environ.get("RATE_LIMIT_EXPLAIN", "15/minute")
+RATE_LIMIT_FEEDBACK = os.environ.get("RATE_LIMIT_FEEDBACK", "20/hour")
+
+# Reports sent from the extension (feedback.py). Empty: not collected.
+FEEDBACK_DIR = os.environ.get("FEEDBACK_DIR", "")
+FEEDBACK_MAX_MB = float(os.environ.get("FEEDBACK_MAX_MB", "200"))
 
 # Request size limits. An email with its attachments can be large (Gmail
 # accepts 25 MB) and base64 adds a third; an attachment is capped at

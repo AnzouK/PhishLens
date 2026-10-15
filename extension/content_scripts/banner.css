@@ -303,3 +303,20 @@ html[data-phishlens-theme="dark"] {
 .pll-att-files--all summary { cursor: pointer !important; color: var(--pll-text-2) !important; }
 .pll-att-files--all ul { margin-top: 4px !important; }
 .pll-att-files__more { color: var(--pll-text-2) !important; }
+
+/* Language and report controls under the verdict (lib/report_ui.js) */
+.plr-box { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--pll-line); font: 12.5px/1.45 var(--pll-font); color: var(--pll-text-2, var(--pll-text)); }
+.plr-lang { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.plr-btn, .plr-link, .plr-select { font: inherit; font-size: 12px; color: var(--pll-text); cursor: pointer; }
+.plr-btn { padding: 2px 8px; border: 1px solid var(--pll-line); border-radius: 4px; background: transparent; }
+.plr-btn:hover { border-color: var(--pll-accent); }
+.plr-btn--strong { background: var(--pll-accent); border-color: var(--pll-accent); color: #fff; }
+.plr-btn:disabled { opacity: .5; cursor: default; }
+.plr-select { padding: 2px 4px; border: 1px solid var(--pll-line); border-radius: 4px; background: var(--pll-surface); }
+.plr-link { margin-top: 6px; padding: 0; border: 0; background: none; color: var(--pll-accent); text-decoration: underline; text-underline-offset: 2px; }
+.plr-report { margin-top: 8px; padding: 10px; border: 1px solid var(--pll-line); border-radius: 4px; }
+.plr-report__title { font-weight: 600; color: var(--pll-text); margin-bottom: 4px; }
+.plr-report__intro, .plr-report__status { margin: 4px 0; }
+.plr-report__text { box-sizing: border-box; width: 100%; margin: 6px 0; padding: 6px; font: 12px/1.4 var(--pll-mono); color: var(--pll-text); background: var(--pll-surface); border: 1px solid var(--pll-line); border-radius: 4px; resize: vertical; }
+.plr-report__check { display: flex; gap: 6px; align-items: flex-start; }
+.plr-report__actions { display: flex; gap: 8px; margin-top: 8px; }

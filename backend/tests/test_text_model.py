@@ -26,6 +26,9 @@ class FakeTensor:
     def numpy(self):
         return self.arr
 
+    def __truediv__(self, t):
+        return FakeTensor(self.arr / t)
+
 
 def _softmax(t, dim=-1):
     e = np.exp(t.arr - t.arr.max(axis=dim, keepdims=True))
@@ -131,7 +134,9 @@ def test_load_uses_a_local_checkpoint(tmp_path, fake_torch, monkeypatch):
     monkeypatch.setitem(sys.modules, "lime.lime_text", lime_text)
     monkeypatch.setattr(text_model, "MODEL_DIR", tmp_path)
     monkeypatch.setattr(text_model, "STATE", {})
-    monkeypatch.setattr(text_model.ensure_model_available, "__defaults__", (tmp_path,))
+    monkeypatch.setattr(
+        text_model.ensure_model_available, "__defaults__", (tmp_path, text_model.LEGACY_REPO)
+    )
 
     text_model.load()
     assert text_model.STATE["device"] == "cpu" and text_model.STATE["lime"] == "explainer"
@@ -144,3 +149,90 @@ def test_missing_checkpoint_without_hub_library_is_a_clear_error(tmp_path, monke
     monkeypatch.setitem(sys.modules, "huggingface_hub", None)
     with pytest.raises(RuntimeError, match="huggingface_hub"):
         text_model.ensure_model_available(tmp_path / "empty")
+
+
+def test_v2_meta_normalises_input_and_applies_temperature(loaded, tmp_path):
+    seen = []
+
+    class Recorder(FakeTokenizer):
+        def __call__(self, texts, **kw):
+            seen.append((list(texts), kw["max_length"]))
+            return super().__call__(texts, **kw)
+
+    loaded["tokenizer"] = Recorder()
+    loaded["meta"] = {
+        "normalize": True,
+        "max_length": 128,
+        "temperature": 0.5,
+        "override_threshold": 0.7,
+    }
+    p = text_model.predict_proba_batch(["Verify at https://evil.example/x now"])
+    assert seen[0] == (["Verify at <URL> now"], 128)
+    loaded["meta"]["temperature"] = 1.0
+    p1 = text_model.predict_proba_batch(["Verify at https://evil.example/x now"])
+    # T < 1 sharpens: the same logits give a more extreme probability
+    assert abs(p[0, 1] - 0.5) > abs(p1[0, 1] - 0.5)
+    assert text_model.override_threshold() == 0.7
+
+
+def test_meta_files_are_read(tmp_path):
+    import json
+
+    meta = text_model.read_meta(tmp_path)
+    assert meta["normalize"] is False and meta["temperature"] == 1.0
+    (tmp_path / "calibration.json").write_text(json.dumps({"temperature": 0.447}))
+    (tmp_path / "phishlens_text_agent.json").write_text(
+        json.dumps({"normalize": True, "override_threshold": 0.7})
+    )
+    meta = text_model.read_meta(tmp_path)
+    assert meta == {
+        "normalize": True,
+        "max_length": 256,
+        "temperature": 0.447,
+        "override_threshold": 0.7,
+    }
+
+
+def test_display_name():
+    assert text_model.display_name({}, text_model.LEGACY_REPO) == "DistilBERT (English)"
+    assert text_model.display_name({}, "owner/model") == "owner/model"
+    meta = {"name": "PhishLens multilingual", "version": "r4p"}
+    assert text_model.display_name(meta, "owner/model") == "PhishLens multilingual r4p"
+
+
+def test_each_repository_has_its_own_folder(tmp_path, monkeypatch):
+    for d in (tmp_path, tmp_path / "AnzouKiona--phishlens-v2"):
+        d.mkdir(exist_ok=True)
+        (d / "config.json").write_text("{}")
+        (d / "tokenizer_config.json").write_text("{}")
+    # legacy layout: a checkpoint directly in the folder is the v1 model
+    assert text_model.ensure_model_available(tmp_path, text_model.LEGACY_REPO) == tmp_path
+    assert (
+        text_model.ensure_model_available(tmp_path, "AnzouKiona/phishlens-v2")
+        == tmp_path / "AnzouKiona--phishlens-v2"
+    )
+    # a new repository never falls back to the old checkpoint
+    calls = []
+    hub = types.ModuleType("huggingface_hub")
+    hub.snapshot_download = lambda repo_id, local_dir: calls.append((repo_id, local_dir))
+    monkeypatch.setitem(sys.modules, "huggingface_hub", hub)
+    out = text_model.ensure_model_available(tmp_path, "AnzouKiona/other")
+    assert out == tmp_path / "AnzouKiona--other" and calls == [("AnzouKiona/other", str(out))]
+
+
+def test_fast_tokenizer_kwargs_from_a_transformers_5_config():
+    cfg = {
+        "tokenizer_class": "TokenizersBackend",
+        "bos_token": "<bos>",
+        "pad_token": "<pad>",
+        "mask_token": "<mask>",
+        "extra_special_tokens": ["<start_of_turn>", "<end_of_turn>"],
+        "model_max_length": 8192,
+    }
+    kw = text_model.fast_tokenizer_kwargs(cfg)
+    assert kw == {
+        "bos_token": "<bos>",
+        "pad_token": "<pad>",
+        "mask_token": "<mask>",
+        "additional_special_tokens": ["<start_of_turn>", "<end_of_turn>"],
+    }

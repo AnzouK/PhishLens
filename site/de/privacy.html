@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datenschutzerklärung · PhishLens</title>
+<meta name="description" content="Was die PhishLens-Erweiterung, die Website und PhishLens Cloud verarbeiten, wohin es geht und was gespeichert wird.">
+<link rel="canonical" href="https://anzouk.duckdns.org/de/privacy.html">
+<link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/privacy.html">
+<link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/privacy.html">
+<link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/privacy.html">
+<link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/privacy.html">
+<link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/privacy.html">
+<link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/privacy.html">
+<link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/privacy.html">
+<link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/privacy.html">
+<link rel="alternate" hreflang="x-default" href="https://anzouk.duckdns.org/privacy.html">
+<meta name="theme-color" content="#16181c">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PhishLens">
+<meta property="og:locale" content="de_DE">
+<meta property="og:title" content="Datenschutzerklärung · PhishLens">
+<meta property="og:description" content="Was die PhishLens-Erweiterung, die Website und PhishLens Cloud verarbeiten, wohin es geht und was gespeichert wird.">
+<meta property="og:url" content="https://anzouk.duckdns.org/de/privacy.html">
+<meta property="og:image" content="https://anzouk.duckdns.org/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PhishLens: sehen, warum eine E-Mail Phishing ist. Gmail und Outlook.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="icon" href="../icon.png" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="stylesheet" href="../style.css">
+<script src="../i18n/de.js" defer></script>
+<script src="../lang.js" defer></script>
+<script src="../nav.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Zum Inhalt springen</a>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="../de/"><img src="../icon.png" alt="" width="28" height="28">PhishLens</a>
+    <nav class="site-nav" aria-label="Hauptnavigation">
+      <a href="../de/#checks">Was es prüft</a>
+      <a href="../de/#features">Funktionen</a>
+      <a href="../de/#try">Ausprobieren</a>
+      <details class="lang-menu">
+        <summary aria-label="Sprache: Deutsch">DE</summary>
+        <ul>
+          <li><a href="../privacy.html" hreflang="en" lang="en">English</a></li>
+          <li><a href="../fr/privacy.html" hreflang="fr" lang="fr">Français</a></li>
+          <li><a href="../pt/privacy.html" hreflang="pt" lang="pt">Português</a></li>
+          <li><a href="../es/privacy.html" hreflang="es" lang="es">Español</a></li>
+          <li><a href="../de/privacy.html" hreflang="de" lang="de" aria-current="page">Deutsch</a></li>
+          <li><a href="../it/privacy.html" hreflang="it" lang="it">Italiano</a></li>
+          <li><a href="../nl/privacy.html" hreflang="nl" lang="nl">Nederlands</a></li>
+          <li><a href="../ha/privacy.html" hreflang="ha" lang="ha">Hausa</a></li>
+        </ul>
+      </details>
+      <a class="cta" href="../de/#install">PhishLens installieren</a>
+    </nav>
+  </div>
+</header>
+<main id="main" class="wrap">
+<article class="prose">
+<p class="legal-note">Diese Übersetzung dient nur der leichteren Lesbarkeit. Weicht sie von der <a href="../privacy.html">englischen Fassung</a> ab, gilt die englische Fassung.</p>
+<h1 id="datenschutzerklärung-von-phishlens">Datenschutzerklärung von PhishLens</h1>
+<p>Zuletzt aktualisiert: 15. Oktober 2026.</p>
+<p>PhishLens ist eine Chrome-Erweiterung, die E-Mails auf Phishing prüft. Diese Seite erklärt, welche Daten sie verarbeitet, wohin diese gehen und was gespeichert wird. Sie gilt für die Erweiterung und den gehosteten Server PhishLens Cloud unter <code>anzouk.duckdns.org</code>.</p>
+<h2 id="kurz-gesagt">Kurz gesagt</h2>
+<ul>
+<li>PhishLens liest eine E-Mail nur, wenn Sie darum bitten (die Schaltflächen <strong>Prüfen</strong>), oder automatisch, wenn Sie in den Einstellungen <strong>Neue E-Mails automatisch prüfen</strong> einschalten (standardmäßig aus).</li>
+<li>Die E-Mail wird an den in den Einstellungen gewählten Server gesendet: Ihren eigenen Computer (lokal mit Docker oder Python), Ihren eigenen Server oder PhishLens Cloud. Die Erweiterung sendet nichts anderswohin, außer den Meldungen, die Sie senden möchten (siehe unten).</li>
+<li>Der Server prüft die E-Mail und gibt ein Urteil zurück. Er speichert weder E-Mail-Inhalte noch Absender oder Betreffzeilen.</li>
+<li>Ihr Prüfverlauf bleibt in Ihrem Browser. Er wird nie hochgeladen.</li>
+<li>Es gibt keine Konten, keine Analyse-Tools, keine Werbung und keinen Verkauf von Daten.</li>
+<li>Sie können ein falsches Urteil melden oder die Statistik Ihrer Bewertungen teilen. Gesendet wird nur, was Sie sehen und bestätigen: der Text der E-Mail ohne Namen, Adressen, Nummern und Link-Pfade, oder eine Statistik ohne jeden E-Mail-Inhalt.</li>
+</ul>
+<h2 id="was-die-erweiterung-liest">Was die Erweiterung liest</h2>
+<p>Bei einer Prüfung liest die Erweiterung aus der geöffneten Gmail- oder Outlook-Seite:</p>
+<ul>
+<li>den Text der Nachricht, ihren Betreff und die Adresse des Absenders;</li>
+<li>die Ziele der Links in der Nachricht;</li>
+<li>die Authentifizierungshinweise, die Gmail anzeigt (gesendet von, signiert von);</li>
+<li>bei eingeschaltetem <strong>Vollständige Header lesen</strong> (Standard) die Originalnachricht, wie sie die Gmail-Seite „Original anzeigen“ liefert: alle Header und die Textteile, ohne die angehängten Dateien;</li>
+<li>bei der Prüfung eines Anhangs die angehängte Datei.</li>
+</ul>
+<p>Das Fenster der Erweiterung liest außerdem Dateien, die Sie dort ablegen, und Text, den Sie einfügen.</p>
+<h2 id="wohin-die-daten-gehen">Wohin die Daten gehen</h2>
+<p>Alle Prüfanfragen gehen an einen einzigen Server, den Sie in den Einstellungen der Erweiterung wählen:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Auswahl</th>
+<th>Wohin Ihre E-Mail geht</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Lokaler Server</td>
+<td>Ihr eigener Computer (<code>127.0.0.1:8000</code>). Nichts verlässt ihn, außer den unten genannten Abfragen von Bedrohungsdaten.</td>
+</tr>
+<tr class="even">
+<td>Eigene URL</td>
+<td>Der Server, den Sie eingegeben haben. Es gilt die Richtlinie seines Betreibers.</td>
+</tr>
+<tr class="odd">
+<td>PhishLens Cloud</td>
+<td>Der gehostete Server des PhishLens-Autors bei Oracle Cloud. Nichts wird gespeichert (siehe unten).</td>
+</tr>
+</tbody>
+</table></div>
+<p>Der Server prüft die in einer E-Mail gefundenen Links bei Diensten für Bedrohungsdaten. Dazu sendet er <strong>nur die Linkadressen</strong> (nie den E-Mail-Text, den Absender oder den Betreff):</p>
+<ul>
+<li>Google Safe Browsing (vollständige URLs, wenn ein API-Schlüssel eingerichtet ist);</li>
+<li>URLhaus von abuse.ch (vollständige URLs);</li>
+<li>Spamhaus DBL (Domainnamen, über DNS);</li>
+<li>PhishTank (Abgleich mit einer auf den Server heruntergeladenen Liste; keine Anfrage pro E-Mail).</li>
+</ul>
+<h2 id="meldungen-die-sie-senden-möchten">Meldungen, die Sie senden möchten</h2>
+<p>Unter jedem Urteil zeigt PhishLens die erkannte Sprache und einen Link <strong>Falsches Urteil? Melden</strong>; die Ansicht Statistiken bietet denselben Link für Prüfungen, die Sie als <strong>Falsch</strong> markiert haben, und eine Schaltfläche <strong>Meine Statistik teilen</strong>. Nichts wird gesendet, bevor Sie auf <strong>Senden</strong> klicken, nachdem Sie gelesen haben, was gesendet wird.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Meldung</th>
+<th>Was gesendet wird</th>
+<th>Was nie gesendet wird</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Falsches Urteil</td>
+<td>Betreff, Text und Link-Domains dieser E-Mail nach der Anonymisierung (Namen nach einer Anrede oder einem Titel, Ihr eigener Name und Ihre Adresse, wie sie auf der Mail-Seite stehen, E-Mail-Adressen, Telefonnummern, lange Nummern wie Konten, Karten und Codes, IBAN, @Handles und Benutzernamen, Pfad und Parameter jedes Links), der Text so, wie Sie ihn bearbeitet haben, das Urteil, die Werte, der Bewertungsweg, die erkannte Sprache und Ihre Antwort, die Version der Erweiterung und die Sprache der Oberfläche</td>
+<td>Die Adresse des Absenders, die Original-E-Mail, ihre Header und Anhänge</td>
+</tr>
+<tr class="even">
+<td>Statistik</td>
+<td>Für jede Prüfung in Ihrem Verlauf: der Tag, wo geprüft wurde (Gmail, Outlook, Fenster der Erweiterung), das Urteil, die Werte, ob der Absender vertrauenswürdig war, Ihre Bewertung Richtig / Falsch, die erkannte Sprache und Ihre Antwort</td>
+<td>Betreffzeilen, Absender, Texte, Links</td>
+</tr>
+</tbody>
+</table></div>
+<p>Meldungen gehen an PhishLens Cloud, egal welchen Server Sie für die Prüfungen nutzen. Der Server anonymisiert den Text ein zweites Mal mit denselben Regeln, speichert die Meldung ohne Ihre IP-Adresse oder andere Anfragedaten (das unten beschriebene Protokoll des Webservers erfasst die Anfrage dennoch 30 Tage lang) und gibt eine Referenz zurück. Meldungen dienen nur dazu, PhishLens zu messen und zu verbessern (zum Beispiel, um das Textmodell mit legitimen E-Mails zu trainieren, die es falsch beurteilt hat); sie werden nie veröffentlicht oder weitergegeben. Sie werden höchstens zwei Jahre aufbewahrt. Um eine Meldung löschen zu lassen, eröffnen Sie ein Issue unter <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> mit ihrer Referenz (die Referenz allein verrät nichts über die Meldung).</p>
+<p>Damit Sie auch aus der Ansicht Statistiken melden können, bleibt der anonymisierte Text Ihrer letzten Gmail- und Outlook-Prüfungen 7 Tage lang in Ihrem Browser (höchstens 50 E-Mails). Er verlässt den Browser nie, außer Sie melden diese Prüfung.</p>
+<h2 id="was-gespeichert-wird-und-wie-lange">Was gespeichert wird und wie lange</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Daten</th>
+<th>Wo</th>
+<th>Wie lange</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Prüfverlauf (Betreff, Absender, Urteil, Werte, wichtigste Wörter der Erklärung, erkannte Sprache und Ihre Antwort)</td>
+<td>Ihr Browser (<code>chrome.storage.local</code>)</td>
+<td>Bis Sie ihn löschen (Statistiken, <strong>Löschen</strong>), höchstens die letzten 500 Prüfungen</td>
+</tr>
+<tr class="even">
+<td>Zwischenspeicher der Erklärungen</td>
+<td>Ihr Browser</td>
+<td>Bis die Erweiterung entfernt wird</td>
+</tr>
+<tr class="odd">
+<td>Anonymisierter Text der letzten Gmail- und Outlook-Prüfungen, für Meldungen</td>
+<td>Ihr Browser</td>
+<td>7 Tage, höchstens 50 E-Mails; wird mit dem Verlauf gelöscht</td>
+</tr>
+<tr class="even">
+<td>Von Ihnen gesendete Meldungen (anonymisierter Text oder Statistik, siehe oben)</td>
+<td>PhishLens Cloud</td>
+<td>Höchstens zwei Jahre; auf Anfrage mit der Referenz gelöscht</td>
+</tr>
+<tr class="odd">
+<td>Ergebnisse der automatischen Prüfung (Unterhaltungs-ID, Urteil, Wert)</td>
+<td>Ihr Browser</td>
+<td>Die letzten 500 E-Mails</td>
+</tr>
+<tr class="even">
+<td>Einstellungen</td>
+<td>Ihr Browser</td>
+<td>Bis zur Änderung</td>
+</tr>
+<tr class="odd">
+<td>Link-Urteile (URL, Urteil, Quelle)</td>
+<td>Server-Cache (SQLite)</td>
+<td>24 Stunden</td>
+</tr>
+<tr class="even">
+<td>Zurückgesendete Ergebnisse (Urteil, Werte, Link-Urteile, Wörter der Erklärung), über einen Hash der E-Mail zugeordnet; nicht die E-Mail selbst</td>
+<td>Arbeitsspeicher des Servers</td>
+<td>24 Stunden oder bis zum Neustart des Servers</td>
+</tr>
+<tr class="odd">
+<td>Text, Header und Anhänge von E-Mails</td>
+<td>Arbeitsspeicher des Servers, während der Anfrage</td>
+<td>Nicht gespeichert</td>
+</tr>
+<tr class="even">
+<td>Metadaten der Anfragen (Zeit, Pfad, Status, IP-Adresse, Browser)</td>
+<td>Anwendungs- und Webserver-Protokolle von PhishLens Cloud</td>
+<td>30 Tage; der Inhalt von Anfragen wird nie protokolliert</td>
+</tr>
+</tbody>
+</table></div>
+<p>PhishLens Cloud zählt außerdem Urteile pro Bewertungsweg für die Überwachung (Prometheus-Zähler). Das sind nur Zahlen, ohne E-Mail-Daten.</p>
+<h2 id="diese-website">Diese Website</h2>
+<p><code>anzouk.duckdns.org</code> setzt keine Cookies und verwendet keine Tracking-Skripte, daher gibt es nichts zuzustimmen. Besucherzahlen stammen aus den Protokollen des eigenen Webservers (Seite, Zeit, verweisende Seite, Browsertyp, IP-Adresse) und werden mit einem selbst betriebenen Werkzeug ausgewertet; sie werden 30 Tage aufbewahrt und nie weitergegeben. Die Seite fragt die öffentliche API von GitHub nach der neuesten Versionsnummer, was GitHub als normale Anfrage Ihres Browsers sieht.</p>
+<h2 id="berechtigungen">Berechtigungen</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Berechtigung</th>
+<th>Wozu</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>storage</code></td>
+<td>Ihre Einstellungen, Ihren Prüfverlauf und die Zwischenspeicher im Browser aufbewahren.</td>
+</tr>
+<tr class="even">
+<td><code>notifications</code></td>
+<td>Sie warnen, wenn die automatische Prüfung eine Phishing-E-Mail findet.</td>
+</tr>
+<tr class="odd">
+<td><code>scripting</code></td>
+<td>Nach einem Update die neue Version der Prüf-Schaltflächen in bereits geöffnete Gmail- und Outlook-Tabs einsetzen, damit Sie diese nicht neu laden müssen.</td>
+</tr>
+<tr class="even">
+<td>Zugriff auf <code>mail.google.com</code></td>
+<td>Die Prüf-Schaltflächen und Hinweise in Gmail anzeigen und die geprüfte E-Mail lesen.</td>
+</tr>
+<tr class="odd">
+<td>Zugriff auf Outlook im Web (<code>outlook.office.com</code>, <code>outlook.office365.com</code>, <code>outlook.live.com</code>)</td>
+<td>Dasselbe in Outlook (nur manuelle Prüfungen).</td>
+</tr>
+<tr class="even">
+<td>Zugriff auf <code>127.0.0.1:8000</code>, <code>localhost:8000</code>, <code>anzouk.duckdns.org</code></td>
+<td>Prüfungen an den von Ihnen gewählten Server senden.</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="ihre-möglichkeiten">Ihre Möglichkeiten</h2>
+<ul>
+<li>Schalten Sie <strong>Vollständige Header lesen</strong> oder <strong>Neue E-Mails automatisch prüfen</strong> jederzeit in den Einstellungen aus.</li>
+<li>Verwenden Sie den lokalen Server, damit E-Mails Ihren Computer nie verlassen.</li>
+<li>Löschen Sie den Verlauf in der Ansicht Statistiken, oder entfernen Sie die Erweiterung, um alles zu löschen, was sie gespeichert hat.</li>
+<li>Wenn Sie nie eine Meldung senden, verlässt nichts Ihren Browser außer den Prüfungen selbst, an den von Ihnen gewählten Server.</li>
+</ul>
+<h2 id="kinder">Kinder</h2>
+<p>PhishLens richtet sich nicht an Kinder und erhebt nicht wissentlich Daten über sie.</p>
+<h2 id="änderungen-und-kontakt">Änderungen und Kontakt</h2>
+<p>Änderungen dieser Erklärung sind im <a href="https://github.com/AnzouK/PhishLens/blob/main/CHANGELOG.md">Änderungsprotokoll</a> des Projekts aufgeführt. Bei Fragen eröffnen Sie ein Issue unter <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> oder melden Sie ein Sicherheitsproblem vertraulich wie in <a href="https://github.com/AnzouK/PhishLens/blob/main/SECURITY.md">SECURITY.md</a> beschrieben.</p>
+</article>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div>PhishLens. Kostenlos und quelloffen, Lizenz GNU AGPL-3.0. Keine Cookies auf dieser Website.</div>
+    <nav aria-label="Fußzeile">
+      <a href="../de/privacy.html">Datenschutz</a>
+      <a href="../de/terms.html">Nutzungsbedingungen</a>
+      <a href="https://github.com/AnzouK/PhishLens">GitHub</a>
+      <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/architecture.md">Architektur</a>
+      <a href="https://github.com/AnzouK/PhishLens/blob/main/SECURITY.md">Sicherheit</a>
+      <a href="https://huggingface.co/AnzouKiona/phishlens-distilbert">Modell</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

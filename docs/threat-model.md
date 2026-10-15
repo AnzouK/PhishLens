@@ -13,8 +13,10 @@ Method: STRIDE per trust boundary, then a list of the risks we accept.
 | Correctness of the verdict | A wrong "safe" on a phishing email is the main harm the tool can cause |
 | Google Safe Browsing API key and daily quota | Leaking or exhausting it silently removes the strongest URL signal |
 | Backend availability | PhishLens Cloud is shared by every extension user on the Cloud setting |
-| Published models on Hugging Face | Loaded and unpickled by every backend at startup |
+| Published models on Hugging Face | Loaded by every backend at startup; the text model decides the wording score |
+| Hugging Face read token (`HF_TOKEN`, only when the text model is in a private repository) | Read access to that repository |
 | The Oracle VM and its secrets (`.phishlens.env`) | Host compromise exposes all of the above |
+| Reports users send (`FEEDBACK_DIR`) | Redacted email text: still private content, and future training data |
 
 ## Trust boundaries
 
@@ -26,34 +28,45 @@ flowchart LR
     A -->|B3| I["Threat intel APIs<br/>and DNS"]
     H["Hugging Face Hub"] -->|B4| A
     A --- C[("SQLite URL cache")]
+    E -->|B6 reports, redacted| P
+    X -->|B6| P
+    A --- F[("Reports<br/>FEEDBACK_DIR")]
 ```
 
 B1: email content controlled by the attacker reaches the extension.
 B2: any HTTP client can reach the public API, not only the extension.
 B3: the backend trusts answers from external intel services.
 B4: the backend downloads and deserialises model files at startup.
+B5: the extension's own interface texts (translations) are shipped with
+the extension and never come from the network.
+B6: anyone can post a report to `/feedback`, not only the extension.
 
 ## STRIDE analysis
 
 | # | Threat | Boundary | Mitigation in place | Status |
 | --- | --- | --- | --- | --- |
-| S1 | **Spoofing** the sender: `From: paypal.com` sent from attacker infrastructure to borrow trust | B1 | Trust comes from DKIM alignment with the From: organisational domain, not from the header text; the allowlist also requires it since v1.16 (before, a forged allowlisted From: got the trusted path). Misaligned `signed-by` stays on the strict path. Tested in `test_auth_headers.py` and `test_extension_backend.py` | Mitigated |
+| S1 | **Spoofing** the sender: `From: paypal.com` sent from attacker infrastructure to borrow trust | B1 | Trust comes from DKIM alignment with the From: organisational domain, not from the header text; the allowlist also requires it since v2.0 (before, a forged allowlisted From: got the trusted path). Misaligned `signed-by` stays on the strict path. Tested in `test_auth_headers.py` and `test_extension_backend.py` | Mitigated |
 | S2 | Spoofing the client context: a caller claims `gmail_in_inbox` or `gmail_delivered` to soften its own scan | B2 | The flags only soften the caller's own result, never shared state; a Safe Browsing hit still forces phishing; documented as a SECURITY NOTE in code | Accepted (limited impact) |
 | S3 | Trusted-domain abuse: a compromised account at an allowlisted bank sends phishing | B1 | A Safe Browsing hit forces phishing on every path, the allowlist included (regression test since v1.11.0); allowlist is small and documented as a regional fallback | Partially mitigated |
 | T1 | **Tampering** with the model: a malicious joblib on Hugging Face (pickle executes code on load) | B4 | Since v1.12 the agents load from skops files with a type allowlist (scikit-learn, NumPy, SciPy, builtins only); pickle is a fallback that `AGENTS_ALLOW_PICKLE=0` turns off | Mitigated (skops files published and pickle disabled in production since 2026-09-30) |
 | T2 | Cache poisoning: a wrong verdict stored in the reputation cache | B3 | Cache key is the normalised URL, values only come from the cascade itself, 24 h TTL | Mitigated |
+| T4 | A tampered PhishTank feed, or a PhishTank entry on a shared host (`bit.ly`, `storage.googleapis.com`) flagging every link of that host | B3 | Feed downloaded over HTTPS only; on hosts that serve many unrelated users, only the exact URL matches, never the whole domain (`SHARED_PATH_HOSTS`) | Mitigated |
+| T5 | A replaced or wrong text model: `HF_MODEL_REPO` changed, a new revision pushed to the repository | B4 | Weights loaded through `transformers`, which prefers safetensors files (data only) when the repository provides them; one folder per repository so a switch never mixes models; `/health` reports the repository, name and settings in use; only the maintainer can push to the repository | Partially mitigated (revisions are not pinned) |
 | T3 | Adversarial text: wording crafted to push DistilBERT towards "safe" | B1 | Three independent agents plus threat intel; a clean text score does not hide a blocklisted URL or failed DMARC | Partially mitigated |
 | R1 | **Repudiation**: no record of what was scanned | B2 | By design: the backend keeps no email content. Aggregate verdict counts only (`/metrics`) | Accepted |
+| I5 | A report carries personal data the redaction missed (a name without greeting, a street address) | B6 | Redaction in the browser and again on the server, preview with edit and confirmation before sending, no IP stored, private folder, two-year limit, deletion by reference, human review before any use | Partially mitigated (redaction is rule-based) |
+| T6 | Poisoning: fake reports pushing the next model towards wrong labels | B6 | Rate limit per IP, size and storage caps, strict validation; reports are never used for training without being read and relabelled by hand | Mitigated |
 | I1 | **Information disclosure**: users paste sensitive mail into the shared PhishLens Cloud test box | B2 | HTTPS only; no server-side storage of bodies; README warns not to send sensitive content to the demo; self-hosting is documented | Mitigated for transport, user choice otherwise |
-| I2 | Error messages leak internals | B2 | Errors return a one-line message; FastAPI never returns stack traces to the client | Mitigated |
+| I2 | Error messages leak internals | B2 | Errors return a one-line message with a short reference; the stack trace is logged on the server under that reference and never returned | Mitigated |
 | I3 | Secrets in the repository or its history | n/a | `.phishlens.env` and `.env` are git-ignored; the GSB key only lives on the VM; history rewritten once to remove personal data | Mitigated |
 | I4 | `/metrics` and `/reputation/stats` reveal traffic and quota usage | B2 | Contain counts only; operations guide shows how to block `/metrics` at Caddy | Mitigated when proxy rule applied |
 | D1 | **Denial of service** by request flooding, or burning the 10k/day GSB quota | B2 | Per-IP rate limits (30/min analyse, 20/min attachments, 15/min explain); GSB quota tracked in process with a 500-request safety buffer; cache absorbs repeats | Mitigated |
+| D6 | Oversized requests, or CPU-bound inference blocking the server for everyone | B2 | Bodies above 45 MB refused with 413 before parsing; every field has a maximum length; model inference and attachment parsing run in a worker thread so the event loop keeps serving `/health` and other requests | Mitigated |
 | D2 | Oversized or malformed attachments exhausting CPU or memory | B2 | 10 MB cap, magic-byte sniffing, page limit on PDFs, unsupported types rejected with 400; OCR limited to 3 pages with a 10 s timeout each, images downscaled and guarded against decompression bombs; Office files capped on part count, uncompressed size (zip bombs) and part size | Mitigated |
-| D5 | XML entity expansion or external entities in an Office file | B2 | Any XML part that declares a DOCTYPE is skipped and flagged `suspicious_xml_doctype`; ElementTree never fetches external entities | Mitigated |
+| D5 | XML entity expansion or external entities in an Office file | B2 | Any XML part that declares a DOCTYPE is skipped and flagged `suspicious_xml_doctype`; parts are parsed with `defusedxml`, which refuses entity tricks | Mitigated |
 | D3 | ReDoS through crafted headers or URLs | B1, B2 | CodeQL `py/polynomial-redos` enabled; the three findings fixed (bounded quantifiers, anchored matches, `email.utils.parseaddr` instead of a regex); regression test with a 50k-character From: header | Mitigated |
 | D4 | Intel APIs slow or down | B3 | 3 s HTTP timeout per tier; each tier fails open to "no hit"; lookups run in parallel with inference | Mitigated |
-| E1 | **Elevation of privilege** via the extension: a Gmail page scripting the extension | B1 | Content script reads the DOM but never evaluates page content; every backend or email value inserted into the banner goes through `escapeHTML`; host permissions limited to Gmail and the configured backends | Mitigated |
+| E1 | **Elevation of privilege** via the extension: a Gmail page scripting the extension | B1 | Content script reads the DOM but never evaluates page content; every backend or email value inserted into the banner goes through `escapeHTML`, translated texts included (they can carry the sender or a file name); a unit test fails on an unescaped translation; host permissions limited to Gmail, Outlook and the configured backends | Mitigated |
 | E2 | Code execution through a malicious attachment | B2 | Parsing only (pdfplumber, BeautifulSoup, zipfile + ElementTree for Office); macros are detected, never run; PDF pages are rasterised by PDFium without JavaScript; container runs as a non-root user | Mitigated |
 | E4 | CSV formula injection through the history export (an attacker-controlled subject such as `=HYPERLINK(...)`) | B1 | Cells starting with `= + - @` are prefixed with a quote in the export (v1.12), covered by a unit test | Mitigated |
 | E3 | Supply chain: a compromised dependency or GitHub Action | n/a | Dependabot alerts and weekly updates, CI token limited to `contents: read`, CodeQL on every push | Mitigated |
@@ -65,8 +78,16 @@ B4: the backend downloads and deserialises model files at startup.
 wording will do worse. PhishLens is an assistant, not a filter: the
 verdict is advisory and the explanation is there so the user can judge.
 
-**R2. English only.** Phishing in French, Hausa or Yoruba is outside the
-training distribution.
+**R2. The text model reads English.** The interface, the website and
+the OCR handle other languages, but the text model in production was
+trained on English email: phishing in French, Hausa or Yoruba gets a
+less reliable wording score. The link, sender and threat-intelligence
+checks do not depend on the language. A multilingual model is being
+evaluated ([languages.md](languages.md#text-model)).
+
+**R8. The Hausa interface is a draft translation.** A wrong word in a
+warning could confuse a reader. It is marked for review by a native
+speaker; English stays available in Settings.
 
 **R3. Soft trust signals can be claimed by any API caller.** Accepted
 because the effect is confined to that caller's own response.
@@ -90,13 +111,14 @@ release, per-install API keys or a shared limiter (Redis) in front of
 the API become worthwhile.
 
 **R6. The allowlist is regional and static.** It only applies to
-authenticated senders (since v1.16), so it trusts authenticated domains,
+authenticated senders (since v2.0), so it trusts authenticated domains,
 not messages: a compromised account at a listed institution is caught
 only by threat intelligence or the link checks.
 
 ## Review triggers
 
 Revisit this document when a new endpoint is added, when a new input
-type is accepted (last review: v1.12, images and Office documents), when
-the extension gets new permissions,
-or when the deployment moves off the single VM.
+type is accepted, when the extension gets new permissions, when the text
+model changes, or when the deployment moves off the single VM. Last
+review: v2.0 (authenticated allowlist, request limits, user reports, model
+configuration file, interface translations).

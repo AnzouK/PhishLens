@@ -1,7 +1,8 @@
 # Architecture
 
 PhishLens has two runtime parts: a Chrome MV3 extension that lives inside
-Gmail, and a FastAPI backend that does all the scoring. The extension
+Gmail and Outlook on the web, and a FastAPI backend that does all the
+scoring. The extension
 never classifies anything itself; it collects what it can see (body text,
 sender, Gmail's own authentication hints, attachments) and renders the
 backend's answer.
@@ -11,54 +12,74 @@ backend's answer.
 ```mermaid
 flowchart LR
     subgraph Browser["Chrome extension (MV3)"]
-        CS["Gmail content script<br/>gmail.js"]
+        CS["Content scripts<br/>Gmail, Outlook"]
         PU["Popup<br/>.eml / paste / file"]
         BG["Service worker<br/>fetch proxy, history"]
-        ST[("chrome.storage.local<br/>history, LIME cache, settings")]
+        ST[("chrome.storage.local<br/>history, LIME cache, settings,<br/>redacted report drafts")]
+        RD["lib/redact.js<br/>removes personal data"]
         CS --> BG
+        CS --> RD
+        PU --> RD
         PU --> BG
         PU <--> ST
         CS <--> ST
     end
 
     subgraph Server["FastAPI backend (Docker)"]
-        API["extension_backend.py<br/>/analyse /analyse_attachment /explain"]
-        TXT["Text agent<br/>DistilBERT"]
+        API["extension_backend.py<br/>/analyse /analyse_attachment<br/>/explain /feedback"]
+        TXT["Text agent<br/>multilingual model + LIME<br/>(phishlens_text_agent.json)"]
+        LANG["language.py<br/>detected language"]
+        FB["feedback.py + redaction.py<br/>reports, redacted again"]
         URL["URL agent<br/>Random Forest or heuristic"]
         META["Metadata agent<br/>Random Forest or heuristic"]
         AUTH["auth_headers.py<br/>SPF / DKIM / DMARC + Spamhaus DBL"]
         REP["reputation.py<br/>cache, GSB, PhishTank, URLhaus, DBL"]
-        ATT["attachment_analysis.py<br/>PDF + HTML"]
-        API --> TXT & URL & META & AUTH & REP & ATT
+        ATT["attachment_analysis.py<br/>PDF, images, HTML, Office,<br/>archives, invites"]
+        API --> TXT & URL & META & AUTH & REP & ATT & LANG & FB
     end
+    FB --> FD[("FEEDBACK_DIR<br/>private JSON lines")]
 
-    BG -- "HTTPS JSON" --> Caddy["Caddy<br/>TLS, reverse proxy"] --> API
+    BG -- "HTTPS JSON<br/>(reports: PhishLens Cloud only)" --> Caddy["Caddy<br/>TLS, reverse proxy"] --> API
     HF[("Hugging Face Hub<br/>model + agents")] -. "startup download" .-> API
     REP -. "lookups" .-> Intel["Threat intel<br/>GSB, PhishTank, URLhaus, Spamhaus"]
 ```
 
 | Module | Responsibility |
 | --- | --- |
-| `extension/content_scripts/gmail.js` | Injects the scan buttons and verdict banner into Gmail, scrapes body, sender, `mailed-by` / `signed-by`, Inbox state, attachments |
-| `extension/background.js` | Proxies requests to the backend (Gmail's CSP blocks direct fetches) and saves scans to the history |
+| `extension/content_scripts/core.js` | Shared state of the content scripts: options, observers, text and link extraction, message passing to the service worker |
+| `extension/content_scripts/banner.js` | The verdict banner, its chips and the "Why?" panel (Gmail and Outlook) |
+| `extension/content_scripts/gmail_scan.js` | Gmail: scan buttons, reading the open email, "Show original" headers, `mailed-by` / `signed-by` |
+| `extension/content_scripts/attachments.js` | Gmail: attachment buttons, download and scan, attachment results |
+| `extension/content_scripts/autoscan.js` | Gmail: optional automatic scan of unread mail, list badges, notifications |
+| `extension/content_scripts/gmail.js` | Gmail: starts the observers (loaded last) |
+| `extension/content_scripts/outlook.js` | Outlook on the web: scan button and reading the open email |
+| `extension/background.js` | Proxies requests to the backend (the mail pages' CSP blocks direct fetches), saves scans to the history, notifications |
+| `extension/lib/shared.js` | Backend choice, HTML escaping and API error messages, shared by every view |
+| `extension/lib/i18n.js`, `locales/` | Interface texts in 8 languages (see [languages.md](languages.md)) |
 | `extension/lib/history.js`, `lime_cache.js` | Local scan history and analytics; SHA-256 keyed LIME cache |
-| `backend/extension_backend.py` | HTTP API: endpoints, request limits, rate limiting, metrics, result cache |
+| `backend/extension_backend.py` | HTTP API only: endpoints, request limits, rate limiting, metrics, result cache, error references |
 | `backend/settings.py` | Version, environment variables, every scoring constant (weights, thresholds, trust paths) |
 | `backend/email_parsing.py` | Visible text, links and headers of an email; forwarded emails; links to file-sharing services |
 | `backend/sender_trust.py`, `trusted_domains.py` | Sender domain, allowlist (authenticated senders only), Gmail "signed-by" / "mailed-by" as an Authentication-Results header |
-| `backend/text_model.py` | Text agent and its LIME explanation |
-| `backend/structured_agents.py` | URL and metadata agents: trained Random Forests with rule-based fallbacks |
+| `backend/text_model.py`, `text_normalize.py` | Text agent: loading the model and its settings, calibrated scores, LIME explanation; text normalisation for models trained on normalised text |
+| `backend/structured_agents.py`, `rf_agent.py`, `url_agent.py`, `metadata_agent.py` | URL and metadata agents: trained Random Forests with rule-based fallbacks |
+| `backend/agent_io.py` | Loads the Random Forests from skops files with a type allowlist |
 | `backend/fusion.py` | Agent scores and evidence to a verdict, for emails and attachments (pure functions) |
 | `backend/auth_headers.py` | RFC 7489 parsing of `Authentication-Results`, organisational-domain alignment, Spamhaus DBL on the From: domain |
 | `backend/reputation.py` | URL reputation cascade with a SQLite cache and a daily Google Safe Browsing quota |
-| `backend/attachment_analysis.py` | MIME sniffing, PDF and HTML text/URL extraction, risky-feature flags |
+| `backend/result_cache.py` | 24-hour in-memory cache of results, keyed by a hash of the request |
+| `backend/language.py` | Language of an email (writing system, then common words), returned as `language` by `/analyse` and `/analyse_attachment` |
+| `backend/feedback.py`, `redaction.py` | `POST /feedback`: reports users choose to send, redacted again and stored as JSON lines (see below) |
+| `extension/lib/redact.js`, `report_ui.js`, `content_scripts/feedback.js` | Redaction before anything is shared; the language line and the report panel under each verdict |
+| `backend/attachment_analysis.py` | MIME sniffing, PDF, image and HTML extraction, risky-feature flags, dispatch to the modules below |
+| `backend/office_analysis.py`, `archive_analysis.py`, `ocr.py` | Word / Excel / PowerPoint, ZIP / RAR / 7z, OCR (multilingual) and QR decoding |
 | `backend/feature_extraction.py` | Feature engineering shared with the training repo (the Random Forests depend on its exact output) |
 
 ## Request flow: `POST /analyse`
 
 ```mermaid
 sequenceDiagram
-    participant G as Gmail content script
+    participant G as Gmail or Outlook content script
     participant B as Backend
     participant A as auth_headers
     participant R as reputation
@@ -75,8 +96,13 @@ sequenceDiagram
     R-->>B: per-URL verdicts (cached or fresh)
     B->>B: merge reputation into URL score, auth delta into metadata score
     B->>B: pick trust path, weighted fusion, threshold
-    B-->>G: verdict, per-agent scores, sender_auth, url_reputation, trust_path
+    B-->>G: verdict, per-agent scores, sender_auth, url_reputation, trust_path, language
     G->>B: POST /explain (only when the user opens the Why panel)
+    opt the user reports a wrong verdict
+        G->>G: redact (lib/redact.js), show the text, wait for confirmation
+        G->>B: POST /feedback to PhishLens Cloud (redacted text, scores, language)
+        B-->>G: reference
+    end
 ```
 
 The LIME explanation is a separate call because it costs about 100 forward
@@ -134,7 +160,7 @@ default`. The allowlist (`TRUSTED_DOMAINS`) only applies to an
 authenticated sender: DKIM aligned with the From: domain (real headers
 or Gmail's "signed-by"), or internal Outlook mail authenticated by the
 organisation's own server. Until v1.15 the From: text alone was enough,
-so a forged bank address got the softest path (fixed in v1.16). It is
+so a forged bank address got the softest path (fixed in v2.0). It is
 Nigerian-centric by default (banks, telcos, universities); extend it for
 your region. An empty allowlist is safe.
 
@@ -223,11 +249,66 @@ decompression-bomb guard, and for Office files a cap on part count,
 total uncompressed size (zip bombs) and part size. XML parts that
 declare a DOCTYPE are skipped rather than parsed.
 
+## Text model
+
+The text agent is any Hugging Face sequence-classification checkpoint
+with two labels (safe, phishing). `HF_MODEL_REPO` names it; each
+repository is downloaded into its own folder,
+`MODEL_DIR/<owner>--<name>`, so switching repositories never loads the
+previous model by mistake (a private repository needs a read-only
+`HF_TOKEN`). The original DistilBERT may also sit directly in
+`MODEL_DIR`, as earlier versions expected.
+
+How the backend feeds the model and reads its output is described next
+to the weights, in `phishlens_text_agent.json`, so a new model needs no
+code change:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `normalize` | `false` | Run `text_normalize.normalize_text` first (masks URLs, email addresses and phone numbers the way the training data was masked) |
+| `max_length` | `256` | Tokens kept |
+| `temperature` | `1.0` | Calibration: scores are `softmax(logits / T)`; a `calibration.json` from the training code is read too |
+| `override_threshold` | `HIGH_CONF_OVERRIDE` (0.85) | Text score from which the text agent alone can force a phishing verdict on the default path; a calibrated model gives confident scores more often, so it needs its own threshold |
+| `name`, `version` | repository id | Shown by `/health` and by "Test connection" in the extension |
+
+`GET /health` returns the version of the server and a `text_model` object
+with the repository, the name and these settings, so anyone can check
+which model answers.
+
+## Reports from users
+
+Under each verdict the extension shows the detected language
+(**Correct** / **Not this language**, stored in the local history) and
+**Wrong verdict? Report it**. A report is built in the browser:
+`lib/redact.js` removes names after a greeting or a title, the user's own
+name and address read from the mail page, email addresses, phone numbers,
+long numbers, IBANs, handles and usernames, and the path of every link
+(the domain stays). The person sees the result in an editable text box
+and must tick a confirmation before **Send**. Insights can also share the
+reviewed history as statistics (no subject, sender or text).
+
+Reports always go to PhishLens Cloud (`background.js`), whatever server
+does the scanning. `POST /feedback` validates them (kinds, lengths,
+language codes), runs the same redaction again (`redaction.py`, checked
+against the same cases as the JavaScript: `tests/fixtures/redaction_cases.json`),
+and appends them to `FEEDBACK_DIR/feedback-YYYY-MM.jsonl` with a random
+reference and the day only: no IP address or headers. The endpoint is
+off (503) when `FEEDBACK_DIR` is empty, rate-limited (`RATE_LIMIT_FEEDBACK`)
+and refuses new reports once the folder reaches `FEEDBACK_MAX_MB`.
+Reports are training material only after a human has read them.
+
 ## Key design decisions
 
 **DistilBERT rather than BERT-base.** About 40% smaller and 60% faster for
 a few points of accuracy. The public demo runs on a CPU-only ARM VM, and
-the extension needs a verdict in seconds, not tens of seconds.
+the extension needs a verdict in seconds, not tens of seconds. The same
+constraint applies to any replacement: small encoders, scores calibrated
+on held-out data, described by `phishlens_text_agent.json`.
+
+**Interface translations without `chrome.i18n`.** Chrome's own
+mechanism only covers the languages Chrome supports, which leaves out
+Hausa. A small dictionary loader shared by every view does the job, with
+tests that keep the eight languages in step ([languages.md](languages.md)).
 
 **Three agents plus fusion rather than one bigger model.** Text, URLs and
 headers fail in different ways. Separate agents keep each one small,

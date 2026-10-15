@@ -23,6 +23,10 @@ services:
       - ./model:/app/model:ro
     environment:
       MODEL_DIR: /app/model
+      # Another text model: download it first into ./model/<owner>--<name>
+      # (the image works offline), then HF_MODEL_REPO=<owner>/<name> docker compose up
+      HF_MODEL_REPO: ${HF_MODEL_REPO:-AnzouKiona/phishlens-distilbert}
+      FEEDBACK_DIR: ${FEEDBACK_DIR:-}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/"]

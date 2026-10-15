@@ -49,9 +49,23 @@ npx eslint extension/ --max-warnings 0
 node --test tests/extension/*.test.js
 ```
 
-The popup UI tests need Playwright: `npm install --no-save @playwright/test@1`,
+The popup and website UI tests need Playwright: `npm install --no-save @playwright/test@1`,
 `npx playwright install chromium`, then
 `npx playwright test --config tests/ui/playwright.config.js`.
+
+## Texts and translations
+
+- **Extension texts** are never written in the code: add a key to
+  `extension/lib/locales/en.js` and to the seven other locale files, and
+  call `t("key")`. `node --test tests/extension/*.test.js` lists missing
+  keys, placeholders or tags, and fails on a translated text built into
+  HTML without `escapeHTML`.
+- **Website texts** live in `site-src/`; edit them there, run
+  `python3 scripts/build_site.py` (needs pandoc) and commit `site/` with
+  the change. Do not edit `site/` by hand.
+- **Privacy policy and terms:** a change to `PRIVACY.md` or `TERMS.md`
+  comes with the same change in `site-src/legal/<lang>/`.
+- Details, and how to add a language: [docs/languages.md](docs/languages.md).
 
 CI runs all of the above, plus CodeQL. A pull request needs a green CI.
 

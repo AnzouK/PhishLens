@@ -1,8 +1,8 @@
 // =====================================================================
 // PhishLens content script: Outlook on the web.
 // =====================================================================
-// Loaded after gmail.js, whose banner, explanation and helper functions
-// it reuses (gmail.js only starts its Gmail watchers on Gmail).
+// Loaded after core.js and banner.js, whose helpers and verdict banner it
+// reuses.
 //
 // Outlook page structure (Outlook on the web, 2026):
 //   reading pane   [data-app-section="MailReadCompose"]
@@ -11,8 +11,6 @@
 // Outlook shows only the sender's NAME for people in the same
 // organisation; the address is read from the "From" line when present.
 // =====================================================================
-
-/* global PLL_ICON, PLL_INSTANCE, pllAlive, pllShutdownIfDead, PLL_OBSERVERS, textOf, linkTargetsOf, showBanner, attachExplanation, setBtnLoading */
 
 const OL_PANE_SEL = '[data-app-section="MailReadCompose"]';
 const OL_SUBJECT_SEL = '[role="heading"][id^="CONV_"][id$="_SUBJECT"]';
@@ -41,12 +39,12 @@ function olInject() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "pll-scan-btn pll-scan-btn--outlook";
-    btn.innerHTML = `<span class="pll-scan-btn__icon">${PLL_ICON.shield}</span><span class="pll-scan-btn__label">Scan with PhishLens</span>`;
-    btn.title = "Check this email for phishing";
+    btn.innerHTML = `<span class="pll-scan-btn__icon">${PLL_ICON.shield}</span><span class="pll-scan-btn__label">${escapeHTML(t("scan_button"))}</span>`;
+    btn.title = t("scan_button_title");
     subject.insertAdjacentElement("afterend", btn);
     // Outlook listens to pointer events on the header: keep ours to us.
-    for (const t of ["pointerdown", "mousedown", "mouseup", "keydown"]) {
-        btn.addEventListener(t, (ev) => ev.stopPropagation());
+    for (const evt of ["pointerdown", "mousedown", "mouseup", "keydown"]) {
+        btn.addEventListener(evt, (ev) => ev.stopPropagation());
     }
     btn.addEventListener("click", (ev) => {
         ev.preventDefault();
@@ -107,8 +105,8 @@ async function olScan(pane, btn) {
     if ((!body || body.length < 20) && !links.length) {
         showBanner(pane, {
             verdict: "error",
-            title: "Nothing to scan in this email",
-            error: "The body is empty or too short to analyse. Attachments can be dropped into the PhishLens popup.",
+            title: t("nothing_title"),
+            error: t("nothing_lead_outlook"),
         }, anchor);
         return;
     }
@@ -129,7 +127,7 @@ async function olScan(pane, btn) {
             },
         };
         const r = await chrome.runtime.sendMessage({ type: "phishlens.analyse", payload });
-        if (!r?.ok) throw new Error(r?.error || "Unknown error");
+        if (!r?.ok) throw new Error(r?.error || t("unknown_error"));
         showBanner(pane, { ...r.data, _threadMessages: count }, anchor);
 
         const saved = await chrome.runtime.sendMessage({
@@ -143,8 +141,10 @@ async function olScan(pane, btn) {
                     metadata: Number(r.data.agents?.metadata?.phishing_probability) || 0,
                 },
                 trusted: !!r.data.trusted_sender,
+                lang: r.data.language?.code,
             },
         }).catch(() => null);
+        pllAttachFeedback(pane, r.data, { historyId: saved?.id, source: "outlook", subject, body, links });
 
         // Word-level explanation, as in Gmail (cached by payload). Runs in
         // the background so the button is free again right away.
@@ -154,7 +154,7 @@ async function olScan(pane, btn) {
         showBanner(pane, {
             verdict: "error",
             error: /context invalidated|message port closed/i.test(msg)
-                ? "PhishLens was just reloaded: please refresh this Outlook tab to reconnect."
+                ? t("reloaded")
                 : msg,
         }, anchor);
     } finally {
@@ -188,7 +188,7 @@ async function olExplain(pane, payload, data, savedId) {
     try {
         if (data.text_agent_used === false) {
             const slot = pane.querySelector(".pll-banner .pll-banner__tokens");
-            if (slot) slot.textContent = "This email has almost no text, so the verdict rests on its links and sender.";
+            if (slot) slot.textContent = t("almost_no_text");
             return;
         }
         let features = null, cached = false;

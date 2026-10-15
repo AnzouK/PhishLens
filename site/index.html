@@ -6,9 +6,19 @@
 <title>PhishLens: see why an email is phishing</title>
 <meta name="description" content="Free, open-source Chrome extension that checks emails in Gmail and Outlook for phishing and shows why: the wording, the links, the sender's authentication and the attachments.">
 <link rel="canonical" href="https://anzouk.duckdns.org/">
+<link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/">
+<link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/">
+<link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/">
+<link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/">
+<link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/">
+<link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/">
+<link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/">
+<link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/">
+<link rel="alternate" hreflang="x-default" href="https://anzouk.duckdns.org/">
 <meta name="theme-color" content="#16181c">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="PhishLens">
+<meta property="og:locale" content="en_US">
 <meta property="og:title" content="PhishLens: see why an email is phishing">
 <meta property="og:description" content="Open-source Chrome extension for Gmail and Outlook: a verdict above every email, one score per check, and the words and signals behind it.">
 <meta property="og:url" content="https://anzouk.duckdns.org/">
@@ -21,6 +31,9 @@
 <link rel="icon" href="icon.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
+<script src="i18n/en.js" defer></script>
+<script src="lang.js" defer></script>
+<script src="nav.js" defer></script>
 <script src="app.js" defer></script>
 </head>
 <body>
@@ -49,6 +62,19 @@
       <a href="#checks">What it checks</a>
       <a href="#features">Features</a>
       <a href="#try">Try it</a>
+      <details class="lang-menu">
+        <summary aria-label="Language: English">EN</summary>
+        <ul>
+          <li><a href="./" hreflang="en" lang="en" aria-current="page">English</a></li>
+          <li><a href="fr/" hreflang="fr" lang="fr">Français</a></li>
+          <li><a href="pt/" hreflang="pt" lang="pt">Português</a></li>
+          <li><a href="es/" hreflang="es" lang="es">Español</a></li>
+          <li><a href="de/" hreflang="de" lang="de">Deutsch</a></li>
+          <li><a href="it/" hreflang="it" lang="it">Italiano</a></li>
+          <li><a href="nl/" hreflang="nl" lang="nl">Nederlands</a></li>
+          <li><a href="ha/" hreflang="ha" lang="ha">Hausa</a></li>
+        </ul>
+      </details>
       <a class="cta" href="#install">Install PhishLens</a>
     </nav>
   </div>
@@ -58,7 +84,7 @@
 
   <section class="hero">
     <div class="wrap">
-      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> Chrome extension · Gmail + Outlook · open source</p>
+      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> Chrome extension · Gmail + Outlook · 8 languages · open source</p>
       <h1>See why an email is phishing.</h1>
       <p class="lead">PhishLens adds a verdict above every email in Gmail and Outlook: one score per check, the signals it found, and the words that weighed most. Click Scan, or let it check new mail on its own.</p>
       <div class="row">
@@ -66,7 +92,7 @@
         <span class="status" aria-live="polite"><span id="status"><span class="spinner" aria-hidden="true"></span> checking the server</span><span id="version"></span></span>
       </div>
       <figure class="shot">
-        <img src="img/gmail-verdicts.svg" width="860" height="540"
+        <img src="img/gmail-verdicts.svg" width="860" height="648"
              alt="Two PhishLens banners above emails in Gmail. The first says the email looks like phishing, with scores for wording 97%, links 88% and sender 74%, chips for a Safe Browsing hit, a DMARC failure and a Spamhaus listing, and the words that drove the verdict. The second says the email looks safe because the sender is on the trusted list.">
         <figcaption>The banner PhishLens adds above an email (drawing of the real interface; try the same analysis below).</figcaption>
       </figure>
@@ -99,13 +125,13 @@
       <div class="pair">
         <ul class="rows">
           <li><svg class="ic"><use href="#i-text"/></svg><b>Wording</b><span>DistilBERT, fine-tuned on about 29,500 emails, scores the text; LIME shows the words that pushed the verdict.</span></li>
-          <li><svg class="ic"><use href="#i-link"/></svg><b>Links</b><span>Every real link target, including the one behind "Click here", checked against Safe Browsing, PhishTank, URLhaus and Spamhaus.</span></li>
+          <li><svg class="ic"><use href="#i-link"/></svg><b>Links</b><span>Every real link target, including the one behind &quot;Click here&quot;, checked against Safe Browsing, PhishTank, URLhaus and Spamhaus.</span></li>
           <li><svg class="ic"><use href="#i-key"/></svg><b>Sender</b><span>SPF, DKIM and DMARC show who really sent it. Forwarded mail does not borrow the forwarder's trust.</span></li>
           <li><svg class="ic"><use href="#i-clip"/></svg><b>Attachments</b><span>PDFs (scanned ones through OCR), QR codes, Office macros and remote templates, ZIP, RAR and 7z archives and calendar invites.</span></li>
           <li><svg class="ic"><use href="#i-inbox"/></svg><b>Real inboxes</b><span>Conversations, image-only mail and links to files shared on Drive, OneDrive or Dropbox.</span></li>
         </ul>
         <figure class="frame">
-          <img src="img/popup.svg" width="400" height="620" loading="lazy"
+          <img src="img/popup.svg" width="400" height="676" loading="lazy"
                alt="The PhishLens popup after scanning an email: a phishing verdict, one score per check, threat-intelligence badges and the words behind the decision.">
           <figcaption>The popup, for files and pasted text.</figcaption>
         </figure>
@@ -127,7 +153,7 @@
         <li><svg class="ic"><use href="#i-bell"/></svg><div><b>Automatic checks</b><span>Optional: new mail is checked as it arrives, marked Safe or Phishing? in the list, with a notification.</span></div></li>
         <li><svg class="ic"><use href="#i-lock"/></svg><div><b>Private by design</b><span>No account, nothing stored on the server, history kept in your browser. Run your own backend and nothing leaves your machine.</span></div></li>
         <li><svg class="ic"><use href="#i-chart"/></svg><div><b>Your own accuracy</b><span>Mark each verdict right or wrong and see how PhishLens performs on your real mail, with a CSV export.</span></div></li>
-        <li><svg class="ic"><use href="#i-code"/></svg><div><b>Open and tested</b><span>MIT licensed, with a threat model, CodeQL and more than 170 automated tests run on every change.</span></div></li>
+        <li><svg class="ic"><use href="#i-code"/></svg><div><b>Open and tested</b><span>Licensed under the GNU AGPL-3.0, with a threat model, CodeQL and more than 300 automated tests run on every change.</span></div></li>
       </ul>
     </div>
   </section>
@@ -229,10 +255,9 @@ cd backend &amp;&amp; docker compose up --build</pre>
     </div>
   </section>
 </main>
-
 <footer class="site-foot">
   <div class="wrap">
-    <div>PhishLens, final-year project, B.Sc. Cybersecurity, Nile University of Nigeria, 2025/2026. MIT license. No cookies on this site.</div>
+    <div>PhishLens. Free and open source, GNU AGPL-3.0 license. No cookies on this site.</div>
     <nav aria-label="Footer">
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>
@@ -245,3 +270,4 @@ cd backend &amp;&amp; docker compose up --build</pre>
 </footer>
 </body>
 </html>
+

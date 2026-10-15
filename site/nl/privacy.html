@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacybeleid · PhishLens</title>
+<meta name="description" content="Wat de PhishLens-extensie, de website en PhishLens Cloud verwerken, waar het naartoe gaat en wat bewaard wordt.">
+<link rel="canonical" href="https://anzouk.duckdns.org/nl/privacy.html">
+<link rel="alternate" hreflang="en" href="https://anzouk.duckdns.org/privacy.html">
+<link rel="alternate" hreflang="fr" href="https://anzouk.duckdns.org/fr/privacy.html">
+<link rel="alternate" hreflang="pt" href="https://anzouk.duckdns.org/pt/privacy.html">
+<link rel="alternate" hreflang="es" href="https://anzouk.duckdns.org/es/privacy.html">
+<link rel="alternate" hreflang="de" href="https://anzouk.duckdns.org/de/privacy.html">
+<link rel="alternate" hreflang="it" href="https://anzouk.duckdns.org/it/privacy.html">
+<link rel="alternate" hreflang="nl" href="https://anzouk.duckdns.org/nl/privacy.html">
+<link rel="alternate" hreflang="ha" href="https://anzouk.duckdns.org/ha/privacy.html">
+<link rel="alternate" hreflang="x-default" href="https://anzouk.duckdns.org/privacy.html">
+<meta name="theme-color" content="#16181c">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PhishLens">
+<meta property="og:locale" content="nl_NL">
+<meta property="og:title" content="Privacybeleid · PhishLens">
+<meta property="og:description" content="Wat de PhishLens-extensie, de website en PhishLens Cloud verwerken, waar het naartoe gaat en wat bewaard wordt.">
+<meta property="og:url" content="https://anzouk.duckdns.org/nl/privacy.html">
+<meta property="og:image" content="https://anzouk.duckdns.org/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PhishLens: zie waarom een e-mail phishing is. Gmail en Outlook.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="icon" href="../icon.png" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="stylesheet" href="../style.css">
+<script src="../i18n/nl.js" defer></script>
+<script src="../lang.js" defer></script>
+<script src="../nav.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Naar de inhoud</a>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="../nl/"><img src="../icon.png" alt="" width="28" height="28">PhishLens</a>
+    <nav class="site-nav" aria-label="Hoofdnavigatie">
+      <a href="../nl/#checks">Wat het controleert</a>
+      <a href="../nl/#features">Functies</a>
+      <a href="../nl/#try">Uitproberen</a>
+      <details class="lang-menu">
+        <summary aria-label="Taal: Nederlands">NL</summary>
+        <ul>
+          <li><a href="../privacy.html" hreflang="en" lang="en">English</a></li>
+          <li><a href="../fr/privacy.html" hreflang="fr" lang="fr">Français</a></li>
+          <li><a href="../pt/privacy.html" hreflang="pt" lang="pt">Português</a></li>
+          <li><a href="../es/privacy.html" hreflang="es" lang="es">Español</a></li>
+          <li><a href="../de/privacy.html" hreflang="de" lang="de">Deutsch</a></li>
+          <li><a href="../it/privacy.html" hreflang="it" lang="it">Italiano</a></li>
+          <li><a href="../nl/privacy.html" hreflang="nl" lang="nl" aria-current="page">Nederlands</a></li>
+          <li><a href="../ha/privacy.html" hreflang="ha" lang="ha">Hausa</a></li>
+        </ul>
+      </details>
+      <a class="cta" href="../nl/#install">PhishLens installeren</a>
+    </nav>
+  </div>
+</header>
+<main id="main" class="wrap">
+<article class="prose">
+<p class="legal-note">Deze vertaling is bedoeld voor het gemak. Als ze afwijkt van de <a href="../privacy.html">Engelse versie</a>, geldt de Engelse versie.</p>
+<h1 id="privacybeleid-van-phishlens">Privacybeleid van PhishLens</h1>
+<p>Laatst bijgewerkt: 15 oktober 2026.</p>
+<p>PhishLens is een Chrome-extensie die e-mails op phishing controleert. Deze pagina legt uit welke gegevens ze verwerkt, waar die naartoe gaan en wat bewaard wordt. Ze geldt voor de extensie en voor de gehoste server, PhishLens Cloud, op <code>anzouk.duckdns.org</code>.</p>
+<h2 id="in-het-kort">In het kort</h2>
+<ul>
+<li>PhishLens leest een e-mail alleen als u daarom vraagt (de knoppen <strong>Controleren</strong>), of automatisch als u <strong>Nieuwe e-mails automatisch controleren</strong> aanzet in de instellingen (standaard uit).</li>
+<li>De e-mail wordt naar de in de instellingen gekozen server gestuurd: uw eigen computer (lokaal met Docker of Python), uw eigen server of PhishLens Cloud. De extensie stuurt niets ergens anders naartoe, behalve de meldingen die u zelf verstuurt (zie hieronder).</li>
+<li>De server controleert de e-mail en geeft een oordeel terug. Hij slaat geen e-mailinhoud, afzenders of onderwerpen op.</li>
+<li>Uw controlegeschiedenis blijft in uw browser. Ze wordt nooit geüpload.</li>
+<li>Er zijn geen accounts, geen analysetools, geen advertenties en geen verkoop van gegevens.</li>
+<li>U kunt een verkeerd oordeel melden of de statistieken van uw beoordelingen delen. Alleen wat u ziet en bevestigt wordt verstuurd: de tekst van de e-mail zonder namen, adressen, nummers en paden van links, of statistieken zonder enige e-mailinhoud.</li>
+</ul>
+<h2 id="wat-de-extensie-leest">Wat de extensie leest</h2>
+<p>Tijdens een controle leest de extensie van de geopende Gmail- of Outlook-pagina:</p>
+<ul>
+<li>de tekst van het bericht, het onderwerp en het adres van de afzender;</li>
+<li>de bestemmingen van de links in het bericht;</li>
+<li>de authenticatiehints die Gmail toont (verzonden door, ondertekend door);</li>
+<li>met <strong>Volledige headers lezen</strong> aan (standaard) het originele bericht zoals de Gmail-pagina „Origineel weergeven” het levert: alle headers en de tekstdelen, zonder de bijgevoegde bestanden;</li>
+<li>bij de controle van een bijlage het bijgevoegde bestand.</li>
+</ul>
+<p>Het venster van de extensie leest ook bestanden die u erin neerzet en tekst die u plakt.</p>
+<h2 id="waar-de-gegevens-naartoe-gaan">Waar de gegevens naartoe gaan</h2>
+<p>Alle controleverzoeken gaan naar één server, gekozen in de instellingen van de extensie:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Keuze</th>
+<th>Waar uw e-mail naartoe gaat</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Lokale server</td>
+<td>Uw eigen computer (<code>127.0.0.1:8000</code>). Er verlaat niets uw computer, behalve de hieronder genoemde controles bij dreigingsinformatie.</td>
+</tr>
+<tr class="even">
+<td>Eigen URL</td>
+<td>De server die u hebt ingevoerd. Het beleid van de eigenaar geldt.</td>
+</tr>
+<tr class="odd">
+<td>PhishLens Cloud</td>
+<td>De gehoste server van de auteur van PhishLens, bij Oracle Cloud. Er wordt niets opgeslagen (zie hieronder).</td>
+</tr>
+</tbody>
+</table></div>
+<p>De server controleert de links in een e-mail bij diensten voor dreigingsinformatie. Daarvoor stuurt hij <strong>alleen de linkadressen</strong> (nooit de tekst van de e-mail, de afzender of het onderwerp):</p>
+<ul>
+<li>Google Safe Browsing (volledige URL's, als er een API-sleutel is ingesteld);</li>
+<li>URLhaus van abuse.ch (volledige URL's);</li>
+<li>Spamhaus DBL (domeinnamen, via DNS);</li>
+<li>PhishTank (vergeleken met een lijst die naar de server is gedownload; geen verzoek per e-mail).</li>
+</ul>
+<h2 id="meldingen-die-u-zelf-verstuurt">Meldingen die u zelf verstuurt</h2>
+<p>Onder elk oordeel toont PhishLens de herkende taal en een link <strong>Verkeerd oordeel? Meld het</strong>; de weergave Statistieken heeft dezelfde link voor controles die u als <strong>Onjuist</strong> hebt gemarkeerd, en een knop <strong>Mijn statistieken delen</strong>. Er wordt niets verstuurd voordat u op <strong>Versturen</strong> drukt nadat u hebt gelezen wat er wordt verstuurd.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Melding</th>
+<th>Wat wordt verstuurd</th>
+<th>Wat nooit wordt verstuurd</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Verkeerd oordeel</td>
+<td>Het onderwerp, de tekst en de domeinen van de links van die e-mail na anonimisering (namen na een aanhef of titel, uw eigen naam en adres zoals ze op de mailpagina staan, e-mailadressen, telefoonnummers, lange nummers zoals rekeningen, kaarten en codes, IBAN's, @namen en gebruikersnamen, het pad en de parameters van elke link), de tekst zoals u die hebt bewerkt, het oordeel, de scores, de beoordelingsroute, de herkende taal en uw antwoord, de versie van de extensie en de taal van de interface</td>
+<td>Het adres van de afzender, de originele e-mail, de headers en de bijlagen</td>
+</tr>
+<tr class="even">
+<td>Statistieken</td>
+<td>Voor elke controle in uw geschiedenis: de dag, waar gecontroleerd (Gmail, Outlook, venster van de extensie), het oordeel, de scores, of de afzender vertrouwd was, uw beoordeling Juist / Onjuist, de herkende taal en uw antwoord</td>
+<td>Onderwerpen, afzenders, teksten, links</td>
+</tr>
+</tbody>
+</table></div>
+<p>Meldingen gaan naar PhishLens Cloud, welke server u ook voor de controles gebruikt. De server anonimiseert de tekst een tweede keer met dezelfde regels, bewaart de melding zonder uw IP-adres of andere verzoekgegevens (het hieronder beschreven logboek van de webserver legt het verzoek wel 30 dagen vast) en geeft een referentie terug. Meldingen dienen alleen om PhishLens te meten en te verbeteren (bijvoorbeeld om het tekstmodel te trainen op legitieme e-mails die het verkeerd beoordeelde); ze worden nooit gepubliceerd of gedeeld. Ze worden hooguit twee jaar bewaard. Om een melding te laten verwijderen, opent u een issue op <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> met de referentie (de referentie alleen zegt niets over de melding).</p>
+<p>Om melden vanuit de weergave Statistieken mogelijk te maken, blijft de geanonimiseerde tekst van uw laatste Gmail- en Outlook-controles 7 dagen in uw browser (hooguit 50 e-mails). Die verlaat de browser nooit, tenzij u die controle meldt.</p>
+<h2 id="wat-bewaard-wordt-en-hoe-lang">Wat bewaard wordt, en hoe lang</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Gegevens</th>
+<th>Waar</th>
+<th>Hoe lang</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Controlegeschiedenis (onderwerp, afzender, oordeel, scores, belangrijkste woorden van de uitleg, herkende taal en uw antwoord)</td>
+<td>Uw browser (<code>chrome.storage.local</code>)</td>
+<td>Tot u ze wist (Statistieken, <strong>Wissen</strong>), hooguit de laatste 500 controles</td>
+</tr>
+<tr class="even">
+<td>Cache van uitleg</td>
+<td>Uw browser</td>
+<td>Tot de extensie wordt verwijderd</td>
+</tr>
+<tr class="odd">
+<td>Geanonimiseerde tekst van recente Gmail- en Outlook-controles, voor meldingen</td>
+<td>Uw browser</td>
+<td>7 dagen, hooguit 50 e-mails; gewist met de geschiedenis</td>
+</tr>
+<tr class="even">
+<td>Meldingen die u hebt verstuurd (geanonimiseerde tekst of statistieken, zie hierboven)</td>
+<td>PhishLens Cloud</td>
+<td>Hooguit twee jaar; op verzoek verwijderd met de referentie</td>
+</tr>
+<tr class="odd">
+<td>Resultaten van de automatische controle (gespreks-ID, oordeel, score)</td>
+<td>Uw browser</td>
+<td>De laatste 500 e-mails</td>
+</tr>
+<tr class="even">
+<td>Instellingen</td>
+<td>Uw browser</td>
+<td>Tot ze gewijzigd worden</td>
+</tr>
+<tr class="odd">
+<td>Linkoordelen (URL, oordeel, bron)</td>
+<td>Servercache (SQLite)</td>
+<td>24 uur</td>
+</tr>
+<tr class="even">
+<td>Teruggestuurde resultaten (oordeel, scores, linkoordelen, woorden van de uitleg), gekoppeld aan een hash van de e-mail; niet de e-mail zelf</td>
+<td>Geheugen van de server</td>
+<td>24 uur, of tot de server herstart</td>
+</tr>
+<tr class="odd">
+<td>Tekst, headers en bijlagen van e-mails</td>
+<td>Geheugen van de server, tijdens het verzoek</td>
+<td>Niet opgeslagen</td>
+</tr>
+<tr class="even">
+<td>Metagegevens van verzoeken (tijd, pad, status, IP-adres, browser)</td>
+<td>Applicatie- en webserverlogs van PhishLens Cloud</td>
+<td>30 dagen; de inhoud van verzoeken wordt nooit gelogd</td>
+</tr>
+</tbody>
+</table></div>
+<p>PhishLens Cloud telt ook oordelen per beoordelingsroute voor monitoring (Prometheus-tellers). Dat zijn alleen getallen, zonder e-mailgegevens.</p>
+<h2 id="deze-website">Deze website</h2>
+<p><code>anzouk.duckdns.org</code> plaatst geen cookies en gebruikt geen trackingscripts, dus er is niets om mee in te stemmen. Bezoekersaantallen komen uit de logs van de eigen webserver (pagina, tijd, verwijzende pagina, browsertype, IP-adres), gelezen met een zelf gehost hulpmiddel; ze worden 30 dagen bewaard en nooit gedeeld. De pagina vraagt de openbare API van GitHub om het nummer van de nieuwste versie, wat GitHub ziet als een gewoon verzoek van uw browser.</p>
+<h2 id="rechten">Rechten</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Recht</th>
+<th>Waarom</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>storage</code></td>
+<td>Uw instellingen, controlegeschiedenis en caches in de browser bewaren.</td>
+</tr>
+<tr class="even">
+<td><code>notifications</code></td>
+<td>U waarschuwen als de automatische controle een phishingmail vindt.</td>
+</tr>
+<tr class="odd">
+<td><code>scripting</code></td>
+<td>Na een update de nieuwe versie van de controleknoppen in al geopende Gmail- en Outlook-tabbladen zetten, zodat u ze niet hoeft te vernieuwen.</td>
+</tr>
+<tr class="even">
+<td>Toegang tot <code>mail.google.com</code></td>
+<td>De controleknoppen en meldingen aan Gmail toevoegen en de e-mail lezen die u controleert.</td>
+</tr>
+<tr class="odd">
+<td>Toegang tot Outlook op het web (<code>outlook.office.com</code>, <code>outlook.office365.com</code>, <code>outlook.live.com</code>)</td>
+<td>Hetzelfde, in Outlook (alleen handmatige controles).</td>
+</tr>
+<tr class="even">
+<td>Toegang tot <code>127.0.0.1:8000</code>, <code>localhost:8000</code>, <code>anzouk.duckdns.org</code></td>
+<td>Controles naar de door u gekozen server sturen.</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="uw-keuzes">Uw keuzes</h2>
+<ul>
+<li>Zet <strong>Volledige headers lezen</strong> of <strong>Nieuwe e-mails automatisch controleren</strong> op elk moment uit in de instellingen.</li>
+<li>Gebruik de lokale server, zodat e-mails uw computer nooit verlaten.</li>
+<li>Wis de geschiedenis in de weergave Statistieken, of verwijder de extensie om alles te wissen wat ze heeft opgeslagen.</li>
+<li>Als u nooit een melding verstuurt, verlaat niets uw browser behalve de controles zelf, naar de server die u hebt gekozen.</li>
+</ul>
+<h2 id="kinderen">Kinderen</h2>
+<p>PhishLens is niet gericht op kinderen en verzamelt niet bewust gegevens over hen.</p>
+<h2 id="wijzigingen-en-contact">Wijzigingen en contact</h2>
+<p>Wijzigingen in dit beleid staan in het <a href="https://github.com/AnzouK/PhishLens/blob/main/CHANGELOG.md">wijzigingslogboek</a> van het project. Voor vragen opent u een issue op <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a>, of meldt u een beveiligingsprobleem vertrouwelijk zoals beschreven in <a href="https://github.com/AnzouK/PhishLens/blob/main/SECURITY.md">SECURITY.md</a>.</p>
+</article>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div>PhishLens. Gratis en open source, GNU AGPL-3.0-licentie. Geen cookies op deze site.</div>
+    <nav aria-label="Voettekst">
+      <a href="../nl/privacy.html">Privacy</a>
+      <a href="../nl/terms.html">Voorwaarden</a>
+      <a href="https://github.com/AnzouK/PhishLens">GitHub</a>
+      <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/architecture.md">Architectuur</a>
+      <a href="https://github.com/AnzouK/PhishLens/blob/main/SECURITY.md">Beveiliging</a>
+      <a href="https://huggingface.co/AnzouKiona/phishlens-distilbert">Model</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

@@ -13,7 +13,7 @@
     <rect width="262" height="4" rx="2" fill="#ff8a80"/>
     <g transform="translate(14 18)" class="ic" stroke="#ff8a80"><path d="M9 1 L17 15 L1 15 Z"/><path d="M9 6 V9.5 M9 12 V12.2"/></g>
     <text x="42" y="31" font-size="13" font-weight="600" fill="#ff8a80">Looks like phishing</text>
-    <text x="42" y="48" font-size="11.5" fill="#a6adb7">Invoice_0925.pdf</text>
+    <text x="42" y="48" font-size="11.5" fill="#a6adb7">Facture_0925.pdf</text>
     <text x="14" y="76" font-size="11.5" fill="#a6adb7">PDF · 212 KB · 1 / 1 pages · 1 URL</text>
     <text x="14" y="94" font-size="11.5" fill="#a6adb7">Wording</text><text x="64" y="94" font-size="11.5" font-weight="600" fill="#e8eaed">91%</text><text x="96" y="94" font-size="11.5" fill="#a6adb7">· Links</text><text x="138" y="94" font-size="11.5" font-weight="600" fill="#e8eaed">84%</text>
     <rect x="14" y="108" width="102" height="22" rx="11" fill="#3a3830" stroke="#6d623d"/>

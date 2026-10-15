@@ -33,17 +33,17 @@
       <img src="../icons/48.png" alt="PhishLens" class="brand__logo" />
       <div class="brand__text">
         <h1 class="brand__name">PhishLens</h1>
-        <p class="brand__tag">Detect &amp; explain phishing emails</p>
+        <p class="brand__tag" data-i18n="tagline">Detect &amp; explain phishing emails</p>
       </div>
     </div>
     <div class="header-actions">
-      <button id="insights-btn" class="theme-toggle" title="Scan history &amp; stats" aria-label="Scan history and stats">
+      <button id="insights-btn" class="theme-toggle" title="Scan history &amp; stats" aria-label="Scan history and stats" data-i18n-title="insights_title" data-i18n-aria-label="insights_aria">
         <svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>
       </button>
-      <button id="settings-btn" class="theme-toggle" title="Backend settings" aria-label="Backend settings">
+      <button id="settings-btn" class="theme-toggle" title="Settings" aria-label="Settings" data-i18n-title="settings_title" data-i18n-aria-label="settings_title">
         <svg class="i" aria-hidden="true"><use href="#i-gear"/></svg>
       </button>
-      <button id="theme-toggle" class="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+      <button id="theme-toggle" class="theme-toggle" title="Toggle theme" aria-label="Toggle theme" data-i18n-title="theme_toggle" data-i18n-aria-label="theme_toggle">
         <svg class="i" aria-hidden="true"><use href="#i-contrast"/></svg>
       </button>
     </div>
@@ -58,10 +58,10 @@
       <!-- Tab switcher: File / Paste -->
       <div class="tabs" role="tablist">
         <button class="tab tab--active" data-tab="file" role="tab">
-          <svg class="i tab__icon" aria-hidden="true"><use href="#i-file"/></svg> File
+          <svg class="i tab__icon" aria-hidden="true"><use href="#i-file"/></svg> <span data-i18n="tab_file">File</span>
         </button>
         <button class="tab" data-tab="paste" role="tab">
-          <svg class="i tab__icon" aria-hidden="true"><use href="#i-text"/></svg> Paste
+          <svg class="i tab__icon" aria-hidden="true"><use href="#i-text"/></svg> <span data-i18n="tab_paste">Paste</span>
         </button>
       </div>
 
@@ -69,14 +69,14 @@
       <div class="tab-panel tab-panel--active" data-panel="file">
         <div class="hint">
           <svg class="i hint__icon" aria-hidden="true"><use href="#i-info"/></svg>
-          <span>In Gmail, open an email → menu <strong>⋮</strong> → <em>Download message</em> to get a <code>.eml</code> file.</span>
+          <span data-i18n-html="hint_file_html">In Gmail, open an email → menu <strong>⋮</strong> → <em>Download message</em> to get a <code>.eml</code> file.</span>
         </div>
 
         <label id="drop-zone" class="drop-zone" for="file-input">
           <input id="file-input" type="file" accept=".eml,.pdf,.html,.htm,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff,.docx,.docm,.doc,.xlsx,.xlsm,.xls,.pptx,.pptm,.ppt,.zip,.rar,.7z,.ics,.txt" hidden />
           <div class="drop-zone__icon"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg></div>
-          <div class="drop-zone__label">Drag &amp; drop an email (<code>.eml</code>) or an attachment (PDF, image, Word, Excel, PowerPoint, HTML, ZIP, RAR, 7z, .ics)</div>
-          <div class="drop-zone__hint">or click to browse · 10 MB max</div>
+          <div class="drop-zone__label" data-i18n-html="drop_label_html">Drag &amp; drop an email (<code>.eml</code>) or an attachment (PDF, image, Word, Excel, PowerPoint, HTML, ZIP, RAR, 7z, .ics)</div>
+          <div class="drop-zone__hint" data-i18n="drop_hint">or click to browse · 10 MB max</div>
         </label>
       </div>
 
@@ -84,24 +84,24 @@
       <div class="tab-panel" data-panel="paste">
         <div class="hint">
           <svg class="i hint__icon" aria-hidden="true"><use href="#i-info"/></svg>
-          <span>Paste the raw text of an email: useful when you only have the message body, no <code>.eml</code> file.</span>
+          <span data-i18n-html="hint_paste_html">Paste the raw text of an email: useful when you only have the message body, no <code>.eml</code> file.</span>
         </div>
 
         <textarea id="paste-input"
                   class="paste-input"
-                  placeholder="Paste email body here…"
+                  placeholder="Paste email body here…" data-i18n-placeholder="paste_placeholder"
                   spellcheck="false"
                   rows="9"></textarea>
         <div class="paste-footer">
-          <button id="paste-clipboard-btn" class="btn btn--ghost" type="button" title="Paste from clipboard">
-            <svg class="i" aria-hidden="true"><use href="#i-clipboard"/></svg> Paste from clipboard
+          <button id="paste-clipboard-btn" class="btn btn--ghost" type="button" title="Paste from clipboard" data-i18n-title="paste_clipboard">
+            <svg class="i" aria-hidden="true"><use href="#i-clipboard"/></svg> <span data-i18n="paste_clipboard">Paste from clipboard</span>
           </button>
-          <span class="paste-counter"><span id="paste-counter">0</span> characters</span>
+          <span class="paste-counter"><span id="paste-counter">0</span> <span data-i18n="characters">characters</span></span>
         </div>
       </div>
 
       <button id="analyze-btn" class="btn btn--primary" disabled>
-        <span class="btn__label">Analyze</span>
+        <span class="btn__label" data-i18n="analyze">Analyze</span>
       </button>
 
       <p id="status" class="status" hidden></p>
@@ -110,8 +110,8 @@
     <!-- ===== loading view ===== -->
     <section id="view-loading" class="view">
       <div class="spinner"></div>
-      <p class="loading-text">Analyzing email…</p>
-      <p class="loading-sub">DistilBERT inference. This may take up to 30 seconds on CPU.</p>
+      <p class="loading-text" data-i18n="analyzing">Analyzing email…</p>
+      <p class="loading-sub" data-i18n="analyzing_sub">This can take up to 30 seconds on a busy server.</p>
     </section>
 
     <!-- ===== result view ===== -->
@@ -122,11 +122,12 @@
         <div class="verdict-card__text">
           <div class="verdict-card__label">
             <span id="verdict-label">This email looks safe</span>
-            <span id="verdict-trusted" class="verdict-trusted" hidden>Trusted sender</span>
+            <span id="verdict-trusted" class="verdict-trusted" hidden data-i18n="badge_trusted">Trusted sender</span>
           </div>
-          <div class="verdict-card__sub" id="verdict-sub">Unlikely to be a phishing attempt</div>
+          <div class="verdict-card__sub" id="verdict-sub" data-i18n="verdict_safe_sub">Unlikely to be a phishing attempt</div>
         </div>
       </div>
+      <div id="result-feedback"></div>
 
       <!-- Files inside an archive -->
       <div id="archive-files" class="archive-files" hidden></div>
@@ -135,30 +136,30 @@
       <div class="agents">
         <div class="agent" data-agent="text">
           <div class="agent__head">
-            <span class="agent__name">Message content</span>
+            <span class="agent__name" data-i18n="agent_text">Message content</span>
             <span class="agent__score" id="text-score">…</span>
           </div>
           <div class="agent__bar"><span class="agent__bar-fill" id="text-bar"></span></div>
-          <div class="agent__hint" id="text-hint">DistilBERT reads the body text.</div>
+          <div class="agent__hint" id="text-hint" data-i18n="agent_text_hint">A language model reads the text.</div>
         </div>
 
         <div class="agent" data-agent="url">
           <div class="agent__head">
-            <span class="agent__name">Links in the email</span>
+            <span class="agent__name" data-i18n="agent_url">Links in the email</span>
             <span class="agent__score" id="url-score">…</span>
           </div>
           <div class="agent__bar"><span class="agent__bar-fill" id="url-bar"></span></div>
-          <div class="agent__hint" id="url-hint">URL-level heuristics on the embedded links.</div>
+          <div class="agent__hint" id="url-hint" data-i18n="agent_url_hint">The links are checked against threat intelligence and link rules.</div>
           <div class="agent__badges" id="url-badges" hidden></div>
         </div>
 
         <div class="agent" data-agent="metadata">
           <div class="agent__head">
-            <span class="agent__name">Sender &amp; headers</span>
+            <span class="agent__name" data-i18n="agent_meta">Sender &amp; headers</span>
             <span class="agent__score" id="meta-score">…</span>
           </div>
           <div class="agent__bar"><span class="agent__bar-fill" id="meta-bar"></span></div>
-          <div class="agent__hint" id="meta-hint">From / Reply-To / Authentication-Results.</div>
+          <div class="agent__hint" id="meta-hint" data-i18n="agent_meta_hint">From / Reply-To / Authentication-Results.</div>
           <div class="agent__badges" id="meta-badges" hidden></div>
         </div>
       </div>
@@ -166,11 +167,11 @@
       <!-- explainability panel -->
       <details class="explain" id="explain-panel">
         <summary class="explain__head">
-          <span>Why this verdict?</span>
+          <span data-i18n="why_verdict">Why this verdict?</span>
           <span class="explain__caret">▾</span>
         </summary>
         <div class="explain__body">
-          <p class="explain__intro">
+          <p class="explain__intro" data-i18n-html="explain_intro_html">
             The words that influenced the text model most. A stronger colour means a
             stronger influence; orange points to <em>phishing</em>, green to <em>safe</em>.
           </p>
@@ -179,44 +180,44 @@
         </div>
       </details>
 
-      <button id="back-btn" class="btn btn--secondary">Analyze another email</button>
+      <button id="back-btn" class="btn btn--secondary" data-i18n="analyze_another">Analyze another email</button>
     </section>
 
     <!-- ===== insights view (scan history + analytics) ===== -->
     <section id="view-insights" class="view">
       <div class="settings-header">
-        <button id="insights-back" class="btn--icon" title="Back" aria-label="Back"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></button>
-        <h2 class="settings-title">Insights</h2>
+        <button id="insights-back" class="btn--icon" title="Back" aria-label="Back" data-i18n-title="back" data-i18n-aria-label="back"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></button>
+        <h2 class="settings-title" data-i18n="insights">Insights</h2>
       </div>
 
       <!-- Empty state -->
       <div id="insights-empty" class="insights-empty" hidden>
         <div class="insights-empty__icon"><svg class="i" aria-hidden="true"><use href="#i-inbox"/></svg></div>
-        <div class="insights-empty__title">No scans yet</div>
-        <div class="insights-empty__sub">Once you analyse a few emails, you'll see stats and a history here.</div>
+        <div class="insights-empty__title" data-i18n="no_scans">No scans yet</div>
+        <div class="insights-empty__sub" data-i18n="no_scans_sub">Once you analyse a few emails, you'll see stats and a history here.</div>
       </div>
 
       <!-- Stats block -->
       <div id="insights-stats" class="insights-stats">
         <div class="stat-card">
           <div class="stat-card__value" id="stat-total">0</div>
-          <div class="stat-card__label">total scans</div>
+          <div class="stat-card__label" data-i18n="stat_total">total scans</div>
         </div>
         <div class="stat-card">
           <div class="stat-card__value" id="stat-phishing-pct">0%</div>
-          <div class="stat-card__label">flagged as phishing</div>
+          <div class="stat-card__label" data-i18n="stat_flagged">flagged as phishing</div>
         </div>
         <div class="stat-card">
           <div class="stat-card__value" id="stat-avg-score">0</div>
-          <div class="stat-card__label">avg text score</div>
+          <div class="stat-card__label" data-i18n="stat_avg">avg text score</div>
         </div>
       </div>
 
       <!-- Ratio bar (Safe vs Phishing) -->
       <div class="ratio-block" id="ratio-block">
         <div class="ratio-block__label">
-          <span class="ratio-safe-label">Safe (<span id="ratio-safe-count">0</span>)</span>
-          <span class="ratio-phishing-label"><span id="ratio-phishing-count">0</span> phishing</span>
+          <span class="ratio-safe-label" data-i18n-html="ratio_safe_html">Safe (<span id="ratio-safe-count">0</span>)</span>
+          <span class="ratio-phishing-label" data-i18n-html="ratio_phishing_html"><span id="ratio-phishing-count">0</span> phishing</span>
         </div>
         <div class="ratio-bar">
           <span class="ratio-bar__safe" id="ratio-safe-fill"></span>
@@ -226,30 +227,31 @@
 
       <!-- Last 30 days timeline (pure CSS bar chart) -->
       <div class="chart-block">
-        <div class="chart-block__title">Scans, last 30 days</div>
-        <div id="daily-chart" class="daily-chart" aria-label="Daily scan chart"></div>
+        <div class="chart-block__title" data-i18n="chart_30d">Scans, last 30 days</div>
+        <div id="daily-chart" class="daily-chart" aria-label="Daily scan chart" data-i18n-aria-label="chart_aria"></div>
       </div>
 
       <!-- Top phishing tokens -->
       <div class="chart-block" id="top-tokens-block">
-        <div class="chart-block__title">Top phishing tokens (from LIME)</div>
+        <div class="chart-block__title" data-i18n="top_tokens">Top phishing words (from LIME)</div>
         <div id="top-tokens" class="top-tokens"></div>
       </div>
 
       <!-- Live evaluation from the user's reviews -->
       <div class="chart-block" id="live-block">
-        <div class="chart-block__title">Live accuracy (your reviews)</div>
+        <div class="chart-block__title" data-i18n="live_accuracy">Live accuracy (your reviews)</div>
         <div id="live-eval" class="live-eval"></div>
+        <div id="share-stats" class="share-stats"></div>
       </div>
 
       <!-- Recent history list -->
       <div class="history-block">
         <div class="history-block__head">
-          <span class="chart-block__title">Recent scans</span>
+          <span class="chart-block__title" data-i18n="recent_scans">Recent scans</span>
           <div class="history-actions">
-            <button id="export-csv-btn" class="btn btn--ghost btn--tiny" title="Download CSV">CSV</button>
-            <button id="export-json-btn" class="btn btn--ghost btn--tiny" title="Download JSON">JSON</button>
-            <button id="clear-history-btn" class="btn btn--ghost btn--tiny btn--danger" title="Clear history">Clear</button>
+            <button id="export-csv-btn" class="btn btn--ghost btn--tiny" title="Download CSV" data-i18n-title="download_csv">CSV</button>
+            <button id="export-json-btn" class="btn btn--ghost btn--tiny" title="Download JSON" data-i18n-title="download_json">JSON</button>
+            <button id="clear-history-btn" class="btn btn--ghost btn--tiny btn--danger" title="Clear history" data-i18n-title="clear_history" data-i18n="clear">Clear</button>
           </div>
         </div>
         <div id="history-list" class="history-list"></div>
@@ -259,11 +261,15 @@
     <!-- ===== settings view ===== -->
     <section id="view-settings" class="view">
       <div class="settings-header">
-        <button id="settings-back" class="btn--icon" title="Back" aria-label="Back"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></button>
-        <h2 class="settings-title">Backend settings</h2>
+        <button id="settings-back" class="btn--icon" title="Back" aria-label="Back" data-i18n-title="back" data-i18n-aria-label="back"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></button>
+        <h2 class="settings-title" data-i18n="settings_heading">Settings</h2>
       </div>
 
-      <p class="settings-intro">
+      <h3 class="settings-subtitle" data-i18n="language_heading">Language</h3>
+      <select id="ui-lang" class="lang-select" aria-label="Language" data-i18n-aria-label="language_heading"></select>
+
+      <h3 class="settings-subtitle" data-i18n="server_heading">Server</h3>
+      <p class="settings-intro" data-i18n="settings_intro">
         Choose where PhishLens sends emails for analysis. Your choice is
         remembered between sessions.
       </p>
@@ -273,8 +279,8 @@
         <label for="opt-cloud" class="backend-option__label">
           <span class="backend-option__icon"><svg class="i" aria-hidden="true"><use href="#i-cloud"/></svg></span>
           <div class="backend-option__main">
-            <div class="backend-option__title">PhishLens Cloud <span class="backend-option__tag">default</span></div>
-            <div class="backend-option__sub"><code>anzouk.duckdns.org</code>: hosted service, HTTPS, no setup.</div>
+            <div class="backend-option__title">PhishLens Cloud <span class="backend-option__tag" data-i18n="cloud_default">default</span></div>
+            <div class="backend-option__sub" data-i18n-html="cloud_sub_html"><code>anzouk.duckdns.org</code>: hosted service, HTTPS, no setup.</div>
           </div>
         </label>
       </div>
@@ -284,8 +290,8 @@
         <label for="opt-local" class="backend-option__label">
           <span class="backend-option__icon"><svg class="i" aria-hidden="true"><use href="#i-monitor"/></svg></span>
           <div class="backend-option__main">
-            <div class="backend-option__title">Local backend (Docker)</div>
-            <div class="backend-option__sub"><code>http://127.0.0.1:8000</code>: private, no setup once Docker runs.</div>
+            <div class="backend-option__title" data-i18n="local_title">Local backend (Docker)</div>
+            <div class="backend-option__sub" data-i18n-html="local_sub_html"><code>http://127.0.0.1:8000</code>: private, no setup once Docker runs.</div>
           </div>
         </label>
       </div>
@@ -295,46 +301,73 @@
         <label for="opt-custom" class="backend-option__label">
           <span class="backend-option__icon"><svg class="i" aria-hidden="true"><use href="#i-link"/></svg></span>
           <div class="backend-option__main">
-            <div class="backend-option__title">Custom URL</div>
-            <div class="backend-option__sub">For self-hosted backends.</div>
+            <div class="backend-option__title" data-i18n="custom_title">Custom URL</div>
+            <div class="backend-option__sub" data-i18n="custom_sub">For self-hosted servers.</div>
           </div>
         </label>
         <input type="url" id="custom-url" class="custom-url-input"
                placeholder="https://your-server.example.com" />
-        <p id="custom-url-warn" class="url-warn" role="alert" hidden>
+        <p id="custom-url-warn" class="url-warn" role="alert" hidden data-i18n-html="custom_warn_html">
           Not encrypted: with <code>http://</code> your emails would cross the
           internet in clear text. Use <code>https://</code>, or <code>http://</code>
           only for a server on this computer or your home network.
         </p>
       </div>
 
-      <button id="test-conn-btn" class="btn btn--secondary">Test connection</button>
+      <button id="test-conn-btn" class="btn btn--secondary" data-i18n="test_connection">Test connection</button>
       <p id="conn-status" class="conn-status" hidden></p>
 
       <h3 class="settings-subtitle">Gmail</h3>
       <label class="opt-row">
         <input type="checkbox" id="opt-full-headers" />
-        <span><strong>Read full headers</strong><br>
+        <span data-i18n-html="opt_full_headers_html"><strong>Read full headers</strong><br>
           Uses Gmail's "Show original" so the sender checks see every header, not only the visible page.</span>
       </label>
       <label class="opt-row">
         <input type="checkbox" id="opt-auto-scan" />
-        <span><strong>Scan new emails automatically</strong><br>
-          Unread emails in the inbox list are sent to the backend without a click; a notification appears when one looks like phishing.</span>
+        <span data-i18n-html="opt_auto_scan_html"><strong>Scan new emails automatically</strong><br>
+          Unread emails in the inbox list are sent to the server without a click; a notification appears when one looks like phishing.</span>
       </label>
+
+      <h3 class="settings-subtitle" data-i18n="about_heading">About</h3>
+      <div class="about">
+        <p class="about__text" data-i18n="about_text">PhishLens is free software under the GNU AGPL-3.0 license and comes with no warranty. No accounts, no ads.</p>
+        <a class="about__link" href="https://github.com/AnzouK/PhishLens" target="_blank" rel="noopener noreferrer" data-i18n="about_source">Source code on GitHub</a>
+        <h4 class="about__title" data-i18n="credits_heading">Credits</h4>
+        <dl class="credits">
+          <dt data-i18n="credits_intel">Threat intelligence</dt>
+          <dd>Google Safe Browsing, PhishTank, URLhaus (abuse.ch), Spamhaus DBL</dd>
+          <dt data-i18n="credits_models">Models and libraries</dt>
+          <dd>Hugging Face Transformers, DistilBERT, scikit-learn, LIME, Tesseract OCR</dd>
+          <dt data-i18n="credits_data">Training data</dt>
+          <dd><span data-i18n="credits_data_text">Public phishing and legitimate email datasets, listed in</span>
+            <a href="https://github.com/dodi-ctrl/PhishingDetector" target="_blank" rel="noopener noreferrer">PhishingDetector</a></dd>
+        </dl>
+        <p class="about__note" data-i18n="credits_gsb">Safe Browsing warnings: advisory provided by Google.</p>
+        <a class="about__link" href="https://github.com/AnzouK/PhishLens#credits" target="_blank" rel="noopener noreferrer" data-i18n="credits_more">All credits and licenses</a>
+      </div>
     </section>
 
   </main>
 
   <footer class="app-footer">
-    <span title="DistilBERT, Random Forests, LIME">DistilBERT, RF, LIME</span>
-    <span class="footer__dot">·</span>
-    <span>Nile University, CYB 499</span>
+    <span data-i18n="footer_models">Text model, Random Forests, LIME</span>
     <span class="footer__dot">·</span>
     <span id="app-version" class="footer__version"></span>
   </footer>
 
+  <script src="../lib/locales/en.js"></script>
+  <script src="../lib/locales/fr.js"></script>
+  <script src="../lib/locales/pt.js"></script>
+  <script src="../lib/locales/es.js"></script>
+  <script src="../lib/locales/de.js"></script>
+  <script src="../lib/locales/it.js"></script>
+  <script src="../lib/locales/nl.js"></script>
+  <script src="../lib/locales/ha.js"></script>
+  <script src="../lib/i18n.js"></script>
   <script src="../lib/shared.js"></script>
+  <script src="../lib/redact.js"></script>
+  <script src="../lib/report_ui.js"></script>
   <script src="../lib/history.js"></script>
   <script src="../lib/lime_cache.js"></script>
   <script type="module" src="popup.js"></script>

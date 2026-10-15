@@ -7,5 +7,6 @@ module.exports = defineConfig({
     timeout: 30_000,
     retries: 1,
     reporter: [["list"]],
-    use: { browserName: "chromium", headless: true },
+    // English UI whatever the machine language: the tests check English texts.
+    use: { browserName: "chromium", headless: true, locale: "en-US" },
 });

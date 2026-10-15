@@ -159,14 +159,14 @@ def popup_svg(theme: str, logo_b64: str) -> str:
         x += wd + 6
 
     icon = f'class="ic" stroke="{c["mute"]}"'
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="400" height="620" viewBox="0 0 400 620" role="img" aria-labelledby="t d">
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="400" height="676" viewBox="0 0 400 676" role="img" aria-labelledby="t d">
   <title id="t">PhishLens popup showing a phishing verdict</title>
-  <desc id="d">The extension popup after scanning an email: a phishing verdict, a score per check with a bar, threat-intelligence and authentication badges, and the words that influenced the text model.</desc>
+  <desc id="d">The extension popup after scanning an email: a phishing verdict, a score per check with a bar, threat-intelligence and authentication badges, the detected language with buttons to confirm or correct it, a link to report a wrong verdict, and the words that influenced the text model.</desc>
   <style>
     text {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }}
     .ic {{ fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }}
   </style>
-  <rect x="0.5" y="0.5" width="399" height="619" rx="6" fill="{c["bg"]}" stroke="{c["line"]}"/>
+  <rect x="0.5" y="0.5" width="399" height="675" rx="6" fill="{c["bg"]}" stroke="{c["line"]}"/>
 
   <image x="20" y="18" width="34" height="34" href="data:image/png;base64,{logo_b64}"/>
   <text x="64" y="34" font-size="16" font-weight="700" fill="{c["text"]}">PhishLens</text>
@@ -186,6 +186,15 @@ def popup_svg(theme: str, logo_b64: str) -> str:
   <text x="74" y="111" font-size="15" font-weight="700" fill="{c["text"]}">This email looks like phishing</text>
   <text x="74" y="130" font-size="12.5" fill="{c["mute"]}">We recommend not clicking any links.</text>
 
+  <line x1="20" y1="156" x2="380" y2="156" stroke="{c["line"]}"/>
+  <text x="20" y="177" font-size="12" fill="{c["mute"]}">Language detected: English.</text>
+  <rect x="184" y="163" width="58" height="21" rx="6" fill="none" stroke="{c["line"]}"/>
+  <text x="213" y="177" font-size="11.5" fill="{c["text"]}" text-anchor="middle">Correct</text>
+  <rect x="248" y="163" width="108" height="21" rx="6" fill="none" stroke="{c["line"]}"/>
+  <text x="302" y="177" font-size="11.5" fill="{c["text"]}" text-anchor="middle">Not this language</text>
+  <text x="20" y="202" font-size="11.5" fill="{c["accent"]}" text-decoration="underline">Wrong verdict? Report it</text>
+
+  <g transform="translate(0 56)">
   {agent(160, "Message content", 97, c["bad"], [])}
   <text x="36" y="226" font-size="12" fill="{c["mute"]}">The message content reads like a scam.</text>
   {agent(256, "Links in the email", 88, c["bad"], [("Flagged by Google Safe Browsing", c["bad"])])}
@@ -197,6 +206,7 @@ def popup_svg(theme: str, logo_b64: str) -> str:
   <text x="36" y="496" font-size="11.5" fill="{c["mute"]}">The words that influenced the text model most.</text>
   <text x="36" y="512" font-size="11.5" fill="{c["mute"]}">Red points to phishing, green to safe.</text>
   {chr(10).join("  " + t for t in tok_svg)}
+  </g>
 </svg>
 '''
 

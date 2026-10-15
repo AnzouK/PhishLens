@@ -147,3 +147,32 @@ def test_text_pdf_is_not_flagged_as_scanned():
     r = analyse_attachment(b64(buf.getvalue()), filename="report.pdf")
     assert "image_only_pdf" not in r["notable_features"]
     assert r["ocr_used"] is False
+
+
+# ---------------------------------------------------------------------
+# Language selection (multilingual OCR)
+# ---------------------------------------------------------------------
+def test_ocr_language_follows_the_detected_script(monkeypatch):
+    import ocr
+
+    monkeypatch.setattr(ocr, "OCR_LANG", "auto")
+    monkeypatch.setattr(ocr, "_INSTALLED_LANGS", {"eng", "fra", "spa", "osd", "ara", "rus"})
+
+    class FakeTess:
+        Output = type("Output", (), {"DICT": "dict"})
+        script = "Arabic"
+
+        def image_to_osd(self, img, output_type=None, timeout=None):
+            if self.script is None:
+                raise RuntimeError("too few characters")
+            return {"script": self.script}
+
+    fake = FakeTess()
+    monkeypatch.setattr(ocr, "pytesseract", fake, raising=False)
+    assert ocr.ocr_language(object()) == "ara+eng"
+    fake.script = "Cyrillic"
+    assert ocr.ocr_language(object()) == "rus+eng"  # ukr not installed
+    fake.script = None
+    assert ocr.ocr_language(object()) == "eng+fra+spa"  # unknown -> Latin packs present
+    monkeypatch.setattr(ocr, "OCR_LANG", "eng")
+    assert ocr.ocr_language(object()) == "eng"

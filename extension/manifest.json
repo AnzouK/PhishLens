@@ -1,7 +1,8 @@
 {
-  "name": "PhishLens",
-  "description": "Detects phishing emails in Gmail and explains why: wording, links, sender checks, threat intelligence and attachments.",
-  "version": "1.15.5",
+  "name": "__MSG_extName__",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
+  "version": "2.0.0",
   "manifest_version": 3,
   "icons": {
     "16": "icons/16.png",
@@ -37,8 +38,25 @@
         "https://mail.google.com/*"
       ],
       "js": [
+        "lib/locales/en.js",
+        "lib/locales/fr.js",
+        "lib/locales/pt.js",
+        "lib/locales/es.js",
+        "lib/locales/de.js",
+        "lib/locales/it.js",
+        "lib/locales/nl.js",
+        "lib/locales/ha.js",
+        "lib/i18n.js",
         "lib/shared.js",
         "lib/lime_cache.js",
+        "lib/redact.js",
+        "lib/report_ui.js",
+        "content_scripts/core.js",
+        "content_scripts/banner.js",
+        "content_scripts/feedback.js",
+        "content_scripts/gmail_scan.js",
+        "content_scripts/attachments.js",
+        "content_scripts/autoscan.js",
         "content_scripts/gmail.js"
       ],
       "css": [
@@ -53,9 +71,22 @@
         "https://outlook.live.com/*"
       ],
       "js": [
+        "lib/locales/en.js",
+        "lib/locales/fr.js",
+        "lib/locales/pt.js",
+        "lib/locales/es.js",
+        "lib/locales/de.js",
+        "lib/locales/it.js",
+        "lib/locales/nl.js",
+        "lib/locales/ha.js",
+        "lib/i18n.js",
         "lib/shared.js",
         "lib/lime_cache.js",
-        "content_scripts/gmail.js",
+        "lib/redact.js",
+        "lib/report_ui.js",
+        "content_scripts/core.js",
+        "content_scripts/banner.js",
+        "content_scripts/feedback.js",
         "content_scripts/outlook.js"
       ],
       "css": [

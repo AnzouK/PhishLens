@@ -7,6 +7,50 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-15
+
+### Added
+- **Multilingual text model support:** the backend reads how a text
+  model expects its input and how to read its scores from
+  `phishlens_text_agent.json` next to the model (text normalisation,
+  temperature calibration, its own override threshold), so the
+  multilingual model can replace the English DistilBERT by changing
+  `HF_MODEL_REPO`. Each model repository is stored in its own folder.
+- **Multilingual OCR:** Tesseract's script detection picks the language
+  packs per image (Latin languages, Cyrillic, Arabic, Chinese, Japanese,
+  Korean, Hindi); the Docker images install them.
+- Gmail's "mailed-by" / "signed-by" rows are recognised in Spanish,
+  Portuguese, German, Italian and Dutch too (fallback when the full
+  headers are not available).
+- **Interface in 8 languages:** English, French, Portuguese, Spanish,
+  German, Italian, Dutch and Hausa, for the popup, the Gmail and Outlook
+  banners, attachment results and notifications. The language follows
+  the browser by default and can be changed in Settings. The Hausa
+  translation is a draft awaiting review by a native speaker.
+- **About and credits in Settings:** link to the source code and the
+  threat-intelligence sources, models, libraries and datasets PhishLens
+  builds on; the same list is in the README.
+- `/health` names the running text model, and "Test connection" shows
+  the server version and that name.
+- **Detected language** under each verdict (Gmail, Outlook, popup), with
+  "Correct" / "Not this language"; the answer is kept in the history and
+  the CSV / JSON exports. `/analyse` returns `language`.
+- **Report a wrong verdict** from the banner, the popup or Insights: the
+  email is redacted in the browser (names, the user's own name and
+  address, email addresses, phone and long numbers, IBANs, handles, link
+  paths), shown for editing and sent to PhishLens Cloud only after a
+  confirmation; the server redacts it again and keeps it without any IP
+  address (`POST /feedback`, `FEEDBACK_DIR`). Insights can also share the
+  reviewed history as statistics, without subject, sender or text.
+- Website: the header comes back as soon as you scroll up, and a "Back to
+  top" button appears on long pages.
+- **Website in 8 languages:** the same languages as the extension, each
+  at its own address (`/fr/`, `/pt/`, ...), with a language menu,
+  `hreflang` links for search engines and, on an English page, a link to
+  the visitor's own language. The privacy policy and terms are
+  translated too; the English version prevails. Built by
+  `scripts/build_site.py` from `site-src/`.
+
 ### Security
 - **Allowlist only for authenticated senders:** a domain in
   `TRUSTED_DOMAINS` gave the softest trust path on the From: text alone,
@@ -30,6 +74,20 @@ backend share one version number.
 
 
 ### Changed
+- **PhishLens Cloud reads emails in 22 languages:** its text model is now
+  a multilingual mmBERT-small, distilled from a larger multilingual
+  detector and calibrated. On real mail it never saw, with a 0.7
+  threshold: 0.4% false alarms and 92.5% of phishing caught in English,
+  1.6% and 87.4% in French. Self-hosted backends keep the English
+  DistilBERT unless `HF_MODEL_REPO` says otherwise.
+- README and website illustrations redrawn in light and dark with the
+  detected language and the report link.
+- **License: GNU AGPL-3.0** instead of MIT. PhishLens stays free and open
+  source; a modified version, including one run as an online service,
+  must now be published under the same license. Versions up to 1.15.5
+  remain available under MIT.
+- The popup footer and the website no longer present PhishLens as a
+  student project; the README explains where it started.
 - **Backend split by responsibility:** the 1,688-line
   `extension_backend.py` now only holds the HTTP layer; `settings.py`
   (version, environment, every scoring constant), `email_parsing.py`,
@@ -61,6 +119,18 @@ backend share one version number.
   minimum 80% (83.8%), with new tests for the fusion rules, the text
   model wrapper, agent loading and the reputation clients; optional
   pre-commit hooks.
+
+### Documentation
+- `docs/languages.md`: how the interface, the website, the OCR and the
+  text model handle languages, how translations are checked and how to
+  add one.
+- `docs/architecture.md`: every extension and backend module after the
+  split, and the text-model settings file. `docs/operations.md`:
+  switching the text model, OCR language packs, building the website.
+  `docs/threat-model.md`: request limits, model switching, PhishTank on
+  shared hosts, escaped translations; reviewed for this version.
+- README, project overview and contributing guide point to the user
+  guide (wiki) and describe the translation workflow.
 
 ## [1.15.5] - 2026-10-13
 
@@ -696,6 +766,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/AnzouK/PhishLens/compare/v1.15.5...v2.0.0
 [1.15.5]: https://github.com/AnzouK/PhishLens/compare/v1.15.4...v1.15.5
 [1.15.4]: https://github.com/AnzouK/PhishLens/compare/v1.15.3...v1.15.4
 [1.15.3]: https://github.com/AnzouK/PhishLens/compare/v1.15.2...v1.15.3
