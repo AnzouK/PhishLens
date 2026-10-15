@@ -26,7 +26,7 @@
   "results_h": "Resultaten",
   "r_langs": "talen die het tekstmodel leest",
   "r_f1_link": "F1, linkmodel (Random Forest)",
-  "r_latency": "mediane controle op een server zonder GPU (v1.15)",
+  "r_latency": "mediane controle op een server zonder GPU",
   "r_sources": "bronnen van dreigingsinformatie",
   "results_note_html": "Offline testsets en een belastingstest op PhishLens Cloud. Echte inboxen zijn lastiger: zie de <a href=\"https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations\">bekende beperkingen</a>.",
   "live_h": "PhishLens Cloud, op dit moment",

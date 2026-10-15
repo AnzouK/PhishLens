@@ -26,7 +26,7 @@
   "results_h": "Resultados",
   "r_langs": "línguas lidas pelo modelo de texto",
   "r_f1_link": "F1, modelo de links (Random Forest)",
-  "r_latency": "análise mediana num servidor sem GPU (v1.15)",
+  "r_latency": "análise mediana num servidor sem GPU",
   "r_sources": "fontes de informação sobre ameaças",
   "results_note_html": "Conjuntos de teste offline e um teste de carga no PhishLens Cloud. As caixas de correio reais são mais difíceis: veja as <a href=\"https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations\">limitações conhecidas</a>.",
   "live_h": "PhishLens Cloud, neste momento",
