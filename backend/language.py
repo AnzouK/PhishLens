@@ -64,7 +64,7 @@ _SCRIPT_LANG = (
 )
 _UKRAINIAN = set("іїєґІЇЄҐ")
 _TOKEN = re.compile(r"[^\W\d_]+", re.UNICODE)
-_TAG = re.compile(r"<[A-Z]+>|https?://\S+|(?<!\S)[^\s@]+@\S+")
+_TAG = re.compile(r"<[A-Z]+>")
 MIN_WORDS = 6
 
 
@@ -79,9 +79,18 @@ def _script_counts(text: str) -> dict[str, int]:
     return counts
 
 
+def _without_addresses(text: str) -> str:
+    """Drops the words that are links or email addresses."""
+    return " ".join(
+        w
+        for w in text.split()
+        if "@" not in w and "http://" not in w.lower() and "https://" not in w.lower()
+    )
+
+
 def detect_language(text: str) -> dict:
     """{"code": ISO 639-1 or "und", "confidence": 0..1}."""
-    text = _TAG.sub(" ", str(text or "")[:20_000])
+    text = _TAG.sub(" ", _without_addresses(str(text or "")[:20_000]))
     scripts = _script_counts(text)
     letters = sum(scripts.values())
     if not letters:

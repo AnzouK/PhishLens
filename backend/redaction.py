@@ -29,7 +29,7 @@ _NOT_NAMES_TEXT = (
 )
 _NOT_NAMES = set(_NOT_NAMES_TEXT.split())
 
-_EMAIL = re.compile(r"(?<![\w.%+-])[\w.%+-]+@[\w.-]+\.[^\W\d_]{2,}")
+_EMAIL_DOMAIN = re.compile(r"@[\w.-]+\.[^\W\d_]{2,}")
 _URL = re.compile(
     r"\b(?:https?://|www\.)([^\s/?#<>\"']*[^\s/?#<>\"'.,;:!?)])(?:[/?#][^\s<>\"']*[^\s<>\"'.,;:!?)])?",
     re.I,
@@ -44,6 +44,25 @@ _LEADS = [
     re.compile(r"(\b" + lead + r")(" + _NAME + r"(?:\s+" + _NAME + r"){0,2})")
     for lead in (_TITLE + r"\s+", _GREETING + r",?\s+")
 ]
+
+
+def _local_part_char(ch: str) -> bool:
+    return ch.isalnum() or ch in "._%+-_"
+
+
+def _mask_emails(text: str) -> str:
+    """Replaces name@domain.tld by <EMAIL>, walking back from each @domain."""
+    out, last = [], 0
+    for m in _EMAIL_DOMAIN.finditer(text):
+        start = m.start()
+        while start > last and _local_part_char(text[start - 1]):
+            start -= 1
+        if start == m.start():
+            continue
+        out += [text[last:start], "<EMAIL>"]
+        last = m.end()
+    out.append(text[last:])
+    return "".join(out)
 
 
 def _mask_names(words: str) -> str:
@@ -64,7 +83,7 @@ def _username(token: str) -> bool:
 
 def redact(text: str, terms: list[str] | None = None) -> str:
     t = _ZERO_WIDTH.sub("", str(text or ""))
-    t = _EMAIL.sub("<EMAIL>", t)
+    t = _mask_emails(t)
     t = _URL.sub(lambda m: f"<URL:{m.group(1).lower().removeprefix('www.')}>", t)
     t = _IBAN.sub("<NUMBER>", t)
     t = _PHONE.sub("<PHONE>", t)
