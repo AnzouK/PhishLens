@@ -24,6 +24,8 @@ backend share one version number.
   reason of a refused download (`phishtank_last_error`).
 - The README badge and the website's "Model" link point to the
   multilingual model's documentation.
+- A report needs at least three words; the report panel now says so
+  instead of leaving **Send** greyed out without a reason.
 - Writing a report and deleting one (`scripts/delete_report.py`) share a
   lock on the report folder, so a report sent during a deletion is not
   lost.

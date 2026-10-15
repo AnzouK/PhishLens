@@ -354,6 +354,7 @@
     "fb_sending": "Wird gesendet…",
     "fb_sent": "Danke. Referenz {ref}: Geben Sie sie an, wenn diese Meldung gelöscht werden soll.",
     "fb_failed": "Die Meldung konnte nicht gesendet werden: {error}",
+    "fb_too_short": "Schreiben Sie mindestens 3 Wörter, um die Meldung zu senden.",
     "fb_report_paste": "Fügen Sie hier den Text der E-Mail ein: Namen, Adressen und Nummern werden beim Einfügen entfernt.",
     "share_stats": "Meine Statistik teilen",
     "share_stats_intro": "Sendet Ihre {count} Prüfungen ohne Betreff, Absender oder Text an PhishLens Cloud: Tag, Quelle, Urteil, Werte, Ihre Bewertung und die Sprache. Das hilft, PhishLens an echten E-Mails zu messen. Hier die ersten:",

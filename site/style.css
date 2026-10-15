@@ -295,3 +295,4 @@ main, section, .wrap > * { min-width: 0; }
 .fb-report__text { margin: 8px 0; font-family: var(--mono); font-size: 0.82rem; resize: vertical; }
 .fb-report__check { display: flex; gap: 8px; align-items: flex-start; }
 .fb-report__actions { display: flex; gap: 8px; margin-top: 10px; }
+.fb-report p:empty { display: none; }

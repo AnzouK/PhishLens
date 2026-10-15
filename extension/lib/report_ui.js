@@ -105,8 +105,13 @@ function reportPanel({ verdict, text, redact, send, onSent }) {
     const cancel = button(t("fb_cancel"));
     const status = el("p", "plr-report__status");
     status.setAttribute("role", "status");
-    const ready = () => check.checked && area.value.trim().split(/\s+/).length >= 3;
-    const refresh = () => { sendBtn.disabled = !ready(); };
+    const hint = el("p", "plr-report__hint");
+    const enoughWords = () => area.value.trim().split(/\s+/).filter(Boolean).length >= 3;
+    const ready = () => check.checked && enoughWords();
+    const refresh = () => {
+        sendBtn.disabled = !ready();
+        hint.textContent = enoughWords() ? "" : t("fb_too_short");
+    };
     check.addEventListener("change", refresh);
     area.addEventListener("input", refresh);
     cancel.addEventListener("click", () => panel.remove());
@@ -126,7 +131,8 @@ function reportPanel({ verdict, text, redact, send, onSent }) {
     });
     const actions = el("div", "plr-report__actions");
     actions.append(sendBtn, cancel);
-    panel.append(area, checkLabel, actions, status);
+    refresh();
+    panel.append(area, hint, checkLabel, actions, status);
     return panel;
 }
 

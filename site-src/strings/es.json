@@ -176,5 +176,6 @@
   "js_fb_cancel": "Cancelar",
   "js_fb_sending": "Enviando…",
   "js_fb_sent": "Gracias. Referencia {ref}: indíquela si quiere que se borre este aviso.",
-  "js_fb_failed": "No se pudo enviar el aviso: {error}"
+  "js_fb_failed": "No se pudo enviar el aviso: {error}",
+  "js_fb_too_short": "Escriba al menos 3 palabras para enviar el aviso."
 }

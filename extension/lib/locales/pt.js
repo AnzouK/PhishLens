@@ -354,6 +354,7 @@
     "fb_sending": "A enviar…",
     "fb_sent": "Obrigado. Referência {ref}: indique-a se quiser que esta comunicação seja apagada.",
     "fb_failed": "Não foi possível enviar a comunicação: {error}",
+    "fb_too_short": "Escreva pelo menos 3 palavras para enviar a comunicação.",
     "fb_report_paste": "Cole aqui o texto do e-mail: nomes, endereços e números são removidos ao colar.",
     "share_stats": "Partilhar as minhas estatísticas",
     "share_stats_intro": "Envia as suas {count} análises para o PhishLens Cloud sem assunto, remetente nem texto: dia, origem, veredito, pontuações, a sua avaliação e o idioma. Ajuda a medir o PhishLens em e-mails reais. Eis as primeiras:",
