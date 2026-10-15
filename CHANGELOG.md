@@ -7,6 +7,25 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-10-15
+
+### Added
+- The website's "try it" result shows the detected language, with
+  Correct / Not this language, and **Wrong verdict? Report it**, with the
+  same redaction as the extension (`site/redact.js` is a copy of
+  `extension/lib/redact.js`, written by `scripts/build_site.py`).
+- Every popup result can be reported, files and attachments included:
+  the person pastes the part of the email to send, and the text is
+  redacted as it is pasted.
+
+### Fixed
+- **Insights:** the report panel of a scan marked Wrong closed as soon
+  as it opened, and the report button only appeared for Gmail and
+  Outlook scans whose text was kept; it now appears for every scan
+  marked Wrong.
+- The documentation, the website and the user guide no longer say the
+  text model reads only English.
+
 ## [2.0.0] - 2026-10-15
 
 ### Added
@@ -766,7 +785,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/AnzouK/PhishLens/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/AnzouK/PhishLens/compare/v1.15.5...v2.0.0
 [1.15.5]: https://github.com/AnzouK/PhishLens/compare/v1.15.4...v1.15.5
 [1.15.4]: https://github.com/AnzouK/PhishLens/compare/v1.15.3...v1.15.4

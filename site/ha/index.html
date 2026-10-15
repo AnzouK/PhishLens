@@ -34,6 +34,7 @@
 <script src="../i18n/ha.js" defer></script>
 <script src="../lang.js" defer></script>
 <script src="../nav.js" defer></script>
+<script src="../redact.js" defer></script>
 <script src="../app.js" defer></script>
 </head>
 <body>
@@ -103,9 +104,9 @@
     <div class="wrap">
       <h2><span class="n">01</span>Sakamako</h2>
       <div class="strip">
-        <div class="cell"><div class="big">0.967</div><div class="lbl">F1, samfurin rubutu (DistilBERT)</div></div>
+        <div class="cell"><div class="big">22</div><div class="lbl">harsunan da samfurin rubutu ke karantawa</div></div>
         <div class="cell"><div class="big">0.991</div><div class="lbl">F1, samfurin hanyoyin haɗi (Random Forest)</div></div>
-        <div class="cell"><div class="big">77 ms</div><div class="lbl">matsakaicin lokacin bincike a sabar da ba ta da GPU</div></div>
+        <div class="cell"><div class="big">77 ms</div><div class="lbl">matsakaicin lokacin bincike a sabar da ba ta da GPU (v1.15)</div></div>
         <div class="cell"><div class="big">4</div><div class="lbl">majiyoyin bayanan barazana</div></div>
       </div>
       <p class="note">Gwaje-gwaje ba tare da intanet ba da gwajin nauyi a PhishLens Cloud. Ainihin akwatunan saƙo sun fi wahala: duba <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">iyakokin da aka sani</a>.</p>
@@ -124,7 +125,7 @@
       <p class="intro">Imel na gaske daga bankuna da jami'o'i suna amfani da kalmomi iri ɗaya da phishing, don haka samfurin rubutu shi kaɗai yana yi musu alama. PhishLens yana duba shaida kafin ya yanke hukunci.</p>
       <div class="pair">
         <ul class="rows">
-          <li><svg class="ic"><use href="#i-text"/></svg><b>Rubutu</b><span>DistilBERT, wanda aka horar a kan imel kusan 29,500, yana ba rubutu maki; LIME yana nuna kalmomin da suka karkatar da hukuncin.</span></li>
+          <li><svg class="ic"><use href="#i-text"/></svg><b>Rubutu</b><span>Samfuri mai harsuna da yawa (mmBERT-small, an ciro shi daga babban mai gano phishing) yana ba rubutu maki a harsuna 22; LIME yana nuna kalmomin da suka karkatar da hukuncin.</span></li>
           <li><svg class="ic"><use href="#i-link"/></svg><b>Hanyoyin haɗi</b><span>Kowace ainihin hanyar haɗi, har da wadda ke bayan &quot;Danna nan&quot;, ana duba ta a Safe Browsing, PhishTank, URLhaus da Spamhaus.</span></li>
           <li><svg class="ic"><use href="#i-key"/></svg><b>Mai aikawa</b><span>SPF, DKIM da DMARC suna nuna wanda ya aiko shi da gaske. Imel da aka tura ba ya ɗaukar amincewar wanda ya tura shi.</span></li>
           <li><svg class="ic"><use href="#i-clip"/></svg><b>Haɗe-haɗe</b><span>PDF (har da waɗanda aka ɗauki hoto, ta OCR), lambobin QR, macros da samfuran nesa na Office, ma'ajiyar ZIP, RAR da 7z, da gayyatar kalanda.</span></li>
@@ -163,7 +164,7 @@
       <h2><span class="n">04</span>Yadda yake aiki</h2>
       <ol class="rows">
         <li><b>Karantawa</b><span>Rubutun, ainihin inda hanyoyin haɗi ke zuwa, mai aikawa, kuma a Gmail, cikakkun kanun saƙo na asali.</span></li>
-        <li><b>Ba da maki</b><span>DistilBERT don rubutu, Random Forests biyu don hanyoyin haɗi da kanun saƙo.</span></li>
+        <li><b>Ba da maki</b><span>Samfuri mai harsuna da yawa don rubutu, Random Forests biyu don hanyoyin haɗi da kanun saƙo.</span></li>
         <li><b>Tabbatarwa</b><span>Sakamakon tabbatarwa da majiyoyin bayanan barazana guda huɗu, kafin kowane hukunci.</span></li>
         <li><b>Bayyanawa</b><span>Hukunci, maki ɗaya ga kowane bincike, alamun da aka samu da kalmomin da ke bayan sa, a saman imel.</span></li>
       </ol>

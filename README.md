@@ -61,7 +61,8 @@ and 1.6% of French legitimate emails and catches 92.5% and 87.4% of
 phishing. How it was built and measured:
 [multilingual-model.md](docs/multilingual-model.md).
 
-**Latency** on PhishLens Cloud (Oracle Cloud ARM, 4 cores, CPU only,
+**Latency** on PhishLens Cloud with the English text model of v1.15
+(Oracle Cloud ARM, 4 cores, CPU only,
 [load test](docs/operations.md#load-testing) with 10 concurrent users):
 `/analyse` median 77 ms, p95 280 ms, zero failures over 454 requests.
 
@@ -249,8 +250,10 @@ PhishLens builds on the work and data of others:
   (Safe Browsing warnings are advisories provided by Google),
   [PhishTank](https://phishtank.org/), [URLhaus](https://urlhaus.abuse.ch/)
   by abuse.ch and the [Spamhaus](https://www.spamhaus.org/) Domain Block List.
-- **Models and libraries:** [Hugging Face Transformers](https://github.com/huggingface/transformers)
-  and DistilBERT, [scikit-learn](https://scikit-learn.org/),
+- **Models and libraries:** [Hugging Face Transformers](https://github.com/huggingface/transformers),
+  [mmBERT](https://huggingface.co/jhu-clsp/mmBERT-small) and the
+  [phishing-scam-detector](https://huggingface.co/Horizon-Labs/phishing-scam-detector-base)
+  it was distilled from, DistilBERT, [scikit-learn](https://scikit-learn.org/),
   [LIME](https://github.com/marcotcr/lime),
   [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) and
   [FastAPI](https://fastapi.tiangolo.com/); the full list of backend

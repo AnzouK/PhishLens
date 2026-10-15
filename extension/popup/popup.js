@@ -313,8 +313,10 @@ analyzeBtn.addEventListener("click", async () => {
             console.warn("[PhishLens] failed to persist history entry:", histErr);
             currentHistoryId = null;
         }
-        // Pasted text can be reported; files are not sent anywhere else.
-        renderResultFeedback(data, currentHistoryId, payload.raw_text || "");
+        // Pasted text is offered for the report; for a file the person
+        // pastes the part they want to send.
+        renderResultFeedback(data, currentHistoryId, payload.raw_text || "",
+            payload.content_b64 ? "attachment" : payload.raw_email_b64 ? "file" : "paste");
 
         // fire LIME explanation in the background: tagged with the run id.
         // Skip LIME for attachment payloads: /explain only accepts
@@ -858,10 +860,6 @@ async function renderInsights() {
         : `<div class="empty-hint">${escapeHTML(t("live_empty"))}</div>`;
 
     // Recent history: last 20
-    const drafts = new Set();
-    for (const e of list.slice(0, 20)) {
-        if (e.label === "wrong" && !e.reported && await window.PhishLensHistory?.getDraft(e.id)) drafts.add(e.id);
-    }
     historyList.innerHTML = list.slice(0, 20).map((e) => {
         const dot = icon(e.verdict === "phishing" ? "alert" : "shield-check");
         const when = timeAgo(e.ts);
@@ -884,7 +882,7 @@ async function renderInsights() {
             <div class="history-item__review" role="group" aria-label="${escapeHTML(t("review_group"))}">
               <button type="button" class="review-btn${e.label === "correct" ? " review-btn--on" : ""}" data-label="correct" title="${escapeHTML(t("review_right_title"))}">${escapeHTML(t("review_right"))}</button>
               <button type="button" class="review-btn review-btn--wrong${e.label === "wrong" ? " review-btn--on" : ""}" data-label="wrong" title="${escapeHTML(t("review_wrong_title"))}">${escapeHTML(t("review_wrong"))}</button>
-              ${e.label === "wrong" && !e.reported && drafts.has(e.id)
+              ${e.label === "wrong" && !e.reported
                 ? `<button type="button" class="review-btn review-report" title="${escapeHTML(t("review_report_title"))}">${escapeHTML(t("review_report"))}</button>`
                 : e.reported ? `<span class="review-sent">${escapeHTML(t("review_reported"))}</span>` : ""}
             </div>
@@ -895,7 +893,7 @@ async function renderInsights() {
             const item = b.closest(".history-item");
             const entry = list.find((x) => x.id === item?.dataset.id);
             if (!entry || item.querySelector(".plr-report")) return;
-            const text = await window.PhishLensHistory.getDraft(entry.id);
+            const text = (await window.PhishLensHistory.getDraft(entry.id)) || "";
             item.append(window.PhishLensReport.reportPanel({
                 verdict: entry.verdict, text, redact: (x) => window.PhishLensRedact.redact(x),
                 send: (kind, txt) => sendReport(kind, txt, entryAsResult(entry), entry),
@@ -906,7 +904,7 @@ async function renderInsights() {
         });
     });
     renderShareStats(list);
-    historyList.querySelectorAll(".review-btn").forEach((b) => {
+    historyList.querySelectorAll(".review-btn[data-label]").forEach((b) => {
         b.addEventListener("click", async () => {
             const id = b.closest(".history-item")?.dataset.id;
             const on = b.classList.contains("review-btn--on");
@@ -951,12 +949,12 @@ function entryAsResult(e) {
     };
 }
 
-function renderResultFeedback(data, historyId, pasted) {
+function renderResultFeedback(data, historyId, pasted, source = "paste") {
     const host = $("result-feedback");
     host.replaceChildren();
     const box = document.createElement("div");
     box.className = "plr-box";
-    const entry = { source: "paste", lang_user: null };
+    const entry = { source, lang_user: null };
     box.append(REPORT.languageLine({
         code: data.language?.code,
         onChoice: (code) => {
@@ -964,16 +962,14 @@ function renderResultFeedback(data, historyId, pasted) {
             if (historyId) window.PhishLensHistory?.updateScan(historyId, { lang_user: code });
         },
     }));
-    if (pasted) {
-        box.append(REPORT.reportButton({
-            verdict: data.verdict,
-            getText: async () => REDACT.redact(pasted),
-            redact: (x) => REDACT.redact(x),
-            send: (kind, text) => sendReport(kind, text, data, entry),
-            onSent: (_k, reference) => historyId &&
-                window.PhishLensHistory?.updateScan(historyId, { label: "wrong", reported: reference }),
-        }));
-    }
+    box.append(REPORT.reportButton({
+        verdict: data.verdict,
+        getText: async () => (pasted ? REDACT.redact(pasted) : ""),
+        redact: (x) => REDACT.redact(x),
+        send: (kind, text) => sendReport(kind, text, data, entry),
+        onSent: (_k, reference) => historyId &&
+            window.PhishLensHistory?.updateScan(historyId, { label: "wrong", reported: reference }),
+    }));
     host.append(box);
 }
 

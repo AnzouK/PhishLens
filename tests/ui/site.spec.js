@@ -105,3 +105,32 @@ test("the header hides on scroll down, returns on scroll up, and the page has a 
     await top.click();
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 });
+
+test("a result shows the detected language and sends a redacted report", async ({ page }) => {
+    await page.route(`${API}/analyse`, (r) => r.fulfill({
+        json: { verdict: "phishing", fused_score: 0.9, language: { code: "fr", confidence: 0.9 },
+                agents: { text: { phishing_probability: 0.9 } } },
+    }));
+    let sent = null;
+    await page.route(`${API}/feedback`, async (r) => {
+        sent = r.request().postDataJSON();
+        await r.fulfill({ json: { ok: true, reference: "a1b2c3d4e5f6" } });
+    });
+    await page.goto(`${base}/fr/`);
+    await page.fill("#demo-text", "Bonjour Kalinda, votre compte 12345678 est bloqué, confirmez vos informations aujourd'hui.");
+    await page.click("#demo-submit");
+    await expect(page.locator(".fb__lang")).toContainText("Langue détectée : français");
+    await page.click('.fb__lang button:has-text("C\'est juste")');
+    await expect(page.locator(".fb__lang")).toContainText("Noté : français");
+    await page.click(".fb-link");
+    const text = await page.locator(".fb-report__text").inputValue();
+    expect(text).not.toContain("Kalinda");
+    expect(text).not.toContain("12345678");
+    await expect(page.locator(".fb-btn--strong")).toBeDisabled();
+    await page.check(".fb-report__check input");
+    await page.click(".fb-btn--strong");
+    await expect(page.locator(".fb")).toContainText("a1b2c3d4e5f6");
+    expect(sent.kind).toBe("false_positive");
+    expect(sent.lang_user).toBe("fr");
+    expect(sent.text).not.toContain("Kalinda");
+});

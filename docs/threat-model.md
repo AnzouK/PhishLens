@@ -74,16 +74,19 @@ B6: anyone can post a report to `/feedback`, not only the extension.
 ## Residual risks and known limitations
 
 **R1. False negatives are possible.** The models were evaluated offline
-(F1 about 0.97 for text). Live traffic, new campaigns and adversarial
+(on unseen real mail at the 0.7 threshold, the multilingual text model
+catches 92.5% of English and 87.4% of French phishing). Live traffic, new campaigns and adversarial
 wording will do worse. PhishLens is an assistant, not a filter: the
 verdict is advisory and the explanation is there so the user can judge.
 
-**R2. The text model reads English.** The interface, the website and
-the OCR handle other languages, but the text model in production was
-trained on English email: phishing in French, Hausa or Yoruba gets a
-less reliable wording score. The link, sender and threat-intelligence
-checks do not depend on the language. A multilingual model is being
-evaluated ([languages.md](languages.md#text-model)).
+**R2. Not every language is read equally well.** PhishLens Cloud's
+text model was trained on 22 languages, but measured on real phishing
+only in English, French, German, Dutch, Portuguese and Spanish; for the
+other languages (Hausa or Yoruba, for example) its wording score is less
+proven. A self-hosted server keeps the English DistilBERT unless
+`HF_MODEL_REPO` says otherwise. The link, sender and threat-intelligence
+checks do not depend on the language
+([languages.md](languages.md#text-model)).
 
 **R8. The Hausa interface is a draft translation.** A wrong word in a
 warning could confuse a reader. It is marked for review by a native

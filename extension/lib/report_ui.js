@@ -84,9 +84,18 @@ function reportPanel({ verdict, text, redact, send, onSent }) {
     panel.append(el("div", "plr-report__title", t(kind === "false_positive" ? "fb_report_title_fp" : "fb_report_title_fn")));
     panel.append(el("p", "plr-report__intro", t("fb_report_intro")));
     const area = el("textarea", "plr-report__text");
-    area.value = text;
+    area.value = text || "";
     area.rows = 8;
     area.setAttribute("aria-label", t("fb_report_preview"));
+    if (!text) area.placeholder = t("fb_report_paste");
+    // Pasted text is redacted at once, so the person sees what will be sent.
+    area.addEventListener("paste", (e) => {
+        const pasted = e.clipboardData?.getData("text/plain");
+        if (!pasted) return;
+        e.preventDefault();
+        area.setRangeText(redact(pasted), area.selectionStart, area.selectionEnd, "end");
+        refresh();
+    });
     const check = el("input");
     check.type = "checkbox";
     const checkLabel = el("label", "plr-report__check");
@@ -96,7 +105,10 @@ function reportPanel({ verdict, text, redact, send, onSent }) {
     const cancel = button(t("fb_cancel"));
     const status = el("p", "plr-report__status");
     status.setAttribute("role", "status");
-    check.addEventListener("change", () => { sendBtn.disabled = !check.checked; });
+    const ready = () => check.checked && area.value.trim().split(/\s+/).length >= 3;
+    const refresh = () => { sendBtn.disabled = !ready(); };
+    check.addEventListener("change", refresh);
+    area.addEventListener("input", refresh);
     cancel.addEventListener("click", () => panel.remove());
     sendBtn.addEventListener("click", async () => {
         sendBtn.disabled = true;
@@ -108,7 +120,7 @@ function reportPanel({ verdict, text, redact, send, onSent }) {
             onSent?.(kind, r.reference);
         } else {
             status.textContent = t("fb_failed", { error: r?.error || t("unknown_error") });
-            sendBtn.disabled = !check.checked;
+            refresh();
             cancel.disabled = false;
         }
     });
@@ -119,17 +131,13 @@ function reportPanel({ verdict, text, redact, send, onSent }) {
 }
 
 // "Wrong verdict? Report it": opens the panel next to itself. getText
-// resolves to the redacted text, or "" when nothing can be reported.
+// resolves to the redacted text, or "" when the person has to paste it.
 function reportButton({ verdict, getText, redact, send, onSent }) {
     const wrap = el("div", "plr-wrap");
     const b = button(t("fb_report"), "plr-link");
     b.addEventListener("click", async () => {
         if (wrap.querySelector(".plr-report")) return;
-        const text = await getText();
-        if (!text) {
-            b.replaceWith(el("span", "plr-lang__text", t("fb_unavailable")));
-            return;
-        }
+        const text = (await getText?.()) || "";
         const panel = reportPanel({ verdict, text, redact, send, onSent });
         wrap.append(panel);
         panel.querySelector("textarea")?.focus();
