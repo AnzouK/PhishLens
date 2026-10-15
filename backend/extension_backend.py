@@ -6,6 +6,7 @@ Endpoints
                                checks, threat intelligence
     POST /explain              the words behind the text agent's score (LIME)
     POST /analyse_attachment   one attachment -> verdict and its risky features
+    POST /feedback             a report the user chose to send (redacted again)
     GET  /health               liveness, version, which agents run a model
     GET  /reputation/stats     cache and quota counters
     GET  /metrics              Prometheus (block it at the reverse proxy)
@@ -20,6 +21,8 @@ This module only wires requests to the other modules:
     auth_headers.py       SPF / DKIM / DMARC, Spamhaus DBL
     reputation.py         Safe Browsing, PhishTank, URLhaus, Spamhaus
     attachment_analysis   PDF, HTML, images, Office, archives, invites
+    language.py           language of the email
+    feedback.py           reports users send, with redaction.py
 
 Run locally:
     uvicorn extension_backend:app --host 127.0.0.1 --port 8000

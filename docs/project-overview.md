@@ -13,7 +13,7 @@ linked below with what it is for.
 | [dodi-ctrl/PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector) | The research side: the three Colab training notebooks, dataset loaders, augmentation cell, per-agent metrics and known model limitations. What you clone to retrain or reproduce the models. |
 | AnzouKiona/phishlens-text-v2 (private) | The multilingual text agent PhishLens Cloud runs (mmBERT-small, distilled and calibrated). Private because part of its training mail is; how it was built: [multilingual-model.md](multilingual-model.md). |
 | [AnzouKiona/phishlens-distilbert](https://huggingface.co/AnzouKiona/phishlens-distilbert) | The fine-tuned English DistilBERT text agent (model card, weights, tokenizer). The default of a self-hosted backend. |
-| [AnzouKiona/phishlens-agents](https://huggingface.co/AnzouKiona/phishlens-agents) | The trained URL and metadata Random Forest agents (joblib). Pulled by the backend at startup. |
+| [AnzouKiona/phishlens-agents](https://huggingface.co/AnzouKiona/phishlens-agents) | The trained URL and metadata Random Forest agents (skops files, with the original joblib ones). Pulled by the backend at startup. |
 | [anzouk.duckdns.org](https://anzouk.duckdns.org) | Website in 8 languages: landing page, try-it widget, privacy policy and terms, and the PhishLens Cloud backend used by the extension's "PhishLens Cloud" setting. |
 | [Wiki](https://github.com/AnzouK/PhishLens/wiki) | The user guide: installing, using PhishLens in Gmail and Outlook, reading a verdict, settings, troubleshooting. |
 | Project report | B.Sc. final-year report (Department of Cybersecurity, Nile University of Nigeria, 2025/2026): literature review, methodology, evaluation. Not published here; available on request through the university. |
@@ -35,19 +35,6 @@ linked below with what it is for.
 | What changed between versions? | [CHANGELOG.md](../CHANGELOG.md) and [GitHub Releases](https://github.com/AnzouK/PhishLens/releases) |
 | How do I report a vulnerability? | [SECURITY.md](../SECURITY.md) |
 | How do I contribute? | [CONTRIBUTING.md](../CONTRIBUTING.md) |
-
-## Development lifecycle at a glance
-
-| Phase | How it is covered |
-| --- | --- |
-| Requirements and scope | Project report (problem statement, objectives); README "What it does" |
-| Design | [architecture.md](architecture.md), including the design decisions and their rationale |
-| Implementation | Conventional commits, semantic version tags, one tag per release; Ruff and ESLint in CI |
-| Security (SSDLC) | [threat-model.md](threat-model.md), CodeQL on every push, Dependabot alerts and weekly version updates, [SECURITY.md](../SECURITY.md), per-IP rate limiting, least-privilege CI token |
-| Testing | Offline pytest suite in `backend/tests/` (80% coverage minimum in CI); extension unit tests (node:test), including the translation checks; popup and website UI tests (Playwright); model evaluation in the PhishingDetector notebooks |
-| Deployment | Docker images (`Dockerfile.local`, `Dockerfile.cloud`), Caddy with Let's Encrypt on an Oracle Cloud VM |
-| Operations | Structured logging, Prometheus `/metrics`, `/health` and `/reputation/stats`, Locust load test ([operations.md](operations.md)) |
-| Maintenance | [CHANGELOG.md](../CHANGELOG.md), Dependabot, GitHub Releases, roadmap in the README |
 
 ## Headline numbers
 

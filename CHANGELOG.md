@@ -7,6 +7,21 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.4] - 2026-10-15
+
+### Added
+- **Release workflow:** pushing a version tag publishes the GitHub
+  release with `PhishLens-extension-<version>.zip` and the version's
+  changelog section, after checking that the tag matches the code.
+
+### Changed
+- Installation (website, README, user guide) uses the extension zip of
+  each release; the Chrome Web Store description mentions Outlook.
+- The README lists every backend module and script, and the roadmap
+  puts the Chrome Web Store after Outlook, Yahoo Mail and the research
+  work.
+- CI lints the website scripts as well as the extension.
+
 ### Documentation
 - Latency measured again with the multilingual text model, result cache
   off: `/analyse` median 65 ms for text, 57 ms for a full `.eml`, p95
@@ -834,7 +849,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.3...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.4...HEAD
+[2.0.4]: https://github.com/AnzouK/PhishLens/compare/v2.0.3...v2.0.4
 [2.0.3]: https://github.com/AnzouK/PhishLens/compare/v2.0.2...v2.0.3
 [2.0.2]: https://github.com/AnzouK/PhishLens/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/AnzouK/PhishLens/compare/v2.0.0...v2.0.1

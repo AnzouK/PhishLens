@@ -3,17 +3,17 @@
 # =====================================================================
 # Runs on every push to main and every pull request.
 #
-#   extension     node --check, ESLint (every rule blocking) and the
-#                 node:test unit tests of extension/lib
+#   extension     node --check, ESLint on the extension and the website
+#                 scripts (every rule blocking) and the node:test unit tests
 #   requirements  resolves backend/requirements.txt on the Docker base
 #                 Python without installing anything
 #   python        compile, ruff (lint + format, ruff.toml), version check
 #                 and the offline pytest suite with coverage, 80% minimum
 #                 (OCR, QR, Office, skops included; torch / transformers
 #                 are stubbed, the model never loads)
-#   ui            Playwright smoke tests of the popup (backend mocked)
+#   ui            Playwright tests of the popup and the website (backend mocked)
 #
-# The first three are required by the branch protection rule on main.
+# All four are required by the branch protection rule on main.
 # =====================================================================
 name: CI
 
@@ -49,7 +49,7 @@ jobs:
       - name: ESLint
         run: |
           npm install --no-save --no-package-lock --silent eslint@9 globals@15
-          npx eslint extension/ --max-warnings 0
+          npx eslint . --max-warnings 0
       - name: Unit tests (node:test)
         run: node --test tests/extension/*.test.js
 

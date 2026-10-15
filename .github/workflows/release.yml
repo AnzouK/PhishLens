@@ -1,0 +1,61 @@
+# =====================================================================
+# PhishLens release
+# =====================================================================
+# On a version tag (v2.0.4...): checks that the tag matches the version
+# of the backend and the extension, zips extension/ and publishes the
+# GitHub release with that zip and the version's CHANGELOG section.
+# If the release already exists, only the zip is (re)attached.
+# =====================================================================
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tag matches the code version
+        run: |
+          version=$(python3 scripts/check_version.py | awk '{print $2}')
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, code $version"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Extension zip
+        run: |
+          cd extension
+          zip -rq "../PhishLens-extension-$VERSION.zip" . -x "*.DS_Store"
+
+      - name: Release notes from the CHANGELOG
+        run: |
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "no CHANGELOG section for $VERSION"; exit 1; }
+          cat >> notes.md <<'TXT'
+
+          ## Install
+
+          Download `PhishLens-extension-VERSION.zip` below, unzip it, open `chrome://extensions`, turn on Developer mode and choose **Load unpacked** on the unzipped folder. Step by step: [user guide](https://github.com/AnzouK/PhishLens/wiki/Installation).
+          TXT
+          sed -i "s/VERSION\.zip/$VERSION.zip/; s/^          //" notes.md
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          zip="PhishLens-extension-$VERSION.zip"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$zip" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$zip" --title "PhishLens $VERSION" --notes-file notes.md --verify-tag
+          fi

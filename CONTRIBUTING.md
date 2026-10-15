@@ -45,7 +45,7 @@ For extension changes, lint the JavaScript too (from the repo root):
 
 ```bash
 npm install --no-save --no-package-lock eslint@9 globals@15
-npx eslint extension/ --max-warnings 0
+npx eslint . --max-warnings 0
 node --test tests/extension/*.test.js
 ```
 
@@ -96,5 +96,8 @@ CI runs all of the above, plus CodeQL. A pull request needs a green CI.
 
 Maintainers bump the version in `extension/manifest.json` and
 `backend/settings.py` (CI checks they agree), move the
-"Unreleased" entries under the new version in `CHANGELOG.md`, tag
-`vX.Y.Z` on `main` and publish the GitHub release.
+"Unreleased" entries under the new version in `CHANGELOG.md` and push
+the tag `vX.Y.Z` on `main`. The release workflow
+(`.github/workflows/release.yml`) checks that the tag matches the code,
+zips `extension/` and publishes the GitHub release with that zip and the
+version's changelog section.
