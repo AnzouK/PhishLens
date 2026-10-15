@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import gzip
 import json
 import logging
 import os
@@ -69,8 +70,17 @@ CACHE_DB_PATH = os.environ.get(
     os.path.join(os.path.expanduser("~"), ".cache", "phishlens", "reputation.db"),
 )
 CACHE_TTL_SEC = int(os.environ.get("REPUTATION_CACHE_TTL", str(24 * 3600)))
-PHISHTANK_REFRESH_S = int(os.environ.get("PHISHTANK_REFRESH_S", "3600"))
 PHISHTANK_API_KEY = os.environ.get("PHISHTANK_API_KEY", "").strip()  # optional
+# Without an application key PhishTank allows only a few downloads a day:
+# every 6 hours then, every hour with a key (the feed changes hourly).
+PHISHTANK_REFRESH_S = int(
+    os.environ.get("PHISHTANK_REFRESH_S") or (3600 if PHISHTANK_API_KEY else 6 * 3600)
+)
+# The last good feed, kept next to the cache so a restart does not
+# download it again.
+PHISHTANK_FEED_PATH = os.environ.get(
+    "PHISHTANK_FEED_PATH", os.path.join(os.path.dirname(CACHE_DB_PATH), "phishtank.json.gz")
+)
 ENABLE_URLHAUS = os.environ.get("REPUTATION_ENABLE_URLHAUS", "1") != "0"
 ENABLE_PHISHTANK = os.environ.get("REPUTATION_ENABLE_PHISHTANK", "1") != "0"
 ENABLE_GSB = os.environ.get("REPUTATION_ENABLE_GSB", "1") != "0"
@@ -428,14 +438,16 @@ class PhishTank:
     """
 
     # HTTPS: over plain HTTP anyone on the path could rewrite the list.
-    FEED_URL = "https://data.phishtank.com/data/online-valid.json"
-    FEED_URL_AUTH = "https://data.phishtank.com/data/{key}/online-valid.json"
+    FEED_URL = "https://data.phishtank.com/data/online-valid.json.gz"
+    FEED_URL_AUTH = "https://data.phishtank.com/data/{key}/online-valid.json.gz"
 
-    def __init__(self, api_key: str = ""):
+    def __init__(self, api_key: str = "", feed_path: str = ""):
         self.api_key = api_key
+        self.feed_path = feed_path
         self._urls: set[str] = set()
         self._domains: set[str] = set()
         self._last_refresh_ts: float = 0.0
+        self._last_error: str = ""
         self._refresh_task: asyncio.Task | None = None
 
     def _feed_url(self) -> str:
@@ -443,19 +455,72 @@ class PhishTank:
             return self.FEED_URL_AUTH.format(key=self.api_key)
         return self.FEED_URL
 
+    @staticmethod
+    def _parse(raw: bytes) -> list[dict[str, Any]]:
+        if raw[:2] == b"\x1f\x8b":
+            raw = gzip.decompress(raw)
+        data = json.loads(raw)
+        if not isinstance(data, list):
+            raise ValueError("unexpected feed format")
+        return data
+
+    def load_saved(self) -> int:
+        """Loads the last good feed saved on disk. Returns its entries."""
+        if not self.feed_path or not os.path.exists(self.feed_path):
+            return 0
+        try:
+            with open(self.feed_path, "rb") as fh:
+                n = self._load(self._parse(fh.read()))
+        except (OSError, ValueError) as e:
+            logger.warning(f"PhishTank saved feed unreadable: {e}")
+            return 0
+        self._last_refresh_ts = os.path.getmtime(self.feed_path)
+        return n
+
+    def saved_age(self) -> float | None:
+        if not self.feed_path or not os.path.exists(self.feed_path):
+            return None
+        return time.time() - os.path.getmtime(self.feed_path)
+
+    def _save(self, raw: bytes) -> None:
+        if not self.feed_path:
+            return
+        try:
+            Path(self.feed_path).parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.feed_path + ".tmp"
+            with open(tmp, "wb") as fh:
+                fh.write(raw if raw[:2] == b"\x1f\x8b" else gzip.compress(raw))
+            os.replace(tmp, self.feed_path)
+        except OSError as e:
+            logger.warning(f"PhishTank feed not saved: {e}")
+
     async def refresh(self) -> int:
-        """Download and load the feed. Returns the number of entries."""
+        """Download and load the feed. Returns the number of entries; on a
+        failure the previous list stays and the reason is kept for /stats."""
         try:
             async with httpx.AsyncClient(
-                timeout=30, headers={"User-Agent": USER_AGENT}, follow_redirects=True
+                timeout=60, headers={"User-Agent": USER_AGENT}, follow_redirects=True
             ) as c:
                 r = await c.get(self._feed_url())
-                r.raise_for_status()
-                data = r.json()
+                if r.status_code != 200:
+                    self._last_error = f"HTTP {r.status_code}"
+                    logger.warning(
+                        f"PhishTank refresh failed: HTTP {r.status_code}"
+                        + ("" if self.api_key else " (no PHISHTANK_API_KEY: a few downloads a day)")
+                    )
+                    return 0
+                data = self._parse(r.content)
         except Exception as e:
+            self._last_error = type(e).__name__
             logger.warning(f"PhishTank refresh failed: {e}")
             return 0
+        n = self._load(data)
+        self._last_refresh_ts = time.time()
+        self._last_error = ""
+        self._save(r.content)
+        return n
 
+    def _load(self, data: list[dict[str, Any]]) -> int:
         urls, domains = set(), set()
         for e in data:
             u = e.get("url", "")
@@ -471,11 +536,11 @@ class PhishTank:
 
         self._urls = urls
         self._domains = domains
-        self._last_refresh_ts = time.time()
         return len(urls)
 
-    async def start_refresh_loop(self):
+    async def start_refresh_loop(self, first_wait: float = 0.0):
         """Background task: refresh every PHISHTANK_REFRESH_S seconds."""
+        await asyncio.sleep(first_wait)
         while True:
             try:
                 n = await self.refresh()
@@ -502,6 +567,7 @@ class PhishTank:
             "phishtank_entries": len(self._urls),
             "phishtank_domains": len(self._domains),
             "phishtank_last_refresh_ts": self._last_refresh_ts,
+            "phishtank_last_error": self._last_error or None,
         }
 
 
@@ -679,7 +745,9 @@ class ReputationEngine:
         self.gsb = (
             GoogleSafeBrowsing(GSB_API_KEY, self.quota) if (GSB_API_KEY and ENABLE_GSB) else None
         )
-        self.phishtank = PhishTank(PHISHTANK_API_KEY) if ENABLE_PHISHTANK else None
+        self.phishtank = (
+            PhishTank(PHISHTANK_API_KEY, PHISHTANK_FEED_PATH) if ENABLE_PHISHTANK else None
+        )
         self.urlhaus = URLhaus() if ENABLE_URLHAUS else None
         self._hits = 0
         self._misses = 0
@@ -687,11 +755,17 @@ class ReputationEngine:
     async def startup(self):
         """Warm PhishTank + purge stale cache entries. Idempotent."""
         if self.phishtank and _HTTPX_AVAILABLE:
-            n = await self.phishtank.refresh()
+            # The saved feed first: a restart then costs no download.
+            n = self.phishtank.load_saved()
+            age = self.phishtank.saved_age()
+            wait = 0.0
             if n:
-                logger.info(f"PhishTank initial load: {n} entries")
+                logger.info(f"PhishTank saved feed: {n} entries")
+                wait = max(0.0, PHISHTANK_REFRESH_S - (age or 0))
             # Fire-and-forget refresh loop
-            self.phishtank._refresh_task = asyncio.create_task(self.phishtank.start_refresh_loop())
+            self.phishtank._refresh_task = asyncio.create_task(
+                self.phishtank.start_refresh_loop(first_wait=wait)
+            )
         await self.cache.purge_expired()
 
     async def shutdown(self):

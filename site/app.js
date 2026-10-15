@@ -249,7 +249,12 @@
     const send = btn(t("js_fb_send"), "fb-btn fb-btn--strong");
     const cancel = btn(t("js_fb_cancel"));
     const state = el("p", "small muted"); state.setAttribute("role", "status");
-    const refresh = () => { send.disabled = !(check.checked && area.value.trim().split(/\s+/).length >= 3); };
+    const hint = el("p", "small muted");
+    const enoughWords = () => area.value.trim().split(/\s+/).filter(Boolean).length >= 3;
+    const refresh = () => {
+      send.disabled = !(check.checked && enoughWords());
+      hint.textContent = enoughWords() ? "" : t("js_fb_too_short");
+    };
     area.addEventListener("paste", (e) => {
       const p = e.clipboardData?.getData("text/plain");
       if (!p) return;
@@ -289,7 +294,7 @@
     refresh();
     const actions = el("div", "fb-report__actions");
     actions.append(send, cancel);
-    panel.append(area, checkLabel, actions, state);
+    panel.append(area, hint, checkLabel, actions, state);
     return panel;
   }
 

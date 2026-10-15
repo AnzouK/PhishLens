@@ -354,6 +354,7 @@
     "fb_sending": "Sending…",
     "fb_sent": "Thank you. Reference {ref}: quote it if you want this report deleted.",
     "fb_failed": "The report could not be sent: {error}",
+    "fb_too_short": "Write at least 3 words to send the report.",
     "fb_report_paste": "Paste the text of the email here: names, addresses and numbers are removed as you paste.",
     "share_stats": "Share my statistics",
     "share_stats_intro": "Sends your {count} scans to PhishLens Cloud without subject, sender or text: day, source, verdict, scores, your review and the language. It helps measure PhishLens on real mail. Here are the first ones:",

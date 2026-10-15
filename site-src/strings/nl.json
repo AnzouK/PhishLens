@@ -176,5 +176,6 @@
   "js_fb_cancel": "Annuleren",
   "js_fb_sending": "Bezig met versturen…",
   "js_fb_sent": "Bedankt. Referentie {ref}: vermeld die als u deze melding wilt laten verwijderen.",
-  "js_fb_failed": "De melding kon niet worden verstuurd: {error}"
+  "js_fb_failed": "De melding kon niet worden verstuurd: {error}",
+  "js_fb_too_short": "Schrijf minstens 3 woorden om de melding te versturen."
 }

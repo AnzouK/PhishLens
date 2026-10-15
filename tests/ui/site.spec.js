@@ -134,3 +134,20 @@ test("a result shows the detected language and sends a redacted report", async (
     expect(sent.lang_user).toBe("fr");
     expect(sent.text).not.toContain("Kalinda");
 });
+
+test("a report of fewer than 3 words says why it cannot be sent", async ({ page }) => {
+    await page.route(`${API}/analyse`, (r) => r.fulfill({
+        json: { verdict: "safe", fused_score: 0.1, language: { code: "en", confidence: 0.9 },
+                agents: { text: { phishing_probability: 0.1 } } },
+    }));
+    await page.goto(`${base}/`);
+    await page.fill("#demo-text", "zzcacmxtapezzcacmxtapezzcacmxtapezzcacmxtapezzcacmxtape");
+    await page.click("#demo-submit");
+    await page.click(".fb-link");
+    await page.check(".fb-report__check input");
+    await expect(page.locator(".fb-btn--strong")).toBeDisabled();
+    await expect(page.locator(".fb-report")).toContainText("at least 3 words");
+    await page.fill(".fb-report__text", "this one has enough words");
+    await expect(page.locator(".fb-btn--strong")).toBeEnabled();
+    await expect(page.locator(".fb-report")).not.toContainText("at least 3 words");
+});

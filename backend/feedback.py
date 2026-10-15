@@ -12,6 +12,8 @@ report (to have it deleted).
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import json
 import logging
 import os
@@ -25,7 +27,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from redaction import redact
-from settings import FEEDBACK_DIR, FEEDBACK_MAX_MB, FEEDBACK_NOTIFY_URL
+from settings import FEEDBACK_DIR, FEEDBACK_MAX_MB, FEEDBACK_NOTIFY_CLICK, FEEDBACK_NOTIFY_URL
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 Kind = Literal["false_positive", "false_negative", "wrong_language", "stats"]
@@ -109,14 +111,31 @@ def store(req: FeedbackRequest) -> str:
     folder = Path(FEEDBACK_DIR)
     with _LOCK:
         folder.mkdir(parents=True, exist_ok=True)
-        if _dir_size_mb(folder) >= FEEDBACK_MAX_MB:
-            raise OSError("report storage is full")
-        path = folder / f"feedback-{now:%Y-%m}.jsonl"
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-        with os.fdopen(fd, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+        with folder_lock(folder):
+            _append(folder, now, record)
     notify(record)
     return reference
+
+
+@contextlib.contextmanager
+def folder_lock(folder: Path):
+    """Exclusive lock on the report folder, shared with other processes
+    that rewrite its files (scripts/delete_report.py)."""
+    fd = os.open(folder / ".lock", os.O_WRONLY | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
+
+
+def _append(folder: Path, now: datetime, record: dict[str, Any]) -> None:
+    if _dir_size_mb(folder) >= FEEDBACK_MAX_MB:
+        raise OSError("report storage is full")
+    path = folder / f"feedback-{now:%Y-%m}.jsonl"
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    with os.fdopen(fd, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def notification_text(record: dict[str, Any]) -> str:
@@ -137,20 +156,28 @@ def notification_text(record: dict[str, Any]) -> str:
     return " · ".join(parts)
 
 
-def _post(url: str, message: str) -> None:
-    req = urllib.request.Request(
-        url, data=message.encode(), headers={"Title": "PhishLens report"}, method="POST"
-    )
+def _post(url: str, message: str, click: str = "") -> None:
+    headers = {"Title": "PhishLens report"}
+    if click:
+        headers["Click"] = click
+    req = urllib.request.Request(url, data=message.encode(), headers=headers, method="POST")
     try:
         urllib.request.urlopen(req, timeout=5).close()
     except OSError as e:
         logger.warning("report notification failed: %s", type(e).__name__)
 
 
+def _spawn(fn, *args) -> None:
+    threading.Thread(target=fn, args=args, daemon=True).start()
+
+
 def notify(record: dict[str, Any]) -> None:
     """Sends notification_text() to FEEDBACK_NOTIFY_URL in the background."""
     if not FEEDBACK_NOTIFY_URL.startswith("https://"):
         return
-    threading.Thread(
-        target=_post, args=(FEEDBACK_NOTIFY_URL, notification_text(record)), daemon=True
-    ).start()
+    click = (
+        f"{FEEDBACK_NOTIFY_CLICK}#{record['reference']}"
+        if FEEDBACK_NOTIFY_CLICK.startswith("https://")
+        else ""
+    )
+    _spawn(_post, FEEDBACK_NOTIFY_URL, notification_text(record), click)

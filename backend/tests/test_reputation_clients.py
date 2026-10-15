@@ -146,6 +146,33 @@ class TestPhishTank:
         assert run(pt.refresh()) == 0
         assert pt.check("http://old.example/") is not None
 
+    def _patch(self, monkeypatch, handler):
+        real = httpx.AsyncClient
+        monkeypatch.setattr(
+            rep.httpx,
+            "AsyncClient",
+            lambda **kw: real(transport=httpx.MockTransport(handler), **kw),
+        )
+
+    def test_gzip_feed_is_saved_and_loaded_after_a_restart(self, monkeypatch, tmp_path):
+        import gzip
+
+        body = gzip.compress(json.dumps([{"url": "http://evil.example/a"}]).encode())
+        self._patch(monkeypatch, lambda r: httpx.Response(200, content=body))
+        saved = tmp_path / "phishtank.json.gz"
+        assert run(rep.PhishTank(feed_path=str(saved)).refresh()) == 1
+        assert saved.exists()
+        restarted = rep.PhishTank(feed_path=str(saved))
+        assert restarted.load_saved() == 1
+        assert restarted.check("http://evil.example/a")["match"] == "url"
+        assert restarted.saved_age() < 60
+
+    def test_a_refused_download_is_reported_in_the_stats(self, monkeypatch):
+        self._patch(monkeypatch, lambda r: httpx.Response(404))
+        pt = rep.PhishTank()
+        assert run(pt.refresh()) == 0
+        assert pt.stats()["phishtank_last_error"] == "HTTP 404"
+
 
 class TestSharedHosts:
     def test_shared_hosts_match_only_the_exact_url(self):

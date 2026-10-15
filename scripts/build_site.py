@@ -211,7 +211,7 @@ def footer(lang, s, *, base) -> str:
       <a href="https://github.com/AnzouK/PhishLens">GitHub</a>
       <a href="{GITHUB}docs/architecture.md">{esc(s["f_arch"])}</a>
       <a href="{GITHUB}SECURITY.md">{esc(s["f_security"])}</a>
-      <a href="https://huggingface.co/AnzouKiona/phishlens-distilbert">{esc(s["f_model"])}</a>
+      <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/multilingual-model.md">{esc(s["f_model"])}</a>
     </nav>
   </div>
 </footer>

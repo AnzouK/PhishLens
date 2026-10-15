@@ -92,15 +92,15 @@ def test_notification_names_the_report_without_its_text(client, monkeypatch):
     c, _ = client
     sent = []
     monkeypatch.setattr(feedback, "FEEDBACK_NOTIFY_URL", "https://ntfy.example/topic")
-    monkeypatch.setattr(feedback, "_post", lambda url, msg: sent.append((url, msg)))
+    monkeypatch.setattr(feedback, "FEEDBACK_NOTIFY_CLICK", "https://phone.example/r")
     monkeypatch.setattr(
-        feedback.threading,
-        "Thread",
-        lambda target, args, daemon: type("T", (), {"start": lambda self: target(*args)})(),
+        feedback, "_post", lambda url, msg, click="": sent.append((url, msg, click))
     )
+    monkeypatch.setattr(feedback, "_spawn", lambda fn, *args: fn(*args))
     r = c.post("/feedback", json={**REPORT, "lang_user": "fr", "source": "site-paste"})
-    ((url, msg),) = sent
+    ((url, msg, click),) = sent
     assert url == "https://ntfy.example/topic"
+    assert click == "https://phone.example/r#" + r.json()["reference"]
     assert r.json()["reference"] in msg
     assert "false positive" in msg and "en (user: fr)" in msg and "site-paste" in msg
     assert "Kalinda" not in msg and "UBA" not in msg
@@ -110,6 +110,6 @@ def test_no_notification_without_an_https_url(client, monkeypatch):
     c, _ = client
     sent = []
     monkeypatch.setattr(feedback, "FEEDBACK_NOTIFY_URL", "http://ntfy.example/topic")
-    monkeypatch.setattr(feedback, "_post", lambda url, msg: sent.append(msg))
+    monkeypatch.setattr(feedback, "_post", lambda url, msg, click="": sent.append(msg))
     c.post("/feedback", json=REPORT)
     assert sent == []

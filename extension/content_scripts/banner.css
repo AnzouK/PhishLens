@@ -316,7 +316,8 @@ html[data-phishlens-theme="dark"] {
 .plr-link { margin-top: 6px; padding: 0; border: 0; background: none; color: var(--pll-accent); text-decoration: underline; text-underline-offset: 2px; }
 .plr-report { margin-top: 8px; padding: 10px; border: 1px solid var(--pll-line); border-radius: 4px; }
 .plr-report__title { font-weight: 600; color: var(--pll-text); margin-bottom: 4px; }
-.plr-report__intro, .plr-report__status { margin: 4px 0; }
+.plr-report__intro, .plr-report__status, .plr-report__hint { margin: 4px 0; }
+.plr-report__hint:empty { display: none; }
 .plr-report__text { box-sizing: border-box; width: 100%; margin: 6px 0; padding: 6px; font: 12px/1.4 var(--pll-mono); color: var(--pll-text); background: var(--pll-surface); border: 1px solid var(--pll-line); border-radius: 4px; resize: vertical; }
 .plr-report__check { display: flex; gap: 6px; align-items: flex-start; }
 .plr-report__actions { display: flex; gap: 8px; margin-top: 8px; }

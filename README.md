@@ -10,7 +10,7 @@
 [![Release](https://img.shields.io/github/v/release/AnzouK/PhishLens?color=blueviolet)](https://github.com/AnzouK/PhishLens/releases/latest)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-green.svg)](LICENSE)
 [![Website](https://img.shields.io/badge/Website-anzouk.duckdns.org-F80000)](https://anzouk.duckdns.org)
-[![Model](https://img.shields.io/badge/Hugging%20Face-model-yellow)](https://huggingface.co/AnzouKiona/phishlens-distilbert)
+[![Text model](https://img.shields.io/badge/text%20model-22%20languages-yellow)](docs/multilingual-model.md)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/gmail-verdicts-dark.svg">
@@ -155,6 +155,7 @@ The backend is configured with environment variables. The most useful:
 | --- | --- | --- |
 | `GSB_API_KEY` | empty | Google Safe Browsing key; that tier is off without it |
 | `REPUTATION_ENABLE_GSB` / `_PHISHTANK` / `_URLHAUS` / `_DBL` | `1` | Turn each threat-intel source on or off |
+| `PHISHTANK_API_KEY` / `PHISHTANK_REFRESH_S` | empty / 6 h (1 h with a key) | PhishTank application key, and how often its feed is downloaded; the last good feed is kept next to the cache (`PHISHTANK_FEED_PATH`) |
 | `REPUTATION_CACHE_DB` | `~/.cache/phishlens/reputation.db` | SQLite cache for URL verdicts (24 h TTL) |
 | `RATE_LIMIT_ANALYSE` | `30/minute` | Per-IP limit (also `RATE_LIMIT_ATTACHMENT`, `RATE_LIMIT_EXPLAIN`) |
 | `LIME_NUM_SAMPLES` | `100` | Forward passes per explanation: higher is sharper and slower |
@@ -164,7 +165,7 @@ The backend is configured with environment variables. The most useful:
 | `HF_TOKEN` | empty | Read-only token, only for a private model repository |
 | `OCR_LANG` | `auto` | Tesseract languages; `auto` picks them from the script of each image |
 | `FEEDBACK_DIR` / `RATE_LIMIT_FEEDBACK` | empty / `20/hour` | Where reports sent from the extension are stored (empty: not collected) |
-| `FEEDBACK_NOTIFY_URL` | empty | `https://` address that receives a one-line message for each new report, for example an [ntfy](https://ntfy.sh) topic; never the report's text |
+| `FEEDBACK_NOTIFY_URL` | empty | `https://` address that receives a one-line message for each new report, for example an [ntfy](https://ntfy.sh) topic; never the report's text; `FEEDBACK_NOTIFY_CLICK` is the address it opens when tapped (the reference is added after `#`) |
 | `METRICS_ENABLED` | `1` | Prometheus metrics on `/metrics` (keep it private) |
 | `LOG_LEVEL` | `INFO` | Log level for the `phishlens.*` loggers |
 

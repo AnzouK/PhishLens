@@ -28,6 +28,7 @@ services:
       HF_MODEL_REPO: ${HF_MODEL_REPO:-AnzouKiona/phishlens-distilbert}
       FEEDBACK_DIR: ${FEEDBACK_DIR:-}
       FEEDBACK_NOTIFY_URL: ${FEEDBACK_NOTIFY_URL:-}
+      FEEDBACK_NOTIFY_CLICK: ${FEEDBACK_NOTIFY_CLICK:-}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/"]

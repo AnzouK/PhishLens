@@ -1014,7 +1014,8 @@ textarea:focus, input:focus { box-shadow: none !important; outline: 1px solid va
 .plr-report { margin-top: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
 .history-item > .plr-report { grid-column: 1 / -1; margin-top: 4px; cursor: default; }
 .plr-report__title { font-weight: 600; color: var(--text); margin-bottom: 4px; }
-.plr-report__intro, .plr-report__status { margin: 4px 0; }
+.plr-report__intro, .plr-report__status, .plr-report__hint { margin: 4px 0; }
+.plr-report__hint:empty { display: none; }
 .plr-report__text { box-sizing: border-box; width: 100%; margin: 6px 0; padding: 6px; font: 11px/1.4 ui-monospace, Menlo, monospace;
   color: var(--text); background: var(--bg-elev-2); border: 1px solid var(--border); border-radius: 6px; resize: vertical; }
 .plr-report__check { display: flex; gap: 6px; align-items: flex-start; }

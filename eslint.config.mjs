@@ -77,6 +77,16 @@ export default [
     rules: { ...bugRules, ...hygieneRules },
   },
   {
+    // The website: plain browser scripts.
+    files: ["site/app.js", "site/nav.js", "site/lang.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "script",
+      globals: { ...globals.browser },
+    },
+    rules: { ...bugRules, ...hygieneRules },
+  },
+  {
     files: [`${CONTENT_DIR}/*.js`],
     languageOptions: { globals: contentGlobals },
     rules: {

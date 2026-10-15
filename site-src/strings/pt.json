@@ -176,5 +176,6 @@
   "js_fb_cancel": "Cancelar",
   "js_fb_sending": "A enviar…",
   "js_fb_sent": "Obrigado. Referência {ref}: indique-a se quiser que esta comunicação seja apagada.",
-  "js_fb_failed": "Não foi possível enviar a comunicação: {error}"
+  "js_fb_failed": "Não foi possível enviar a comunicação: {error}",
+  "js_fb_too_short": "Escreva pelo menos 3 palavras para enviar a comunicação."
 }

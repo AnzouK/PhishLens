@@ -354,6 +354,7 @@
     "fb_sending": "Bezig met versturen…",
     "fb_sent": "Bedankt. Referentie {ref}: vermeld die als u deze melding wilt laten verwijderen.",
     "fb_failed": "De melding kon niet worden verstuurd: {error}",
+    "fb_too_short": "Schrijf minstens 3 woorden om de melding te versturen.",
     "fb_report_paste": "Plak hier de tekst van de e-mail: namen, adressen en nummers worden bij het plakken verwijderd.",
     "share_stats": "Mijn statistieken delen",
     "share_stats_intro": "Stuurt uw {count} controles naar PhishLens Cloud zonder onderwerp, afzender of tekst: dag, bron, oordeel, scores, uw beoordeling en de taal. Dat helpt PhishLens te meten op echte e-mails. Dit zijn de eerste:",

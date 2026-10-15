@@ -176,5 +176,6 @@
   "js_fb_cancel": "Soke",
   "js_fb_sending": "Ana aikawa…",
   "js_fb_sent": "Nagode. Lambar shaida {ref}: ambace ta idan kana son a share wannan rahoto.",
-  "js_fb_failed": "Ba a iya aika rahoton ba: {error}"
+  "js_fb_failed": "Ba a iya aika rahoton ba: {error}",
+  "js_fb_too_short": "Rubuta aƙalla kalmomi 3 don aika rahoton."
 }
