@@ -29,7 +29,7 @@ _NOT_NAMES_TEXT = (
 )
 _NOT_NAMES = set(_NOT_NAMES_TEXT.split())
 
-_EMAIL = re.compile(r"[\w.%+-]+@[\w.-]+\.[^\W\d_]{2,}")
+_EMAIL = re.compile(r"(?<![\w.%+-])[\w.%+-]+@[\w.-]+\.[^\W\d_]{2,}")
 _URL = re.compile(
     r"\b(?:https?://|www\.)([^\s/?#<>\"']*[^\s/?#<>\"'.,;:!?)])(?:[/?#][^\s<>\"']*[^\s<>\"'.,;:!?)])?",
     re.I,
@@ -38,6 +38,7 @@ _IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b
 _PHONE = re.compile(r"(?<![\w])\+\d[\d ().-]{6,}\d")
 _LONG_NUMBER = re.compile(r"(?<![^\W\d_])(?<!\d)\d(?:[ .-]?\d){5,}(?!\d)(?![^\W\d_])")
 _HANDLE = re.compile(r"(?<![\w<])@[\w.]{2,}")
+_CORE = re.compile(r"\w(?:.*\w)?", re.S)
 _ZERO_WIDTH = re.compile("[\u200b-\u200d\u2060\ufeff]")
 _LEADS = [
     re.compile(r"(\b" + lead + r")(" + _NAME + r"(?:\s+" + _NAME + r"){0,2})")
@@ -50,7 +51,8 @@ def _mask_names(words: str) -> str:
 
 
 def _username(token: str) -> bool:
-    core = re.sub(r"^\W+|\W+$", "", token)
+    found = _CORE.search(token)
+    core = found.group() if found else ""
     if len(core) < 6 or core.startswith("<"):
         return False
     if "_" in core and re.search(r"[^\W\d_]", core):

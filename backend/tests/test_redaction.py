@@ -1,8 +1,10 @@
 import json
+import time
 from pathlib import Path
 
 import pytest
 
+from language import detect_language
 from redaction import redact
 
 CASES = json.loads(
@@ -26,3 +28,12 @@ def test_nothing_personal_is_left():
     for leak in ("Kalinda", "kalinda", "250000", "FR76", "803", "kal_99", "/u/"):
         assert leak not in out, leak
     assert "<URL:x.example>" in out
+
+
+@pytest.mark.parametrize("filler", ["!", "%", " ", "\t", "a.", "x"])
+def test_long_runs_stay_fast(filler):
+    text = "a@" + filler * 20_000
+    start = time.perf_counter()
+    redact(text)
+    detect_language(text)
+    assert time.perf_counter() - start < 1

@@ -64,7 +64,7 @@ _SCRIPT_LANG = (
 )
 _UKRAINIAN = set("іїєґІЇЄҐ")
 _TOKEN = re.compile(r"[^\W\d_]+", re.UNICODE)
-_TAG = re.compile(r"<[A-Z]+>|https?://\S+|\S+@\S+")
+_TAG = re.compile(r"<[A-Z]+>|https?://\S+|(?<!\S)[^\s@]+@\S+")
 MIN_WORDS = 6
 
 

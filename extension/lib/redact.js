@@ -24,7 +24,7 @@ const NOT_NAMES = new Set(("nous je we i you your we're we've it its this that t
     "bonjour hello hi obrigado todos tous and et y o e peer meet mr mrs ms dr m mme mlle sr sra herr frau").split(" "));
 
 const RE = {
-    email: /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[\p{L}]{2,}/gu,
+    email: /(?<![\p{L}\p{N}._%+-])[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[\p{L}]{2,}/gu,
     url: /\b(?:https?:\/\/|www\.)([^\s/?#<>"']*[^\s/?#<>"'.,;:!?)])(?:[/?#][^\s<>"']*[^\s<>"'.,;:!?)])?/giu,
     iban: /\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){2,7}(?:[ ]?[A-Z0-9]{1,3})?\b/g,
     longNumber: /(?<![\p{L}\p{N}])\d(?:[ .-]?\d){5,}(?![\p{L}\p{N}])/gu,
@@ -38,7 +38,7 @@ function maskNames(words) {
 }
 
 function isUsername(token) {
-    const core = token.replace(/^[^\p{L}\p{N}_]+|[^\p{L}\p{N}_]+$/gu, "");
+    const core = token.match(/[\p{L}\p{N}_](?:.*[\p{L}\p{N}_])?/su)?.[0] || "";
     if (core.length < 6 || core.startsWith("<")) return false;
     if (core.includes("_") && /\p{L}/u.test(core)) return true;
     return /\p{Ll}/u.test(core) && /\d/.test(core) && /\p{L}{3}/u.test(core);
