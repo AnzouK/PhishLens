@@ -149,6 +149,33 @@ restart costs no download. When a download is refused,
 `/reputation/stats` shows why in `phishtank_last_error` (for example
 `HTTP 429`), and the previous list stays in use.
 
+## Configuration
+
+The backend reads environment variables (`~/.phishlens.env` on the VM).
+The most useful:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `GSB_API_KEY` | empty | Google Safe Browsing key; that tier is off without it |
+| `REPUTATION_ENABLE_GSB` / `_PHISHTANK` / `_URLHAUS` / `_DBL` | `1` | Turn each threat-intel source on or off |
+| `PHISHTANK_API_KEY` / `PHISHTANK_REFRESH_S` | empty / 6 h (1 h with a key) | PhishTank application key, and how often its feed is downloaded; the last good feed is kept next to the cache (`PHISHTANK_FEED_PATH`) |
+| `REPUTATION_CACHE_DB` | `~/.cache/phishlens/reputation.db` | SQLite cache for URL verdicts (24 h TTL) |
+| `RATE_LIMIT_ANALYSE` | `30/minute` | Per-IP limit (also `RATE_LIMIT_ATTACHMENT`, `RATE_LIMIT_EXPLAIN`) |
+| `LIME_NUM_SAMPLES` | `100` | Forward passes per explanation: higher is sharper and slower |
+| `OCR_MAX_PAGES` / `OCR_TIMEOUT_S` | `3` / `10` | Pages of a scanned PDF sent to OCR, and the time limit per page |
+| `AGENTS_ALLOW_PICKLE` | `1` | `0` refuses pickle files and loads only the `.skops` agents (PhishLens Cloud runs with `0`) |
+| `MODEL_DIR` / `HF_MODEL_REPO` | `./model` / `AnzouKiona/phishlens-distilbert` | Where the text model is stored, and which Hugging Face repository it comes from ([switching models](docs/operations.md#switch-the-text-model)) |
+| `HF_TOKEN` | empty | Read-only token, only for a private model repository |
+| `OCR_LANG` | `auto` | Tesseract languages; `auto` picks them from the script of each image |
+| `FEEDBACK_DIR` / `RATE_LIMIT_FEEDBACK` | empty / `20/hour` | Where reports sent from the extension are stored (empty: not collected) |
+| `FEEDBACK_NOTIFY_URL` | empty | `https://` address that receives a one-line message for each new report, for example an [ntfy](https://ntfy.sh) topic; never the report's text; `FEEDBACK_NOTIFY_CLICK` is the address it opens when tapped (the reference is added after `#`) |
+| `METRICS_ENABLED` | `1` | Prometheus metrics on `/metrics` (keep it private) |
+| `LOG_LEVEL` | `INFO` | Log level for the `phishlens.*` loggers |
+
+`RESULT_CACHE_TTL` / `RESULT_CACHE_MAX`, `FEEDBACK_MAX_MB`, `OCR_LANG`
+and the others are described in their sections below and in
+`backend/settings.py`.
+
 ## Health and status endpoints
 
 | Endpoint | Use |

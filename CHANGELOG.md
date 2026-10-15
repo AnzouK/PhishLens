@@ -7,6 +7,17 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Documentation
+- README rewritten shorter: what PhishLens checks, a **Privacy** section
+  (what is sent where, what is kept), and the figures with how far they
+  can be trusted, before installation. The configuration table moved to
+  the operations guide and the project layout to the contributing guide.
+- Website: the results show the share of phishing caught on real mail
+  instead of an offline F1 score, with how it was measured; the privacy
+  text says exactly what is and is not kept.
+- The project overview explains which numbers to trust and why; the
+  credits say who trained the original models.
+
 ## [2.0.4] - 2026-10-15
 
 ### Added

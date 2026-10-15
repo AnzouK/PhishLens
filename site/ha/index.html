@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=d1753648c1">
-<script src="../i18n/ha.js?v=b88bfd4a19" defer></script>
+<script src="../i18n/ha.js?v=4c1648ef3f" defer></script>
 <script src="../lang.js?v=0eb2be978d" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script src="../redact.js?v=72aa662a52" defer></script>
@@ -105,11 +105,11 @@
       <h2><span class="n">01</span>Sakamako</h2>
       <div class="strip">
         <div class="cell"><div class="big">22</div><div class="lbl">harsunan da samfurin rubutu ke karantawa</div></div>
-        <div class="cell"><div class="big">0.991</div><div class="lbl">F1, samfurin hanyoyin haɗi (Random Forest)</div></div>
+        <div class="cell"><div class="big">92.5%</div><div class="lbl">na phishing da aka gano a imel na Turanci da samfurin bai taɓa gani ba</div></div>
         <div class="cell"><div class="big">65 ms</div><div class="lbl">matsakaicin lokacin bincike a sabar da ba ta da GPU</div></div>
         <div class="cell"><div class="big">4</div><div class="lbl">majiyoyin bayanan barazana</div></div>
       </div>
-      <p class="note">Gwaje-gwaje ba tare da intanet ba da gwajin nauyi a PhishLens Cloud. Ainihin akwatunan saƙo sun fi wahala: duba <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">iyakokin da aka sani</a>.</p>
+      <p class="note">An auna a kan imel na gaske da babu samfurin da ya gani lokacin horo (kusan imel 330 na halal daga akwati ɗaya) da gwajin nauyi a PhishLens Cloud: ƙiyasi ne, ba tabbaci ba. Duba <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">iyakokin da aka sani</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, a yanzu</h3>
       <div class="strip" id="live" aria-live="polite">
@@ -152,7 +152,7 @@
         <li><svg class="ic"><use href="#i-eye"/></svg><div><b>Hukunci mai bayani</b><span>Maki ɗaya ga kowane bincike, alamun da aka samu, da kalmomin da suka karkatar da samfurin rubutu, don ka yanke hukunci da kanka.</span></div></li>
         <li><svg class="ic"><use href="#i-mail"/></svg><div><b>Gmail da Outlook</b><span>Maɓallin Duba kusa da jigo a Gmail da Outlook a yanar gizo; fayiloli da rubutun da aka liƙa a tagar ƙarin.</span></div></li>
         <li><svg class="ic"><use href="#i-bell"/></svg><div><b>Bincike ta atomatik</b><span>Na zaɓi: ana duba sababbin imel idan sun iso, ana yi musu alamar Amintacce ko Phishing? a jerin, tare da sanarwa.</span></div></li>
-        <li><svg class="ic"><use href="#i-lock"/></svg><div><b>Sirri tun daga tsari</b><span>Babu asusu, babu abin da ake ajiyewa a sabar, tarihi yana cikin burauzarka. Da sabarka ta kanka, babu abin da zai bar kwamfutarka.</span></div></li>
+        <li><svg class="ic"><use href="#i-lock"/></svg><div><b>Sirri tun daga tsari</b><span>Babu asusu. Ana duba imel a ƙwaƙwalwa kuma ba a ajiye su ba; tarihinka yana zama a burauzarka. Da sabarka ta kanka, babu imel da zai bar kwamfutarka.</span></div></li>
         <li><svg class="ic"><use href="#i-chart"/></svg><div><b>Daidaitonka na kanka</b><span>Nuna ko kowane hukunci daidai ne ko ba daidai ba, ka ga yadda PhishLens ke aiki a kan imel ɗinka na gaske, tare da fitarwa ta CSV.</span></div></li>
         <li><svg class="ic"><use href="#i-code"/></svg><div><b>Buɗaɗɗe kuma an gwada shi</b><span>Lasisin GNU AGPL-3.0, tare da samfurin barazana, CodeQL da gwaje-gwaje na atomatik sama da 300 a kowane canji.</span></div></li>
       </ul>
@@ -249,7 +249,7 @@
 <pre>huggingface-cli download AnzouKiona/phishlens-distilbert \
   --local-dir backend/model
 cd backend &amp;&amp; docker compose up --build</pre>
-          <p class="small muted">Python ba tare da Docker ba, saituna da girkawa: duba <a href="https://github.com/AnzouK/PhishLens#quickstart">jagorar farawa</a> (da Turanci).</p>
+          <p class="small muted">Python ba tare da Docker ba, saituna da girkawa: duba <a href="https://github.com/AnzouK/PhishLens#run-your-own-server">jagorar farawa</a> (da Turanci).</p>
         </div>
       </div>
       <p class="mt"><a class="cta" href="https://github.com/AnzouK/PhishLens/releases/latest">Girka PhishLens</a></p>
