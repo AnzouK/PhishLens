@@ -123,7 +123,14 @@ FEEDBACK_DIR=/data/feedback        # inside the data volume, so it survives re-c
 
 Caddy must also forward the path: add `/feedback` to the `@api` matcher of
 the main domain (`@api path /analyse* /explain* /health /reputation* /feedback`)
-and reload Caddy. Read them on the VM with
+and reload Caddy.
+
+To be told about each new report, set `FEEDBACK_NOTIFY_URL` to an
+`https://` address that accepts a plain-text POST, for example an
+[ntfy](https://ntfy.sh) topic (`https://ntfy.sh/<long random name>`,
+followed in the ntfy app). The message gives the kind of report, the
+verdict, the languages, where it came from and its reference, never the
+text. Read the reports on the VM with
 `cat ~/phishlens_data/feedback/feedback-*.jsonl | python3 -m json.tool --json-lines`.
 To delete one on request: `python3 scripts/delete_report.py --dir
 ~/phishlens_data/feedback <reference>` (from the repository checkout on

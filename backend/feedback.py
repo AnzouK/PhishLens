@@ -13,9 +13,11 @@ report (to have it deleted).
 from __future__ import annotations
 
 import json
+import logging
 import os
 import secrets
 import threading
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -23,8 +25,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from redaction import redact
-from settings import FEEDBACK_DIR, FEEDBACK_MAX_MB
+from settings import FEEDBACK_DIR, FEEDBACK_MAX_MB, FEEDBACK_NOTIFY_URL
 
+logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 Kind = Literal["false_positive", "false_negative", "wrong_language", "stats"]
 _LOCK = threading.Lock()
 _LANG = Field(None, max_length=8, pattern=r"^[a-z]{2,3}$|^und$|^other$")
@@ -112,4 +115,42 @@ def store(req: FeedbackRequest) -> str:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
         with os.fdopen(fd, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    notify(record)
     return reference
+
+
+def notification_text(record: dict[str, Any]) -> str:
+    """One line about a new report: what kind, which languages, where it
+    came from and its reference. Never the text of the email."""
+    parts = [record["kind"].replace("_", " ")]
+    if record["kind"] == "stats":
+        parts.append(f"{len(record.get('rows') or [])} scans")
+    else:
+        parts.append(f"verdict {record.get('verdict') or '?'}")
+        lang = record.get("lang") or "?"
+        if record.get("lang_user") and record["lang_user"] != lang:
+            lang += f" (user: {record['lang_user']})"
+        parts.append(f"language {lang}")
+        if record.get("source"):
+            parts.append(f"from {record['source']}")
+    parts.append(f"ref {record['reference']}")
+    return " · ".join(parts)
+
+
+def _post(url: str, message: str) -> None:
+    req = urllib.request.Request(
+        url, data=message.encode(), headers={"Title": "PhishLens report"}, method="POST"
+    )
+    try:
+        urllib.request.urlopen(req, timeout=5).close()
+    except OSError as e:
+        logger.warning("report notification failed: %s", type(e).__name__)
+
+
+def notify(record: dict[str, Any]) -> None:
+    """Sends notification_text() to FEEDBACK_NOTIFY_URL in the background."""
+    if not FEEDBACK_NOTIFY_URL.startswith("https://"):
+        return
+    threading.Thread(
+        target=_post, args=(FEEDBACK_NOTIFY_URL, notification_text(record)), daemon=True
+    ).start()

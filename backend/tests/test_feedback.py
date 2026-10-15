@@ -86,3 +86,30 @@ def test_full_storage_refuses(client, monkeypatch):
     c, folder = client
     monkeypatch.setattr(feedback, "FEEDBACK_MAX_MB", 0)
     assert c.post("/feedback", json=REPORT).status_code == 503
+
+
+def test_notification_names_the_report_without_its_text(client, monkeypatch):
+    c, _ = client
+    sent = []
+    monkeypatch.setattr(feedback, "FEEDBACK_NOTIFY_URL", "https://ntfy.example/topic")
+    monkeypatch.setattr(feedback, "_post", lambda url, msg: sent.append((url, msg)))
+    monkeypatch.setattr(
+        feedback.threading,
+        "Thread",
+        lambda target, args, daemon: type("T", (), {"start": lambda self: target(*args)})(),
+    )
+    r = c.post("/feedback", json={**REPORT, "lang_user": "fr", "source": "site-paste"})
+    ((url, msg),) = sent
+    assert url == "https://ntfy.example/topic"
+    assert r.json()["reference"] in msg
+    assert "false positive" in msg and "en (user: fr)" in msg and "site-paste" in msg
+    assert "Kalinda" not in msg and "UBA" not in msg
+
+
+def test_no_notification_without_an_https_url(client, monkeypatch):
+    c, _ = client
+    sent = []
+    monkeypatch.setattr(feedback, "FEEDBACK_NOTIFY_URL", "http://ntfy.example/topic")
+    monkeypatch.setattr(feedback, "_post", lambda url, msg: sent.append(msg))
+    c.post("/feedback", json=REPORT)
+    assert sent == []

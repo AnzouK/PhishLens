@@ -7,6 +7,19 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-10-15
+
+### Added
+- `FEEDBACK_NOTIFY_URL`: a one-line message for each new report (kind,
+  verdict, languages, origin and reference, never the text), for example
+  to an ntfy topic followed on a phone.
+
+### Fixed
+- The website's scripts and stylesheet carry a hash of their content, so
+  a browser loads the new version right after a deployment instead of a
+  cached one (the language line and the report link did not show up).
+- A test replaced only the first `*` of a URL pattern (CodeQL).
+
 ## [2.0.1] - 2026-10-15
 
 ### Added
@@ -785,7 +798,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.2...HEAD
+[2.0.2]: https://github.com/AnzouK/PhishLens/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/AnzouK/PhishLens/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/AnzouK/PhishLens/compare/v1.15.5...v2.0.0
 [1.15.5]: https://github.com/AnzouK/PhishLens/compare/v1.15.4...v1.15.5

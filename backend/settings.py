@@ -15,7 +15,7 @@ from pathlib import Path
 
 # Shared by the backend and the extension (extension/manifest.json);
 # the CI checks that both say the same.
-VERSION = "2.0.1"
+VERSION = "2.0.2"
 
 # ---------------------------------------------------------------------
 # Text model
@@ -61,6 +61,9 @@ RATE_LIMIT_FEEDBACK = os.environ.get("RATE_LIMIT_FEEDBACK", "20/hour")
 # Reports sent from the extension (feedback.py). Empty: not collected.
 FEEDBACK_DIR = os.environ.get("FEEDBACK_DIR", "")
 FEEDBACK_MAX_MB = float(os.environ.get("FEEDBACK_MAX_MB", "200"))
+# Optional push message for each new report (an ntfy topic URL, for
+# example). Empty: no message. Never carries the report's text.
+FEEDBACK_NOTIFY_URL = os.environ.get("FEEDBACK_NOTIFY_URL", "")
 
 # Request size limits. An email with its attachments can be large (Gmail
 # accepts 25 MB) and base64 adds a third; an attachment is capped at
