@@ -354,7 +354,7 @@
     "fb_sending": "Invio…",
     "fb_sent": "Grazie. Riferimento {ref}: indicalo se vuoi far cancellare questa segnalazione.",
     "fb_failed": "Impossibile inviare la segnalazione: {error}",
-    "fb_unavailable": "Questa analisi non può più essere segnalata.",
+    "fb_report_paste": "Incolla qui il testo dell'email: nomi, indirizzi e numeri vengono rimossi mentre incolli.",
     "share_stats": "Condividi le mie statistiche",
     "share_stats_intro": "Invia le tue {count} analisi a PhishLens Cloud senza oggetto, mittente né testo: giorno, origine, verdetto, punteggi, la tua valutazione e la lingua. Aiuta a misurare PhishLens su email reali. Ecco le prime:",
     "share_stats_send": "Invia le statistiche",

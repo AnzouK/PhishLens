@@ -7,6 +7,23 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Added
+- The website's "try it" result shows the detected language, with
+  Correct / Not this language, and **Wrong verdict? Report it**, with the
+  same redaction as the extension (`site/redact.js` is a copy of
+  `extension/lib/redact.js`, written by `scripts/build_site.py`).
+- Every popup result can be reported, files and attachments included:
+  the person pastes the part of the email to send, and the text is
+  redacted as it is pasted.
+
+### Fixed
+- **Insights:** the report panel of a scan marked Wrong closed as soon
+  as it opened, and the report button only appeared for Gmail and
+  Outlook scans whose text was kept; it now appears for every scan
+  marked Wrong.
+- The documentation, the website and the user guide no longer say the
+  text model reads only English.
+
 ## [2.0.0] - 2026-10-15
 
 ### Added

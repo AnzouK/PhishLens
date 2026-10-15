@@ -34,6 +34,7 @@
 <script src="../i18n/de.js" defer></script>
 <script src="../lang.js" defer></script>
 <script src="../nav.js" defer></script>
+<script src="../redact.js" defer></script>
 <script src="../app.js" defer></script>
 </head>
 <body>
@@ -103,9 +104,9 @@
     <div class="wrap">
       <h2><span class="n">01</span>Ergebnisse</h2>
       <div class="strip">
-        <div class="cell"><div class="big">0.967</div><div class="lbl">F1, Textmodell (DistilBERT)</div></div>
+        <div class="cell"><div class="big">22</div><div class="lbl">Sprachen, die das Textmodell liest</div></div>
         <div class="cell"><div class="big">0.991</div><div class="lbl">F1, Linkmodell (Random Forest)</div></div>
-        <div class="cell"><div class="big">77 ms</div><div class="lbl">mittlere Prüfdauer auf einem Server ohne GPU</div></div>
+        <div class="cell"><div class="big">77 ms</div><div class="lbl">mittlere Prüfdauer auf einem Server ohne GPU (v1.15)</div></div>
         <div class="cell"><div class="big">4</div><div class="lbl">Quellen für Bedrohungsdaten</div></div>
       </div>
       <p class="note">Offline-Testdaten und ein Lasttest auf PhishLens Cloud. Echte Postfächer sind schwieriger: siehe die <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">bekannten Grenzen</a>.</p>
@@ -124,7 +125,7 @@
       <p class="intro">Echte E-Mails von Banken und Hochschulen verwenden dieselben Wörter wie Phishing, deshalb meldet ein Textmodell allein sie. PhishLens prüft die Belege, bevor es entscheidet.</p>
       <div class="pair">
         <ul class="rows">
-          <li><svg class="ic"><use href="#i-text"/></svg><b>Text</b><span>DistilBERT, mit rund 29.500 E-Mails feinabgestimmt, bewertet den Text; LIME zeigt die Wörter, die das Urteil bestimmt haben.</span></li>
+          <li><svg class="ic"><use href="#i-text"/></svg><b>Text</b><span>Ein mehrsprachiges Modell (mmBERT-small, aus einem größeren Phishing-Detektor destilliert) bewertet den Text in 22 Sprachen; LIME zeigt die Wörter, die das Urteil bestimmt haben.</span></li>
           <li><svg class="ic"><use href="#i-link"/></svg><b>Links</b><span>Jedes echte Linkziel, auch das hinter „Hier klicken“, geprüft bei Safe Browsing, PhishTank, URLhaus und Spamhaus.</span></li>
           <li><svg class="ic"><use href="#i-key"/></svg><b>Absender</b><span>SPF, DKIM und DMARC zeigen, wer sie wirklich gesendet hat. Eine weitergeleitete E-Mail übernimmt nicht das Vertrauen in die weiterleitende Person.</span></li>
           <li><svg class="ic"><use href="#i-clip"/></svg><b>Anhänge</b><span>PDFs (auch gescannte, per OCR), QR-Codes, Office-Makros und externe Vorlagen, ZIP-, RAR- und 7z-Archive sowie Kalendereinladungen.</span></li>
@@ -163,7 +164,7 @@
       <h2><span class="n">04</span>So funktioniert es</h2>
       <ol class="rows">
         <li><b>Lesen</b><span>Den Text, die echten Linkziele, den Absender und in Gmail die vollständigen Original-Header.</span></li>
-        <li><b>Bewerten</b><span>DistilBERT für den Text, zwei Random Forests für die Links und die Header.</span></li>
+        <li><b>Bewerten</b><span>Ein mehrsprachiges Modell für den Text, zwei Random Forests für die Links und die Header.</span></li>
         <li><b>Prüfen</b><span>Authentifizierungsergebnisse und vier Quellen für Bedrohungsdaten, vor jedem Urteil.</span></li>
         <li><b>Erklären</b><span>Ein Urteil, ein Wert pro Prüfung, die gefundenen Signale und die Wörter dahinter, über der E-Mail.</span></li>
       </ol>

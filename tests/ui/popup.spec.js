@@ -187,3 +187,45 @@ test("pasted text: language confirmation and a redacted report", async ({ page }
     expect(sent.text).not.toContain("Kalinda");
 });
 
+
+test("a scanned file can be reported by pasting its text, redacted on paste", async ({ page }) => {
+    await page.route(`${API}/analyse`, (route) => route.fulfill({ json: analyseResponse("phishing") }));
+    await page.goto(`${base}/popup/popup.html`);
+    await page.setInputFiles("#file-input", {
+        name: "mail.eml", mimeType: "message/rfc822", buffer: Buffer.from("Subject: hi\r\n\r\nHello there"),
+    });
+    await page.click("#analyze-btn");
+    await page.click(".plr-link");
+    const area = page.locator(".plr-report__text");
+    await expect(area).toHaveValue("");
+    await page.evaluate(() => {
+        const dt = new DataTransfer();
+        dt.setData("text/plain", "Dear Kalinda, call +44 20 7946 0958 today to confirm the meeting.");
+        const box = document.querySelector(".plr-report__text");
+        box.focus();
+        box.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+    });
+    await expect(area).not.toHaveValue(/Kalinda|7946/);
+    await expect(area).toHaveValue(/<PHONE>/);
+    await page.check(".plr-report__check input");
+    await page.click(".plr-report .plr-btn--strong");
+    await expect(page.locator(".plr-report")).toContainText("a1b2c3d4e5f6");
+    const sent = await page.evaluate(() => window.__sent.find((m) => m.type === "phishlens.feedback").payload);
+    expect(sent.source).toBe("file");
+});
+
+test("insights: a scan marked wrong offers a report that stays open", async ({ page }) => {
+    await page.goto(`${base}/popup/popup.html`);
+    await page.evaluate(() => window.PhishLensHistory.saveScan({
+        source: "gmail-auto", subject: "Invoice", verdict: "phishing", score: 0.9,
+        agents: { text: 0.9, url: 0.1, metadata: 0.2 }, lang: "en",
+    }));
+    await page.click("#insights-btn");
+    await page.click('.history-item .review-btn[data-label="wrong"]');
+    await page.click(".history-item .review-report");
+    const panel = page.locator(".history-item .plr-report");
+    await expect(panel).toBeVisible();
+    await page.waitForTimeout(300);
+    await expect(panel).toBeVisible();
+    await expect(page.locator('.history-item .review-btn[data-label="wrong"]')).toHaveClass(/review-btn--on/);
+});

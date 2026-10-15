@@ -175,6 +175,124 @@
     slot.querySelectorAll(".tok").forEach((el) => el.style.setProperty("--a", el.dataset.a));
   }
 
+  // ---------- detected language and "wrong verdict?" report ----------
+  const LANGS = ["en", "fr", "pt", "es", "de", "it", "nl", "pl", "ru", "uk", "tr", "ar", "hi", "id", "vi",
+    "zh", "ja", "ko", "ha", "yo", "ig", "sw"];
+  const REDACT = window.PhishLensRedact;
+  const el = (tag, cls, txt) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (txt != null) n.textContent = txt;
+    return n;
+  };
+  const btn = (label, cls = "fb-btn") => { const b = el("button", cls, label); b.type = "button"; return b; };
+  function langName(code) {
+    if (code === "other") return t("js_lang_another");
+    try { return new Intl.DisplayNames([SITE.lang, "en"], { type: "language" }).of(code) || code; }
+    catch { return code; }
+  }
+
+  function renderFeedback(d, pasted, source) {
+    const box = el("div", "fb");
+    const info = { lang_user: null };
+    const code = d.language?.code;
+    const known = code && code !== "und";
+    const line = el("p", "fb__lang small muted");
+    const label = el("span", "", known ? t("js_fb_lang_detected", { lang: langName(code) }) : t("js_fb_lang_unknown"));
+    const done = (answer) => {
+      info.lang_user = answer;
+      line.replaceChildren(el("span", "", t("js_fb_lang_saved", { lang: langName(answer) })));
+    };
+    const pick = () => {
+      const sel = el("select", "fb-select");
+      sel.setAttribute("aria-label", t("js_fb_lang_pick"));
+      sel.append(new Option(t("js_fb_lang_pick"), ""));
+      [...LANGS, "other"].forEach((c) => sel.append(new Option(langName(c), c)));
+      sel.addEventListener("change", () => { if (sel.value) done(sel.value); });
+      line.replaceChildren(label, sel);
+      sel.focus();
+    };
+    line.append(label);
+    if (known) {
+      const ok = btn(t("js_fb_lang_ok")); ok.addEventListener("click", () => done(code));
+      const no = btn(t("js_fb_lang_wrong")); no.addEventListener("click", pick);
+      line.append(ok, no);
+    } else {
+      const set = btn(t("js_fb_lang_pick")); set.addEventListener("click", pick);
+      line.append(set);
+    }
+    box.append(line);
+
+    const link = btn(t("js_fb_report"), "fb-link");
+    link.addEventListener("click", () => {
+      if (box.querySelector(".fb-report")) return;
+      box.append(reportPanel(d, pasted ? REDACT.redact(pasted) : "", source, info));
+      box.querySelector(".fb-report textarea").focus();
+    });
+    box.append(link);
+    out.append(box);
+  }
+
+  function reportPanel(d, text, source, info) {
+    const kind = d.verdict === "phishing" ? "false_positive" : "false_negative";
+    const panel = el("div", "fb-report");
+    panel.append(el("p", "fb-report__title", t(kind === "false_positive" ? "js_fb_report_title_fp" : "js_fb_report_title_fn")));
+    panel.append(el("p", "small muted", t("js_fb_report_intro")));
+    const area = el("textarea", "fb-report__text");
+    area.rows = 8;
+    area.value = text;
+    area.setAttribute("aria-label", t("js_fb_report_preview"));
+    if (!text) area.placeholder = t("js_fb_report_paste");
+    const check = el("input"); check.type = "checkbox";
+    const checkLabel = el("label", "fb-report__check small");
+    checkLabel.append(check, document.createTextNode(" " + t("js_fb_report_check")));
+    const send = btn(t("js_fb_send"), "fb-btn fb-btn--strong");
+    const cancel = btn(t("js_fb_cancel"));
+    const state = el("p", "small muted"); state.setAttribute("role", "status");
+    const refresh = () => { send.disabled = !(check.checked && area.value.trim().split(/\s+/).length >= 3); };
+    area.addEventListener("paste", (e) => {
+      const p = e.clipboardData?.getData("text/plain");
+      if (!p) return;
+      e.preventDefault();
+      area.setRangeText(REDACT.redact(p), area.selectionStart, area.selectionEnd, "end");
+      refresh();
+    });
+    area.addEventListener("input", refresh);
+    check.addEventListener("change", refresh);
+    cancel.addEventListener("click", () => panel.remove());
+    send.addEventListener("click", async () => {
+      send.disabled = true; cancel.disabled = true;
+      state.textContent = t("js_fb_sending");
+      try {
+        const r = await fetch(API + "/feedback", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind, text: REDACT.redact(area.value), verdict: d.verdict,
+            fused_score: Number(d.fused_score) || 0,
+            agents: {
+              text: Number(d.agents?.text?.phishing_probability) || 0,
+              url: Number(d.agents?.url?.phishing_probability) || 0,
+              metadata: Number(d.agents?.metadata?.phishing_probability) || 0,
+            },
+            trust_path: d.trust_path || null, source,
+            lang: d.language?.code || null, lang_user: info.lang_user, ui_lang: SITE.lang,
+          }),
+        });
+        const x = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(r.status === 429 ? t("js_rate") : x.detail || t("js_server_answered", { status: r.status }));
+        panel.replaceChildren(el("p", "small", t("js_fb_sent", { ref: x.reference })));
+      } catch (err) {
+        state.textContent = t("js_fb_failed", { error: err.message || String(err) });
+        cancel.disabled = false; refresh();
+      }
+    });
+    refresh();
+    const actions = el("div", "fb-report__actions");
+    actions.append(send, cancel);
+    panel.append(area, checkLabel, actions, state);
+    return panel;
+  }
+
   function showError(title, message) {
     out.innerHTML = `<p class="verdict verdict--bad">${esc(title)}</p><p class="muted">${esc(message)}</p>`;
   }
@@ -207,6 +325,9 @@
       if (!r.ok) throw new Error(d.detail || t("js_server_answered", { status: r.status }));
       const isEmail = endpoint === "/analyse";
       render(d, isEmail);
+      if (REDACT && (d.verdict === "phishing" || d.verdict === "safe")) {
+        renderFeedback(d, body.raw_text || "", body.raw_text ? "site-paste" : body.content_b64 ? "site-attachment" : "site-file");
+      }
       if (isEmail && d.text_agent_used !== false) {
         fetch(API + "/explain", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
           .then((x) => (x.ok ? x.json() : Promise.reject(new Error(`HTTP ${x.status}`))))

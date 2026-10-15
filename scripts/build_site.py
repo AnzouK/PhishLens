@@ -14,6 +14,7 @@ Output (in site/, deployed as is)
     index.html, privacy.html, terms.html, 404.html   English, at the root
     <lang>/index.html, privacy.html, terms.html      the other languages
     i18n/<lang>.js                                   texts used by app.js
+    redact.js                                        copy of extension/lib/redact.js
     sitemap.xml                                      every page, with hreflang
 
 A {{key}} ending in _html is inserted as is; any other is HTML-escaped.
@@ -24,6 +25,7 @@ from __future__ import annotations
 import html
 import json
 import re
+import shutil
 import subprocess
 from datetime import date
 from pathlib import Path
@@ -141,6 +143,7 @@ def head(lang, s, *, title, desc, base, page, og_desc=None, scripts=False, noind
         f'<script src="{base}nav.js" defer></script>',
     ]
     if scripts:
+        out.append(f'<script src="{base}redact.js" defer></script>')
         out.append(f'<script src="{base}app.js" defer></script>')
     out += ["</head>", "<body>"]
     return "\n".join(out) + "\n"
@@ -309,4 +312,6 @@ if __name__ == "__main__":
         build_lang(lang, strings)
     build_404(strings)
     build_sitemap()
+    # The site redacts reports with the extension's own rules.
+    shutil.copyfile(OUT.parent / "extension" / "lib" / "redact.js", OUT / "redact.js")
     print(f"site built: {len(LANGS)} languages, {len(PAGES)} pages each")

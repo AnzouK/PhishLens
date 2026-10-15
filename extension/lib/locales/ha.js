@@ -355,7 +355,7 @@
     "fb_sending": "Ana aikawa…",
     "fb_sent": "Nagode. Lambar shaida {ref}: ambace ta idan kana son a share wannan rahoto.",
     "fb_failed": "Ba a iya aika rahoton ba: {error}",
-    "fb_unavailable": "Ba za a iya ba da rahoton wannan bincike ba yanzu.",
+    "fb_report_paste": "Liƙa rubutun imel ɗin a nan: ana cire sunaye, adireshi da lambobi yayin liƙawa.",
     "share_stats": "Raba ƙididdigata",
     "share_stats_intro": "Yana aika bincikenka {count} zuwa PhishLens Cloud ba tare da jigo, mai aikawa ko rubutu ba: rana, majiya, hukunci, maki, ra'ayinka da harshe. Yana taimaka wajen auna PhishLens a kan imel na gaske. Ga na farko:",
     "share_stats_send": "Aika ƙididdiga",

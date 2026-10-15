@@ -11,7 +11,8 @@ linked below with what it is for.
 | --- | --- |
 | [AnzouK/PhishLens](https://github.com/AnzouK/PhishLens) (this repo) | The runtime system: Chrome MV3 extension, FastAPI backend, landing page, CI, security policy. What you clone to install and run PhishLens. |
 | [dodi-ctrl/PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector) | The research side: the three Colab training notebooks, dataset loaders, augmentation cell, per-agent metrics and known model limitations. What you clone to retrain or reproduce the models. |
-| [AnzouKiona/phishlens-distilbert](https://huggingface.co/AnzouKiona/phishlens-distilbert) | The fine-tuned DistilBERT text agent (model card, weights, tokenizer). Pulled by the backend at startup. |
+| AnzouKiona/phishlens-text-v2 (private) | The multilingual text agent PhishLens Cloud runs (mmBERT-small, distilled and calibrated). Private because part of its training mail is; how it was built: [multilingual-model.md](multilingual-model.md). |
+| [AnzouKiona/phishlens-distilbert](https://huggingface.co/AnzouKiona/phishlens-distilbert) | The fine-tuned English DistilBERT text agent (model card, weights, tokenizer). The default of a self-hosted backend. |
 | [AnzouKiona/phishlens-agents](https://huggingface.co/AnzouKiona/phishlens-agents) | The trained URL and metadata Random Forest agents (joblib). Pulled by the backend at startup. |
 | [anzouk.duckdns.org](https://anzouk.duckdns.org) | Website in 8 languages: landing page, try-it widget, privacy policy and terms, and the PhishLens Cloud backend used by the extension's "PhishLens Cloud" setting. |
 | [Wiki](https://github.com/AnzouK/PhishLens/wiki) | The user guide: installing, using PhishLens in Gmail and Outlook, reading a verdict, settings, troubleshooting. |
@@ -52,10 +53,15 @@ linked below with what it is for.
 
 | Agent | Model | Accuracy | F1 |
 | --- | --- | --- | --- |
-| Text | DistilBERT (fine-tuned) | 97.34% | 0.9665 |
+| Text (self-hosted default) | DistilBERT (fine-tuned) | 97.34% | 0.9665 |
 | URL | Random Forest, 23 features | 99.34% | 0.9911 |
 | Metadata | Random Forest, 37 features | 99.92% | 0.9994 |
 
-Measured on held-out splits; see PhishingDetector for the datasets and the
+PhishLens Cloud's multilingual text model, on real mail it never saw
+(0.7 threshold): 0.4% false alarms and 92.5% of phishing caught in
+English, 1.6% and 87.4% in French
+([multilingual-model.md](multilingual-model.md)).
+
+The table is measured on held-out splits; see PhishingDetector for the datasets and the
 evaluation protocol. These are offline numbers, not live-traffic numbers
 (see the residual risks in the threat model).

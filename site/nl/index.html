@@ -34,6 +34,7 @@
 <script src="../i18n/nl.js" defer></script>
 <script src="../lang.js" defer></script>
 <script src="../nav.js" defer></script>
+<script src="../redact.js" defer></script>
 <script src="../app.js" defer></script>
 </head>
 <body>
@@ -103,9 +104,9 @@
     <div class="wrap">
       <h2><span class="n">01</span>Resultaten</h2>
       <div class="strip">
-        <div class="cell"><div class="big">0.967</div><div class="lbl">F1, tekstmodel (DistilBERT)</div></div>
+        <div class="cell"><div class="big">22</div><div class="lbl">talen die het tekstmodel leest</div></div>
         <div class="cell"><div class="big">0.991</div><div class="lbl">F1, linkmodel (Random Forest)</div></div>
-        <div class="cell"><div class="big">77 ms</div><div class="lbl">mediane controle op een server zonder GPU</div></div>
+        <div class="cell"><div class="big">77 ms</div><div class="lbl">mediane controle op een server zonder GPU (v1.15)</div></div>
         <div class="cell"><div class="big">4</div><div class="lbl">bronnen van dreigingsinformatie</div></div>
       </div>
       <p class="note">Offline testsets en een belastingstest op PhishLens Cloud. Echte inboxen zijn lastiger: zie de <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">bekende beperkingen</a>.</p>
@@ -124,7 +125,7 @@
       <p class="intro">Echte e-mails van banken en universiteiten gebruiken dezelfde woorden als phishing, dus een tekstmodel alleen markeert ze. PhishLens controleert het bewijs voordat het beslist.</p>
       <div class="pair">
         <ul class="rows">
-          <li><svg class="ic"><use href="#i-text"/></svg><b>Tekst</b><span>DistilBERT, verfijnd op ongeveer 29.500 e-mails, beoordeelt de tekst; LIME toont de woorden die het oordeel bepaalden.</span></li>
+          <li><svg class="ic"><use href="#i-text"/></svg><b>Tekst</b><span>Een meertalig model (mmBERT-small, gedistilleerd uit een grotere phishingdetector) beoordeelt de tekst in 22 talen; LIME toont de woorden die het oordeel bepaalden.</span></li>
           <li><svg class="ic"><use href="#i-link"/></svg><b>Links</b><span>Elke echte linkbestemming, ook die achter „Klik hier”, gecontroleerd bij Safe Browsing, PhishTank, URLhaus en Spamhaus.</span></li>
           <li><svg class="ic"><use href="#i-key"/></svg><b>Afzender</b><span>SPF, DKIM en DMARC laten zien wie hem echt verstuurde. Een doorgestuurde e-mail neemt het vertrouwen in de doorsturende persoon niet over.</span></li>
           <li><svg class="ic"><use href="#i-clip"/></svg><b>Bijlagen</b><span>Pdf's (ook gescande, via OCR), QR-codes, Office-macro's en externe sjablonen, ZIP-, RAR- en 7z-archieven en agenda-uitnodigingen.</span></li>
@@ -163,7 +164,7 @@
       <h2><span class="n">04</span>Hoe het werkt</h2>
       <ol class="rows">
         <li><b>Lezen</b><span>De tekst, de echte linkbestemmingen, de afzender en, in Gmail, de volledige originele headers.</span></li>
-        <li><b>Scoren</b><span>DistilBERT voor de tekst, twee Random Forests voor de links en de headers.</span></li>
+        <li><b>Scoren</b><span>Een meertalig model voor de tekst, twee Random Forests voor de links en de headers.</span></li>
         <li><b>Controleren</b><span>Authenticatieresultaten en vier bronnen van dreigingsinformatie, vóór elk oordeel.</span></li>
         <li><b>Uitleggen</b><span>Een oordeel, een score per controle, de gevonden signalen en de woorden erachter, boven de e-mail.</span></li>
       </ol>
