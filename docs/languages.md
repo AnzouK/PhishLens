@@ -138,12 +138,15 @@ one. Both Dockerfiles install these packs.
 
 ## Text model
 
-The text model decides which languages are read well. The model in
-production is the English DistilBERT
-([AnzouKiona/phishlens-distilbert](https://huggingface.co/AnzouKiona/phishlens-distilbert)):
-emails in other languages get a less reliable wording score, while the
-link, sender and threat-intelligence checks work the same in every
-language. A multilingual model is being evaluated; the backend can
-already load it without code changes (see
-[architecture.md, text model](architecture.md#text-model)). How it was
-built and measured: [multilingual-model.md](multilingual-model.md).
+The text model decides which languages are read well. PhishLens Cloud
+runs a multilingual model, trained on 22 languages and measured on
+English, French, German, Dutch, Portuguese and Spanish phishing; it is
+private because part of its training mail is. A self-hosted backend uses
+the public English DistilBERT
+([AnzouKiona/phishlens-distilbert](https://huggingface.co/AnzouKiona/phishlens-distilbert))
+by default: emails in other languages then get a less reliable wording
+score, while the link, sender and threat-intelligence checks work the
+same in every language. Switching models needs no code change (see
+[architecture.md, text model](architecture.md#text-model)). How the
+multilingual model was built and measured:
+[multilingual-model.md](multilingual-model.md).

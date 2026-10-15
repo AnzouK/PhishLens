@@ -7,6 +7,8 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-15
+
 ### Added
 - **Multilingual text model support:** the backend reads how a text
   model expects its input and how to read its scores from
@@ -72,6 +74,14 @@ backend share one version number.
 
 
 ### Changed
+- **PhishLens Cloud reads emails in 22 languages:** its text model is now
+  a multilingual mmBERT-small, distilled from a larger multilingual
+  detector and calibrated. On real mail it never saw, with a 0.7
+  threshold: 0.4% false alarms and 92.5% of phishing caught in English,
+  1.6% and 87.4% in French. Self-hosted backends keep the English
+  DistilBERT unless `HF_MODEL_REPO` says otherwise.
+- README and website illustrations redrawn in light and dark with the
+  detected language and the report link.
 - **License: GNU AGPL-3.0** instead of MIT. PhishLens stays free and open
   source; a modified version, including one run as an online service,
   must now be published under the same license. Versions up to 1.15.5
@@ -756,6 +766,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/AnzouK/PhishLens/compare/v1.15.5...v2.0.0
 [1.15.5]: https://github.com/AnzouK/PhishLens/compare/v1.15.4...v1.15.5
 [1.15.4]: https://github.com/AnzouK/PhishLens/compare/v1.15.3...v1.15.4
 [1.15.3]: https://github.com/AnzouK/PhishLens/compare/v1.15.2...v1.15.3

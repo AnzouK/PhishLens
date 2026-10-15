@@ -35,9 +35,9 @@ test.beforeAll(async () => {
 test.afterAll(() => server.close());
 
 test.beforeEach(async ({ page }) => {
-    await page.route(`${API}/health`, (r) => r.fulfill({ json: { status: "ok", version: "1.15.5" } }));
+    await page.route(`${API}/health`, (r) => r.fulfill({ json: { status: "ok", version: "2.0.0" } }));
     await page.route(`${API}/reputation/stats`, (r) => r.fulfill({ json: { enabled: false } }));
-    await page.route("https://api.github.com/**", (r) => r.fulfill({ json: { tag_name: "v1.15.5" } }));
+    await page.route("https://api.github.com/**", (r) => r.fulfill({ json: { tag_name: "v2.0.0" } }));
     await page.route(`${API}/explain`, (r) => r.fulfill({
         json: { features: [{ token: "verify", weight: 0.4, supports: "phishing" }] },
     }));
@@ -55,7 +55,7 @@ for (const lang of LANGS) {
         await page.goto(`${base}/${lang === "en" ? "" : `${lang}/`}`);
         await expect(page.locator("html")).toHaveAttribute("lang", lang);
         await expect(page.locator("#status")).toContainText(strings(lang).js_online);
-        await expect(page.locator("#version")).toContainText("1.15.5");
+        await expect(page.locator("#version")).toContainText("2.0.0");
         expect(await page.content()).not.toContain("{{");
         expect(errors).toEqual([]);
     });

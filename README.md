@@ -21,8 +21,8 @@
 
 PhishLens is a Chrome extension and a FastAPI backend that classify an
 email as safe or phishing and show why. Three agents score each message
-(a fine-tuned DistilBERT on the text, and two Random Forests on the links
-and the headers), then the verdict is adjusted with real evidence:
+(a multilingual transformer on the text, and two Random Forests on the
+links and the headers), then the verdict is adjusted with real evidence:
 SPF/DKIM/DMARC alignment and four threat-intelligence sources. A LIME
 panel highlights the words that drove the decision. Attachments are
 scanned too: PDFs (including scanned ones, through OCR), images, HTML
@@ -50,9 +50,16 @@ German, Italian, Dutch and Hausa.
 
 | Agent | Model | Accuracy | F1 |
 | --- | --- | --- | --- |
-| Text | DistilBERT, fine-tuned on 29.5k emails | 97.34% | 0.967 |
+| Text (self-hosted default) | DistilBERT, fine-tuned on 29.5k emails | 97.34% | 0.967 |
 | URL | Random Forest, 23 features | 99.34% | 0.991 |
 | Metadata | Random Forest, 37 features | 99.92% | 0.999 |
+
+PhishLens Cloud runs a multilingual text model (mmBERT-small, distilled
+from a larger multilingual detector). On real mail no model saw during
+training, with a 0.7 threshold, it raises false alarms on 0.4% of English
+and 1.6% of French legitimate emails and catches 92.5% and 87.4% of
+phishing. How it was built and measured:
+[multilingual-model.md](docs/multilingual-model.md).
 
 **Latency** on PhishLens Cloud (Oracle Cloud ARM, 4 cores, CPU only,
 [load test](docs/operations.md#load-testing) with 10 concurrent users):
@@ -218,10 +225,9 @@ both repositories, the models, the report and every guide.
   `scripts/live_eval.py` are in place; the next step is a few hundred
   reviewed real emails, plus phishing reported after the training
   cut-off.
-- **Multilingual detection:** the interface, the website and the OCR
-  handle several languages since v2.0, and the backend can load a
-  multilingual text model; that model is being evaluated before it
-  replaces the English DistilBERT on PhishLens Cloud.
+- **Multilingual detection:** a version of the multilingual text model
+  trained only on public data, so that it can be published, and a native
+  review of the Hausa translation.
 - **Research:** SHAP as a comparison for LIME, retraining the agents on
   OCR text and QR-code phishing.
 
