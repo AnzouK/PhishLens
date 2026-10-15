@@ -79,6 +79,7 @@ function redact(text, terms = []) {
 }
 
 const api = Object.freeze({ redact, termsFrom });
+// eslint-disable-next-line no-undef
 if (typeof module !== "undefined" && module.exports) module.exports = api;
 globalThis.PhishLensRedact = api;
 })();

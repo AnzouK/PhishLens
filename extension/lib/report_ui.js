@@ -139,6 +139,7 @@ function reportButton({ verdict, getText, redact, send, onSent }) {
 }
 
 const api = Object.freeze({ LANGS, languageName, languageLine, reportPanel, reportButton });
+// eslint-disable-next-line no-undef
 if (typeof module !== "undefined" && module.exports) module.exports = api;
 globalThis.PhishLensReport = api;
 })();
