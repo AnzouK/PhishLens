@@ -36,5 +36,15 @@
     "text": "Hello <NAME>, ok",
     "terms": [],
     "expected": "Hello <NAME>, ok"
+  },
+  {
+    "text": "see the pull request\nin core):\n+_PHONE = x and re.search(r, core)",
+    "terms": [],
+    "expected": "see the pull request\nin core):\n+<NAME> = x and re.search(r, core)"
+  },
+  {
+    "text": "Hello <NAME>.search(r\"[^\\W\\d_]\", x) and <NAME>_x9 user_12",
+    "terms": [],
+    "expected": "Hello <NAME>.search(r\"[^\\W\\d_]\", x) and <NAME>_x9 <NAME>"
   }
 ]

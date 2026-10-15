@@ -13,6 +13,10 @@ for (const c of CASES) {
     });
 }
 
+test("redacting twice changes nothing", () => {
+    for (const c of CASES) assert.equal(R.redact(c.expected, c.terms), c.expected);
+});
+
 test("nothing personal is left", () => {
     const terms = R.termsFrom("kalinda.okoro91@gmail.com", "Kalinda Okoro");
     const out = R.redact("Hi Kalinda Okoro, wire 250000 to FR7630006000011234567890189, call +234 803 123 4567, " +
