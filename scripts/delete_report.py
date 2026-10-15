@@ -11,12 +11,24 @@ were removed. Default folder: $FEEDBACK_DIR.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 from pathlib import Path
 
 
 def delete(folder: Path, references: set[str]) -> int:
+    # The same lock as the backend's (feedback.folder_lock): no report is
+    # written while a file is rewritten.
+    fd = os.open(folder / ".lock", os.O_WRONLY | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        return _delete(folder, references)
+    finally:
+        os.close(fd)
+
+
+def _delete(folder: Path, references: set[str]) -> int:
     removed = 0
     for path in sorted(folder.glob("feedback-*.jsonl")):
         kept = []

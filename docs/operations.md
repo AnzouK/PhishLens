@@ -130,12 +130,24 @@ To be told about each new report, set `FEEDBACK_NOTIFY_URL` to an
 [ntfy](https://ntfy.sh) topic (`https://ntfy.sh/<long random name>`,
 followed in the ntfy app). The message gives the kind of report, the
 verdict, the languages, where it came from and its reference, never the
-text. Read the reports on the VM with
+text. `FEEDBACK_NOTIFY_CLICK` (an `https://` address) is opened when the
+message is tapped, with `#<reference>` added. Read the reports on the VM with
 `cat ~/phishlens_data/feedback/feedback-*.jsonl | python3 -m json.tool --json-lines`.
 To delete one on request: `python3 scripts/delete_report.py --dir
 ~/phishlens_data/feedback <reference>` (from the repository checkout on
 the server). Files stay private: the backup
 script archives the data folder encrypted; never commit or publish them.
+
+### PhishTank feed
+
+Without an application key PhishTank allows only a few downloads a day
+(and new keys cannot be requested while its registration is closed), so
+the backend downloads the feed every 6 hours, keeps the last good copy
+next to the reputation cache (`/data/phishtank.json.gz` with
+`REPUTATION_CACHE_DB=/data/reputation.db`) and loads it at start: a
+restart costs no download. When a download is refused,
+`/reputation/stats` shows why in `phishtank_last_error` (for example
+`HTTP 429`), and the previous list stays in use.
 
 ## Health and status endpoints
 
@@ -209,14 +221,17 @@ container, otherwise you are only measuring the limiter.
 ```bash
 # 1. Throwaway container on the VM, localhost only, limits lifted,
 #    external intel off so the test measures PhishLens itself
+# (--env-file: the same text model as production, HF_MODEL_REPO and HF_TOKEN)
 docker run -d --rm --name phishlens-load -p 127.0.0.1:8001:7860 \
+  --env-file ~/.phishlens.env -e FEEDBACK_DIR= -e FEEDBACK_NOTIFY_URL= \
   -v ~/phishlens_model:/home/user/app/model:ro \
+  -v ~/phishlens_agents:/home/user/app/agents:ro \
   -e RATE_LIMIT_ANALYSE=100000/minute \
   -e RATE_LIMIT_ATTACHMENT=100000/minute \
   -e REPUTATION_ENABLE_GSB=0 -e REPUTATION_ENABLE_DBL=0 \
   -e REPUTATION_ENABLE_URLHAUS=0 -e REPUTATION_ENABLE_PHISHTANK=0 \
   phishlens
-sleep 30                                   # model load (agents download)
+sleep 60                                   # model load
 
 # 2. Run the test from the repo root, with Locust in a container
 cd ~/PhishLens

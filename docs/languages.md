@@ -87,6 +87,20 @@ and Dutch are complete. **Hausa is a draft** waiting for review by a
 native speaker; the file says so in its first line. Corrections are
 welcome as pull requests or issues.
 
+To hand a translation to a reviewer who does not use git:
+
+```bash
+python3 scripts/translation_review.py export ha -o hausa-review.xlsx   # needs openpyxl
+# the reviewer fills the yellow Correction column, then:
+python3 scripts/translation_review.py import ha hausa-review.xlsx
+node --test tests/extension/ && python3 scripts/build_site.py
+```
+
+The workbook lists every extension and website text with its English
+original, where it appears and the current translation; only the
+Correction column is copied back. The legal pages are reviewed on the
+website itself.
+
 ## Website
 
 The site is static. `site-src/` holds the sources:

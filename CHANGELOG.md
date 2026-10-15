@@ -7,6 +7,27 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-10-15
+
+### Added
+- `FEEDBACK_NOTIFY_CLICK`: the address a report notification opens when
+  tapped, with the report's reference after `#`.
+- `scripts/translation_review.py`: exports a translation to a workbook a
+  native speaker can correct, and copies the corrections back.
+
+### Fixed
+- **PhishTank:** without an application key the feed allows only a few
+  downloads a day, and the backend downloaded it at every start and every
+  hour, so it was refused. It now downloads every 6 hours (1 hour with
+  `PHISHTANK_API_KEY`), the compressed file, keeps the last good copy
+  next to the cache and loads it at start; `/reputation/stats` gives the
+  reason of a refused download (`phishtank_last_error`).
+- The README badge and the website's "Model" link point to the
+  multilingual model's documentation.
+- Writing a report and deleting one (`scripts/delete_report.py`) share a
+  lock on the report folder, so a report sent during a deletion is not
+  lost.
+
 ## [2.0.2] - 2026-10-15
 
 ### Added
@@ -804,7 +825,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.2...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.3...HEAD
+[2.0.3]: https://github.com/AnzouK/PhishLens/compare/v2.0.2...v2.0.3
 [2.0.2]: https://github.com/AnzouK/PhishLens/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/AnzouK/PhishLens/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/AnzouK/PhishLens/compare/v1.15.5...v2.0.0
