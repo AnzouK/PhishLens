@@ -1,12 +1,17 @@
 """Unit tests for result_cache.py (v1.15.2)."""
+
 from __future__ import annotations
 
 import result_cache as rc
 
 
 def test_make_key_is_stable_and_ignores_auto_scan():
-    a = rc.make_key("analyse", {"raw_text": "x", "client_context": {"origin": "gmail", "auto_scan": True}})
-    b = rc.make_key("analyse", {"client_context": {"auto_scan": False, "origin": "gmail"}, "raw_text": "x"})
+    a = rc.make_key(
+        "analyse", {"raw_text": "x", "client_context": {"origin": "gmail", "auto_scan": True}}
+    )
+    b = rc.make_key(
+        "analyse", {"client_context": {"auto_scan": False, "origin": "gmail"}, "raw_text": "x"}
+    )
     c = rc.make_key("analyse", {"raw_text": "y", "client_context": {"origin": "gmail"}})
     assert a == b != c
     assert rc.make_key("explain", {"raw_text": "x"}) != rc.make_key("analyse", {"raw_text": "x"})
@@ -28,7 +33,7 @@ def test_oldest_entry_goes_first():
     cache = rc.ResultCache(ttl=60, max_entries=2)
     cache.set("a", 1)
     cache.set("b", 2)
-    cache.get("a")            # a is now the most recent
+    cache.get("a")  # a is now the most recent
     cache.set("c", 3)
     assert cache.get("b") is None and cache.get("a") == 1 and cache.get("c") == 3
 

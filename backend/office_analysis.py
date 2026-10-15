@@ -1,5 +1,5 @@
 """
-PhishLens: Office document analysis (v1.12).
+PhishLens: Office document analysis.
 =====================================================================
 Extracts text and links from Word, Excel and PowerPoint attachments and
 flags the features attackers use to turn a document into a dropper.
@@ -12,7 +12,7 @@ of XML parts. Legacy formats (.doc .xls .ppt) and password-protected
 modern files are OLE2 compound files; for those we only scan the raw
 bytes for macro and encryption markers and pull out URLs.
 
-Flags raised (scored in extension_backend._RISK):
+Flags raised (scored in fusion.FEATURE_RISK):
 
 * contains_macros           VBA project or Excel 4.0 macro sheet
 * remote_template           template loaded from an external URL
@@ -29,6 +29,7 @@ Flags raised (scored in extension_backend._RISK):
 Safety limits: entry count, total uncompressed size (zip bombs), per
 part size, and any part with a DOCTYPE is skipped instead of parsed.
 """
+
 from __future__ import annotations
 
 import io
@@ -36,7 +37,10 @@ import logging
 import re
 import zipfile
 from typing import Any
-from xml.etree import ElementTree as ET
+
+# defusedxml: the same API as xml.etree, hardened against entity
+# expansion and external entities in untrusted Office XML.
+from defusedxml import ElementTree as ET
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
@@ -67,6 +71,7 @@ _URL_RE = re.compile(r"https?://[^\s\"'<>)\]}]{3,2048}", re.IGNORECASE)
 # Word field codes: HYPERLINK "https://..." and DDE / DDEAUTO
 _HYPERLINK_FIELD_RE = re.compile(r'HYPERLINK\s+"([^"]{1,2048})"', re.IGNORECASE)
 _DDE_FIELD_RE = re.compile(r"\bDDE(AUTO)?\b", re.IGNORECASE)
+
 
 # XML namespaces: we match on local names so we don't depend on them.
 def _local(tag: str) -> str:
@@ -125,7 +130,7 @@ def _text_from_xml(data: bytes, text_tags: set[str], block_tags: set[str]) -> st
     (paragraph, table row, shared string)."""
     out: list[str] = []
     try:
-        for event, el in ET.iterparse(io.BytesIO(data), events=("end",)):
+        for _event, el in ET.iterparse(io.BytesIO(data), events=("end",)):
             name = _local(el.tag)
             if name in text_tags and el.text:
                 out.append(el.text)
@@ -175,20 +180,26 @@ def _external_rels(data: bytes) -> list[tuple[str, str]]:
 def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
     try:
         zf = zipfile.ZipFile(io.BytesIO(raw))
-    except zipfile.BadZipFile:
-        raise ValueError("Unsupported or corrupt Office document: not a valid ZIP container.")
+    except zipfile.BadZipFile as e:
+        raise ValueError(
+            "Unsupported or corrupt Office document: not a valid ZIP container."
+        ) from e
 
     with zf:
         infos = zf.infolist()
         if len(infos) > MAX_ZIP_ENTRIES:
             raise ValueError("Office document has too many parts to analyse safely.")
         if sum(i.file_size for i in infos) > MAX_UNCOMPRESSED_TOTAL:
-            raise ValueError("Office document expands beyond the safe size limit (possible zip bomb).")
+            raise ValueError(
+                "Office document expands beyond the safe size limit (possible zip bomb)."
+            )
 
         names = [i.filename for i in infos]
         kind = detect_ooxml_kind(raw)
         if kind is None:
-            raise ValueError("Unsupported ZIP attachment: not a Word, Excel or PowerPoint document.")
+            raise ValueError(
+                "Unsupported ZIP attachment: not a Word, Excel or PowerPoint document."
+            )
 
         flags: list[str] = []
         lower = [n.lower() for n in names]
@@ -207,13 +218,27 @@ def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
         urls: list[str] = []
 
         if kind == "docx":
-            parts = [n for n in names if re.fullmatch(r"word/(document|header\d*|footer\d*|footnotes|endnotes|comments)\.xml", n)]
+            parts = [
+                n
+                for n in names
+                if re.fullmatch(
+                    r"word/(document|header\d*|footer\d*|footnotes|endnotes|comments)\.xml", n
+                )
+            ]
             text_tags, block_tags = {"t"}, {"p", "tr"}
         elif kind == "xlsx":
-            parts = [n for n in names if n == "xl/sharedStrings.xml" or re.fullmatch(r"xl/worksheets/sheet\d+\.xml", n)]
+            parts = [
+                n
+                for n in names
+                if n == "xl/sharedStrings.xml" or re.fullmatch(r"xl/worksheets/sheet\d+\.xml", n)
+            ]
             text_tags, block_tags = {"t", "f"}, {"si", "row"}
         else:
-            parts = [n for n in names if re.fullmatch(r"ppt/(slides/slide\d+|notesSlides/notesSlide\d+)\.xml", n)]
+            parts = [
+                n
+                for n in names
+                if re.fullmatch(r"ppt/(slides/slide\d+|notesSlides/notesSlide\d+)\.xml", n)
+            ]
             text_tags, block_tags = {"t"}, {"p"}
 
         # stable order: document.xml / sheet1 / slide1 first

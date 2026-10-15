@@ -86,7 +86,6 @@ sees as a normal request from your browser.
 | Permission | Why |
 | --- | --- |
 | `storage` | Keep your settings, scan history and caches in the browser. |
-| `alarms` | Ping the backend now and then so the first scan is not slow. |
 | `notifications` | Warn you when the automatic scan finds a phishing email. |
 | `scripting` | After an update, put the new version of the scan buttons into Gmail and Outlook tabs that are already open, so you do not have to refresh them. |
 | Access to `mail.google.com` | Add the scan buttons and banners to Gmail and read the email you scan. |

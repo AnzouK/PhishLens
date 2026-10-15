@@ -3,6 +3,7 @@ Archives, calendar invites, encrypted PDFs and risky file types (v1.14),
 RAR and 7z opened (v1.15.3). Everything is built in memory; the RAR and
 7z tests are skipped when rarfile / py7zr are not installed.
 """
+
 from __future__ import annotations
 
 import base64
@@ -37,15 +38,18 @@ def make_zip(files: dict[str, str | bytes], encrypted: bool = False) -> bytes:
 
 
 class TestClassifyNames:
-    @pytest.mark.parametrize("name,flag", [
-        ("setup.exe", "executable_in_archive"),
-        ("run.js", "script_in_archive"),
-        ("Invoice.lnk", "shortcut_in_archive"),
-        ("disk.iso", "disk_image_in_archive"),
-        ("more.zip", "nested_archive"),
-        ("invoice.pdf.exe", "double_extension"),
-        ("scan.jpg   .js", "double_extension"),
-    ])
+    @pytest.mark.parametrize(
+        "name,flag",
+        [
+            ("setup.exe", "executable_in_archive"),
+            ("run.js", "script_in_archive"),
+            ("Invoice.lnk", "shortcut_in_archive"),
+            ("disk.iso", "disk_image_in_archive"),
+            ("more.zip", "nested_archive"),
+            ("invoice.pdf.exe", "double_extension"),
+            ("scan.jpg   .js", "double_extension"),
+        ],
+    )
     def test_flags(self, name, flag):
         assert flag in archives.classify_names([name])
 
@@ -63,7 +67,9 @@ class TestZip:
         assert r["inner_files"][0]["filename"] == "notes.txt"
 
     def test_encrypted_zip_is_flagged_not_opened(self):
-        r = analyse_attachment(b64(make_zip({"doc.txt": "hi"}, encrypted=True)), filename="secret.zip")
+        r = analyse_attachment(
+            b64(make_zip({"doc.txt": "hi"}, encrypted=True)), filename="secret.zip"
+        )
         assert r["encrypted"] is True
         assert "encrypted_archive" in r["notable_features"]
         assert r["inner_files"] == []
@@ -80,9 +86,11 @@ class TestZip:
 
 class TestOtherTypes:
     def test_ics_links_and_organizer(self):
-        ics = (b"BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Payroll update\r\n"
-               b"DESCRIPTION:Confirm here https://pay\r\n roll-verify.example/x\\nThanks\r\n"
-               b"ORGANIZER:mailto:hr@corp.example\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n")
+        ics = (
+            b"BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Payroll update\r\n"
+            b"DESCRIPTION:Confirm here https://pay\r\n roll-verify.example/x\\nThanks\r\n"
+            b"ORGANIZER:mailto:hr@corp.example\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+        )
         r = analyse_attachment(b64(ics), filename="invite.ics")
         assert r["kind"] == "calendar"
         assert r["extracted_urls"] == ["https://payroll-verify.example/x"]
@@ -103,6 +111,7 @@ class TestOtherTypes:
 
         def locked(*_a, **_k):
             raise ValueError("password required")
+
         monkeypatch.setattr(aa.pdfplumber, "open", locked)
         raw = b"%PDF-1.4\n1 0 obj << /Encrypt 2 0 R >> endobj\ngarbage"
         r = analyse_attachment(b64(raw), filename="statement.pdf")
@@ -130,6 +139,7 @@ def _vint(n: int) -> bytes:
 
 def _rar5_block(htype: int, body: bytes, flags: int = 0, data_size: int | None = None) -> bytes:
     import zlib
+
     fields = _vint(htype) + _vint(flags)
     if data_size is not None:
         fields += _vint(data_size)
@@ -143,22 +153,26 @@ def make_rar5_stored(files: dict[str, bytes], encrypted_headers: bool = False) -
     by rarfile without any external tool. Built by hand because there is
     no free RAR writer."""
     import zlib
+
     out = b"Rar!\x1a\x07\x01\x00"
     if encrypted_headers:
         # Archive encryption header (type 4): AES-256, KDF count, salt.
         return out + _rar5_block(4, _vint(0) + _vint(0) + bytes([15]) + b"\x00" * 16)
-    out += _rar5_block(1, _vint(0))                       # main archive header
+    out += _rar5_block(1, _vint(0))  # main archive header
     for name, data in files.items():
         n = name.encode()
-        body = (_vint(0x4)                                # file flags: CRC32 present
-                + _vint(len(data))                        # unpacked size
-                + _vint(0x20)                             # attributes
-                + zlib.crc32(data).to_bytes(4, "little")  # data CRC32
-                + _vint(0)                                # compression: v0, store
-                + _vint(0)                                # host OS: Windows
-                + _vint(len(n)) + n)
+        body = (
+            _vint(0x4)  # file flags: CRC32 present
+            + _vint(len(data))  # unpacked size
+            + _vint(0x20)  # attributes
+            + zlib.crc32(data).to_bytes(4, "little")  # data CRC32
+            + _vint(0)  # compression: v0, store
+            + _vint(0)  # host OS: Windows
+            + _vint(len(n))
+            + n
+        )
         out += _rar5_block(2, body, flags=0x2, data_size=len(data)) + data
-    return out + _rar5_block(5, _vint(0))                 # end of archive
+    return out + _rar5_block(5, _vint(0))  # end of archive
 
 
 def make_7z(files: dict[str, bytes], password: str | None = None) -> bytes:
@@ -176,8 +190,9 @@ class TestRar:
         pytest.importorskip("rarfile")
 
     def test_listing_flags_and_stored_text_analysed(self):
-        raw = make_rar5_stored({"invoice.pdf.exe": b"MZ",
-                                "notes.txt": b"login at https://evil.example/rar"})
+        raw = make_rar5_stored(
+            {"invoice.pdf.exe": b"MZ", "notes.txt": b"login at https://evil.example/rar"}
+        )
         r = analyse_attachment(b64(raw), filename="docs.rar")
         assert r["archive_format"] == "rar"
         assert r["entry_count"] == 2
@@ -233,6 +248,7 @@ class Test7z:
 
 def test_without_libraries_rar_and_7z_stay_uninspectable(monkeypatch):
     import builtins
+
     real_import = builtins.__import__
 
     def fake_import(name, *a, **k):
@@ -241,6 +257,9 @@ def test_without_libraries_rar_and_7z_stay_uninspectable(monkeypatch):
         return real_import(name, *a, **k)
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
-    for raw, name in ((make_rar5_stored({"a.txt": b"x"}), "a.rar"), (b"7z\xbc\xaf\x27\x1c" + b"\x00" * 26, "a.7z")):
+    for raw, name in (
+        (make_rar5_stored({"a.txt": b"x"}), "a.rar"),
+        (b"7z\xbc\xaf\x27\x1c" + b"\x00" * 26, "a.7z"),
+    ):
         r = analyse_attachment(b64(raw), filename=name)
         assert r["notable_features"] == ["uninspectable_archive"]

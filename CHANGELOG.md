@@ -7,6 +7,61 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Security
+- **Allowlist only for authenticated senders:** a domain in
+  `TRUSTED_DOMAINS` gave the softest trust path on the From: text alone,
+  so a forged `alerts@gtbank.com` was treated as the bank. The allowlist
+  now applies only when DKIM is aligned with From: (real headers or
+  Gmail's "signed-by") or for internal Outlook mail; otherwise the
+  message stays on its normal path.
+- **No internal details in error responses:** server errors return
+  a short reference; the details stay in the logs.
+- **Request size limits:** oversized fields are refused (422) and
+  bodies above 45 MB are refused before parsing (413).
+- Office XML from attachments is parsed with defusedxml; the URL
+  reputation cache moves from `/tmp` to `~/.cache/phishlens`.
+
+### Fixed
+- **Model inference no longer blocks the server:** the text model,
+  the agents and attachment extraction (PDF, OCR, archives) run in a
+  worker thread, so one slow scan no longer stalls every other request.
+- **Chrome Web Store:** the manifest description is under the 132
+  character limit.
+
+
+### Changed
+- **Backend split by responsibility:** the 1,688-line
+  `extension_backend.py` now only holds the HTTP layer; `settings.py`
+  (version, environment, every scoring constant), `email_parsing.py`,
+  `sender_trust.py` with `trusted_domains.py`, `text_model.py`,
+  `structured_agents.py`, `fusion.py` (verdict rules as pure functions)
+  and `rf_agent.py` (inference-only Random Forest wrapper; the training
+  code stays in PhishingDetector). Same API, same verdicts.
+- **Extension:** one shared library (`lib/shared.js`) for the server
+  URL, HTML escaping and error messages, which were copied in three
+  files (the popup fell back to the local server where the rest used
+  PhishLens Cloud). The service worker no longer pings the server every
+  10 minutes, and the `alarms` permission is gone. API errors such as an
+  oversized email are shown as readable text.
+- `/health` and `/` report the version; `/health` says when the text
+  model is not loaded. The PhishTank feed is downloaded over HTTPS.
+- **PhishTank works again, without flagging shared hosts:** the feed
+  was requested over plain HTTP and never loaded; over HTTPS it does.
+  Its domain-level match no longer applies to hosts shared by unrelated
+  owners (cloud storage buckets, link shorteners, file-sharing and form
+  services, email click trackers, big platforms): there only the exact
+  listed URL counts. Before, one phishing page on storage.googleapis.com
+  or one bit.ly link flagged every link of that host.
+- Version history moved out of code comments into this changelog.
+
+### Development
+- Ruff lint (pycodestyle, pyflakes, bugbear, pyupgrade, simplify,
+  isort, complexity) and format on `backend/` and `scripts/`, pinned in
+  CI; a version check between the backend and the extension; coverage
+  minimum 80% (83.8%), with new tests for the fusion rules, the text
+  model wrapper, agent loading and the reputation clients; optional
+  pre-commit hooks.
+
 ## [1.15.5] - 2026-10-13
 
 Security fix from an external code review, and clearer reporting of which

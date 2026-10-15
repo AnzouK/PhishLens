@@ -18,6 +18,7 @@ Usage (see docs/operations.md for the full procedure):
 Never point this at the public demo: it would burn the shared Google
 Safe Browsing quota and throttle real users.
 """
+
 from __future__ import annotations
 
 import base64
@@ -58,24 +59,30 @@ class ExtensionUser(HttpUser):
     @task(10)
     def analyse_text(self):
         body = random.choice(BENIGN + PHISHY)
-        self.client.post("/analyse", name="/analyse [text]", json={
-            "raw_text": body,
-            "sender_email": "someone@example.com",
-            "client_context": {"origin": "gmail", "gmail_in_inbox": True},
-        })
+        self.client.post(
+            "/analyse",
+            name="/analyse [text]",
+            json={
+                "raw_text": body,
+                "sender_email": "someone@example.com",
+                "client_context": {"origin": "gmail", "gmail_in_inbox": True},
+            },
+        )
 
     @task(3)
     def analyse_eml(self):
-        self.client.post("/analyse", name="/analyse [eml]",
-                         json={"raw_email_b64": EML_B64})
+        self.client.post("/analyse", name="/analyse [eml]", json={"raw_email_b64": EML_B64})
 
     @task(1)
     def analyse_attachment(self):
-        self.client.post("/analyse_attachment", json={
-            "content_b64": LOGIN_PAGE_B64,
-            "filename": "invoice.html",
-            "mime_type": "text/html",
-        })
+        self.client.post(
+            "/analyse_attachment",
+            json={
+                "content_b64": LOGIN_PAGE_B64,
+                "filename": "invoice.html",
+                "mime_type": "text/html",
+            },
+        )
 
     @task(2)
     def health(self):

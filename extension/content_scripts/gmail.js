@@ -10,7 +10,8 @@
 // =====================================================================
 
 const TAG = "[PhishLens]";
-// v1.15: this file is also loaded on Outlook for its banner code; the
+const { escapeHTML } = PhishLensShared;      // lib/shared.js, loaded first
+// This file is also loaded on Outlook for its banner code; the
 // Gmail-specific watchers only run on Gmail.
 const PLL_IS_GMAIL = location.hostname === "mail.google.com";
 // After an extension update or reload, the previous copy of this script
@@ -204,7 +205,7 @@ async function runScan(emailView, btn) {
 
         // Send the body as raw_text and the sender separately so the backend
         // can run the trusted-domain check.
-        // v1.15: the full original message (all headers: Received chain,
+        // The full original message (all headers: Received chain,
         // Authentication-Results, Reply-To...) when the setting is on and
         // Gmail serves it; otherwise the visible text as before.
         const original = PLL_OPTS.fullHeaders ? await fetchOriginalMessage(msg) : null;
@@ -275,7 +276,7 @@ async function runScan(emailView, btn) {
             let cached = false;
 
             try {
-                const backendBase = await _getBackendBase();
+                const backendBase = await PhishLensShared.getBackendBase();
                 const hit = await window.PhishLensLimeCache?.get(backendBase, payload);
                 if (hit) {
                     features = hit.features;
@@ -291,7 +292,7 @@ async function runScan(emailView, btn) {
                 features = rr.data.features || [];
                 // Persist to the LIME cache for the next scan of this email.
                 try {
-                    const backendBase = await _getBackendBase();
+                    const backendBase = await PhishLensShared.getBackendBase();
                     window.PhishLensLimeCache?.put(backendBase, payload, features);
                 } catch {}
             }
@@ -421,7 +422,7 @@ function showBanner(emailView, data, anchor = null) {
             trustedBadge = `<span class="pll-trusted" title="Gmail delivered this to Inbox, so its own SPF/DKIM/DMARC verification passed. Softer signal than a full crypto verification.">Delivered by Gmail</span>`;
         }
 
-        // v1.6: threat-intel signals under the score line.
+        // Threat-intel signals under the score line.
         const signalChips = renderBannerSignals(data);
         banner.innerHTML = `
             <span class="pll-banner__icon">${phishing ? PLL_ICON.alert : PLL_ICON.shieldCheck}</span>
@@ -494,7 +495,7 @@ function textOf(el) {
     return el.innerText.replace(/\s+\n/g, "\n").trim();
 }
 // ---------------------------------------------------------------------
-// v1.15: options and Gmail's "Show original"
+// Options and Gmail's "Show original"
 // ---------------------------------------------------------------------
 // Options set in the popup (Settings): full headers on by default,
 // automatic scanning of new emails off by default (it sends emails to
@@ -684,26 +685,8 @@ function _scrapeAuthRows(emailView, out) {
     }
 }
 
-// Resolve the currently-selected backend URL: needed for the LIME cache
-// key. Mirrors the resolution logic in background.js so the two agree.
-const _BACKEND_PRESETS = {
-    local: "http://127.0.0.1:8000",
-    cloud: "https://anzouk.duckdns.org",
-};
-async function _getBackendBase() {
-    try {
-        const s = await new Promise((r) =>
-            chrome.storage.local.get(["backend", "backend_custom_url"], r));
-        const choice = s.backend || "cloud";
-        if (choice === "custom") return (s.backend_custom_url || "").replace(/\/$/, "");
-        return _BACKEND_PRESETS[choice] || _BACKEND_PRESETS.cloud;
-    } catch {
-        return _BACKEND_PRESETS.cloud;
-    }
-}
-
 // ---------------------------------------------------------------------
-// v1.6: threat-intel signal chips inside the Gmail banner.
+// Threat-intel signal chips inside the Gmail banner.
 // ---------------------------------------------------------------------
 const _SOURCE_LABEL_GMAIL = {
     google_safe_browsing: "Google Safe Browsing",
@@ -715,7 +698,7 @@ const _SOURCE_LABEL_GMAIL = {
 function renderBannerSignals(data) {
     const chips = [];
 
-    // v1.14: forwarded email, shared-file links, thread position.
+    // Forwarded email, shared-file links, thread position.
     if (data.forwarded?.detected) {
         const orig = data.forwarded.original_sender;
         chips.push(`<span class="pll-chip pll-chip--warn" title="${escapeHTML(orig ? "Original sender: " + orig : "Original sender not found")}">Forwarded${orig ? ": " + escapeHTML(orig) : ""}</span>`);
@@ -758,13 +741,9 @@ function renderBannerSignals(data) {
     if (!chips.length) return "";
     return `<div class="pll-signals">${chips.join(" ")}</div>`;
 }
-function escapeHTML(s) {
-    return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
-                    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
-}
 
 // =====================================================================
-// v1.8: attachment scanning (PDF, HTML for Phase 1).
+// Attachment scanning.
 // =====================================================================
 // Gmail renders each attachment as an anchor with a download attribute
 // pointing to its per-attachment fetch URL. Since we run in the Gmail
@@ -783,8 +762,8 @@ function escapeHTML(s) {
 
 const ATT_MAX          = 15;                   // hard limit per mail
 const ATT_MAX_SIZE_MB  = 10;
-// v1.12: images (OCR + QR) and Office documents (macros, links) too.
-// v1.14: archives, calendar invites, attached emails and plain text too.
+// PDF, HTML, images (OCR + QR), Office documents (macros, links),
+// archives, calendar invites, attached emails and plain text.
 const ATT_SUPPORTED    = new Set(["pdf", "html", "htm", "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff", "docx", "docm", "doc", "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt",
                                   "zip", "rar", "7z", "ics", "eml", "txt"]);
 // Any "name.ext" (for attachments PhishLens cannot read, to say so).
@@ -1227,7 +1206,7 @@ function renderAttachmentBanner(banner, data, filename) {
     `;
 }
 
-// v1.15.4: inside an archive, name the files that explain the verdict
+// Inside an archive, name the files that explain the verdict
 // ("Do not open"), then the full list of files, folded.
 function archiveFilesHTML(a, bad) {
     if (a.kind !== "archive") return "";
@@ -1293,7 +1272,7 @@ function arrayBufferToBase64(buffer) {
 console.log(TAG, "Gmail content script loaded.");
 
 // =====================================================================
-// v1.15: automatic scanning of new emails (opt-in, popup Settings)
+// Automatic scanning of new emails (opt-in, popup Settings)
 // =====================================================================
 // When the inbox list is on screen, unread emails PhishLens has not seen
 // yet are fetched through Gmail's "Show original" (no need to open them)

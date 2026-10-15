@@ -37,7 +37,7 @@ B4: the backend downloads and deserialises model files at startup.
 
 | # | Threat | Boundary | Mitigation in place | Status |
 | --- | --- | --- | --- | --- |
-| S1 | **Spoofing** the sender: `From: paypal.com` sent from attacker infrastructure to borrow trust | B1 | Trust comes from DKIM alignment with the From: organisational domain, not from the header text. Misaligned `signed-by` stays on the strict path. Tested in `test_auth_headers.py` and `test_extension_backend.py` | Mitigated |
+| S1 | **Spoofing** the sender: `From: paypal.com` sent from attacker infrastructure to borrow trust | B1 | Trust comes from DKIM alignment with the From: organisational domain, not from the header text; the allowlist also requires it since v1.16 (before, a forged allowlisted From: got the trusted path). Misaligned `signed-by` stays on the strict path. Tested in `test_auth_headers.py` and `test_extension_backend.py` | Mitigated |
 | S2 | Spoofing the client context: a caller claims `gmail_in_inbox` or `gmail_delivered` to soften its own scan | B2 | The flags only soften the caller's own result, never shared state; a Safe Browsing hit still forces phishing; documented as a SECURITY NOTE in code | Accepted (limited impact) |
 | S3 | Trusted-domain abuse: a compromised account at an allowlisted bank sends phishing | B1 | A Safe Browsing hit forces phishing on every path, the allowlist included (regression test since v1.11.0); allowlist is small and documented as a regional fallback | Partially mitigated |
 | T1 | **Tampering** with the model: a malicious joblib on Hugging Face (pickle executes code on load) | B4 | Since v1.12 the agents load from skops files with a type allowlist (scikit-learn, NumPy, SciPy, builtins only); pickle is a fallback that `AGENTS_ALLOW_PICKLE=0` turns off | Mitigated (skops files published and pickle disabled in production since 2026-09-30) |
@@ -89,8 +89,10 @@ many IPs. Acceptable while the user base is small; with a public store
 release, per-install API keys or a shared limiter (Redis) in front of
 the API become worthwhile.
 
-**R6. The allowlist is regional and static.** Useful for Nigerian
-institutions with weak DKIM setups, but it trusts domains, not messages.
+**R6. The allowlist is regional and static.** It only applies to
+authenticated senders (since v1.16), so it trusts authenticated domains,
+not messages: a compromised account at a listed institution is caught
+only by threat intelligence or the link checks.
 
 ## Review triggers
 

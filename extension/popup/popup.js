@@ -2,21 +2,14 @@
 // PhishLens popup logic: vanilla JS, no build step.
 // =====================================================================
 
-// Backend choices (persisted in chrome.storage under "backend").
-// "local"  -> http://127.0.0.1:8000                     (Docker on user's Mac)
-// "cloud"  -> https://anzouk.duckdns.org                (Oracle Cloud, behind Caddy + Let's Encrypt)
-// "custom" -> whatever URL the user types in the settings view
-const BACKEND_PRESETS = {
-    local:  "http://127.0.0.1:8000",
-    cloud:  "https://anzouk.duckdns.org",
-};
-const DEFAULT_BACKEND = "cloud";   // v1.15: PhishLens Cloud by default
+// Server choice (chrome.storage "backend"): "cloud" (PhishLens Cloud, the
+// default), "local" (Docker on this computer) or "custom" (a typed URL).
+const { DEFAULT_BACKEND, resolveBackend, escapeHTML, apiErrorMessage } = window.PhishLensShared;
 
 let backendChoice = DEFAULT_BACKEND;     // "local" | "cloud" | "custom"
 let backendCustomUrl = "";
 function getApiBase() {
-    if (backendChoice === "custom") return backendCustomUrl.replace(/\/$/, "");
-    return BACKEND_PRESETS[backendChoice] || BACKEND_PRESETS.local;
+    return resolveBackend(backendChoice, backendCustomUrl);
 }
 
 // ---------- DOM refs ----------
@@ -46,9 +39,9 @@ const icon = (name) => `<svg class="i" aria-hidden="true"><use href="#i-${name}"
 
 // ---------- accepted files ----------
 // .eml goes to /analyse; everything in ATTACHMENT_EXTS goes to
-// /analyse_attachment (v1.12: images and Office documents added).
+// /analyse_attachment.
 const ATTACHMENT_EXTS = ["pdf", "html", "htm", "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff", "docx", "docm", "doc", "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt",
-                         // v1.14: archives, calendar invites, plain text
+                         // Archives, calendar invites, plain text
                          "zip", "rar", "7z", "ics", "txt"];
 // Attachment flags meaning "could not look inside" (see gmail.js).
 const CAUTION_FLAGS = ["encrypted_archive", "encrypted_document", "uninspectable_archive",
@@ -289,7 +282,7 @@ analyzeBtn.addEventListener("click", async () => {
         });
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            throw new Error(err.detail || `Server returned ${resp.status}`);
+            throw new Error(apiErrorMessage(err, resp.status));
         }
         const data = await resp.json();
         if (thisRun !== runId) return;     // stale, user already moved on
@@ -435,7 +428,7 @@ function renderResult(data) {
              : "The sender appears legitimate."
     );
 
-    // v1.6+: reputation & auth badges
+    // Reputation & auth badges
     renderUrlBadges(data.url_reputation);
     renderMetaBadges(data.sender_auth);
 
@@ -445,7 +438,7 @@ function renderResult(data) {
     explainStatus.hidden = true;
 }
 
-// ---------- v1.6 badges ----------
+// ---------- sender and threat-intel badges ----------
 // Human-readable labels for the raw threat-intel enum values.
 const _THREAT_LABEL = {
     "MALWARE":                          "malware",
@@ -477,7 +470,7 @@ function _mkBadge(text, kind, title) {
     return el;
 }
 
-// v1.15.4: inside an archive, name the files that explain the verdict,
+// Inside an archive, name the files that explain the verdict,
 // then list every file (folded). Built with DOM nodes: file names come
 // from the archive and are never inserted as HTML.
 function renderArchiveFiles(att, isPhishing) {
@@ -626,7 +619,7 @@ async function fetchExplain(payload, thisRun) {
         if (thisRun !== runId) return;        // stale: discard
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            throw new Error(err.detail || `Server returned ${resp.status}`);
+            throw new Error(apiErrorMessage(err, resp.status));
         }
         const data = await resp.json();
         if (thisRun !== runId) return;        // stale: discard
@@ -747,7 +740,7 @@ document.querySelectorAll('input[name="backend"]').forEach((r) => {
     });
 });
 
-// v1.15: Gmail options (read by content_scripts/gmail.js).
+// Gmail options (read by content_scripts/gmail.js).
 const optFullHeaders = $("opt-full-headers");
 const optAutoScan = $("opt-auto-scan");
 STORAGE?.get(["opt_full_headers", "opt_auto_scan"], (s) => {
@@ -757,7 +750,7 @@ STORAGE?.get(["opt_full_headers", "opt_auto_scan"], (s) => {
 optFullHeaders.addEventListener("change", () => STORAGE?.set({ opt_full_headers: optFullHeaders.checked }));
 optAutoScan.addEventListener("change", () => STORAGE?.set({ opt_auto_scan: optAutoScan.checked }));
 
-// v1.15.2: an http:// URL to a remote server would send emails in clear
+// An http:// URL to a remote server would send emails in clear
 // text. Local and private-network addresses are fine (nothing leaves the
 // computer or the home network).
 const customUrlWarn = $("custom-url-warn");
@@ -857,13 +850,13 @@ async function renderInsights() {
             const pct = Math.round((t.weight / maxW) * 100);
             return `
               <div class="token-row">
-                <span class="token-row__label">${escapeHtml(t.token)}</span>
+                <span class="token-row__label">${escapeHTML(t.token)}</span>
                 <span class="token-row__bar"><span style="width:${pct}%"></span></span>
               </div>`;
         }).join("");
     }
 
-    // v1.15: live evaluation, from the scans the user reviewed below.
+    // Live evaluation, from the scans the user reviewed below.
     const live = stats.live || { reviewed: 0 };
     const pctOf = (v) => (v == null ? "n/a" : `${Math.round(v * 100)}%`);
     $("live-eval").innerHTML = live.reviewed
@@ -889,12 +882,12 @@ async function renderInsights() {
           <div class="history-item" data-verdict="${e.verdict}" data-id="${e.id}">
             <div class="history-item__dot">${dot}</div>
             <div class="history-item__main">
-              <div class="history-item__subject">${escapeHtml(subj)}</div>
+              <div class="history-item__subject">${escapeHTML(subj)}</div>
               <div class="history-item__meta">
                 <span>${src}</span>
                 <span>·</span>
                 <span>${when}</span>
-                ${e.sender ? `<span>·</span><span>${escapeHtml(e.sender)}</span>` : ""}
+                ${e.sender ? `<span>·</span><span>${escapeHTML(e.sender)}</span>` : ""}
               </div>
             </div>
             <div class="history-item__score">${Math.round((e.score || 0) * 100)}%</div>
@@ -914,11 +907,6 @@ async function renderInsights() {
     });
 }
 
-function escapeHtml(s) {
-    return String(s || "").replace(/[&<>"']/g, (c) => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-    }[c]));
-}
 
 function timeAgo(ts) {
     const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
@@ -1012,14 +1000,6 @@ testConnBtn.addEventListener("click", async () => {
 });
 
 // ---------- util ----------
-function escapeHTML(s) {
-    return String(s)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-}
 
 // boot
 showView("upload");

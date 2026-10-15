@@ -1,6 +1,6 @@
 {
   "name": "PhishLens",
-  "description": "Detect and explain phishing emails in Gmail: DistilBERT, trained URL/header Random Forests, SPF/DKIM/DMARC, URL reputation cascade (GSB, PhishTank, URLhaus, Spamhaus), attachment scanning (PDF with OCR, images, QR codes, Office macros), LIME explanations.",
+  "description": "Detects phishing emails in Gmail and explains why: wording, links, sender checks, threat intelligence and attachments.",
   "version": "1.15.5",
   "manifest_version": 3,
   "icons": {
@@ -19,7 +19,6 @@
   },
   "permissions": [
     "storage",
-    "alarms",
     "notifications",
     "scripting"
   ],
@@ -38,6 +37,7 @@
         "https://mail.google.com/*"
       ],
       "js": [
+        "lib/shared.js",
         "lib/lime_cache.js",
         "content_scripts/gmail.js"
       ],
@@ -53,6 +53,7 @@
         "https://outlook.live.com/*"
       ],
       "js": [
+        "lib/shared.js",
         "lib/lime_cache.js",
         "content_scripts/gmail.js",
         "content_scripts/outlook.js"

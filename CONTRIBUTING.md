@@ -20,7 +20,7 @@ git clone https://github.com/AnzouK/PhishLens.git
 cd PhishLens/backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt pytest pytest-cov ruff reportlab
+pip install -r requirements.txt pytest pytest-cov "ruff==0.16.10" reportlab
 # OCR needs the tesseract binary: brew install tesseract / apt install tesseract-ocr
 uvicorn extension_backend:app --host 127.0.0.1 --port 8000
 ```
@@ -32,10 +32,14 @@ See [docs/architecture.md](docs/architecture.md) for how the pieces fit.
 ## Checks to run before a pull request
 
 ```bash
-cd backend
-ruff check . --select E9,F63,F7,F82
-pytest -q --cov=. --cov-config=.coveragerc
+ruff check backend/ scripts/          # rules in ruff.toml
+ruff format backend/ scripts/         # one code style
+python scripts/check_version.py       # backend and extension versions agree
+cd backend && pytest -q --cov=. --cov-config=.coveragerc   # 80% minimum
 ```
+
+`pip install pre-commit && pre-commit install` runs the first three on
+every commit.
 
 For extension changes, lint the JavaScript too (from the repo root):
 
@@ -55,10 +59,13 @@ CI runs all of the above, plus CodeQL. A pull request needs a green CI.
 
 - **Tests.** New backend logic comes with a test in `backend/tests/`.
   Tests must stay offline: no model download, no network. Patch
-  `text_agent` and use the fakes in `test_reputation.py` as examples.
-- **Scoring changes** (weights, thresholds, trust paths) must update the
-  tables in the README and `docs/architecture.md`, and should explain in
-  the pull request which false positive or false negative they fix.
+  `text_model.text_agent`, and use the fakes in `test_reputation.py` and
+  `test_text_model.py` as examples.
+- **Scoring changes** (weights, thresholds, trust paths) are made in
+  `backend/settings.py` and `backend/fusion.py`, with a test in
+  `test_fusion.py`; update the tables in `docs/architecture.md` and
+  explain in the pull request which false positive or false negative
+  they fix.
 - **Feature engineering** in `feature_extraction.py` is shared with the
   trained Random Forests. Changing feature names or semantics requires
   retraining in [PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector).
@@ -73,6 +80,7 @@ CI runs all of the above, plus CodeQL. A pull request needs a green CI.
 
 ## Releases
 
-Maintainers bump the version in `extension/manifest.json`, move the
+Maintainers bump the version in `extension/manifest.json` and
+`backend/settings.py` (CI checks they agree), move the
 "Unreleased" entries under the new version in `CHANGELOG.md`, tag
 `vX.Y.Z` on `main` and publish the GitHub release.

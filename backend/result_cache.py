@@ -1,5 +1,5 @@
 """
-In-memory cache for /analyse and /explain results (v1.15.2).
+In-memory cache for /analyse and /explain results.
 
 The same email is often checked more than once: auto-scan, then a manual
 scan, then "Why this verdict?", or the same newsletter reaching several
@@ -14,6 +14,7 @@ between two clicks, and saves Google Safe Browsing quota.
   0 turns the cache off) and the oldest go first past
   ``RESULT_CACHE_MAX`` entries (default 2000).
 """
+
 from __future__ import annotations
 
 import copy
@@ -34,8 +35,9 @@ def make_key(namespace: str, payload: Any) -> str:
     """Stable hash of a JSON-able payload."""
     if isinstance(payload, dict) and isinstance(payload.get("client_context"), dict):
         payload = dict(payload)
-        payload["client_context"] = {k: v for k, v in payload["client_context"].items()
-                                     if k not in _IGNORED_CONTEXT_KEYS}
+        payload["client_context"] = {
+            k: v for k, v in payload["client_context"].items() if k not in _IGNORED_CONTEXT_KEYS
+        }
     blob = json.dumps(payload, sort_keys=True, default=str, separators=(",", ":"))
     return namespace + ":" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
@@ -43,7 +45,9 @@ def make_key(namespace: str, payload: Any) -> str:
 class ResultCache:
     def __init__(self, ttl: float | None = None, max_entries: int | None = None):
         self.ttl = float(os.environ.get("RESULT_CACHE_TTL", "86400") if ttl is None else ttl)
-        self.max_entries = int(os.environ.get("RESULT_CACHE_MAX", "2000") if max_entries is None else max_entries)
+        self.max_entries = int(
+            os.environ.get("RESULT_CACHE_MAX", "2000") if max_entries is None else max_entries
+        )
         self._data: OrderedDict[str, tuple[float, Any]] = OrderedDict()
         self._lock = threading.Lock()
         self.hits = 0

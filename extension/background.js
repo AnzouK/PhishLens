@@ -1,89 +1,19 @@
 // =====================================================================
 // PhishLens background service worker.
 // =====================================================================
-// Four jobs:
-//   1. Log install/update events.
-//   2. Proxy fetch() calls to the configured backend on behalf of the
-//      Gmail content script. Gmail's CSP would block direct fetches from
-//      the page context, so the content script messages us instead.
-//   3. Warm-up ping: ping the cloud backend on Chrome startup, on install,
-//      and every 10 min. Originally introduced to mitigate the cold-start
-//      latency of the previous Hugging Face Space / Render.com deployments.
-//      The current Oracle Cloud VM runs continuously so cold starts no
-//      longer occur, but the ping is kept as an inexpensive liveness check.
-//   4. Persist scan history: receive save messages from the Gmail content
-//      script (which can't easily reach chrome.storage in some flows) and
-//      write them via the shared history module.
+//   1. Proxies the API calls of the content scripts to the server chosen
+//      in Settings (Gmail's page CSP blocks direct requests).
+//   2. Saves scans to the local history for the content scripts.
+//   3. Shows the desktop notification of the automatic scan.
+//   4. After an install or update, refreshes the content scripts in the
+//      Gmail / Outlook tabs that are already open.
+// The server is only contacted when a scan is requested.
 // =====================================================================
 
-// Load the shared history module into the service worker so we can call
-// PhishLensHistory.saveScan(...) and .attachTokens(...) when the Gmail
-// content script asks us to persist a scan.
-try { importScripts("lib/history.js"); }
-catch (e) { console.warn("[PhishLens] history module not loaded:", e); }
+try { importScripts("lib/shared.js", "lib/history.js"); }
+catch (e) { console.warn("[PhishLens] shared modules not loaded:", e); }
 
-const BACKEND_PRESETS = {
-    local: "http://127.0.0.1:8000",
-    cloud: "https://anzouk.duckdns.org",
-};
-
-async function getApiBase() {
-    const s = await new Promise((r) =>
-        chrome.storage.local.get(["backend", "backend_custom_url"], r));
-    const choice = s.backend || "cloud";
-    if (choice === "custom") return (s.backend_custom_url || "").replace(/\/$/, "");
-    return BACKEND_PRESETS[choice] || BACKEND_PRESETS.cloud;
-}
-
-// ---------------------------------------------------------------------
-// Warm-up ping.
-// ---------------------------------------------------------------------
-// Fires a lightweight GET /health to the configured backend so that a
-// sleeping HuggingFace Space container wakes up in the background. The
-// user then sees a warm backend when they open the popup or click the
-// Gmail "Scan" button.
-//
-// - Skipped when backend is "local" (no cold-start there).
-// - Silent: failures are expected during a cold start (first request
-//   times out while the container is booting); we only need to trigger
-//   the wake-up, we don't need to wait for the response body.
-// - Uses AbortController to cap wall-time at 3 s.
-async function warmBackend(reason) {
-    try {
-        const s = await new Promise((r) =>
-            chrome.storage.local.get(["backend", "backend_custom_url"], r));
-        const choice = s.backend || "cloud";
-        // Local Docker never sleeps; nothing to warm up.
-        if (choice === "local") return;
-        const base =
-            choice === "custom"
-                ? (s.backend_custom_url || "").replace(/\/$/, "")
-                : BACKEND_PRESETS[choice];
-        if (!base) return;
-
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 3000);
-        await fetch(`${base}/health`, {
-            method: "GET",
-            cache: "no-store",
-            signal: ctrl.signal,
-        });
-        clearTimeout(timer);
-        console.log(`[PhishLens] Backend warmed (${reason}).`);
-    } catch (_) {
-        // Expected during cold start: the container has still received
-        // the request and is booting. Silent.
-        console.log(`[PhishLens] Warm-up ping fired (${reason}); response not awaited.`);
-    }
-}
-
-// 1. Fire when Chrome first launches with the extension installed.
-chrome.runtime.onStartup.addListener(() => warmBackend("startup"));
-
-// 2. Fire on install / update (also keeps the original install log).
 chrome.runtime.onInstalled.addListener((details) => {
-    console.log("PhishLens installed.");
-    warmBackend("install");
     // Only when this extension itself was installed or updated (a reload
     // counts as an update). A Chrome update keeps the scripts alive, and
     // injecting a second copy into the same page would clash.
@@ -113,15 +43,6 @@ async function reinjectIntoOpenTabs() {
     }
 }
 
-// 3. Keep-alive alarm: pings every 10 min while Chrome is running.
-//    Chrome's alarms API guarantees a minimum interval of 30 s in prod,
-//    so 10 min is comfortably well within limits and gentle on the HF
-//    free tier.
-chrome.alarms.create("phishlens-keepalive", { periodInMinutes: 10 });
-chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === "phishlens-keepalive") warmBackend("keepalive");
-});
-
 const _pllNotifTabs = new Map();
 chrome.notifications?.onClicked?.addListener((id) => {
     const t = _pllNotifTabs.get(id);
@@ -145,8 +66,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         })();
         return true;
     }
-    // v1.15: desktop notification for a phishing email found by the
-    // automatic scan. Clicking it focuses the Gmail tab that found it.
+    // Desktop notification for a phishing email found by the automatic
+    // scan. Clicking it focuses the Gmail tab that found it.
     if (msg?.type === "phishlens.notify") {
         const tabId = sender?.tab?.id;
         const id = "pll-" + Date.now();
@@ -186,7 +107,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const payload  = msg.payload || {};
 
     (async () => {
-        const base = await getApiBase();
+        const base = await self.PhishLensShared.getBackendBase();
         if (!base) {
             sendResponse({ ok: false,
                 error: "No backend URL configured. Open PhishLens settings (⚙)." });
@@ -201,7 +122,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             let data;
             try { data = await r.json(); } catch { data = null; }
             if (!r.ok) {
-                sendResponse({ ok: false, error: data?.detail || `HTTP ${r.status}` });
+                sendResponse({ ok: false, error: self.PhishLensShared.apiErrorMessage(data, r.status) });
             } else {
                 sendResponse({ ok: true, data });
             }

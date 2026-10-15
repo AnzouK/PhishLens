@@ -4,6 +4,7 @@ HTML feature-flag extraction. PDF extraction is not tested here because
 it depends on pdfplumber; the smoke test lives in the CI job's
 `import` step and in end-to-end request tests.
 """
+
 from __future__ import annotations
 
 import base64
@@ -15,11 +16,11 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from attachment_analysis import (
+    MAX_ATTACHMENT_BYTES,
     analyse_attachment,
     analyse_html,
     extract_urls,
     sniff_type,
-    MAX_ATTACHMENT_BYTES,
 )
 
 
@@ -82,8 +83,10 @@ class TestAnalyseHtml:
         assert r["extracted_urls"] == []
 
     def test_login_form_flagged(self):
-        raw = (b"<html><body><form action='http://attacker.tld/login'>"
-               b"<input type='password' name='p'></form></body></html>")
+        raw = (
+            b"<html><body><form action='http://attacker.tld/login'>"
+            b"<input type='password' name='p'></form></body></html>"
+        )
         r = analyse_html(raw, "phish.html")
         flags = r["notable_features"]
         assert "contains_form" in flags
@@ -91,9 +94,11 @@ class TestAnalyseHtml:
         assert "http://attacker.tld/login" in r["extracted_urls"]
 
     def test_meta_refresh_redirect(self):
-        raw = (b"<html><head>"
-               b"<meta http-equiv='refresh' content='0; url=http://bad.tld'>"
-               b"</head><body>redirect</body></html>")
+        raw = (
+            b"<html><head>"
+            b"<meta http-equiv='refresh' content='0; url=http://bad.tld'>"
+            b"</head><body>redirect</body></html>"
+        )
         r = analyse_html(raw, "redirect.html")
         assert "meta_refresh_redirect" in r["notable_features"]
 
@@ -103,8 +108,7 @@ class TestAnalyseHtml:
         assert "contains_iframe" in r["notable_features"]
 
     def test_stripped_scripts_dont_appear_in_extracted_text(self):
-        raw = (b"<html><body><script>alert('xss')</script>"
-               b"Visible text</body></html>")
+        raw = b"<html><body><script>alert('xss')</script>Visible text</body></html>"
         r = analyse_html(raw, "s.html")
         assert "alert" not in r["extracted_text"]
         assert "Visible text" in r["extracted_text"]
@@ -133,9 +137,11 @@ class TestAnalyseAttachment:
         # A short non-empty payload that isn't a PDF / HTML / plain-text.
         # Should take the "Unsupported attachment type" path.
         with pytest.raises(ValueError, match="Unsupported"):
-            analyse_attachment(self._b64(b"just some bytes"),
-                               filename="x.bin",
-                               mime_type="application/octet-stream")
+            analyse_attachment(
+                self._b64(b"just some bytes"),
+                filename="x.bin",
+                mime_type="application/octet-stream",
+            )
 
     def test_oversized_rejected(self):
         # Craft an 11 MB blob
@@ -145,20 +151,20 @@ class TestAnalyseAttachment:
 
     def test_unsupported_zip_rejected(self):
         with pytest.raises(ValueError, match="Unsupported"):
-            analyse_attachment(self._b64(b"PK\x03\x04garbage"),
-                               filename="x.docx",
-                               mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            analyse_attachment(
+                self._b64(b"PK\x03\x04garbage"),
+                filename="x.docx",
+                mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
 
     def test_html_happy_path(self):
         raw = b"<html><body>Hello</body></html>"
-        r = analyse_attachment(self._b64(raw), filename="x.html",
-                               mime_type="text/html")
+        r = analyse_attachment(self._b64(raw), filename="x.html", mime_type="text/html")
         assert r["kind"] == "html"
         assert r["size_bytes"] == len(raw)
 
     def test_plain_text_supported(self):
         raw = b"Follow this link: https://legit.tld/verify"
-        r = analyse_attachment(self._b64(raw), filename="notes.txt",
-                               mime_type="text/plain")
+        r = analyse_attachment(self._b64(raw), filename="notes.txt", mime_type="text/plain")
         assert r["kind"] == "text"
         assert "https://legit.tld/verify" in r["extracted_urls"]

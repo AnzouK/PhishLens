@@ -5,6 +5,7 @@ replaced by an in-process fake, so these run offline in milliseconds.
 What we pin here: the SQLite cache, the GSB daily quota, URL
 normalisation, and the scoring rules of the cascade.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -82,6 +83,7 @@ def offline(monkeypatch):
 
     async def _no_dbl(_domain):
         return None
+
     monkeypatch.setattr(rep, "_spamhaus_dbl", _no_dbl)
     return monkeypatch
 
@@ -96,6 +98,7 @@ class TestCache:
             assert await c.get("http://a.tld") is None
             await c.put("http://a.tld", {"malicious": True, "score": 1.0})
             return await c.get("http://a.tld")
+
         v = asyncio.run(go())
         assert v["malicious"] is True
         assert v["cached"] is True
@@ -116,6 +119,7 @@ class TestCache:
 
     def test_self_heals_if_table_dropped(self, tmp_path):
         import sqlite3
+
         path = str(tmp_path / "c.db")
         c = rep.Cache(path)
         with sqlite3.connect(path) as db:
@@ -134,6 +138,7 @@ class TestGsbQuota:
             q = rep.GsbQuota(limit=10, buffer=2)
             results = [await q.try_consume() for _ in range(10)]
             return q, results
+
         q, results = asyncio.run(go())
         assert results.count(True) == 8
         assert q.stats()["remaining"] == 0
@@ -144,8 +149,9 @@ class TestGsbQuota:
             for _ in range(3):
                 await q.try_consume()
             assert await q.try_consume() is False
-            q._day = "1999-01-01"          # simulate midnight UTC rollover
+            q._day = "1999-01-01"  # simulate midnight UTC rollover
             return await q.try_consume()
+
         assert asyncio.run(go()) is True
 
 
@@ -160,8 +166,7 @@ class TestCascade:
         assert eng._normalize("   ") == ""
 
     def test_clean_url(self, tmp_path, offline):
-        eng = make_engine(tmp_path, phishtank=FakePhishTank(set()),
-                          urlhaus=FakeUrlhaus(set()))
+        eng = make_engine(tmp_path, phishtank=FakePhishTank(set()), urlhaus=FakeUrlhaus(set()))
         [v] = asyncio.run(eng.check_urls(["https://ok.tld/"]))
         assert v["malicious"] is False
         assert v["score"] == 0.0
@@ -177,19 +182,17 @@ class TestCascade:
 
     def test_single_fallback_hit(self, tmp_path, offline):
         bad = "http://phish.tld/"
-        eng = make_engine(tmp_path, phishtank=FakePhishTank({bad}),
-                          urlhaus=FakeUrlhaus(set()))
+        eng = make_engine(tmp_path, phishtank=FakePhishTank({bad}), urlhaus=FakeUrlhaus(set()))
         [v] = asyncio.run(eng.check_urls([bad]))
         assert v["malicious"] is True
-        assert v["score"] == pytest.approx(0.6)       # 0.4 * 1 + 0.2
+        assert v["score"] == pytest.approx(0.6)  # 0.4 * 1 + 0.2
         assert "phishtank" in v["sources"]
 
     def test_two_fallback_hits_stack(self, tmp_path, offline):
         bad = "http://both.tld/"
-        eng = make_engine(tmp_path, phishtank=FakePhishTank({bad}),
-                          urlhaus=FakeUrlhaus({bad}))
+        eng = make_engine(tmp_path, phishtank=FakePhishTank({bad}), urlhaus=FakeUrlhaus({bad}))
         [v] = asyncio.run(eng.check_urls([bad]))
-        assert v["score"] == pytest.approx(1.0)       # 0.4 * 2 + 0.2
+        assert v["score"] == pytest.approx(1.0)  # 0.4 * 2 + 0.2
 
     def test_second_lookup_served_from_cache(self, tmp_path, offline):
         bad = "http://evil.tld/"
@@ -199,10 +202,11 @@ class TestCascade:
         async def go():
             await eng.check_urls([bad])
             return await eng.check_urls([bad])
+
         [v] = asyncio.run(go())
         assert v["cached"] is True
         assert v["malicious"] is True
-        assert gsb.calls == 1                       # quota not burned twice
+        assert gsb.calls == 1  # quota not burned twice
         assert eng.stats()["cache"]["hits"] == 1
 
     def test_empty_input(self, tmp_path, offline):

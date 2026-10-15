@@ -7,9 +7,10 @@
 #                 node:test unit tests of extension/lib
 #   requirements  resolves backend/requirements.txt on the Docker base
 #                 Python without installing anything
-#   python        compile, ruff (fatal rules) and the offline pytest
-#                 suite with coverage (OCR, QR, Office, skops included;
-#                 torch / transformers are stubbed, the model never loads)
+#   python        compile, ruff (lint + format, ruff.toml), version check
+#                 and the offline pytest suite with coverage, 80% minimum
+#                 (OCR, QR, Office, skops included; torch / transformers
+#                 are stubbed, the model never loads)
 #   ui            Playwright smoke tests of the popup (backend mocked)
 #
 # The first three are required by the branch protection rule on main.
@@ -93,20 +94,22 @@ jobs:
           # Everything the tests import, except torch / transformers /
           # lime: tests/conftest.py stubs those and the endpoint tests
           # patch the text agent, so the model never loads.
-          pip install pytest pytest-cov ruff \
+          pip install pytest pytest-cov "ruff==0.16.10" \
                       fastapi httpx prometheus-fastapi-instrumentator \
                       numpy pandas beautifulsoup4 pdfplumber pypdfium2 \
                       pillow pytesseract opencv-python-headless reportlab \
-                      scikit-learn joblib skops rarfile py7zr
+                      scikit-learn joblib skops rarfile py7zr defusedxml
 
       - name: Compile every backend .py to catch SyntaxError
         run: python -m compileall -q backend/
 
-      - name: Ruff, fatal errors only (E9, F63, F7, F82)
+      - name: Ruff lint and format (ruff.toml)
         run: |
-          # Narrow rule set on purpose: syntax errors (E9), undefined
-          # names (F821, F823), assert on tuples (F631), etc.
-          ruff check backend/ --select E9,F63,F7,F82 --output-format=github
+          ruff check backend/ scripts/ --output-format=github
+          ruff format --check backend/ scripts/
+
+      - name: Same version in the backend and the extension
+        run: python scripts/check_version.py
 
       - name: Run pytest
         working-directory: backend

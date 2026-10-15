@@ -1,5 +1,5 @@
 """
-PhishLens: loading the Random Forest agents without pickle (v1.12).
+PhishLens: loading the Random Forest agents without pickle.
 =====================================================================
 The URL and metadata agents used to be published as joblib files.
 joblib is pickle underneath, and unpickling runs whatever code the file
@@ -16,6 +16,7 @@ from scikit-learn, NumPy, SciPy or the Python builtins. Anything else
 read from joblib: model, scaler, feature_names, is_trained, and the
 optional training_history / best_params.
 """
+
 from __future__ import annotations
 
 import json
@@ -39,7 +40,7 @@ def _skops():
     try:
         import skops.io as sio  # type: ignore
     except Exception as e:  # pragma: no cover - depends on the image
-        raise RuntimeError(f"skops is not installed ({e})")
+        raise RuntimeError(f"skops is not installed ({e})") from e
     return sio
 
 
@@ -72,7 +73,9 @@ def dump_skops_state(state: dict[str, Any], path: str | Path) -> None:
         "scaler": state["scaler"],
         "feature_names": [str(f) for f in state["feature_names"]],
         "is_trained": bool(state.get("is_trained", True)),
-        "training_history": json.loads(json.dumps(state.get("training_history") or {}, default=str)),
+        "training_history": json.loads(
+            json.dumps(state.get("training_history") or {}, default=str)
+        ),
         "best_params": json.loads(json.dumps(state.get("best_params"), default=str)),
     }
     sio.dump(clean, str(path))

@@ -1,10 +1,9 @@
 # =====================================================================
 # PhishLens backend: Docker image
 # =====================================================================
-# Builds a self-contained image that runs `uvicorn extension_backend:app`
-# on port 8000. The DistilBERT model is NOT baked in; it is mounted as
-# a read-only volume at /app/model (see docker-compose.yml). Keeps the
-# image small and lets you swap models without rebuilding.
+# Local image: `uvicorn extension_backend:app` on port 8000, with the
+# text model mounted read-only at /app/model (see docker-compose.yml), so
+# models can be swapped without rebuilding.
 # =====================================================================
 
 FROM python:3.12-slim AS base
@@ -12,8 +11,8 @@ FROM python:3.12-slim AS base
 # System dependencies
 #   - build-essential: needed by some pip packages with C extensions
 #   - curl: used by the HEALTHCHECK
-#   - tesseract-ocr: OCR for images and scanned PDFs (v1.12)
-#   - libarchive-tools: bsdtar, decompresses RAR members (v1.15.3)
+#   - tesseract-ocr: OCR for images and scanned PDFs
+#   - libarchive-tools: bsdtar, decompresses RAR members
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
         build-essential \
@@ -36,7 +35,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 # App code: every top-level module of backend/ (tests/ is not copied).
 COPY *.py ./
 
-# Where the unzipped DistilBERT checkpoint will be mounted
+# Where the text model checkpoint is mounted
 ENV MODEL_DIR=/app/model
 ENV PYTHONUNBUFFERED=1
 ENV TRANSFORMERS_OFFLINE=1
@@ -44,7 +43,7 @@ ENV HF_HUB_OFFLINE=1
 
 EXPOSE 8000
 
-# /healthz is just a GET / on the root endpoint that returns {"status":"ok"}
+# GET / answers {"status": "ok"} once the server is up
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
     CMD curl -fsS http://localhost:8000/ || exit 1
 

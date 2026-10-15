@@ -138,7 +138,7 @@ The backend is configured with environment variables. The most useful:
 | --- | --- | --- |
 | `GSB_API_KEY` | empty | Google Safe Browsing key; that tier is off without it |
 | `REPUTATION_ENABLE_GSB` / `_PHISHTANK` / `_URLHAUS` / `_DBL` | `1` | Turn each threat-intel source on or off |
-| `REPUTATION_CACHE_DB` | `/tmp/phishlens_reputation.db` | SQLite cache for URL verdicts (24 h TTL) |
+| `REPUTATION_CACHE_DB` | `~/.cache/phishlens/reputation.db` | SQLite cache for URL verdicts (24 h TTL) |
 | `RATE_LIMIT_ANALYSE` | `30/minute` | Per-IP limit (also `RATE_LIMIT_ATTACHMENT`, `RATE_LIMIT_EXPLAIN`) |
 | `LIME_NUM_SAMPLES` | `100` | Forward passes per explanation: higher is sharper and slower |
 | `OCR_MAX_PAGES` / `OCR_TIMEOUT_S` | `3` / `10` | Pages of a scanned PDF sent to OCR, and the time limit per page |
@@ -156,7 +156,13 @@ sender list are explained in
 
 ```
 backend/               FastAPI app, agents, sender auth, threat intel, attachments
-  extension_backend.py   API and fusion
+  extension_backend.py   HTTP API (endpoints, limits, metrics)
+  settings.py            version, environment, scoring constants
+  email_parsing.py       text, links and headers of an email
+  sender_trust.py        sender domain, allowlist, Gmail auth hints
+  text_model.py          text agent and LIME
+  structured_agents.py   URL and metadata agents
+  fusion.py              scores to verdict (pure functions)
   auth_headers.py        SPF / DKIM / DMARC and Spamhaus DBL
   reputation.py          threat-intel cascade with SQLite cache
   attachment_analysis.py attachment dispatcher (PDF, HTML, text)

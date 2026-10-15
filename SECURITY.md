@@ -28,9 +28,10 @@ before we've had a chance to fix them.
 
 ## What's not in scope
 
-- The static allowlist (`TRUSTED_DOMAINS`): it's a curated set of
-  well-known senders and giving it a wider trust radius is a product
-  decision, not a security bug.
+- The content of the allowlist (`backend/trusted_domains.py`): which
+  domains are listed is a product decision. A way to get the allowlist's
+  softer verdict without authenticating as the listed domain *is* a
+  security bug.
 - PhishLens Cloud (`https://anzouk.duckdns.org`) is intentionally
   a shared open backend with permissive CORS. Rate-limiting bypass is
   a bug, but "someone can query the API without signing up" is not.
