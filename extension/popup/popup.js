@@ -833,12 +833,12 @@ async function renderInsights() {
         topTokensEl.innerHTML =
             `<div class="empty-hint">${escapeHTML(t("no_top_tokens"))}</div>`;
     } else {
-        const maxW = Math.max(...stats.topTokens.map((t) => t.weight));
-        topTokensEl.innerHTML = stats.topTokens.map((t) => {
-            const pct = Math.round((t.weight / maxW) * 100);
+        const maxW = Math.max(...stats.topTokens.map((tok) => tok.weight));
+        topTokensEl.innerHTML = stats.topTokens.map((tok) => {
+            const pct = Math.round((tok.weight / maxW) * 100);
             return `
               <div class="token-row">
-                <span class="token-row__label">${escapeHTML(t.token)}</span>
+                <span class="token-row__label">${escapeHTML(tok.token)}</span>
                 <span class="token-row__bar"><span style="width:${pct}%"></span></span>
               </div>`;
         }).join("");

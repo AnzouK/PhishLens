@@ -77,9 +77,9 @@ function installAttachmentButtons(emailView) {
         // a supported extension (Gmail sometimes doesn't use any of
         // the classes above in newer redesigns).
         strip.querySelectorAll("span, div").forEach((el) => {
-            const t = (el.textContent || "").trim();
-            if (t.length > 3 && t.length < 260) {
-                const ext = (t.split(".").pop() || "").toLowerCase();
+            const label = (el.textContent || "").trim();
+            if (label.length > 3 && label.length < 260) {
+                const ext = (label.split(".").pop() || "").toLowerCase();
                 if (ATT_SUPPORTED.has(ext)) candidates.add(el);
             }
         });
@@ -123,9 +123,9 @@ function installAttachmentButtons(emailView) {
         found.push({ tile, ...info, emailView });
     });
 
-    if (!found.some((t) => !t.unsupported)) {
+    if (!found.some((f) => !f.unsupported)) {
         // Only unreadable attachments: say so once, without a scan button.
-        found.forEach((t) => renderAttachmentNotice(t));
+        found.forEach((f) => renderAttachmentNotice(f));
         return;
     }
 

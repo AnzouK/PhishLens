@@ -76,21 +76,21 @@ function paintAutoBadges() {
 
 // Small status toast, bottom left of Gmail, for the automatic scan.
 function autoToast(text, kind = "info", hideAfterMs = 0) {
-    let t = document.getElementById("pll-auto-toast");
-    if (!t) {
-        t = document.createElement("div");
-        t.id = "pll-auto-toast";
-        t.className = "pll-toast";
-        t.setAttribute("role", "status");
-        t.innerHTML = `<span class="pll-toast__icon">${PLL_ICON.shield}</span><span class="pll-toast__text"></span>` +
+    let toast = document.getElementById("pll-auto-toast");
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "pll-auto-toast";
+        toast.className = "pll-toast";
+        toast.setAttribute("role", "status");
+        toast.innerHTML = `<span class="pll-toast__icon">${PLL_ICON.shield}</span><span class="pll-toast__text"></span>` +
                       `<button type="button" class="pll-toast__close" aria-label="${escapeHTML(t("dismiss"))}">${PLL_ICON.close}</button>`;
-        t.querySelector(".pll-toast__close").addEventListener("click", () => t.remove());
-        document.body.appendChild(t);
+        toast.querySelector(".pll-toast__close").addEventListener("click", () => toast.remove());
+        document.body.appendChild(toast);
     }
-    t.className = `pll-toast pll-toast--${kind}`;
-    t.querySelector(".pll-toast__text").textContent = text;
-    clearTimeout(t._pllTimer);
-    if (hideAfterMs) t._pllTimer = setTimeout(() => t.remove(), hideAfterMs);
+    toast.className = `pll-toast pll-toast--${kind}`;
+    toast.querySelector(".pll-toast__text").textContent = text;
+    clearTimeout(toast._pllTimer);
+    if (hideAfterMs) toast._pllTimer = setTimeout(() => toast.remove(), hideAfterMs);
 }
 
 async function runAutoScan() {

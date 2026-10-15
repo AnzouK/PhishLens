@@ -252,10 +252,10 @@ let _pllIk = null;
 function gmailIk() {
     if (_pllIk) return _pllIk;
     for (const sc of document.scripts) {
-        const t = sc.textContent || "";
-        const i = t.indexOf("var GLOBALS=[");
+        const src = sc.textContent || "";
+        const i = src.indexOf("var GLOBALS=[");
         if (i < 0) continue;
-        const parts = t.slice(i + 13, i + 4000).split(",");
+        const parts = src.slice(i + 13, i + 4000).split(",");
         const v = (parts[9] || "").trim().replace(/^"|"$/g, "");
         if (/^[0-9a-f]{6,20}$/.test(v)) { _pllIk = v; return v; }
     }
@@ -368,8 +368,8 @@ async function extractGmailAuthSignals(emailView, msg = null) {
     try {
         const viaCandidates = (msg || emailView).querySelectorAll("span");
         for (const el of viaCandidates) {
-            const t = (el.textContent || "").trim().toLowerCase();
-            const m = t.match(/^via\s+([a-z0-9.-]+\.[a-z]{2,})$/i);
+            const txt = (el.textContent || "").trim().toLowerCase();
+            const m = txt.match(/^via\s+([a-z0-9.-]+\.[a-z]{2,})$/i);
             if (m) { out.via = m[1]; break; }
         }
     } catch {}

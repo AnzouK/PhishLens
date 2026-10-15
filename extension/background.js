@@ -45,10 +45,10 @@ async function reinjectIntoOpenTabs() {
 
 const _pllNotifTabs = new Map();
 chrome.notifications?.onClicked?.addListener((id) => {
-    const t = _pllNotifTabs.get(id);
-    if (!t) return;
-    chrome.tabs.update(t.tabId, { active: true }).catch(() => {});
-    chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
+    const tab = _pllNotifTabs.get(id);
+    if (!tab) return;
+    chrome.tabs.update(tab.tabId, { active: true }).catch(() => {});
+    chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
     chrome.notifications.clear(id);
     _pllNotifTabs.delete(id);
 });

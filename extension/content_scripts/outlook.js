@@ -43,8 +43,8 @@ function olInject() {
     btn.title = t("scan_button_title");
     subject.insertAdjacentElement("afterend", btn);
     // Outlook listens to pointer events on the header: keep ours to us.
-    for (const t of ["pointerdown", "mousedown", "mouseup", "keydown"]) {
-        btn.addEventListener(t, (ev) => ev.stopPropagation());
+    for (const evt of ["pointerdown", "mousedown", "mouseup", "keydown"]) {
+        btn.addEventListener(evt, (ev) => ev.stopPropagation());
     }
     btn.addEventListener("click", (ev) => {
         ev.preventDefault();

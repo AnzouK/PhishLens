@@ -102,3 +102,16 @@ test("translated text is escaped wherever it is built into HTML", () => {
         }
     }
 });
+
+test("nothing hides the translation function t()", () => {
+    // A local named t (let t = ..., (t) => ...) silently replaces the
+    // translator: the automatic scan broke that way once.
+    const files = ["background.js", "popup/popup.js"]
+        .concat(fs.readdirSync(path.join(EXT, "content_scripts")).filter((f) => f.endsWith(".js")).map((f) => `content_scripts/${f}`));
+    const shadow = /\b(?:let|const|var)\s+t\b(?!\s*,)|\(\s*t\s*[,)]\s*=>|\bfor\s*\(\s*(?:const|let)\s+t\s+of\b|function\s*\w*\s*\(\s*t\s*[,)]/;
+    for (const f of files) {
+        fs.readFileSync(path.join(EXT, f), "utf8").split("\n").forEach((line, i) => {
+            assert.ok(!shadow.test(line), `${f}:${i + 1} declares a local t: ${line.trim()}`);
+        });
+    }
+});
