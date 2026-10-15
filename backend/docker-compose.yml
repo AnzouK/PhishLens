@@ -27,6 +27,7 @@ services:
       # (the image works offline), then HF_MODEL_REPO=<owner>/<name> docker compose up
       HF_MODEL_REPO: ${HF_MODEL_REPO:-AnzouKiona/phishlens-distilbert}
       FEEDBACK_DIR: ${FEEDBACK_DIR:-}
+      FEEDBACK_NOTIFY_URL: ${FEEDBACK_NOTIFY_URL:-}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/"]

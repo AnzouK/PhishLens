@@ -21,7 +21,7 @@ function anyElement() {
 }
 
 function load(entry) {
-    const host = new URL(entry.matches[0].replace("*", "")).hostname;
+    const host = new URL(entry.matches[0].replaceAll("*", "")).hostname;
     const ctx = {
         console: { ...console, log() {}, info() {} },
         setTimeout, clearTimeout, URL, TextEncoder, btoa, atob, CSS: { escape: (s) => s },

@@ -164,6 +164,7 @@ The backend is configured with environment variables. The most useful:
 | `HF_TOKEN` | empty | Read-only token, only for a private model repository |
 | `OCR_LANG` | `auto` | Tesseract languages; `auto` picks them from the script of each image |
 | `FEEDBACK_DIR` / `RATE_LIMIT_FEEDBACK` | empty / `20/hour` | Where reports sent from the extension are stored (empty: not collected) |
+| `FEEDBACK_NOTIFY_URL` | empty | `https://` address that receives a one-line message for each new report, for example an [ntfy](https://ntfy.sh) topic; never the report's text |
 | `METRICS_ENABLED` | `1` | Prometheus metrics on `/metrics` (keep it private) |
 | `LOG_LEVEL` | `INFO` | Log level for the `phishlens.*` loggers |
 

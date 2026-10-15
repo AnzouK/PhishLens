@@ -22,6 +22,7 @@ A {{key}} ending in _html is inserted as is; any other is HTML-escaped.
 
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import re
@@ -137,16 +138,34 @@ def head(lang, s, *, title, desc, base, page, og_desc=None, scripts=False, noind
         f'<link rel="icon" href="{base}favicon.ico" sizes="any">',
         f'<link rel="icon" href="{base}icon.png" type="image/png">',
         f'<link rel="apple-touch-icon" href="{base}apple-touch-icon.png">',
-        f'<link rel="stylesheet" href="{base}style.css">',
-        f'<script src="{base}i18n/{lang}.js" defer></script>',
-        f'<script src="{base}lang.js" defer></script>',
-        f'<script src="{base}nav.js" defer></script>',
+        f'<link rel="stylesheet" href="{asset(base, "style.css")}">',
+        f'<script src="{base}i18n/{lang}.js?v={strings_digest()}" defer></script>',
+        f'<script src="{asset(base, "lang.js")}" defer></script>',
+        f'<script src="{asset(base, "nav.js")}" defer></script>',
     ]
     if scripts:
-        out.append(f'<script src="{base}redact.js" defer></script>')
-        out.append(f'<script src="{base}app.js" defer></script>')
+        out.append(f'<script src="{asset(base, "redact.js")}" defer></script>')
+        out.append(f'<script src="{asset(base, "app.js")}" defer></script>')
     out += ["</head>", "<body>"]
     return "\n".join(out) + "\n"
+
+
+def strings_digest() -> str:
+    """Short hash of every strings file: i18n/<lang>.js is built from them."""
+    h = hashlib.sha256()
+    for f in sorted((SRC / "strings").glob("*.json")):
+        h.update(f.read_bytes())
+    return h.hexdigest()[:10]
+
+
+def asset(base: str, name: str) -> str:
+    """URL of a site file with a short hash of its content, so a browser
+    fetches it again as soon as it changes."""
+    path = OUT / name
+    if name == "redact.js":
+        path = OUT.parent / "extension" / "lib" / "redact.js"
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()[:10] if path.exists() else "0"
+    return f"{base}{name}?v={digest}"
 
 
 def header(lang, s, *, base, page) -> str:
