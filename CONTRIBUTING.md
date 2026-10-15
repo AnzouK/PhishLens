@@ -29,6 +29,31 @@ Load the extension from `extension/` in `chrome://extensions` (Developer
 mode, Load unpacked) and pick the local backend in the gear menu.
 See [docs/architecture.md](docs/architecture.md) for how the pieces fit.
 
+## Project layout
+
+```
+backend/                  FastAPI app (one module per concern)
+  extension_backend.py      HTTP API: endpoints, limits, metrics
+  settings.py               version, environment, scoring constants
+  email_parsing.py          text, links and headers of an email
+  sender_trust.py           sender domain, allowlist, Gmail auth hints
+  text_model.py             text agent and LIME; text_normalize.py, language.py
+  structured_agents.py      URL and metadata agents (rf_agent.py, agent_io.py)
+  fusion.py                 scores to verdict (pure functions)
+  auth_headers.py           SPF / DKIM / DMARC and Spamhaus DBL
+  reputation.py             threat-intel cascade with SQLite cache
+  attachment_analysis.py    attachments: PDF, HTML, images (ocr.py), Office
+                            (office_analysis.py), archives (archive_analysis.py)
+  feedback.py               reports users send, redacted again (redaction.py)
+  tests/                    offline pytest suite
+extension/                Chrome MV3 extension (plain JS, no build step)
+site/                     website in 8 languages, generated from site-src/
+tests/                    extension unit tests (node:test), popup and website UI tests (Playwright)
+docs/                     architecture, threat model, operations, languages, model
+scripts/                  website build, redeploy and backup, load test,
+                          translation review, report deletion, version check
+```
+
 ## Checks to run before a pull request
 
 ```bash

@@ -1,9 +1,6 @@
 # PhishLens project overview
 
-This page is the entry point to everything that makes up the project.
-PhishLens is spread over two repositories, two Hugging Face model repos,
-a live deployment, a user guide and a written report; each piece is
-linked below with what it is for.
+Where each part of PhishLens lives, and where to find answers.
 
 ## The artefacts
 
@@ -22,7 +19,7 @@ linked below with what it is for.
 
 | Question | Where to look |
 | --- | --- |
-| How do I install and use it? | [README](../README.md), Quickstart section |
+| How do I install it? | [README](../README.md#install) |
 | How do I use it day to day? | The [wiki](https://github.com/AnzouK/PhishLens/wiki) |
 | How is the system built, and why that way? | [architecture.md](architecture.md) |
 | Which languages are supported, and how are translations made and checked? | [languages.md](languages.md) |
@@ -30,25 +27,20 @@ linked below with what it is for.
 | Which text model is running, and how is it switched? | [architecture.md, text model](architecture.md#text-model) and [operations.md](operations.md#switch-the-text-model) |
 | What can go wrong security-wise, and what stops it? | [threat-model.md](threat-model.md) |
 | How do I run, monitor and load-test a deployment? | [operations.md](operations.md) |
-| How were the models trained and how good are they? | [PhishingDetector README](https://github.com/dodi-ctrl/PhishingDetector#at-a-glance) and the Hugging Face model cards |
+| How were the models trained and how good are they? | [PhishingDetector README](https://github.com/dodi-ctrl/PhishingDetector#results) and the Hugging Face model cards |
 | What are the known limitations? | [threat-model.md, residual risks](threat-model.md#residual-risks-and-known-limitations) and [PhishingDetector, Limitations](https://github.com/dodi-ctrl/PhishingDetector#limitations) |
 | What changed between versions? | [CHANGELOG.md](../CHANGELOG.md) and [GitHub Releases](https://github.com/AnzouK/PhishLens/releases) |
 | How do I report a vulnerability? | [SECURITY.md](../SECURITY.md) |
 | How do I contribute? | [CONTRIBUTING.md](../CONTRIBUTING.md) |
 
-## Headline numbers
+## Numbers, and how much to trust them
 
-| Agent | Model | Accuracy | F1 |
-| --- | --- | --- | --- |
-| Text (self-hosted default) | DistilBERT (fine-tuned) | 97.34% | 0.9665 |
-| URL | Random Forest, 23 features | 99.34% | 0.9911 |
-| Metadata | Random Forest, 37 features | 99.92% | 0.9994 |
+| Measure | Figure | Read it as |
+| --- | --- | --- |
+| Multilingual text model, real mail it never saw, threshold 0.7 | English: 0.4% false alarms, 92.5% caught; French: 1.6%, 87.4% | The closest to real use, but about 330 legitimate emails from one mailbox ([details](multilingual-model.md#evaluation)) |
+| English DistilBERT, held-out split | Accuracy 97.34%, F1 0.967 | Offline, on public corpora |
+| URL and metadata Random Forests, held-out splits | F1 0.991 and 0.999 | Upper bounds: phishing and legitimate samples come from different corpora and years, which makes them easy to tell apart |
 
-PhishLens Cloud's multilingual text model, on real mail it never saw
-(0.7 threshold): 0.4% false alarms and 92.5% of phishing caught in
-English, 1.6% and 87.4% in French
-([multilingual-model.md](multilingual-model.md)).
-
-The table is measured on held-out splits; see PhishingDetector for the datasets and the
-evaluation protocol. These are offline numbers, not live-traffic numbers
-(see the residual risks in the threat model).
+None of these is a live-traffic measurement. The reports users send
+will give one; until then, see the
+[known limitations](threat-model.md#residual-risks-and-known-limitations).

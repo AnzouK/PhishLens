@@ -19,95 +19,96 @@
 
 </div>
 
-PhishLens is a Chrome extension and a FastAPI backend that classify an
-email as safe or phishing and show why. Three agents score each message
-(a multilingual transformer on the text, and two Random Forests on the
-links and the headers), then the verdict is adjusted with real evidence:
-SPF/DKIM/DMARC alignment and four threat-intelligence sources. A LIME
-panel highlights the words that drove the decision. Attachments are
-scanned too: PDFs (including scanned ones, through OCR), images, HTML
-pages, Word / Excel / PowerPoint files, ZIP, RAR and 7z archives, calendar invites
-and attached emails, with QR codes decoded and macros, executables,
-password-protected archives and other dropper tricks flagged. The
-scanner handles real-inbox cases: conversations, forwarded emails,
-image-only emails and links hidden behind "Click here". The extension
-and the website are available in English, French, Portuguese, Spanish,
-German, Italian, Dutch and Hausa.
+PhishLens is a Chrome extension that checks an email in Gmail or Outlook
+and tells you whether it looks like phishing, and why: which words, which
+links, whether the sender is who it claims to be, what the attachments
+contain. It is free, open source and available in English, French,
+Portuguese, Spanish, German, Italian, Dutch and Hausa.
+
+It is an assistant, not a filter: it gives a verdict and its reasons so
+you can decide, and it can be wrong.
+
+## What it checks
+
+| Check | How |
+| --- | --- |
+| Wording | A multilingual text model scores the email; LIME shows the words that weighed most |
+| Links | Every real link target, including the one behind "Click here", against Google Safe Browsing, PhishTank, URLhaus and Spamhaus, plus a link model |
+| Sender | SPF, DKIM and DMARC, read from Gmail's original headers; a header model |
+| Attachments | PDFs (scanned ones through OCR), images, QR codes, Office files and their macros, archives, calendar invites |
+
+The text score alone would flag real bank and university emails, because
+they use the same words as phishing. PhishLens lowers it only when the
+sender is proven (DKIM aligned with the From: domain), and a link known
+to be malicious makes the verdict "phishing" whoever sent it. Details:
+[architecture](docs/architecture.md).
+
+## Privacy
+
+To check an email, PhishLens sends its text, links and headers (and the
+attachment, if you scan one) to a server. By default that server is
+**PhishLens Cloud**, run by the author on Oracle Cloud:
+
+- the email is analysed in memory and **not stored**; only the result is
+  kept, for 24 hours, keyed by a hash of the email, so that a second scan
+  answers at once;
+- threat-intelligence services receive the **link addresses only**;
+- your scan history stays **in your browser**;
+- nothing else leaves your browser unless you choose to **report a wrong
+  verdict**: you then see and can edit the redacted text before it is
+  sent.
+
+If you would rather no email leave your computer, run the backend
+yourself (below) and pick **Local** in the settings. Everything is in
+the [privacy policy](PRIVACY.md).
+
+## How good is it?
+
+On real mail that no model saw during training, PhishLens Cloud's text
+model, at its 0.7 threshold:
+
+| Language | Legitimate emails flagged | Phishing caught |
+| --- | --- | --- |
+| English | 0.4% | 92.5% |
+| French | 1.6% | 87.4% |
+
+The legitimate emails behind these figures come from one mailbox (about
+330 of them) and the phishing from recent public collections, so read
+them as an order of magnitude: another inbox may see more false alarms. The model was trained on 22
+languages but tested on real phishing only in English, French, German,
+Dutch, Portuguese and Spanish; in other languages its score is less
+proven. The link, sender and threat-intelligence checks do not depend on
+the language. How the model was built and measured:
+[multilingual-model.md](docs/multilingual-model.md); what can go wrong:
+[known limitations](docs/threat-model.md#residual-risks-and-known-limitations).
+
+A scan takes about 65 ms on the server (median, CPU only), plus the
+threat-intelligence lookups.
+
+## Install
+
+PhishLens is not on the Chrome Web Store yet.
+
+1. Download `PhishLens-extension-<version>.zip` from the
+   [latest release](https://github.com/AnzouK/PhishLens/releases/latest)
+   and unzip it.
+2. Open `chrome://extensions`, turn on **Developer mode** and click
+   **Load unpacked** on the unzipped folder.
+3. Open an email in Gmail or Outlook on the web and click **Scan with
+   PhishLens** next to the subject. You can also drop a `.eml` file or an
+   attachment, or paste text, in the popup.
+
+The [user guide](https://github.com/AnzouK/PhishLens/wiki) covers
+everything step by step.
 
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/attachments-dark.svg">
-    <img src="docs/attachments-light.svg" alt="Attachment scan results: a scanned PDF invoice with a QR code and a Word document with macros flagged as phishing, and a safe PDF" width="860">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/popup-dark.svg">
+    <img src="docs/popup-light.svg" alt="The PhishLens popup after scanning an email: phishing verdict, a score per check, threat-intelligence badges and the words behind the decision" width="400">
   </picture>
-  <br/>
-  <sub><em>Attachment scan results under the attachment strip in Gmail.</em></sub>
 </div>
 
-## Results
-
-**Detection** (held-out test sets; datasets and protocol in
-[PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector)):
-
-| Agent | Model | Accuracy | F1 |
-| --- | --- | --- | --- |
-| Text (self-hosted default) | DistilBERT, fine-tuned on 29.5k emails | 97.34% | 0.967 |
-| URL | Random Forest, 23 features | 99.34% | 0.991 |
-| Metadata | Random Forest, 37 features | 99.92% | 0.999 |
-
-PhishLens Cloud runs a multilingual text model (mmBERT-small, distilled
-from a larger multilingual detector). On real mail no model saw during
-training, with a 0.7 threshold, it raises false alarms on 0.4% of English
-and 1.6% of French legitimate emails and catches 92.5% and 87.4% of
-phishing. How it was built and measured:
-[multilingual-model.md](docs/multilingual-model.md).
-
-**Latency** on PhishLens Cloud with the multilingual text model (Oracle
-Cloud ARM, 4 cores, CPU only, result cache off,
-[load test](docs/operations.md#load-testing) with 10 concurrent users):
-`/analyse` median 65 ms for text and 57 ms for a full `.eml`, p95 120 ms,
-zero failures over 472 requests.
-
-These are offline numbers. Real inboxes are harder; see the
-[known limitations](docs/threat-model.md#residual-risks-and-known-limitations).
-
-## How it works
-
-```mermaid
-flowchart LR
-    G["Gmail / Outlook tab<br/>or popup"] -->|text, links, sender,<br/>headers, attachments| API["FastAPI backend"]
-    API --> A["3 agents<br/>multilingual text model,<br/>links, headers"]
-    API --> S["Sender auth<br/>SPF / DKIM / DMARC"]
-    API --> R["Threat intel<br/>Safe Browsing, PhishTank,<br/>URLhaus, Spamhaus"]
-    A & S & R --> F["Fusion<br/>trust paths"]
-    F -->|verdict, scores, language,<br/>LIME words| G
-    G -. "report a wrong verdict<br/>(redacted, on request)" .-> FB["/feedback<br/>private reports"]
-```
-
-The key idea: a text model alone flags real bank and university emails
-because they use the same "verify your account" wording as phishing. So
-the text score is discounted only when the sender is proven (DKIM aligned
-with the From: domain) or curated, and a Safe Browsing hit on any link
-forces "phishing" whoever the sender is. Details, diagrams and design
-decisions: [docs/architecture.md](docs/architecture.md).
-
-## Quickstart
-
-**1. Load the extension.** Download `PhishLens-extension-<version>.zip`
-from the [latest release](https://github.com/AnzouK/PhishLens/releases/latest)
-and unzip it (or use the `extension/` folder of a clone). Open
-`chrome://extensions`, turn on Developer mode, click **Load unpacked** and
-pick the unzipped folder.
-
-**2. Pick a backend** in the extension's gear menu (PhishLens Cloud is
-the default, so this step is optional):
-
-| Option | Setup | When to use it |
-| --- | --- | --- |
-| PhishLens Cloud (default) | none | Normal use. Hosted server, nothing stored ([privacy policy](PRIVACY.md)). |
-| Local Docker | commands below | Emails never leave your machine. |
-| Local Python | commands below | Development. |
-
-Local Docker:
+### Run your own server
 
 ```bash
 mkdir -p backend/model
@@ -115,161 +116,63 @@ huggingface-cli download AnzouKiona/phishlens-distilbert --local-dir backend/mod
 cd backend && docker compose up --build
 ```
 
-Local Python (3.12), with Tesseract installed for OCR (`brew install tesseract` or `apt install tesseract-ocr`):
-
-```bash
-cd backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install torch --index-url https://download.pytorch.org/whl/cpu   # CPU build, not in requirements.txt
-pip install -r requirements.txt
-uvicorn extension_backend:app --host 127.0.0.1 --port 8000
-```
-
-The backend is ready when the logs show `Text model loaded from ...`, or when `/health` answers.
-
-## Usage
-
-- **In Gmail:** open an email and click **Scan with PhishLens** next to
-  the subject. The verdict appears above the body with per-agent scores,
-  sender-authentication chips and a "Why this verdict?" panel. Emails with attachments
-  get a **Scan N attachments** button.
-- **In the popup:** drop a `.eml` file or an attachment (PDF, image,
-  Word, Excel, PowerPoint, HTML, ZIP, RAR, 7z, .ics), or paste the text of an email.
-- **In Outlook on the web:** the same **Scan with PhishLens** button on
-  an open email (manual scans).
-- **History:** every scan is kept locally in the browser, with a small
-  analytics view and CSV / JSON export.
-- **Language:** Settings > Language; by default the browser's language.
-
-The [user guide](https://github.com/AnzouK/PhishLens/wiki) covers each
-of these step by step.
-
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/popup-dark.svg">
-    <img src="docs/popup-light.svg" alt="The PhishLens popup after scanning an email: phishing verdict, a score per agent, threat-intelligence badges and the words behind the decision" width="400">
-  </picture>
-</div>
-
-## Configuration
-
-The backend is configured with environment variables. The most useful:
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `GSB_API_KEY` | empty | Google Safe Browsing key; that tier is off without it |
-| `REPUTATION_ENABLE_GSB` / `_PHISHTANK` / `_URLHAUS` / `_DBL` | `1` | Turn each threat-intel source on or off |
-| `PHISHTANK_API_KEY` / `PHISHTANK_REFRESH_S` | empty / 6 h (1 h with a key) | PhishTank application key, and how often its feed is downloaded; the last good feed is kept next to the cache (`PHISHTANK_FEED_PATH`) |
-| `REPUTATION_CACHE_DB` | `~/.cache/phishlens/reputation.db` | SQLite cache for URL verdicts (24 h TTL) |
-| `RATE_LIMIT_ANALYSE` | `30/minute` | Per-IP limit (also `RATE_LIMIT_ATTACHMENT`, `RATE_LIMIT_EXPLAIN`) |
-| `LIME_NUM_SAMPLES` | `100` | Forward passes per explanation: higher is sharper and slower |
-| `OCR_MAX_PAGES` / `OCR_TIMEOUT_S` | `3` / `10` | Pages of a scanned PDF sent to OCR, and the time limit per page |
-| `AGENTS_ALLOW_PICKLE` | `1` | `0` refuses pickle files and loads only the `.skops` agents (PhishLens Cloud runs with `0`) |
-| `MODEL_DIR` / `HF_MODEL_REPO` | `./model` / `AnzouKiona/phishlens-distilbert` | Where the text model is stored, and which Hugging Face repository it comes from ([switching models](docs/operations.md#switch-the-text-model)) |
-| `HF_TOKEN` | empty | Read-only token, only for a private model repository |
-| `OCR_LANG` | `auto` | Tesseract languages; `auto` picks them from the script of each image |
-| `FEEDBACK_DIR` / `RATE_LIMIT_FEEDBACK` | empty / `20/hour` | Where reports sent from the extension are stored (empty: not collected) |
-| `FEEDBACK_NOTIFY_URL` | empty | `https://` address that receives a one-line message for each new report, for example an [ntfy](https://ntfy.sh) topic; never the report's text; `FEEDBACK_NOTIFY_CLICK` is the address it opens when tapped (the reference is added after `#`) |
-| `METRICS_ENABLED` | `1` | Prometheus metrics on `/metrics` (keep it private) |
-| `LOG_LEVEL` | `INFO` | Log level for the `phishlens.*` loggers |
-
-The full list, deployment steps and monitoring are in
-[docs/operations.md](docs/operations.md). Scoring weights and the trusted
-sender list are explained in
-[docs/architecture.md](docs/architecture.md#scoring-reference).
-
-## Project layout
-
-```
-backend/                  FastAPI app (one module per concern)
-  extension_backend.py      HTTP API: endpoints, limits, metrics
-  settings.py               version, environment, scoring constants
-  email_parsing.py          text, links and headers of an email
-  sender_trust.py           sender domain, allowlist, Gmail auth hints
-  text_model.py             text agent and LIME; text_normalize.py, language.py
-  structured_agents.py      URL and metadata agents (rf_agent.py, agent_io.py)
-  fusion.py                 scores to verdict (pure functions)
-  auth_headers.py           SPF / DKIM / DMARC and Spamhaus DBL
-  reputation.py             threat-intel cascade with SQLite cache
-  attachment_analysis.py    attachments: PDF, HTML, images (ocr.py), Office
-                            (office_analysis.py), archives (archive_analysis.py)
-  feedback.py               reports users send, redacted again (redaction.py)
-  tests/                    offline pytest suite
-extension/                Chrome MV3 extension (plain JS, no build step)
-site/                     website in 8 languages, generated from site-src/
-tests/                    extension unit tests (node:test), popup and website UI tests (Playwright)
-docs/                     architecture, threat model, operations, languages, model
-scripts/                  website build, redeploy and backup, load test,
-                          translation review, report deletion, version check
-```
+Then pick **Local** in the extension settings. A self-hosted server uses
+the English text model by default; the multilingual model is private
+because part of its training mail is. Configuration, deployment and
+monitoring: [operations guide](docs/operations.md).
 
 ## Documentation
 
-Start with the [project overview](docs/project-overview.md): it links
-both repositories, the models, the report and every guide.
-
 | Document | Contents |
 | --- | --- |
-| [User guide (wiki)](https://github.com/AnzouK/PhishLens/wiki) | Install, use in Gmail and Outlook, read a verdict, settings, troubleshooting |
-| [Architecture](docs/architecture.md) | Components, request flow, trust paths, text model, design decisions |
-| [Languages](docs/languages.md) | Interface and website translations, OCR languages, text model languages |
-| [Multilingual model](docs/multilingual-model.md) | How the 2.0 text model was trained and measured, round by round |
-| [Threat model](docs/threat-model.md) | STRIDE analysis, mitigations, residual risks |
-| [Operations](docs/operations.md) | Deploy, switch the text model, logs, metrics, load testing, backups |
-| [Changelog](CHANGELOG.md) | What changed in each version |
-| [Contributing](CONTRIBUTING.md) | Setup, checks, guidelines |
-| [Security policy](SECURITY.md) | How to report a vulnerability |
-| [Privacy policy](PRIVACY.md) | What data is handled, where it goes, what is kept |
-| [Terms of use](TERMS.md) | Acceptable use, no-guarantee notice, liability |
+| [User guide (wiki)](https://github.com/AnzouK/PhishLens/wiki) | Install, Gmail and Outlook, reading a verdict, settings, troubleshooting |
+| [Architecture](docs/architecture.md) | Components, scoring, trust paths, design decisions |
+| [Multilingual model](docs/multilingual-model.md) | How the text model was trained and measured |
+| [Languages](docs/languages.md) | Translations, OCR languages, adding a language |
+| [Threat model](docs/threat-model.md) | Risks, mitigations, known limitations |
+| [Operations](docs/operations.md) | Deployment, configuration, logs, metrics, load testing |
+| [Contributing](CONTRIBUTING.md) | Setup, project layout, checks |
+| [Changelog](CHANGELOG.md), [Security](SECURITY.md), [Privacy](PRIVACY.md), [Terms](TERMS.md) | |
 
 ## Roadmap
 
-- **Outlook on the web:** manual scans work; next, attachments, full
-  headers and automatic scanning through Microsoft's mail API.
+- **Outlook:** attachments, full headers and automatic scanning, through
+  Microsoft's mail API.
 - **Yahoo Mail.**
-- **Live evaluation and research:** a few hundred reviewed real emails
-  and the reports users send, SHAP as a comparison for LIME, retraining
-  on OCR text and QR-code phishing.
-- **Multilingual model:** a version trained only on public data, so that
-  it can be published; a native review of the Hausa translation is under
-  way.
+- **Measurement and research:** more reviewed real emails, the reports
+  users send, SHAP next to LIME, retraining on OCR text and QR-code
+  phishing.
+- **A multilingual model trained only on public data**, so that it can be
+  published; a native review of the Hausa translation is under way.
 - **Chrome Web Store release.**
 
-## Origin
+## Origin and credits
 
 PhishLens started as a final-year project for a B.Sc. in Cybersecurity at
 [Nile University of Nigeria](https://nileuniversity.edu.ng/) (2025/2026)
-and is now maintained independently. The training and evaluation of the
-original models live in the companion repository
-[PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector);
-everything added since is in the [CHANGELOG](CHANGELOG.md).
+and is now maintained independently. The original three models were
+trained by the project team in
+[PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector),
+maintained by [dodi-ctrl](https://github.com/dodi-ctrl).
 
-## Credits
-
-PhishLens builds on the work and data of others:
-
-- **Threat intelligence:** [Google Safe Browsing](https://safebrowsing.google.com/)
-  (Safe Browsing warnings are advisories provided by Google),
-  [PhishTank](https://phishtank.org/), [URLhaus](https://urlhaus.abuse.ch/)
-  by abuse.ch and the [Spamhaus](https://www.spamhaus.org/) Domain Block List.
-- **Models and libraries:** [Hugging Face Transformers](https://github.com/huggingface/transformers),
-  [mmBERT](https://huggingface.co/jhu-clsp/mmBERT-small) and the
-  [phishing-scam-detector](https://huggingface.co/Horizon-Labs/phishing-scam-detector-base)
-  it was distilled from, DistilBERT, [scikit-learn](https://scikit-learn.org/),
-  [LIME](https://github.com/marcotcr/lime),
-  [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) and
-  [FastAPI](https://fastapi.tiangolo.com/); the full list of backend
-  dependencies is in [`backend/requirements.txt`](backend/requirements.txt).
-- **Training data:** the public phishing and legitimate email datasets
-  listed in [PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector),
-  each under its own license.
+It builds on [Google Safe Browsing](https://safebrowsing.google.com/)
+(its warnings are advisories provided by Google),
+[PhishTank](https://phishtank.org/), [URLhaus](https://urlhaus.abuse.ch/)
+by abuse.ch, the [Spamhaus](https://www.spamhaus.org/) Domain Block List,
+[Hugging Face Transformers](https://github.com/huggingface/transformers),
+[mmBERT](https://huggingface.co/jhu-clsp/mmBERT-small) and the
+[phishing-scam-detector](https://huggingface.co/Horizon-Labs/phishing-scam-detector-base)
+it was distilled from, DistilBERT, [scikit-learn](https://scikit-learn.org/),
+[LIME](https://github.com/marcotcr/lime),
+[Tesseract](https://github.com/tesseract-ocr/tesseract),
+[FastAPI](https://fastapi.tiangolo.com/), and the public email datasets
+listed in PhishingDetector and in the [model documentation](docs/multilingual-model.md#sources).
 
 ## License
 
-[GNU AGPL-3.0](LICENSE). Versions up to 1.15.5 were released under the MIT
-license and stay available under it. From 2.0, anyone may use, study,
-modify and share PhishLens, but a modified version, including one offered
-as an online service, must be published under the same license.
-
-The text model weights are licensed separately (CC BY-NC 4.0, see the
-model card), because some of their training data is non-commercial.
+[GNU AGPL-3.0](LICENSE): anyone may use, study, modify and share
+PhishLens, and a modified version, including one offered as an online
+service, must be published under the same license. Versions up to 1.15.5
+were released under the MIT license. The text model weights are licensed
+separately (CC BY-NC 4.0), because some of their training data is
+non-commercial.

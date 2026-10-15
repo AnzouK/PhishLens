@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=d1753648c1">
-<script src="../i18n/es.js?v=b88bfd4a19" defer></script>
+<script src="../i18n/es.js?v=4c1648ef3f" defer></script>
 <script src="../lang.js?v=0eb2be978d" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script src="../redact.js?v=72aa662a52" defer></script>
@@ -105,11 +105,11 @@
       <h2><span class="n">01</span>Resultados</h2>
       <div class="strip">
         <div class="cell"><div class="big">22</div><div class="lbl">idiomas que lee el modelo de texto</div></div>
-        <div class="cell"><div class="big">0.991</div><div class="lbl">F1, modelo de enlaces (Random Forest)</div></div>
+        <div class="cell"><div class="big">92.5%</div><div class="lbl">del phishing detectado en correos en inglés que el modelo nunca vio</div></div>
         <div class="cell"><div class="big">65 ms</div><div class="lbl">análisis mediano en un servidor sin GPU</div></div>
         <div class="cell"><div class="big">4</div><div class="lbl">fuentes de inteligencia de amenazas</div></div>
       </div>
-      <p class="note">Conjuntos de prueba sin conexión y una prueba de carga en PhishLens Cloud. Los buzones reales son más difíciles: vea las <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limitaciones conocidas</a>.</p>
+      <p class="note">Medido con correo real que ningún modelo vio durante el entrenamiento (unos 330 correos legítimos de un solo buzón) y con una prueba de carga en PhishLens Cloud: un orden de magnitud, no una garantía. Vea las <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limitaciones conocidas</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, ahora mismo</h3>
       <div class="strip" id="live" aria-live="polite">
@@ -152,7 +152,7 @@
         <li><svg class="ic"><use href="#i-eye"/></svg><div><b>Veredictos explicados</b><span>Una puntuación por comprobación, las señales encontradas y las palabras que orientaron el modelo de texto, para que juzgue usted mismo.</span></div></li>
         <li><svg class="ic"><use href="#i-mail"/></svg><div><b>Gmail y Outlook</b><span>Un botón Analizar junto al asunto en Gmail y Outlook en la web; archivos y texto pegado en la ventana de la extensión.</span></div></li>
         <li><svg class="ic"><use href="#i-bell"/></svg><div><b>Comprobación automática</b><span>Opcional: los correos nuevos se comprueban al llegar, marcados como Seguro o ¿Phishing? en la lista, con una notificación.</span></div></li>
-        <li><svg class="ic"><use href="#i-lock"/></svg><div><b>Privado desde el diseño</b><span>Sin cuenta, nada guardado en el servidor, historial en su navegador. Con su propio servidor, nada sale de su equipo.</span></div></li>
+        <li><svg class="ic"><use href="#i-lock"/></svg><div><b>Privado desde el diseño</b><span>Sin cuenta. Los correos se analizan en memoria y no se guardan; su historial queda en su navegador. Con su propio servidor, ningún correo sale de su ordenador.</span></div></li>
         <li><svg class="ic"><use href="#i-chart"/></svg><div><b>Su propia precisión</b><span>Marque cada veredicto como correcto o incorrecto y vea cómo funciona PhishLens con sus correos reales, con exportación CSV.</span></div></li>
         <li><svg class="ic"><use href="#i-code"/></svg><div><b>Abierto y probado</b><span>Licencia GNU AGPL-3.0, con un modelo de amenazas, CodeQL y más de 300 pruebas automáticas en cada cambio.</span></div></li>
       </ul>
@@ -249,7 +249,7 @@
 <pre>huggingface-cli download AnzouKiona/phishlens-distilbert \
   --local-dir backend/model
 cd backend &amp;&amp; docker compose up --build</pre>
-          <p class="small muted">Python sin Docker, configuración y despliegue: vea la <a href="https://github.com/AnzouK/PhishLens#quickstart">guía de inicio rápido</a> (en inglés).</p>
+          <p class="small muted">Python sin Docker, configuración y despliegue: vea la <a href="https://github.com/AnzouK/PhishLens#run-your-own-server">guía de inicio rápido</a> (en inglés).</p>
         </div>
       </div>
       <p class="mt"><a class="cta" href="https://github.com/AnzouK/PhishLens/releases/latest">Instalar PhishLens</a></p>
