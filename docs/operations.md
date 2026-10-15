@@ -224,6 +224,7 @@ container, otherwise you are only measuring the limiter.
 # (--env-file: the same text model as production, HF_MODEL_REPO and HF_TOKEN)
 docker run -d --rm --name phishlens-load -p 127.0.0.1:8001:7860 \
   --env-file ~/.phishlens.env -e FEEDBACK_DIR= -e FEEDBACK_NOTIFY_URL= \
+  -e RESULT_CACHE_TTL=0 \
   -v ~/phishlens_model:/home/user/app/model:ro \
   -v ~/phishlens_agents:/home/user/app/agents:ro \
   -e RATE_LIMIT_ANALYSE=100000/minute \
@@ -231,13 +232,13 @@ docker run -d --rm --name phishlens-load -p 127.0.0.1:8001:7860 \
   -e REPUTATION_ENABLE_GSB=0 -e REPUTATION_ENABLE_DBL=0 \
   -e REPUTATION_ENABLE_URLHAUS=0 -e REPUTATION_ENABLE_PHISHTANK=0 \
   phishlens
-sleep 60                                   # model load
+until curl -sf http://127.0.0.1:8001/health | grep -q '"name"'; do sleep 5; done   # model load
 
 # 2. Run the test from the repo root, with Locust in a container
 cd ~/PhishLens
 docker run --rm --network host -v "$PWD":/mnt/locust locustio/locust \
   -f /mnt/locust/scripts/locustfile.py --host http://127.0.0.1:8001 \
-  --headless -u 10 -r 2 -t 2m --csv /mnt/locust/loadtest
+  --headless -u 10 -r 2 -t 2m --csv /mnt/locust/loadtest --only-summary
 
 # 3. Clean up
 docker stop phishlens-load
@@ -254,6 +255,10 @@ date and hardware so regressions are visible.
 | 2026-09-29 | Oracle A1, 4 OCPU, 24 GB | 10 | `/analyse [eml]` | 150 ms | 360 ms | 0.7 | 0 / 85 |
 | 2026-09-29 | Oracle A1, 4 OCPU, 24 GB | 10 | `/analyse_attachment` | 4 ms | 210 ms | 0.3 | 0 / 35 |
 | 2026-09-29 | Oracle A1, 4 OCPU, 24 GB | 10 | all endpoints | 84 ms | 300 ms | 3.8 | 0 / 454 |
+| 2026-10-15 | Oracle A1, 4 OCPU, 24 GB | 10 | `/analyse [text]` | 65 ms | 120 ms | 2.6 | 0 / 309 |
+| 2026-10-15 | Oracle A1, 4 OCPU, 24 GB | 10 | `/analyse [eml]` | 57 ms | 110 ms | 0.8 | 0 / 95 |
+| 2026-10-15 | Oracle A1, 4 OCPU, 24 GB | 10 | `/analyse_attachment` | 4 ms | 9 ms | 0.2 | 0 / 26 |
+| 2026-10-15 | Oracle A1, 4 OCPU, 24 GB | 10 | all endpoints | 62 ms | 110 ms | 4.0 | 0 / 472 |
 
 Reading the 2026-09-29 run: 2 minutes, CPU inference in FP32, threat
 intel switched off, live backend running on the same VM. Ten users with
@@ -264,6 +269,13 @@ attachment median is low because the test page has no visible text, so
 the text agent is skipped. In production, a cache miss on the URL
 reputation cascade adds the network round-trip of the intel APIs on top
 of these numbers; `/explain` (LIME) is excluded and is much slower.
+
+The 2026-09-29 run used the English DistilBERT; the 2026-10-15 run the
+multilingual model (mmBERT-small, inputs up to 256 tokens), with the
+result cache turned off (`RESULT_CACHE_TTL=0`): the test sends the same
+few emails again and again, so with the cache on most answers come from
+memory and the median says nothing about the model (4 ms in a first
+run). Keep the cache off when measuring.
 
 To find the saturation point, raise the offered load, for example
 `-u 50 -r 5` and a shorter `wait_time`, and watch for p95 growth and

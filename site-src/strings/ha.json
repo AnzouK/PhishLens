@@ -26,7 +26,7 @@
   "results_h": "Sakamako",
   "r_langs": "harsunan da samfurin rubutu ke karantawa",
   "r_f1_link": "F1, samfurin hanyoyin haɗi (Random Forest)",
-  "r_latency": "matsakaicin lokacin bincike a sabar da ba ta da GPU (v1.15)",
+  "r_latency": "matsakaicin lokacin bincike a sabar da ba ta da GPU",
   "r_sources": "majiyoyin bayanan barazana",
   "results_note_html": "Gwaje-gwaje ba tare da intanet ba da gwajin nauyi a PhishLens Cloud. Ainihin akwatunan saƙo sun fi wahala: duba <a href=\"https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations\">iyakokin da aka sani</a>.",
   "live_h": "PhishLens Cloud, a yanzu",

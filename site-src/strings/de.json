@@ -26,7 +26,7 @@
   "results_h": "Ergebnisse",
   "r_langs": "Sprachen, die das Textmodell liest",
   "r_f1_link": "F1, Linkmodell (Random Forest)",
-  "r_latency": "mittlere Prüfdauer auf einem Server ohne GPU (v1.15)",
+  "r_latency": "mittlere Prüfdauer auf einem Server ohne GPU",
   "r_sources": "Quellen für Bedrohungsdaten",
   "results_note_html": "Offline-Testdaten und ein Lasttest auf PhishLens Cloud. Echte Postfächer sind schwieriger: siehe die <a href=\"https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations\">bekannten Grenzen</a>.",
   "live_h": "PhishLens Cloud, gerade jetzt",

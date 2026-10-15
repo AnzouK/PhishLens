@@ -7,6 +7,13 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Documentation
+- Latency measured again with the multilingual text model, result cache
+  off: `/analyse` median 65 ms for text, 57 ms for a full `.eml`, p95
+  120 ms, no failure over 472 requests (README, website, operations
+  guide). The load test now turns the result cache off and waits for the
+  model instead of a fixed delay.
+
 ## [2.0.3] - 2026-10-15
 
 ### Added

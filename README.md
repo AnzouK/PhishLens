@@ -61,10 +61,11 @@ and 1.6% of French legitimate emails and catches 92.5% and 87.4% of
 phishing. How it was built and measured:
 [multilingual-model.md](docs/multilingual-model.md).
 
-**Latency** on PhishLens Cloud with the English text model of v1.15
-(Oracle Cloud ARM, 4 cores, CPU only,
+**Latency** on PhishLens Cloud with the multilingual text model (Oracle
+Cloud ARM, 4 cores, CPU only, result cache off,
 [load test](docs/operations.md#load-testing) with 10 concurrent users):
-`/analyse` median 77 ms, p95 280 ms, zero failures over 454 requests.
+`/analyse` median 65 ms for text and 57 ms for a full `.eml`, p95 120 ms,
+zero failures over 472 requests.
 
 These are offline numbers. Real inboxes are harder; see the
 [known limitations](docs/threat-model.md#residual-risks-and-known-limitations).
