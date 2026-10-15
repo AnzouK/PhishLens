@@ -5,7 +5,7 @@
 Estas condiciones cubren la extensión PhishLens para Chrome, el sitio
 `anzouk.duckdns.org` y PhishLens Cloud, el servidor de análisis alojado.
 Al usarlos, acepta estas condiciones. El código en sí se publica bajo la
-[licencia MIT](LICENSE), que rige su copia y modificación.
+[licencia GNU AGPL-3.0](LICENSE), que rige su copia y modificación. Las versiones modificadas, incluidas las ofrecidas como servicio en línea, deben publicarse con la misma licencia.
 
 ## El servicio
 
@@ -57,7 +57,7 @@ en su navegador.
 ## Responsabilidad
 
 PhishLens se ofrece «tal cual», sin garantía de ningún tipo, como indica
-la licencia MIT. En la medida en que la ley lo permita, los autores no
+la licencia GNU AGPL-3.0. En la medida en que la ley lo permita, los autores no
 son responsables de pérdidas o daños derivados de su uso, incluido un
 correo de phishing no detectado o un correo legítimo marcado por error.
 

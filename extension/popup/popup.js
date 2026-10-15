@@ -1,5 +1,5 @@
 // =====================================================================
-// PhishLens popup logic: vanilla JS, no build step.
+// PhishLens popup logic.
 // =====================================================================
 
 // Server choice (chrome.storage "backend"): "cloud" (PhishLens Cloud, the

@@ -8,7 +8,7 @@
 
 [![CI](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml/badge.svg)](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/AnzouK/PhishLens?color=blueviolet)](https://github.com/AnzouK/PhishLens/releases/latest)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-AGPL--3.0-green.svg)](LICENSE)
 [![Website](https://img.shields.io/badge/Website-anzouk.duckdns.org-F80000)](https://anzouk.duckdns.org)
 [![Model](https://img.shields.io/badge/Hugging%20Face-model-yellow)](https://huggingface.co/AnzouKiona/phishlens-distilbert)
 
@@ -252,4 +252,10 @@ PhishLens builds on the work and data of others:
 
 ## License
 
-[MIT](LICENSE)
+[GNU AGPL-3.0](LICENSE). Versions up to 1.15.5 were released under the MIT
+license and stay available under it. From 2.0, anyone may use, study,
+modify and share PhishLens, but a modified version, including one offered
+as an online service, must be published under the same license.
+
+The text model weights are licensed separately (CC BY-NC 4.0, see the
+model card), because some of their training data is non-commercial.

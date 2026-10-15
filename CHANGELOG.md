@@ -60,6 +60,10 @@ backend share one version number.
 
 
 ### Changed
+- **License: GNU AGPL-3.0** instead of MIT. PhishLens stays free and open
+  source; a modified version, including one run as an online service,
+  must now be published under the same license. Versions up to 1.15.5
+  remain available under MIT.
 - The popup footer and the website no longer present PhishLens as a
   student project; the README explains where it started.
 - **Backend split by responsibility:** the 1,688-line

@@ -5,8 +5,8 @@ An sabunta ta ƙarshe: 2 ga Oktoba, 2026.
 Waɗannan sharuɗɗan sun shafi ƙarin Chrome na PhishLens, shafin yanar
 gizo `anzouk.duckdns.org` da PhishLens Cloud, sabar bincike da aka
 ɗauka. Ta amfani da su, ka amince da waɗannan sharuɗɗan. Ita kanta
-lambar an wallafa ta ƙarƙashin [lasisin MIT](LICENSE), wanda ke tsara
-kwafi da gyara ta.
+lambar an wallafa ta ƙarƙashin [lasisin GNU AGPL-3.0](LICENSE), wanda ke tsara
+kwafi da gyara ta. Sigogin da aka gyara, har da waɗanda ake bayarwa a matsayin sabis na yanar gizo, dole ne a wallafa su ƙarƙashin lasisi ɗaya.
 
 ## Sabis ɗin
 
@@ -57,7 +57,7 @@ su ba, kuma tarihin bincikenka yana zama a burauzarka.
 ## Alhaki
 
 Ana bayar da PhishLens "kamar yadda yake", ba tare da kowane irin
-tabbaci ba, kamar yadda lasisin MIT ya faɗa. Gwargwadon yadda doka ta
+tabbaci ba, kamar yadda lasisin GNU AGPL-3.0 ya faɗa. Gwargwadon yadda doka ta
 yarda, marubutan ba su da alhakin kowace asara ko lahani da ya samo
 asali daga amfani da shi, har da imel na phishing da aka rasa ko imel na
 gaskiya da aka yi wa alama bisa kuskure.

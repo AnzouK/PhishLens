@@ -327,7 +327,7 @@
     "err_server": "Erreur du serveur (HTTP {status}).",
     "connected_old": "Connecté · ancien serveur qui n'indique pas sa version",
     "about_heading": "À propos",
-    "about_text": "PhishLens est gratuit et open source (licence MIT), sans compte ni publicité.",
+    "about_text": "PhishLens est un logiciel libre sous licence GNU AGPL-3.0, fourni sans aucune garantie. Sans compte ni publicité.",
     "about_source": "Code source sur GitHub",
     "credits_heading": "Crédits",
     "credits_intel": "Renseignement sur les menaces",

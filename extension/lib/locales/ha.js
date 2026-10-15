@@ -328,7 +328,7 @@
     "err_server": "Kuskuren sabar (HTTP {status}).",
     "connected_old": "An haɗa · tsohuwar sabar da ba ta bayyana sigarta",
     "about_heading": "Game da",
-    "about_text": "PhishLens kyauta ne kuma buɗaɗɗen tushe (lasisin MIT), ba tare da asusu ko talla ba.",
+    "about_text": "PhishLens manhaja ce mai 'yanci ƙarƙashin lasisin GNU AGPL-3.0, ba tare da wani tabbaci ba. Babu asusu, babu talla.",
     "about_source": "Lambar tushe a GitHub",
     "credits_heading": "Godiya",
     "credits_intel": "Bayanan barazana",

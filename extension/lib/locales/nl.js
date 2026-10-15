@@ -327,7 +327,7 @@
     "err_server": "Serverfout (HTTP {status}).",
     "connected_old": "Verbonden · oudere server die zijn versie niet doorgeeft",
     "about_heading": "Over",
-    "about_text": "PhishLens is gratis en open source (MIT-licentie), zonder account en zonder advertenties.",
+    "about_text": "PhishLens is vrije software onder de GNU AGPL-3.0-licentie en wordt zonder enige garantie geleverd. Geen account, geen advertenties.",
     "about_source": "Broncode op GitHub",
     "credits_heading": "Dankwoord",
     "credits_intel": "Dreigingsinformatie",

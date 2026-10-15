@@ -5,7 +5,7 @@ Ultimo aggiornamento: 2 ottobre 2026.
 Questi termini riguardano l'estensione PhishLens per Chrome, il sito
 `anzouk.duckdns.org` e PhishLens Cloud, il server di analisi ospitato.
 Usandoli accetti questi termini. Il codice in sé è pubblicato con la
-[licenza MIT](LICENSE), che ne regola la copia e la modifica.
+[licenza GNU AGPL-3.0](LICENSE), che ne regola la copia e la modifica. Le versioni modificate, comprese quelle offerte come servizio online, devono essere pubblicate con la stessa licenza.
 
 ## Il servizio
 
@@ -59,7 +59,7 @@ resta nel tuo browser.
 ## Responsabilità
 
 PhishLens è fornito «così com'è», senza alcuna garanzia, come indicato
-nella licenza MIT. Nei limiti consentiti dalla legge, gli autori non
+nella licenza GNU AGPL-3.0. Nei limiti consentiti dalla legge, gli autori non
 sono responsabili di perdite o danni derivanti dal suo utilizzo,
 compresa un'email di phishing non rilevata o un'email legittima
 segnalata per errore.
