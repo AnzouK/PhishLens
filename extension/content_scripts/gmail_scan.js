@@ -175,11 +175,13 @@ async function runScan(emailView, btn) {
                 metadata: Number(r.data.agents?.metadata?.phishing_probability) || 0,
             },
             trusted: !!r.data.trusted_sender,
+            lang:    r.data.language?.code,
         };
         const saveResp = await chrome.runtime.sendMessage({
             type: "phishlens.history.save", entry: historyEntry,
         }).catch(() => null);
         const savedId = saveResp?.id;
+        pllAttachFeedback(emailView, r.data, { historyId: savedId, source: "gmail", subject, body, links });
 
         // Pre-fetch explanation in background; banner picks it up on demand.
         // Fast path: check the client-side LIME cache first. If we already

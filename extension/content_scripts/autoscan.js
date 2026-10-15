@@ -141,6 +141,7 @@ async function runAutoScan() {
                         metadata: Number(d.agents?.metadata?.phishing_probability) || 0,
                     },
                     trusted: !!d.trusted_sender,
+                    lang: d.language?.code,
                 },
             }).catch(() => {});
             paintAutoBadges();

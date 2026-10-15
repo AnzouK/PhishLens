@@ -84,6 +84,39 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: true });
         return false;
     }
+    if (msg?.type === "phishlens.history.update" || msg?.type === "phishlens.history.draft") {
+        (async () => {
+            try {
+                const H = self.PhishLensHistory;
+                if (msg.type === "phishlens.history.update") await H?.updateScan(msg.id, msg.patch);
+                else await H?.saveDraft(msg.id, msg.text);
+                sendResponse({ ok: true });
+            } catch (e) {
+                sendResponse({ ok: false, error: String(e?.message || e) });
+            }
+        })();
+        return true;
+    }
+    // Reports always go to PhishLens Cloud, whatever server analyses the
+    // mail: they are for improving PhishLens, and the user has seen and
+    // confirmed what is sent.
+    if (msg?.type === "phishlens.feedback") {
+        (async () => {
+            try {
+                const resp = await fetch(`${self.PhishLensShared.BACKEND_PRESETS.cloud}/feedback`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(msg.payload || {}),
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok) throw new Error(self.PhishLensShared.apiErrorMessage(data, resp.status));
+                sendResponse({ ok: true, reference: data.reference });
+            } catch (e) {
+                sendResponse({ ok: false, error: String(e?.message || e) });
+            }
+        })();
+        return true;
+    }
     if (msg?.type === "phishlens.history.attachTokens") {
         (async () => {
             try {

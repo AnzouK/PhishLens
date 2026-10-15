@@ -67,7 +67,7 @@ test("setLanguage switches the dictionary", () => {
 });
 
 test("every t() / tn() key used in the code exists", () => {
-    const files = ["background.js", "lib/shared.js", "popup/popup.js"]
+    const files = ["background.js", "lib/shared.js", "lib/report_ui.js", "popup/popup.js"]
         .concat(fs.readdirSync(path.join(EXT, "content_scripts")).map((f) => `content_scripts/${f}`));
     for (const f of files) {
         const src = fs.readFileSync(path.join(EXT, f), "utf8");

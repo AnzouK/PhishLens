@@ -1,6 +1,6 @@
 # Nutzungsbedingungen von PhishLens
 
-Zuletzt aktualisiert: 2. Oktober 2026.
+Zuletzt aktualisiert: 15. Oktober 2026.
 
 Diese Bedingungen gelten für die Chrome-Erweiterung PhishLens, die
 Website `anzouk.duckdns.org` und PhishLens Cloud, den gehosteten

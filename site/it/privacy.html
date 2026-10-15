@@ -66,15 +66,16 @@
 <article class="prose">
 <p class="legal-note">Questa traduzione è fornita per comodità. Se differisce dalla <a href="../privacy.html">versione inglese</a>, prevale la versione inglese.</p>
 <h1 id="informativa-sulla-privacy-di-phishlens">Informativa sulla privacy di PhishLens</h1>
-<p>Ultimo aggiornamento: 2 ottobre 2026.</p>
+<p>Ultimo aggiornamento: 15 ottobre 2026.</p>
 <p>PhishLens è un'estensione di Chrome che controlla se le email sono phishing. Questa pagina spiega quali dati tratta, dove vanno e cosa viene conservato. Si applica all'estensione e al server ospitato, PhishLens Cloud, all'indirizzo <code>anzouk.duckdns.org</code>.</p>
 <h2 id="in-breve">In breve</h2>
 <ul>
 <li>PhishLens legge un'email solo quando lo chiedi (i pulsanti <strong>Analizza</strong>), oppure automaticamente se attivi <strong>Analizza automaticamente le nuove email</strong> nelle impostazioni (disattivato per impostazione predefinita).</li>
-<li>L'email viene inviata al server scelto nelle impostazioni: il tuo computer (Docker o Python in locale), il tuo server o PhishLens Cloud. L'estensione non invia nulla altrove.</li>
+<li>L'email viene inviata al server scelto nelle impostazioni: il tuo computer (Docker o Python in locale), il tuo server o PhishLens Cloud. L'estensione non invia nulla altrove, salvo le segnalazioni che scegli di inviare (vedi sotto).</li>
 <li>Il server analizza l'email e restituisce un verdetto. Non conserva il contenuto delle email, i mittenti né gli oggetti.</li>
 <li>La cronologia delle analisi resta nel tuo browser. Non viene mai caricata.</li>
 <li>Non ci sono account, strumenti di analisi, pubblicità né vendita di dati.</li>
+<li>Puoi segnalare un verdetto sbagliato o condividere le statistiche delle tue valutazioni. Viene inviato solo ciò che vedi e confermi: il testo dell'email senza nomi, indirizzi, numeri né percorsi dei link, oppure statistiche senza alcun contenuto delle email.</li>
 </ul>
 <h2 id="cosa-legge-lestensione">Cosa legge l'estensione</h2>
 <p>Durante un'analisi, l'estensione legge dalla pagina di Gmail o Outlook aperta:</p>
@@ -117,6 +118,31 @@
 <li>Spamhaus DBL (nomi di dominio, tramite DNS);</li>
 <li>PhishTank (confronto con un elenco scaricato sul server; nessuna richiesta per email).</li>
 </ul>
+<h2 id="le-segnalazioni-che-scegli-di-inviare">Le segnalazioni che scegli di inviare</h2>
+<p>Sotto ogni verdetto PhishLens mostra la lingua rilevata e un link <strong>Verdetto sbagliato? Segnalalo</strong>; la vista Statistiche ha lo stesso link per le analisi segnate come <strong>Sbagliato</strong>, e un pulsante <strong>Condividi le mie statistiche</strong>. Nulla viene inviato finché non premi <strong>Invia</strong> dopo aver letto cosa verrà inviato.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Segnalazione</th>
+<th>Cosa viene inviato</th>
+<th>Cosa non viene mai inviato</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Verdetto sbagliato</td>
+<td>L'oggetto, il testo e i domini dei link di quell'email dopo l'anonimizzazione (nomi dopo un saluto o un titolo, il tuo nome e il tuo indirizzo come appaiono nella pagina della posta, indirizzi email, numeri di telefono, numeri lunghi come conti, carte e codici, IBAN, @nomi utente, il percorso e i parametri di ogni link), il testo come l'hai modificato, il verdetto, i punteggi, la modalità di calcolo, la lingua rilevata e la tua risposta, la versione dell'estensione e la lingua dell'interfaccia</td>
+<td>L'indirizzo del mittente, l'email originale, le sue intestazioni e i suoi allegati</td>
+</tr>
+<tr class="even">
+<td>Statistiche</td>
+<td>Per ogni analisi della tua cronologia: il giorno, dove è stata fatta (Gmail, Outlook, finestra dell'estensione), il verdetto, i punteggi, se il mittente era attendibile, la tua valutazione Giusto / Sbagliato, la lingua rilevata e la tua risposta</td>
+<td>Oggetti, mittenti, testi, link</td>
+</tr>
+</tbody>
+</table></div>
+<p>Le segnalazioni vanno a PhishLens Cloud, qualunque server tu usi per le analisi. Il server anonimizza il testo una seconda volta con le stesse regole, salva la segnalazione senza il tuo indirizzo IP né altri dati della richiesta (il log del server web descritto più sotto registra comunque la richiesta per 30 giorni) e restituisce un riferimento. Le segnalazioni servono solo a misurare e migliorare PhishLens (per esempio ad addestrare il modello del testo su email legittime giudicate male); non vengono mai pubblicate né condivise. Sono conservate al massimo due anni. Per far cancellare una segnalazione, apri una segnalazione su <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> con il suo riferimento (il riferimento da solo non rivela nulla della segnalazione).</p>
+<p>Per permettere di segnalare dalla vista Statistiche, il testo anonimizzato delle tue ultime analisi di Gmail e Outlook resta nel tuo browser per 7 giorni (al massimo 50 email). Non lascia mai il browser, a meno che tu non segnali quell'analisi.</p>
 <h2 id="cosa-viene-conservato-e-per-quanto-tempo">Cosa viene conservato e per quanto tempo</h2>
 <div class="table-wrap"><table>
 <thead>
@@ -128,7 +154,7 @@
 </thead>
 <tbody>
 <tr class="odd">
-<td>Cronologia delle analisi (oggetto, mittente, verdetto, punteggi, parole principali della spiegazione)</td>
+<td>Cronologia delle analisi (oggetto, mittente, verdetto, punteggi, parole principali della spiegazione, lingua rilevata e la tua risposta)</td>
 <td>Il tuo browser (<code>chrome.storage.local</code>)</td>
 <td>Finché non la cancelli (Statistiche, <strong>Cancella</strong>), al massimo le ultime 500 analisi</td>
 </tr>
@@ -136,6 +162,16 @@
 <td>Cache delle spiegazioni</td>
 <td>Il tuo browser</td>
 <td>Finché l'estensione non viene rimossa</td>
+</tr>
+<tr class="odd">
+<td>Testo anonimizzato delle analisi recenti di Gmail e Outlook, per le segnalazioni</td>
+<td>Il tuo browser</td>
+<td>7 giorni, al massimo 50 email; cancellato con la cronologia</td>
+</tr>
+<tr class="even">
+<td>Segnalazioni che hai inviato (testo anonimizzato o statistiche, vedi sopra)</td>
+<td>PhishLens Cloud</td>
+<td>Al massimo due anni; cancellate su richiesta con il riferimento</td>
 </tr>
 <tr class="odd">
 <td>Risultati dell'analisi automatica (identificativo della conversazione, verdetto, punteggio)</td>
@@ -212,6 +248,7 @@
 <li>Disattiva <strong>Leggi le intestazioni complete</strong> o <strong>Analizza automaticamente le nuove email</strong> nelle impostazioni in qualsiasi momento.</li>
 <li>Usa il server locale perché le email non lascino mai il tuo computer.</li>
 <li>Cancella la cronologia dalla vista Statistiche, oppure rimuovi l'estensione per eliminare tutto ciò che ha salvato.</li>
+<li>Se non invii mai una segnalazione, nulla lascia il tuo browser oltre alle analisi stesse, verso il server che hai scelto.</li>
 </ul>
 <h2 id="minori">Minori</h2>
 <p>PhishLens non è rivolto ai minori e non raccoglie consapevolmente dati che li riguardano.</p>

@@ -50,7 +50,8 @@ function load(entry) {
     return { ctx, host };
 }
 
-const SHARED = ["showBanner", "attachExplanation", "setBtnLoading", "textOf", "linkTargetsOf", "escapeHTML"];
+const SHARED = ["showBanner", "attachExplanation", "setBtnLoading", "textOf", "linkTargetsOf", "escapeHTML",
+    "pllAttachFeedback"];
 const GMAIL = ["scheduleScan", "runScan", "fetchOriginalMessage", "extractGmailAuthSignals",
     "installAttachmentButtons", "scanOneAttachment", "scheduleAutoScan", "runAutoScan", "paintAutoBadges"];
 

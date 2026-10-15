@@ -1,6 +1,6 @@
 # Política de privacidad de PhishLens
 
-Última actualización: 2 de octubre de 2026.
+Última actualización: 15 de octubre de 2026.
 
 PhishLens es una extensión de Chrome que comprueba si los correos son
 phishing. Esta página explica qué datos trata, adónde van y qué se
@@ -14,11 +14,15 @@ Cloud, en `anzouk.duckdns.org`.
   los correos nuevos** en los ajustes (desactivado por defecto).
 - El correo se envía al servidor elegido en los ajustes: su propio
   ordenador (Docker o Python local), su propio servidor o PhishLens
-  Cloud. La extensión no envía nada a ningún otro sitio.
+  Cloud. La extensión no envía nada a ningún otro sitio, salvo los avisos que decida enviar (ver abajo).
 - El servidor analiza el correo y devuelve un veredicto. No guarda el
   contenido de los correos, los remitentes ni los asuntos.
 - Su historial de análisis se queda en su navegador. Nunca se envía.
 - No hay cuentas, analítica, publicidad ni venta de datos.
+- Puede avisar de un veredicto incorrecto o compartir las estadísticas
+  de sus valoraciones. Solo se envía lo que ve y confirma: el texto del
+  correo sin nombres, direcciones, números ni rutas de enlaces, o
+  estadísticas sin ningún contenido de correo.
 
 ## Qué lee la extensión
 
@@ -60,12 +64,44 @@ los enlaces** (nunca el texto del correo, el remitente ni el asunto):
 - PhishTank (comparación con una lista descargada en el servidor; sin
   solicitud por correo).
 
+## Los avisos que decide enviar
+
+Debajo de cada veredicto, PhishLens muestra el idioma detectado y un
+enlace **¿Veredicto incorrecto? Avísenos**; la vista Estadísticas tiene
+el mismo enlace para los análisis marcados como **Incorrecto**, y un
+botón **Compartir mis estadísticas**. No se envía nada hasta que pulsa
+**Enviar** después de leer lo que se enviará.
+
+| Aviso | Qué se envía | Qué no se envía nunca |
+| --- | --- | --- |
+| Veredicto incorrecto | El asunto, el texto y los dominios de los enlaces de ese correo tras la anonimización (nombres después de un saludo o un título, su propio nombre y dirección tal como aparecen en la página del correo, direcciones de correo, números de teléfono, números largos como cuentas, tarjetas y códigos, IBAN, @nombres de usuario, la ruta y los parámetros de cada enlace), el texto tal como lo editó, el veredicto, las puntuaciones, el modo de cálculo, el idioma detectado y su respuesta, la versión de la extensión y el idioma de la interfaz | La dirección del remitente, el correo original, sus encabezados y sus adjuntos |
+| Estadísticas | Para cada análisis de su historial: el día, dónde se hizo (Gmail, Outlook, ventana de la extensión), el veredicto, las puntuaciones, si el remitente era de confianza, su valoración Correcto / Incorrecto, el idioma detectado y su respuesta | Asuntos, remitentes, textos, enlaces |
+
+Los avisos van a PhishLens Cloud, sea cual sea el servidor que use para
+los análisis. El servidor anonimiza el texto por segunda vez con las
+mismas reglas, guarda el aviso sin su dirección IP ni otros datos de la
+solicitud (el registro del servidor web descrito más abajo sigue
+registrando la solicitud durante 30 días) y devuelve una referencia. Los
+avisos solo sirven para medir y mejorar PhishLens (por ejemplo, para
+entrenar el modelo de texto con correos legítimos que juzgó mal); nunca
+se publican ni se comparten. Se conservan como máximo dos años. Para que
+se borre un aviso, abra una incidencia en
+https://github.com/AnzouK/PhishLens/issues con su referencia (la
+referencia por sí sola no revela nada del aviso).
+
+Para poder avisar desde la vista Estadísticas, el texto anonimizado de
+sus últimos análisis de Gmail y Outlook se guarda en su navegador
+durante 7 días (50 correos como máximo). Nunca sale del navegador, salvo
+que avise de ese análisis.
+
 ## Qué se conserva y durante cuánto tiempo
 
 | Datos | Dónde | Cuánto tiempo |
 | --- | --- | --- |
-| Historial de análisis (asunto, remitente, veredicto, puntuaciones, palabras principales de la explicación) | Su navegador (`chrome.storage.local`) | Hasta que lo borre (Estadísticas, **Borrar**), como máximo los últimos 500 análisis |
+| Historial de análisis (asunto, remitente, veredicto, puntuaciones, palabras principales de la explicación, idioma detectado y su respuesta) | Su navegador (`chrome.storage.local`) | Hasta que lo borre (Estadísticas, **Borrar**), como máximo los últimos 500 análisis |
 | Caché de explicaciones | Su navegador | Hasta que se elimine la extensión |
+| Texto anonimizado de los análisis recientes de Gmail y Outlook, para los avisos | Su navegador | 7 días, 50 correos como máximo; se borra con el historial |
+| Avisos que envió (texto anonimizado o estadísticas, ver arriba) | PhishLens Cloud | Dos años como máximo; se borran a petición con la referencia |
 | Resultados del análisis automático (identificador de conversación, veredicto, puntuación) | Su navegador | Los últimos 500 correos |
 | Ajustes | Su navegador | Hasta que se cambien |
 | Veredictos de enlaces (URL, veredicto, fuente) | Caché del servidor (SQLite) | 24 horas |
@@ -106,6 +142,8 @@ como una solicitud normal de su navegador.
   ordenador.
 - Borre el historial desde la vista Estadísticas, o elimine la extensión
   para borrar todo lo que guardó.
+- Si nunca envía un aviso, nada sale de su navegador salvo los propios
+  análisis, hacia el servidor que eligió.
 
 ## Menores
 

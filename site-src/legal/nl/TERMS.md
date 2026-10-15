@@ -1,6 +1,6 @@
 # Gebruiksvoorwaarden van PhishLens
 
-Laatst bijgewerkt: 2 oktober 2026.
+Laatst bijgewerkt: 15 oktober 2026.
 
 Deze voorwaarden gelden voor de Chrome-extensie PhishLens, de website
 `anzouk.duckdns.org` en PhishLens Cloud, de gehoste controleserver. Door

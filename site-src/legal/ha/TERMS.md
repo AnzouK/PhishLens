@@ -1,6 +1,6 @@
 # Sharuɗɗan amfani da PhishLens
 
-An sabunta ta ƙarshe: 2 ga Oktoba, 2026.
+An sabunta ta ƙarshe: 15 ga Oktoba, 2026.
 
 Waɗannan sharuɗɗan sun shafi ƙarin Chrome na PhishLens, shafin yanar
 gizo `anzouk.duckdns.org` da PhishLens Cloud, sabar bincike da aka

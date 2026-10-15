@@ -16,6 +16,7 @@ Method: STRIDE per trust boundary, then a list of the risks we accept.
 | Published models on Hugging Face | Loaded by every backend at startup; the text model decides the wording score |
 | Hugging Face read token (`HF_TOKEN`, only when the text model is in a private repository) | Read access to that repository |
 | The Oracle VM and its secrets (`.phishlens.env`) | Host compromise exposes all of the above |
+| Reports users send (`FEEDBACK_DIR`) | Redacted email text: still private content, and future training data |
 
 ## Trust boundaries
 
@@ -35,12 +36,13 @@ B3: the backend trusts answers from external intel services.
 B4: the backend downloads and deserialises model files at startup.
 B5: the extension's own interface texts (translations) are shipped with
 the extension and never come from the network.
+B6: anyone can post a report to `/feedback`, not only the extension.
 
 ## STRIDE analysis
 
 | # | Threat | Boundary | Mitigation in place | Status |
 | --- | --- | --- | --- | --- |
-| S1 | **Spoofing** the sender: `From: paypal.com` sent from attacker infrastructure to borrow trust | B1 | Trust comes from DKIM alignment with the From: organisational domain, not from the header text; the allowlist also requires it since v1.16 (before, a forged allowlisted From: got the trusted path). Misaligned `signed-by` stays on the strict path. Tested in `test_auth_headers.py` and `test_extension_backend.py` | Mitigated |
+| S1 | **Spoofing** the sender: `From: paypal.com` sent from attacker infrastructure to borrow trust | B1 | Trust comes from DKIM alignment with the From: organisational domain, not from the header text; the allowlist also requires it since v2.0 (before, a forged allowlisted From: got the trusted path). Misaligned `signed-by` stays on the strict path. Tested in `test_auth_headers.py` and `test_extension_backend.py` | Mitigated |
 | S2 | Spoofing the client context: a caller claims `gmail_in_inbox` or `gmail_delivered` to soften its own scan | B2 | The flags only soften the caller's own result, never shared state; a Safe Browsing hit still forces phishing; documented as a SECURITY NOTE in code | Accepted (limited impact) |
 | S3 | Trusted-domain abuse: a compromised account at an allowlisted bank sends phishing | B1 | A Safe Browsing hit forces phishing on every path, the allowlist included (regression test since v1.11.0); allowlist is small and documented as a regional fallback | Partially mitigated |
 | T1 | **Tampering** with the model: a malicious joblib on Hugging Face (pickle executes code on load) | B4 | Since v1.12 the agents load from skops files with a type allowlist (scikit-learn, NumPy, SciPy, builtins only); pickle is a fallback that `AGENTS_ALLOW_PICKLE=0` turns off | Mitigated (skops files published and pickle disabled in production since 2026-09-30) |
@@ -49,6 +51,8 @@ the extension and never come from the network.
 | T5 | A replaced or wrong text model: `HF_MODEL_REPO` changed, a new revision pushed to the repository | B4 | Weights loaded through `transformers`, which prefers safetensors files (data only) when the repository provides them; one folder per repository so a switch never mixes models; `/health` reports the repository, name and settings in use; only the maintainer can push to the repository | Partially mitigated (revisions are not pinned) |
 | T3 | Adversarial text: wording crafted to push DistilBERT towards "safe" | B1 | Three independent agents plus threat intel; a clean text score does not hide a blocklisted URL or failed DMARC | Partially mitigated |
 | R1 | **Repudiation**: no record of what was scanned | B2 | By design: the backend keeps no email content. Aggregate verdict counts only (`/metrics`) | Accepted |
+| I5 | A report carries personal data the redaction missed (a name without greeting, a street address) | B6 | Redaction in the browser and again on the server, preview with edit and confirmation before sending, no IP stored, private folder, two-year limit, deletion by reference, human review before any use | Partially mitigated (redaction is rule-based) |
+| T6 | Poisoning: fake reports pushing the next model towards wrong labels | B6 | Rate limit per IP, size and storage caps, strict validation; reports are never used for training without being read and relabelled by hand | Mitigated |
 | I1 | **Information disclosure**: users paste sensitive mail into the shared PhishLens Cloud test box | B2 | HTTPS only; no server-side storage of bodies; README warns not to send sensitive content to the demo; self-hosting is documented | Mitigated for transport, user choice otherwise |
 | I2 | Error messages leak internals | B2 | Errors return a one-line message with a short reference; the stack trace is logged on the server under that reference and never returned | Mitigated |
 | I3 | Secrets in the repository or its history | n/a | `.phishlens.env` and `.env` are git-ignored; the GSB key only lives on the VM; history rewritten once to remove personal data | Mitigated |
@@ -104,7 +108,7 @@ release, per-install API keys or a shared limiter (Redis) in front of
 the API become worthwhile.
 
 **R6. The allowlist is regional and static.** It only applies to
-authenticated senders (since v1.16), so it trusts authenticated domains,
+authenticated senders (since v2.0), so it trusts authenticated domains,
 not messages: a compromised account at a listed institution is caught
 only by threat intelligence or the link checks.
 
@@ -113,5 +117,5 @@ only by threat intelligence or the link checks.
 Revisit this document when a new endpoint is added, when a new input
 type is accepted, when the extension gets new permissions, when the text
 model changes, or when the deployment moves off the single VM. Last
-review: v1.16 (authenticated allowlist, request limits, model
+review: v2.0 (authenticated allowlist, request limits, user reports, model
 configuration file, interface translations).

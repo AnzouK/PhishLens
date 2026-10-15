@@ -127,6 +127,7 @@
           <div class="verdict-card__sub" id="verdict-sub" data-i18n="verdict_safe_sub">Unlikely to be a phishing attempt</div>
         </div>
       </div>
+      <div id="result-feedback"></div>
 
       <!-- Files inside an archive -->
       <div id="archive-files" class="archive-files" hidden></div>
@@ -240,6 +241,7 @@
       <div class="chart-block" id="live-block">
         <div class="chart-block__title" data-i18n="live_accuracy">Live accuracy (your reviews)</div>
         <div id="live-eval" class="live-eval"></div>
+        <div id="share-stats" class="share-stats"></div>
       </div>
 
       <!-- Recent history list -->
@@ -364,6 +366,8 @@
   <script src="../lib/locales/ha.js"></script>
   <script src="../lib/i18n.js"></script>
   <script src="../lib/shared.js"></script>
+  <script src="../lib/redact.js"></script>
+  <script src="../lib/report_ui.js"></script>
   <script src="../lib/history.js"></script>
   <script src="../lib/lime_cache.js"></script>
   <script type="module" src="popup.js"></script>

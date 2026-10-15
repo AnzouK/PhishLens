@@ -1,6 +1,6 @@
 # Termos de utilização do PhishLens
 
-Última atualização: 2 de outubro de 2026.
+Última atualização: 15 de outubro de 2026.
 
 Estes termos abrangem a extensão PhishLens para o Chrome, o site
 `anzouk.duckdns.org` e o PhishLens Cloud, o servidor de análise alojado.

@@ -65,6 +65,8 @@ export default [
         // Shared between files through globalThis (see lib/*.js).
         PhishLensHistory: "readonly",
         PhishLensI18n: "readonly",
+        PhishLensRedact: "readonly",
+        PhishLensReport: "readonly",
         PhishLensLocales: "writable",
         PhishLensLimeCache: "readonly",
         PhishLensShared: "readonly",

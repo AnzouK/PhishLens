@@ -1,0 +1,40 @@
+[
+  {
+    "text": "Bonjour Ana Silva, votre compte FR76 3000 6000 0112 3456 7890 189 est bloqué.",
+    "terms": [
+      "ana",
+      "silva"
+    ],
+    "expected": "Bonjour <NAME> <NAME>, votre compte <NUMBER> est bloqué."
+  },
+  {
+    "text": "Appelez le +33 1 23 45 67 89 ou 0803 123 4567. Code 482913.",
+    "terms": [],
+    "expected": "Appelez le <PHONE> ou <NUMBER>. Code <NUMBER>."
+  },
+  {
+    "text": "Écrivez à support@bank.fr ou https://secure-bank.tk/login?id=ana. Merci @ana_s, user anasilva82.",
+    "terms": [],
+    "expected": "Écrivez à <EMAIL> ou <URL:secure-bank.tk>. Merci <NAME>, user <NAME>."
+  },
+  {
+    "text": "Dear Mr. John Smith, from M. Pavel KORT",
+    "terms": [],
+    "expected": "Dear Mr. <NAME> <NAME>, from M. <NAME> <NAME>"
+  },
+  {
+    "text": "Hi team, the review moved to Thursday at 3pm. Total: 70,000 NGN",
+    "terms": [],
+    "expected": "Hi team, the review moved to Thursday at 3pm. Total: 70,000 NGN"
+  },
+  {
+    "text": "Your package from www.Example.com/track/9 is late; see http://evil.tk.",
+    "terms": [],
+    "expected": "Your package from <URL:example.com> is late; see <URL:evil.tk>."
+  },
+  {
+    "text": "Hello <NAME>, ok",
+    "terms": [],
+    "expected": "Hello <NAME>, ok"
+  }
+]

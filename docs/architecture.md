@@ -62,6 +62,9 @@ flowchart LR
 | `backend/auth_headers.py` | RFC 7489 parsing of `Authentication-Results`, organisational-domain alignment, Spamhaus DBL on the From: domain |
 | `backend/reputation.py` | URL reputation cascade with a SQLite cache and a daily Google Safe Browsing quota |
 | `backend/result_cache.py` | 24-hour in-memory cache of results, keyed by a hash of the request |
+| `backend/language.py` | Language of an email (writing system, then common words), returned as `language` by `/analyse` and `/analyse_attachment` |
+| `backend/feedback.py`, `redaction.py` | `POST /feedback`: reports users choose to send, redacted again and stored as JSON lines (see below) |
+| `extension/lib/redact.js`, `report_ui.js`, `content_scripts/feedback.js` | Redaction before anything is shared; the language line and the report panel under each verdict |
 | `backend/attachment_analysis.py` | MIME sniffing, PDF, image and HTML extraction, risky-feature flags, dispatch to the modules below |
 | `backend/office_analysis.py`, `archive_analysis.py`, `ocr.py` | Word / Excel / PowerPoint, ZIP / RAR / 7z, OCR (multilingual) and QR decoding |
 | `backend/feature_extraction.py` | Feature engineering shared with the training repo (the Random Forests depend on its exact output) |
@@ -146,7 +149,7 @@ default`. The allowlist (`TRUSTED_DOMAINS`) only applies to an
 authenticated sender: DKIM aligned with the From: domain (real headers
 or Gmail's "signed-by"), or internal Outlook mail authenticated by the
 organisation's own server. Until v1.15 the From: text alone was enough,
-so a forged bank address got the softest path (fixed in v1.16). It is
+so a forged bank address got the softest path (fixed in v2.0). It is
 Nigerian-centric by default (banks, telcos, universities); extend it for
 your region. An empty allowlist is safe.
 
@@ -260,6 +263,28 @@ code change:
 `GET /health` returns the version of the server and a `text_model` object
 with the repository, the name and these settings, so anyone can check
 which model answers.
+
+## Reports from users
+
+Under each verdict the extension shows the detected language
+(**Correct** / **Not this language**, stored in the local history) and
+**Wrong verdict? Report it**. A report is built in the browser:
+`lib/redact.js` removes names after a greeting or a title, the user's own
+name and address read from the mail page, email addresses, phone numbers,
+long numbers, IBANs, handles and usernames, and the path of every link
+(the domain stays). The person sees the result in an editable text box
+and must tick a confirmation before **Send**. Insights can also share the
+reviewed history as statistics (no subject, sender or text).
+
+Reports always go to PhishLens Cloud (`background.js`), whatever server
+does the scanning. `POST /feedback` validates them (kinds, lengths,
+language codes), runs the same redaction again (`redaction.py`, checked
+against the same cases as the JavaScript: `tests/fixtures/redaction_cases.json`),
+and appends them to `FEEDBACK_DIR/feedback-YYYY-MM.jsonl` with a random
+reference and the day only: no IP address or headers. The endpoint is
+off (503) when `FEEDBACK_DIR` is empty, rate-limited (`RATE_LIMIT_FEEDBACK`)
+and refuses new reports once the folder reaches `FEEDBACK_MAX_MB`.
+Reports are training material only after a human has read them.
 
 ## Key design decisions
 

@@ -22,7 +22,15 @@
 //     trusted:   boolean      // trusted_sender flag from backend
 //     tokens:    [{token, weight}]   // top 5 LIME features (populated later)
 //     label:     "correct" | "wrong" | undefined   // User review
+//     lang:      string        // language detected by the server ("und" if unclear)
+//     lang_user: string        // the user's answer: the same code, another one or "other"
+//     reported:  string        // reference of a report the user sent, if any
 //   }
+//
+//   Key:   "reportDrafts": { [id]: { text, ts } }, the redacted text of
+//   recent Gmail and Outlook scans, so a wrong verdict can still be
+//   reported from Insights. Kept 7 days, 50 at most, never sent unless
+//   the user reports that scan.
 // =====================================================================
 
 const STORAGE_KEY = "scanHistory";
@@ -34,6 +42,10 @@ const STOPWORDS = new Set(("the and for are but not you your yours our ours this
     "about above after again against before below between during over under until while off out once does did doing " +
     "dear good hello thanks thank regards please").split(" "));
 const MAX_ENTRIES = 500;   // ~50 KB, well below the 5 MB chrome.storage cap
+const DRAFTS_KEY = "reportDrafts";
+const DRAFT_MAX = 50;
+const DRAFT_DAYS = 7;
+const LANG_RE = /^(?:[a-z]{2,3}|und|other)$/;
 
 // ---------------------------------------------------------------------
 // Chrome storage helpers: Promise-based wrappers so we can await them.
@@ -68,6 +80,7 @@ async function saveScan(entry) {
         tokens:   Array.isArray(entry.tokens) ? entry.tokens.slice(0, 5) : [],
     };
     if (entry.label === "correct" || entry.label === "wrong") clean.label = entry.label;
+    if (LANG_RE.test(entry.lang || "")) clean.lang = entry.lang;
     list.unshift(clean);
     if (list.length > MAX_ENTRIES) list.length = MAX_ENTRIES;
     await _set(STORAGE_KEY, list);
@@ -92,6 +105,60 @@ async function setLabel(id, label) {
     if (label === "correct" || label === "wrong") e.label = label;
     else delete e.label;
     await _set(STORAGE_KEY, list);
+}
+
+// The user's answers about a scan: the language, a report sent.
+async function updateScan(id, patch = {}) {
+    const list = (await _get(STORAGE_KEY)) || [];
+    const e = list.find((x) => x.id === id);
+    if (!e) return false;
+    if (LANG_RE.test(patch.lang_user || "")) e.lang_user = patch.lang_user;
+    if (typeof patch.reported === "string" && /^[a-f0-9]{6,32}$/.test(patch.reported)) e.reported = patch.reported;
+    if (patch.label === "correct" || patch.label === "wrong") e.label = patch.label;
+    await _set(STORAGE_KEY, list);
+    return true;
+}
+
+async function _drafts() {
+    const all = (await _get(DRAFTS_KEY)) || {};
+    const cutoff = Date.now() - DRAFT_DAYS * 86400e3;
+    const kept = Object.entries(all).filter(([, d]) => d && d.ts >= cutoff)
+        .sort((a, b) => b[1].ts - a[1].ts).slice(0, DRAFT_MAX);
+    return Object.fromEntries(kept);
+}
+
+// Text already redacted by the caller (lib/redact.js).
+async function saveDraft(id, text) {
+    if (!id || !text) return;
+    const drafts = await _drafts();
+    drafts[id] = { text: String(text).slice(0, 20000), ts: Date.now() };
+    await _set(DRAFTS_KEY, await _trimDrafts(drafts));
+}
+
+async function _trimDrafts(drafts) {
+    const kept = Object.entries(drafts).sort((a, b) => b[1].ts - a[1].ts).slice(0, DRAFT_MAX);
+    return Object.fromEntries(kept);
+}
+
+async function getDraft(id) {
+    return (await _drafts())[id]?.text || "";
+}
+
+// Reviewed history for sharing: no subject, sender or text.
+function statsRows(list) {
+    const day = (ts) => new Date(ts).toISOString().slice(0, 10);
+    const n = (v) => Math.min(1, Math.max(0, Number(v) || 0));
+    return list.slice(0, MAX_ENTRIES).map((e) => ({
+        day: day(e.ts),
+        source: String(e.source || "unknown").slice(0, 30),
+        verdict: e.verdict === "phishing" ? "phishing" : "safe",
+        score: n(e.score),
+        agents: { text: n(e.agents?.text), url: n(e.agents?.url), metadata: n(e.agents?.metadata) },
+        trusted: !!e.trusted,
+        label: e.label === "correct" || e.label === "wrong" ? e.label : null,
+        lang: LANG_RE.test(e.lang || "") ? e.lang : null,
+        lang_user: LANG_RE.test(e.lang_user || "") ? e.lang_user : null,
+    }));
 }
 
 // Live evaluation from the reviewed scans. Ground truth: a "correct"
@@ -125,12 +192,16 @@ async function getHistory() {
 
 async function clearHistory() {
     await _set(STORAGE_KEY, []);
+    await _set(DRAFTS_KEY, {});
 }
 
 async function deleteScan(id) {
     const list = (await _get(STORAGE_KEY)) || [];
     const next = list.filter((e) => e.id !== id);
     await _set(STORAGE_KEY, next);
+    const drafts = await _drafts();
+    delete drafts[id];
+    await _set(DRAFTS_KEY, drafts);
 }
 
 // ---------------------------------------------------------------------
@@ -214,7 +285,8 @@ async function exportJSON() {
 async function exportCSV() {
     const list = await getHistory();
     const cols = ["ts", "source", "verdict", "score", "sender", "subject",
-                  "agent_text", "agent_url", "agent_metadata", "trusted", "top_tokens", "label"];
+                  "agent_text", "agent_url", "agent_metadata", "trusted", "top_tokens", "label",
+                  "lang", "lang_user"];
     const esc = (v) => {
         let s = v === null || v === undefined ? "" : String(v);
         // CSV formula injection: subjects and senders come from attacker
@@ -239,6 +311,8 @@ async function exportCSV() {
             e.trusted ? "yes" : "no",
             (e.tokens || []).map((t) => t.token).join("|"),
             e.label || "",
+            e.lang || "",
+            e.lang_user || "",
         ].map(esc).join(","));
     }
     return rows.join("\n");
@@ -248,9 +322,9 @@ async function exportCSV() {
 // Global export: works in popup, content scripts, service worker.
 // ---------------------------------------------------------------------
 const PhishLensHistory = {
-    saveScan, attachTokens, setLabel, liveEvaluation, getHistory, getStats,
-    clearHistory, deleteScan, exportJSON, exportCSV,
-    STORAGE_KEY, MAX_ENTRIES,
+    saveScan, attachTokens, setLabel, updateScan, saveDraft, getDraft, statsRows,
+    liveEvaluation, getHistory, getStats, clearHistory, deleteScan, exportJSON, exportCSV,
+    STORAGE_KEY, DRAFTS_KEY, MAX_ENTRIES,
 };
 
 // Support both non-module (popup <script>, content script, service worker) and

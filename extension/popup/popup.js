@@ -306,12 +306,15 @@ analyzeBtn.addEventListener("click", async () => {
                     metadata: Number(data.agents?.metadata?.phishing_probability) || 0,
                 },
                 trusted: !!data.trusted_sender,
+                lang:    data.language?.code,
             };
             currentHistoryId = await window.PhishLensHistory?.saveScan(entry);
         } catch (histErr) {
             console.warn("[PhishLens] failed to persist history entry:", histErr);
             currentHistoryId = null;
         }
+        // Pasted text can be reported; files are not sent anywhere else.
+        renderResultFeedback(data, currentHistoryId, payload.raw_text || "");
 
         // fire LIME explanation in the background: tagged with the run id.
         // Skip LIME for attachment payloads: /explain only accepts
@@ -855,6 +858,10 @@ async function renderInsights() {
         : `<div class="empty-hint">${escapeHTML(t("live_empty"))}</div>`;
 
     // Recent history: last 20
+    const drafts = new Set();
+    for (const e of list.slice(0, 20)) {
+        if (e.label === "wrong" && !e.reported && await window.PhishLensHistory?.getDraft(e.id)) drafts.add(e.id);
+    }
     historyList.innerHTML = list.slice(0, 20).map((e) => {
         const dot = icon(e.verdict === "phishing" ? "alert" : "shield-check");
         const when = timeAgo(e.ts);
@@ -877,9 +884,28 @@ async function renderInsights() {
             <div class="history-item__review" role="group" aria-label="${escapeHTML(t("review_group"))}">
               <button type="button" class="review-btn${e.label === "correct" ? " review-btn--on" : ""}" data-label="correct" title="${escapeHTML(t("review_right_title"))}">${escapeHTML(t("review_right"))}</button>
               <button type="button" class="review-btn review-btn--wrong${e.label === "wrong" ? " review-btn--on" : ""}" data-label="wrong" title="${escapeHTML(t("review_wrong_title"))}">${escapeHTML(t("review_wrong"))}</button>
+              ${e.label === "wrong" && !e.reported && drafts.has(e.id)
+                ? `<button type="button" class="review-btn review-report" title="${escapeHTML(t("review_report_title"))}">${escapeHTML(t("review_report"))}</button>`
+                : e.reported ? `<span class="review-sent">${escapeHTML(t("review_reported"))}</span>` : ""}
             </div>
           </div>`;
     }).join("");
+    historyList.querySelectorAll(".review-report").forEach((b) => {
+        b.addEventListener("click", async () => {
+            const item = b.closest(".history-item");
+            const entry = list.find((x) => x.id === item?.dataset.id);
+            if (!entry || item.querySelector(".plr-report")) return;
+            const text = await window.PhishLensHistory.getDraft(entry.id);
+            item.append(window.PhishLensReport.reportPanel({
+                verdict: entry.verdict, text, redact: (x) => window.PhishLensRedact.redact(x),
+                send: (kind, txt) => sendReport(kind, txt, entryAsResult(entry), entry),
+                onSent: async (_k, reference) => {
+                    await window.PhishLensHistory.updateScan(entry.id, { reported: reference });
+                },
+            }));
+        });
+    });
+    renderShareStats(list);
     historyList.querySelectorAll(".review-btn").forEach((b) => {
         b.addEventListener("click", async () => {
             const id = b.closest(".history-item")?.dataset.id;
@@ -888,6 +914,123 @@ async function renderInsights() {
             renderInsights();
         });
     });
+}
+
+
+// ---------- language and reports ----------
+const { PhishLensReport: REPORT, PhishLensRedact: REDACT } = window;
+
+function sendReport(kind, text, data, entry = {}) {
+    return chrome.runtime.sendMessage({
+        type: "phishlens.feedback",
+        payload: {
+            kind, text,
+            verdict: data.verdict,
+            fused_score: Number(data.fused_score) || 0,
+            agents: {
+                text: Number(data.agents?.text?.phishing_probability) || 0,
+                url: Number(data.agents?.url?.phishing_probability) || 0,
+                metadata: Number(data.agents?.metadata?.phishing_probability) || 0,
+            },
+            trust_path: data.trust_path || null,
+            source: entry.source || "paste",
+            lang: data.language?.code || entry.lang || null,
+            lang_user: entry.lang_user || null,
+            ui_lang: I18N.language(),
+            version: chrome.runtime.getManifest?.().version || null,
+        },
+    });
+}
+
+// A history entry in the shape of a /analyse answer, for sendReport.
+function entryAsResult(e) {
+    return {
+        verdict: e.verdict, fused_score: e.score, language: { code: e.lang },
+        agents: { text: { phishing_probability: e.agents?.text }, url: { phishing_probability: e.agents?.url },
+                  metadata: { phishing_probability: e.agents?.metadata } },
+    };
+}
+
+function renderResultFeedback(data, historyId, pasted) {
+    const host = $("result-feedback");
+    host.replaceChildren();
+    const box = document.createElement("div");
+    box.className = "plr-box";
+    const entry = { source: "paste", lang_user: null };
+    box.append(REPORT.languageLine({
+        code: data.language?.code,
+        onChoice: (code) => {
+            entry.lang_user = code;
+            if (historyId) window.PhishLensHistory?.updateScan(historyId, { lang_user: code });
+        },
+    }));
+    if (pasted) {
+        box.append(REPORT.reportButton({
+            verdict: data.verdict,
+            getText: async () => REDACT.redact(pasted),
+            redact: (x) => REDACT.redact(x),
+            send: (kind, text) => sendReport(kind, text, data, entry),
+            onSent: (_k, reference) => historyId &&
+                window.PhishLensHistory?.updateScan(historyId, { label: "wrong", reported: reference }),
+        }));
+    }
+    host.append(box);
+}
+
+// "Share my statistics": reviewed history without subject, sender or text.
+function renderShareStats(list) {
+    const host = $("share-stats");
+    if (!host) return;
+    host.replaceChildren();
+    if (!list.length) return;
+    const rows = window.PhishLensHistory.statsRows(list);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn--ghost";
+    btn.textContent = t("share_stats");
+    btn.addEventListener("click", () => {
+        if (host.querySelector(".plr-report")) return;
+        const panel = document.createElement("div");
+        panel.className = "plr-report";
+        const intro = document.createElement("p");
+        intro.className = "plr-report__intro";
+        intro.textContent = t("share_stats_intro", { count: rows.length });
+        const sample = document.createElement("textarea");
+        sample.className = "plr-report__text";
+        sample.readOnly = true;
+        sample.rows = 6;
+        sample.value = JSON.stringify(rows.slice(0, 3), null, 1);
+        sample.setAttribute("aria-label", t("fb_report_preview"));
+        const status = document.createElement("p");
+        status.className = "plr-report__status";
+        status.setAttribute("role", "status");
+        const send = document.createElement("button");
+        send.type = "button";
+        send.className = "plr-btn plr-btn--strong";
+        send.textContent = t("share_stats_send");
+        const cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.className = "plr-btn";
+        cancel.textContent = t("fb_cancel");
+        cancel.addEventListener("click", () => panel.remove());
+        send.addEventListener("click", async () => {
+            send.disabled = true;
+            status.textContent = t("fb_sending");
+            const r = await chrome.runtime.sendMessage({
+                type: "phishlens.feedback",
+                payload: { kind: "stats", rows, ui_lang: I18N.language(), version: chrome.runtime.getManifest?.().version || null },
+            }).catch((e) => ({ ok: false, error: String(e?.message || e) }));
+            if (r?.ok) panel.replaceChildren(Object.assign(document.createElement("p"), {
+                className: "plr-report__status", textContent: t("fb_sent", { ref: r.reference }) }));
+            else { status.textContent = t("fb_failed", { error: r?.error || t("unknown_error") }); send.disabled = false; }
+        });
+        const actions = document.createElement("div");
+        actions.className = "plr-report__actions";
+        actions.append(send, cancel);
+        panel.append(intro, sample, actions, status);
+        host.append(panel);
+    });
+    host.append(btn);
 }
 
 

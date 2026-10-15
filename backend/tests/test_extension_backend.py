@@ -274,7 +274,7 @@ class TestAnalyse:
         assert j["verdict"] == "safe"
 
     def test_forged_allowlisted_sender_is_not_trusted(self, client, monkeypatch):
-        # Regression (v1.16): the From: text alone used to unlock the
+        # Regression (v2.0): the From: text alone used to unlock the
         # allowlist, so a forged bank address got the softest path.
         text_score(monkeypatch, 0.97)
         j = client.post(
@@ -989,3 +989,13 @@ class TestAgentProvenance:
         assert r["agents"]["metadata"]["source"] == "rules"
         assert r["agents"]["text"]["source"] == "model"
         assert r["auth_source"] == "none"
+
+    def test_analyse_reports_the_language(self, client):
+        r = client.post(
+            "/analyse",
+            json={
+                "raw_text": "Bonjour, votre colis est bloqué. Merci de payer les frais pour que nous "
+                "puissions le livrer dans les plus brefs délais."
+            },
+        ).json()
+        assert r["language"]["code"] == "fr" and r["language"]["confidence"] > 0.5

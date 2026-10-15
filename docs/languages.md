@@ -114,6 +114,18 @@ translations in the same pull request.
 the same page in another language, and that a French browser is offered
 the French version.
 
+## Detected language
+
+`/analyse` and `/analyse_attachment` return `language: {code, confidence}`
+(`backend/language.py`): the writing system decides for non-Latin text
+(Cyrillic, with Ukrainian letters told apart, Arabic, Devanagari, Han,
+kana, Hangul...), and for Latin text the share of common words of each
+language decides between English, French, Portuguese, Spanish, German,
+Italian, Dutch, Polish, Turkish, Indonesian, Vietnamese, Swahili, Hausa,
+Yoruba and Igbo. Too little text gives `und`. The banner shows it and asks
+the user to confirm or correct it; answers are kept in the history and
+can be shared with the statistics.
+
 ## OCR
 
 `OCR_LANG` (default `auto`) lets Tesseract's script detection (OSD) pick

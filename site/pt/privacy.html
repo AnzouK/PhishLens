@@ -66,15 +66,16 @@
 <article class="prose">
 <p class="legal-note">Esta tradução é fornecida por conveniência. Se diferir da <a href="../privacy.html">versão inglesa</a>, prevalece a versão inglesa.</p>
 <h1 id="política-de-privacidade-do-phishlens">Política de privacidade do PhishLens</h1>
-<p>Última atualização: 2 de outubro de 2026.</p>
+<p>Última atualização: 15 de outubro de 2026.</p>
 <p>O PhishLens é uma extensão do Chrome que verifica se os e-mails são phishing. Esta página explica que dados trata, para onde vão e o que é guardado. Aplica-se à extensão e ao servidor alojado, PhishLens Cloud, em <code>anzouk.duckdns.org</code>.</p>
 <h2 id="em-resumo">Em resumo</h2>
 <ul>
 <li>O PhishLens lê um e-mail apenas quando o pede (os botões <strong>Analisar</strong>), ou automaticamente se ativar <strong>Analisar novos e-mails automaticamente</strong> nas definições (desligado por predefinição).</li>
-<li>O e-mail é enviado para o servidor escolhido nas definições: o seu próprio computador (Docker ou Python local), o seu próprio servidor ou o PhishLens Cloud. A extensão não envia nada para mais nenhum lado.</li>
+<li>O e-mail é enviado para o servidor escolhido nas definições: o seu próprio computador (Docker ou Python local), o seu próprio servidor ou o PhishLens Cloud. A extensão não envia nada para mais nenhum lado, exceto as comunicações que escolher enviar (ver abaixo).</li>
 <li>O servidor analisa o e-mail e devolve um veredito. Não guarda o conteúdo dos e-mails, os remetentes nem os assuntos.</li>
 <li>O seu histórico de análises fica no seu navegador. Nunca é enviado.</li>
 <li>Não há contas, medição de audiências, publicidade nem venda de dados.</li>
+<li>Pode comunicar um veredito errado ou partilhar as estatísticas das suas avaliações. Só é enviado o que vê e confirma: o texto do e-mail sem nomes, endereços, números nem caminhos de links, ou estatísticas sem qualquer conteúdo de e-mail.</li>
 </ul>
 <h2 id="o-que-a-extensão-lê">O que a extensão lê</h2>
 <p>Quando uma análise é executada, a extensão lê da página aberta do Gmail ou do Outlook:</p>
@@ -117,6 +118,31 @@
 <li>Spamhaus DBL (nomes de domínio, por DNS);</li>
 <li>PhishTank (comparação com uma lista descarregada para o servidor; nenhum pedido por e-mail).</li>
 </ul>
+<h2 id="as-comunicações-que-escolhe-enviar">As comunicações que escolhe enviar</h2>
+<p>Por baixo de cada veredito, o PhishLens mostra o idioma detetado e um link <strong>Veredito errado? Comunique-o</strong>; a vista Estatísticas tem o mesmo link para as análises marcadas como <strong>Errado</strong>, e um botão <strong>Partilhar as minhas estatísticas</strong>. Nada é enviado antes de carregar em <strong>Enviar</strong> depois de ler o que vai ser enviado.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Comunicação</th>
+<th>O que é enviado</th>
+<th>O que nunca é enviado</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Veredito errado</td>
+<td>O assunto, o texto e os domínios dos links desse e-mail após anonimização (nomes depois de uma saudação ou de um título, o seu próprio nome e endereço tal como aparecem na página do e-mail, endereços de e-mail, números de telefone, números longos como contas, cartões e códigos, IBAN, @nomes de utilizador, o caminho e os parâmetros de cada link), o texto tal como o editou, o veredito, as pontuações, o modo de cálculo, o idioma detetado e a sua resposta, a versão da extensão e o idioma da interface</td>
+<td>O endereço do remetente, o e-mail original, os seus cabeçalhos e anexos</td>
+</tr>
+<tr class="even">
+<td>Estatísticas</td>
+<td>Para cada análise do seu histórico: o dia, onde foi feita (Gmail, Outlook, janela da extensão), o veredito, as pontuações, se o remetente era de confiança, a sua avaliação Certo / Errado, o idioma detetado e a sua resposta</td>
+<td>Assuntos, remetentes, textos, links</td>
+</tr>
+</tbody>
+</table></div>
+<p>As comunicações vão para o PhishLens Cloud, seja qual for o servidor que usa para as análises. O servidor anonimiza o texto uma segunda vez com as mesmas regras, guarda a comunicação sem o seu endereço IP nem outros dados do pedido (o registo do servidor web descrito abaixo continua a registar o pedido durante 30 dias) e devolve uma referência. As comunicações servem apenas para medir e melhorar o PhishLens (por exemplo, para treinar o modelo de texto com e-mails legítimos que avaliou mal); nunca são publicadas nem partilhadas. São guardadas no máximo dois anos. Para apagar uma comunicação, abra um pedido em <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> com a respetiva referência (a referência por si só não revela nada da comunicação).</p>
+<p>Para permitir comunicar a partir da vista Estatísticas, o texto anonimizado das suas últimas análises no Gmail e no Outlook fica no seu navegador durante 7 dias (no máximo 50 e-mails). Nunca sai do navegador, a menos que comunique essa análise.</p>
 <h2 id="o-que-é-guardado-e-durante-quanto-tempo">O que é guardado, e durante quanto tempo</h2>
 <div class="table-wrap"><table>
 <thead>
@@ -128,7 +154,7 @@
 </thead>
 <tbody>
 <tr class="odd">
-<td>Histórico de análises (assunto, remetente, veredito, pontuações, principais palavras da explicação)</td>
+<td>Histórico de análises (assunto, remetente, veredito, pontuações, principais palavras da explicação, idioma detetado e a sua resposta)</td>
 <td>O seu navegador (<code>chrome.storage.local</code>)</td>
 <td>Até o limpar (Estatísticas, <strong>Limpar</strong>), no máximo as últimas 500 análises</td>
 </tr>
@@ -136,6 +162,16 @@
 <td>Cache das explicações</td>
 <td>O seu navegador</td>
 <td>Até a extensão ser removida</td>
+</tr>
+<tr class="odd">
+<td>Texto anonimizado das análises recentes no Gmail e no Outlook, para comunicações</td>
+<td>O seu navegador</td>
+<td>7 dias, no máximo 50 e-mails; apagado com o histórico</td>
+</tr>
+<tr class="even">
+<td>Comunicações que enviou (texto anonimizado ou estatísticas, ver acima)</td>
+<td>PhishLens Cloud</td>
+<td>No máximo dois anos; apagadas a pedido com a referência</td>
 </tr>
 <tr class="odd">
 <td>Resultados da análise automática (identificador da conversa, veredito, pontuação)</td>
@@ -212,6 +248,7 @@
 <li>Desligue <strong>Ler os cabeçalhos completos</strong> ou <strong>Analisar novos e-mails automaticamente</strong> nas definições a qualquer momento.</li>
 <li>Use o servidor local para que os e-mails nunca saiam do seu computador.</li>
 <li>Limpe o histórico na vista Estatísticas, ou remova a extensão para apagar tudo o que guardou.</li>
+<li>Se nunca enviar uma comunicação, nada sai do seu navegador além das próprias análises, para o servidor que escolheu.</li>
 </ul>
 <h2 id="crianças">Crianças</h2>
 <p>O PhishLens não se destina a crianças e não recolhe conscientemente dados sobre elas.</p>

@@ -141,8 +141,10 @@ async function olScan(pane, btn) {
                     metadata: Number(r.data.agents?.metadata?.phishing_probability) || 0,
                 },
                 trusted: !!r.data.trusted_sender,
+                lang: r.data.language?.code,
             },
         }).catch(() => null);
+        pllAttachFeedback(pane, r.data, { historyId: saved?.id, source: "outlook", subject, body, links });
 
         // Word-level explanation, as in Gmail (cached by payload). Runs in
         // the background so the button is free again right away.

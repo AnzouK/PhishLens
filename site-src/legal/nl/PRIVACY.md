@@ -1,6 +1,6 @@
 # Privacybeleid van PhishLens
 
-Laatst bijgewerkt: 2 oktober 2026.
+Laatst bijgewerkt: 15 oktober 2026.
 
 PhishLens is een Chrome-extensie die e-mails op phishing controleert.
 Deze pagina legt uit welke gegevens ze verwerkt, waar die naartoe gaan
@@ -14,12 +14,16 @@ server, PhishLens Cloud, op `anzouk.duckdns.org`.
   controleren** aanzet in de instellingen (standaard uit).
 - De e-mail wordt naar de in de instellingen gekozen server gestuurd: uw
   eigen computer (lokaal met Docker of Python), uw eigen server of
-  PhishLens Cloud. De extensie stuurt niets ergens anders naartoe.
+  PhishLens Cloud. De extensie stuurt niets ergens anders naartoe, behalve de meldingen die u zelf verstuurt (zie hieronder).
 - De server controleert de e-mail en geeft een oordeel terug. Hij slaat
   geen e-mailinhoud, afzenders of onderwerpen op.
 - Uw controlegeschiedenis blijft in uw browser. Ze wordt nooit geüpload.
 - Er zijn geen accounts, geen analysetools, geen advertenties en geen
   verkoop van gegevens.
+- U kunt een verkeerd oordeel melden of de statistieken van uw
+  beoordelingen delen. Alleen wat u ziet en bevestigt wordt verstuurd:
+  de tekst van de e-mail zonder namen, adressen, nummers en paden van
+  links, of statistieken zonder enige e-mailinhoud.
 
 ## Wat de extensie leest
 
@@ -60,12 +64,44 @@ dreigingsinformatie. Daarvoor stuurt hij **alleen de linkadressen**
 - PhishTank (vergeleken met een lijst die naar de server is gedownload;
   geen verzoek per e-mail).
 
+## Meldingen die u zelf verstuurt
+
+Onder elk oordeel toont PhishLens de herkende taal en een link
+**Verkeerd oordeel? Meld het**; de weergave Statistieken heeft dezelfde
+link voor controles die u als **Onjuist** hebt gemarkeerd, en een knop
+**Mijn statistieken delen**. Er wordt niets verstuurd voordat u op
+**Versturen** drukt nadat u hebt gelezen wat er wordt verstuurd.
+
+| Melding | Wat wordt verstuurd | Wat nooit wordt verstuurd |
+| --- | --- | --- |
+| Verkeerd oordeel | Het onderwerp, de tekst en de domeinen van de links van die e-mail na anonimisering (namen na een aanhef of titel, uw eigen naam en adres zoals ze op de mailpagina staan, e-mailadressen, telefoonnummers, lange nummers zoals rekeningen, kaarten en codes, IBAN's, @namen en gebruikersnamen, het pad en de parameters van elke link), de tekst zoals u die hebt bewerkt, het oordeel, de scores, de beoordelingsroute, de herkende taal en uw antwoord, de versie van de extensie en de taal van de interface | Het adres van de afzender, de originele e-mail, de headers en de bijlagen |
+| Statistieken | Voor elke controle in uw geschiedenis: de dag, waar gecontroleerd (Gmail, Outlook, venster van de extensie), het oordeel, de scores, of de afzender vertrouwd was, uw beoordeling Juist / Onjuist, de herkende taal en uw antwoord | Onderwerpen, afzenders, teksten, links |
+
+Meldingen gaan naar PhishLens Cloud, welke server u ook voor de
+controles gebruikt. De server anonimiseert de tekst een tweede keer met
+dezelfde regels, bewaart de melding zonder uw IP-adres of andere
+verzoekgegevens (het hieronder beschreven logboek van de webserver legt
+het verzoek wel 30 dagen vast) en geeft een referentie terug. Meldingen
+dienen alleen om PhishLens te meten en te verbeteren (bijvoorbeeld om
+het tekstmodel te trainen op legitieme e-mails die het verkeerd
+beoordeelde); ze worden nooit gepubliceerd of gedeeld. Ze worden
+hooguit twee jaar bewaard. Om een melding te laten verwijderen, opent u
+een issue op https://github.com/AnzouK/PhishLens/issues met de
+referentie (de referentie alleen zegt niets over de melding).
+
+Om melden vanuit de weergave Statistieken mogelijk te maken, blijft de
+geanonimiseerde tekst van uw laatste Gmail- en Outlook-controles 7 dagen
+in uw browser (hooguit 50 e-mails). Die verlaat de browser nooit, tenzij
+u die controle meldt.
+
 ## Wat bewaard wordt, en hoe lang
 
 | Gegevens | Waar | Hoe lang |
 | --- | --- | --- |
-| Controlegeschiedenis (onderwerp, afzender, oordeel, scores, belangrijkste woorden van de uitleg) | Uw browser (`chrome.storage.local`) | Tot u ze wist (Statistieken, **Wissen**), hooguit de laatste 500 controles |
+| Controlegeschiedenis (onderwerp, afzender, oordeel, scores, belangrijkste woorden van de uitleg, herkende taal en uw antwoord) | Uw browser (`chrome.storage.local`) | Tot u ze wist (Statistieken, **Wissen**), hooguit de laatste 500 controles |
 | Cache van uitleg | Uw browser | Tot de extensie wordt verwijderd |
+| Geanonimiseerde tekst van recente Gmail- en Outlook-controles, voor meldingen | Uw browser | 7 dagen, hooguit 50 e-mails; gewist met de geschiedenis |
+| Meldingen die u hebt verstuurd (geanonimiseerde tekst of statistieken, zie hierboven) | PhishLens Cloud | Hooguit twee jaar; op verzoek verwijderd met de referentie |
 | Resultaten van de automatische controle (gespreks-ID, oordeel, score) | Uw browser | De laatste 500 e-mails |
 | Instellingen | Uw browser | Tot ze gewijzigd worden |
 | Linkoordelen (URL, oordeel, bron) | Servercache (SQLite) | 24 uur |
@@ -104,6 +140,8 @@ ziet als een gewoon verzoek van uw browser.
 - Gebruik de lokale server, zodat e-mails uw computer nooit verlaten.
 - Wis de geschiedenis in de weergave Statistieken, of verwijder de
   extensie om alles te wissen wat ze heeft opgeslagen.
+- Als u nooit een melding verstuurt, verlaat niets uw browser behalve
+  de controles zelf, naar de server die u hebt gekozen.
 
 ## Kinderen
 

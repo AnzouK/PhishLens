@@ -49,8 +49,11 @@
         "lib/i18n.js",
         "lib/shared.js",
         "lib/lime_cache.js",
+        "lib/redact.js",
+        "lib/report_ui.js",
         "content_scripts/core.js",
         "content_scripts/banner.js",
+        "content_scripts/feedback.js",
         "content_scripts/gmail_scan.js",
         "content_scripts/attachments.js",
         "content_scripts/autoscan.js",
@@ -79,8 +82,11 @@
         "lib/i18n.js",
         "lib/shared.js",
         "lib/lime_cache.js",
+        "lib/redact.js",
+        "lib/report_ui.js",
         "content_scripts/core.js",
         "content_scripts/banner.js",
+        "content_scripts/feedback.js",
         "content_scripts/outlook.js"
       ],
       "css": [

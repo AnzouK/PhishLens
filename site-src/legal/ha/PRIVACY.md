@@ -1,6 +1,6 @@
 # Manufar sirri ta PhishLens
 
-An sabunta ta ƙarshe: 2 ga Oktoba, 2026.
+An sabunta ta ƙarshe: 15 ga Oktoba, 2026.
 
 PhishLens ƙarin Chrome ne da ke duba ko imel phishing ne. Wannan shafin
 yana bayyana bayanan da yake sarrafawa, inda suke zuwa da abin da ake
@@ -13,13 +13,16 @@ ajiyewa. Ya shafi ƙarin da kuma sabar da aka ɗauka, PhishLens Cloud, a
   **Duba**), ko ta atomatik idan ka kunna **Duba sababbin imel ta
   atomatik** a saituna (a kashe yake da farko).
 - Ana aika imel ɗin zuwa sabar da ka zaɓa a saituna: kwamfutarka (Docker
-  ko Python na gida), sabarka ta kanka, ko PhishLens Cloud. Ƙarin ba ya
-  aika komai zuwa wani wuri daban.
+  ko Python na gida), sabarka ta kanka, ko PhishLens Cloud. Ƙarin ba ya aika komai zuwa wani wuri daban, sai rahotannin da ka zaɓi aikawa (duba ƙasa).
 - Sabar tana duba imel ɗin ta dawo da hukunci. Ba ta ajiye abin da ke
   cikin imel, masu aikawa ko jigogi.
 - Tarihin bincikenka yana zama a burauzarka. Ba a taɓa aika shi ba.
 - Babu asusu, babu bin diddigin masu ziyara, babu talla kuma babu
   sayar da bayanai.
+- Za ka iya ba da rahoton hukunci da ba daidai ba, ko raba ƙididdigar
+  ra'ayoyinka. Abin da ka gani kuma ka tabbatar kaɗai ake aikawa:
+  rubutun imel ba tare da sunaye, adireshi, lambobi ko hanyoyin haɗi ba,
+  ko ƙididdiga ba tare da wani abu na cikin imel ba.
 
 ## Abin da ƙarin yake karantawa
 
@@ -59,12 +62,44 @@ rubutun imel, mai aikawa ko jigo ba):
 - PhishTank (ana kwatanta su da jerin da aka sauke a sabar; babu buƙata
   ga kowane imel).
 
+## Rahotannin da ka zaɓi aikawa
+
+A ƙarƙashin kowane hukunci, PhishLens yana nuna harshen da ya gano da
+kuma hanyar haɗi **Hukunci ba daidai ba? Ka ba da rahoto**; shafin
+Ƙididdiga yana da irin wannan hanyar haɗi don binciken da ka yi wa
+alamar **Ba daidai ba**, da maɓallin **Raba ƙididdigata**. Babu abin da
+ake aikawa har sai ka danna **Aika** bayan ka karanta abin da za a aika.
+
+| Rahoto | Abin da ake aikawa | Abin da ba a taɓa aikawa |
+| --- | --- | --- |
+| Hukunci ba daidai ba | Jigo, rubutu da yankunan hanyoyin haɗin wannan imel bayan an cire bayanan sirri (sunaye bayan gaisuwa ko laƙabi, sunanka da adireshinka kamar yadda suke a shafin imel, adireshin imel, lambobin waya, dogayen lambobi kamar asusu, katin kuɗi da lambobin sirri, IBAN, @sunayen masu amfani, hanya da sigogin kowace hanyar haɗi), rubutun kamar yadda ka gyara shi, hukunci, maki, hanyar lissafi, harshen da aka gano da amsarka, sigar ƙarin da harshen manhajar | Adireshin mai aikawa, imel na asali, kanun saƙonsa da haɗe-haɗensa |
+| Ƙididdiga | Ga kowane bincike a tarihinka: rana, inda aka yi shi (Gmail, Outlook, tagar ƙarin), hukunci, maki, ko mai aikawa amintacce ne, ra'ayinka Daidai / Ba daidai ba, harshen da aka gano da amsarka | Jigogi, masu aikawa, rubutu, hanyoyin haɗi |
+
+Ana aika rahotanni zuwa PhishLens Cloud, ko wace sabar kake amfani da ita
+don bincike. Sabar tana sake cire bayanan sirri daga rubutun da ƙa'idoji
+iri ɗaya, tana ajiye rahoton ba tare da adireshin IP ɗinka ko wani bayanin
+buƙata ba (bayanan ayyukan sabar yanar gizo da aka bayyana a ƙasa suna
+ci gaba da rubuta buƙatar har kwana 30), sannan ta dawo da lambar shaida.
+Ana amfani da rahotanni ne kawai don auna da inganta PhishLens (misali,
+don horar da samfurin rubutu a kan imel na gaskiya da ya yi kuskure a
+kansu); ba a taɓa wallafa su ko raba su. Ana ajiye su har shekara biyu
+mafi yawa. Don a share rahoto, buɗe batu a
+https://github.com/AnzouK/PhishLens/issues tare da lambar shaidarsa
+(lambar shaidar kaɗai ba ta bayyana komai game da rahoton).
+
+Don ba da damar ba da rahoto daga shafin Ƙididdiga, ana ajiye rubutun da
+aka cire wa bayanan sirri na bincikenka na ƙarshe a Gmail da Outlook a
+burauzarka har kwana 7 (imel 50 mafi yawa). Ba ya taɓa barin burauzar,
+sai idan ka ba da rahoton wannan bincike.
+
 ## Abin da ake ajiyewa, da tsawon lokaci
 
 | Bayani | Ina | Tsawon lokaci |
 | --- | --- | --- |
-| Tarihin bincike (jigo, mai aikawa, hukunci, maki, manyan kalmomin bayani) | Burauzarka (`chrome.storage.local`) | Har sai ka share shi (Ƙididdiga, **Share**), mafi yawa bincike 500 na ƙarshe |
+| Tarihin bincike (jigo, mai aikawa, hukunci, maki, manyan kalmomin bayani, harshen da aka gano da amsarka) | Burauzarka (`chrome.storage.local`) | Har sai ka share shi (Ƙididdiga, **Share**), mafi yawa bincike 500 na ƙarshe |
 | Ajiyar bayani | Burauzarka | Har sai an cire ƙarin |
+| Rubutun da aka cire wa bayanan sirri na binciken Gmail da Outlook na baya-bayan nan, don rahotanni | Burauzarka | Kwana 7, imel 50 mafi yawa; ana share shi tare da tarihi |
+| Rahotannin da ka aika (rubutu ba tare da bayanan sirri ba ko ƙididdiga, duba sama) | PhishLens Cloud | Shekara biyu mafi yawa; ana share su idan aka nema da lambar shaida |
 | Sakamakon bincike ta atomatik (lambar tattaunawa, hukunci, maki) | Burauzarka | Imel 500 na ƙarshe |
 | Saituna | Burauzarka | Har sai an canza su |
 | Hukuncin hanyoyin haɗi (URL, hukunci, majiya) | Ajiyar sabar (SQLite) | Awa 24 |
@@ -103,6 +138,8 @@ matsayin buƙata ta al'ada daga burauzarka.
 - Yi amfani da sabar ta gida don kada imel su taɓa barin kwamfutarka.
 - Share tarihi daga shafin Ƙididdiga, ko cire ƙarin don share duk abin
   da ya ajiye.
+- Idan ba ka taɓa aika rahoto ba, babu abin da ke barin burauzarka sai
+  binciken kansu, zuwa sabar da ka zaɓa.
 
 ## Yara
 

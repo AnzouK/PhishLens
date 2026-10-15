@@ -1,6 +1,6 @@
 # Datenschutzerklärung von PhishLens
 
-Zuletzt aktualisiert: 2. Oktober 2026.
+Zuletzt aktualisiert: 15. Oktober 2026.
 
 PhishLens ist eine Chrome-Erweiterung, die E-Mails auf Phishing prüft.
 Diese Seite erklärt, welche Daten sie verarbeitet, wohin diese gehen und
@@ -15,12 +15,16 @@ Server PhishLens Cloud unter `anzouk.duckdns.org`.
   (standardmäßig aus).
 - Die E-Mail wird an den in den Einstellungen gewählten Server gesendet:
   Ihren eigenen Computer (lokal mit Docker oder Python), Ihren eigenen
-  Server oder PhishLens Cloud. Die Erweiterung sendet nichts anderswohin.
+  Server oder PhishLens Cloud. Die Erweiterung sendet nichts anderswohin, außer den Meldungen, die Sie senden möchten (siehe unten).
 - Der Server prüft die E-Mail und gibt ein Urteil zurück. Er speichert
   weder E-Mail-Inhalte noch Absender oder Betreffzeilen.
 - Ihr Prüfverlauf bleibt in Ihrem Browser. Er wird nie hochgeladen.
 - Es gibt keine Konten, keine Analyse-Tools, keine Werbung und keinen
   Verkauf von Daten.
+- Sie können ein falsches Urteil melden oder die Statistik Ihrer
+  Bewertungen teilen. Gesendet wird nur, was Sie sehen und bestätigen:
+  der Text der E-Mail ohne Namen, Adressen, Nummern und Link-Pfade, oder
+  eine Statistik ohne jeden E-Mail-Inhalt.
 
 ## Was die Erweiterung liest
 
@@ -61,12 +65,45 @@ E-Mail-Text, den Absender oder den Betreff):
 - PhishTank (Abgleich mit einer auf den Server heruntergeladenen Liste;
   keine Anfrage pro E-Mail).
 
+## Meldungen, die Sie senden möchten
+
+Unter jedem Urteil zeigt PhishLens die erkannte Sprache und einen Link
+**Falsches Urteil? Melden**; die Ansicht Statistiken bietet denselben
+Link für Prüfungen, die Sie als **Falsch** markiert haben, und eine
+Schaltfläche **Meine Statistik teilen**. Nichts wird gesendet, bevor Sie
+auf **Senden** klicken, nachdem Sie gelesen haben, was gesendet wird.
+
+| Meldung | Was gesendet wird | Was nie gesendet wird |
+| --- | --- | --- |
+| Falsches Urteil | Betreff, Text und Link-Domains dieser E-Mail nach der Anonymisierung (Namen nach einer Anrede oder einem Titel, Ihr eigener Name und Ihre Adresse, wie sie auf der Mail-Seite stehen, E-Mail-Adressen, Telefonnummern, lange Nummern wie Konten, Karten und Codes, IBAN, @Handles und Benutzernamen, Pfad und Parameter jedes Links), der Text so, wie Sie ihn bearbeitet haben, das Urteil, die Werte, der Bewertungsweg, die erkannte Sprache und Ihre Antwort, die Version der Erweiterung und die Sprache der Oberfläche | Die Adresse des Absenders, die Original-E-Mail, ihre Header und Anhänge |
+| Statistik | Für jede Prüfung in Ihrem Verlauf: der Tag, wo geprüft wurde (Gmail, Outlook, Fenster der Erweiterung), das Urteil, die Werte, ob der Absender vertrauenswürdig war, Ihre Bewertung Richtig / Falsch, die erkannte Sprache und Ihre Antwort | Betreffzeilen, Absender, Texte, Links |
+
+Meldungen gehen an PhishLens Cloud, egal welchen Server Sie für die
+Prüfungen nutzen. Der Server anonymisiert den Text ein zweites Mal mit
+denselben Regeln, speichert die Meldung ohne Ihre IP-Adresse oder andere
+Anfragedaten (das unten beschriebene Protokoll des Webservers erfasst die
+Anfrage dennoch 30 Tage lang) und gibt eine Referenz zurück. Meldungen
+dienen nur dazu, PhishLens zu messen und zu verbessern (zum Beispiel, um
+das Textmodell mit legitimen E-Mails zu trainieren, die es falsch
+beurteilt hat); sie werden nie veröffentlicht oder weitergegeben. Sie
+werden höchstens zwei Jahre aufbewahrt. Um eine Meldung löschen zu
+lassen, eröffnen Sie ein Issue unter
+https://github.com/AnzouK/PhishLens/issues mit ihrer Referenz (die
+Referenz allein verrät nichts über die Meldung).
+
+Damit Sie auch aus der Ansicht Statistiken melden können, bleibt der
+anonymisierte Text Ihrer letzten Gmail- und Outlook-Prüfungen 7 Tage
+lang in Ihrem Browser (höchstens 50 E-Mails). Er verlässt den Browser
+nie, außer Sie melden diese Prüfung.
+
 ## Was gespeichert wird und wie lange
 
 | Daten | Wo | Wie lange |
 | --- | --- | --- |
-| Prüfverlauf (Betreff, Absender, Urteil, Werte, wichtigste Wörter der Erklärung) | Ihr Browser (`chrome.storage.local`) | Bis Sie ihn löschen (Statistiken, **Löschen**), höchstens die letzten 500 Prüfungen |
+| Prüfverlauf (Betreff, Absender, Urteil, Werte, wichtigste Wörter der Erklärung, erkannte Sprache und Ihre Antwort) | Ihr Browser (`chrome.storage.local`) | Bis Sie ihn löschen (Statistiken, **Löschen**), höchstens die letzten 500 Prüfungen |
 | Zwischenspeicher der Erklärungen | Ihr Browser | Bis die Erweiterung entfernt wird |
+| Anonymisierter Text der letzten Gmail- und Outlook-Prüfungen, für Meldungen | Ihr Browser | 7 Tage, höchstens 50 E-Mails; wird mit dem Verlauf gelöscht |
+| Von Ihnen gesendete Meldungen (anonymisierter Text oder Statistik, siehe oben) | PhishLens Cloud | Höchstens zwei Jahre; auf Anfrage mit der Referenz gelöscht |
 | Ergebnisse der automatischen Prüfung (Unterhaltungs-ID, Urteil, Wert) | Ihr Browser | Die letzten 500 E-Mails |
 | Einstellungen | Ihr Browser | Bis zur Änderung |
 | Link-Urteile (URL, Urteil, Quelle) | Server-Cache (SQLite) | 24 Stunden |
@@ -107,6 +144,8 @@ sieht.
   verlassen.
 - Löschen Sie den Verlauf in der Ansicht Statistiken, oder entfernen Sie
   die Erweiterung, um alles zu löschen, was sie gespeichert hat.
+- Wenn Sie nie eine Meldung senden, verlässt nichts Ihren Browser außer
+  den Prüfungen selbst, an den von Ihnen gewählten Server.
 
 ## Kinder
 

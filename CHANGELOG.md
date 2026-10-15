@@ -30,6 +30,18 @@ backend share one version number.
   builds on; the same list is in the README.
 - `/health` names the running text model, and "Test connection" shows
   the server version and that name.
+- **Detected language** under each verdict (Gmail, Outlook, popup), with
+  "Correct" / "Not this language"; the answer is kept in the history and
+  the CSV / JSON exports. `/analyse` returns `language`.
+- **Report a wrong verdict** from the banner, the popup or Insights: the
+  email is redacted in the browser (names, the user's own name and
+  address, email addresses, phone and long numbers, IBANs, handles, link
+  paths), shown for editing and sent to PhishLens Cloud only after a
+  confirmation; the server redacts it again and keeps it without any IP
+  address (`POST /feedback`, `FEEDBACK_DIR`). Insights can also share the
+  reviewed history as statistics, without subject, sender or text.
+- Website: the header comes back as soon as you scroll up, and a "Back to
+  top" button appears on long pages.
 - **Website in 8 languages:** the same languages as the extension, each
   at its own address (`/fr/`, `/pt/`, ...), with a language menu,
   `hreflang` links for search engines and, on an English page, a link to

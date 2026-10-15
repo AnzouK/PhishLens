@@ -154,6 +154,7 @@ The backend is configured with environment variables. The most useful:
 | `MODEL_DIR` / `HF_MODEL_REPO` | `./model` / `AnzouKiona/phishlens-distilbert` | Where the text model is stored, and which Hugging Face repository it comes from ([switching models](docs/operations.md#switch-the-text-model)) |
 | `HF_TOKEN` | empty | Read-only token, only for a private model repository |
 | `OCR_LANG` | `auto` | Tesseract languages; `auto` picks them from the script of each image |
+| `FEEDBACK_DIR` / `RATE_LIMIT_FEEDBACK` | empty / `20/hour` | Where reports sent from the extension are stored (empty: not collected) |
 | `METRICS_ENABLED` | `1` | Prometheus metrics on `/metrics` (keep it private) |
 | `LOG_LEVEL` | `INFO` | Log level for the `phishlens.*` loggers |
 
@@ -216,7 +217,7 @@ both repositories, the models, the report and every guide.
   reviewed real emails, plus phishing reported after the training
   cut-off.
 - **Multilingual detection:** the interface, the website and the OCR
-  handle several languages since v1.16, and the backend can load a
+  handle several languages since v2.0, and the backend can load a
   multilingual text model; that model is being evaluated before it
   replaces the English DistilBERT on PhishLens Cloud.
 - **Research:** SHAP as a comparison for LIME, retraining the agents on

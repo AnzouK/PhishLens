@@ -29,7 +29,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from text_normalize import normalize_text
 
 from settings import (
     CLASS_NAMES,
@@ -41,6 +40,7 @@ from settings import (
     MODEL_DIR,
     MODEL_DTYPE,
 )
+from text_normalize import normalize_text
 
 LEGACY_REPO = "AnzouKiona/phishlens-distilbert"
 META_FILE = "phishlens_text_agent.json"

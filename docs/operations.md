@@ -112,6 +112,23 @@ picks them per image ([languages.md](languages.md#ocr)). On a host
 without Docker, install the `tesseract-ocr-<lang>` packages you need;
 missing packs are skipped.
 
+### Collect reports from users
+
+Reports (`POST /feedback`) are stored only when `FEEDBACK_DIR` is set:
+
+```bash
+# in ~/.phishlens.env
+FEEDBACK_DIR=/data/feedback        # inside the data volume, so it survives re-creation
+```
+
+Caddy must also forward the path: add `/feedback` to the `@api` matcher of
+the main domain (`@api path /analyse* /explain* /health /reputation* /feedback`)
+and reload Caddy. Read them on the VM with
+`cat ~/phishlens_data/feedback/feedback-*.jsonl | python3 -m json.tool --json-lines`.
+To delete one on request, remove the line with its reference
+(`grep -v '"reference": "<ref>"'`). Files stay private: the backup
+script archives the data folder encrypted; never commit or publish them.
+
 ## Health and status endpoints
 
 | Endpoint | Use |

@@ -1,6 +1,6 @@
 # Politique de confidentialité de PhishLens
 
-Dernière mise à jour : 2 octobre 2026.
+Dernière mise à jour : 15 octobre 2026.
 
 PhishLens est une extension Chrome qui vérifie si des e-mails sont du
 phishing. Cette page explique quelles données elle traite, où elles vont
@@ -15,13 +15,17 @@ hébergé, PhishLens Cloud, à l'adresse `anzouk.duckdns.org`.
   défaut).
 - L'e-mail est envoyé au serveur choisi dans les réglages : votre propre
   ordinateur (Docker ou Python en local), votre propre serveur, ou
-  PhishLens Cloud. L'extension n'envoie rien ailleurs.
+  PhishLens Cloud. L'extension n'envoie rien ailleurs, hormis les signalements que vous choisissez d'envoyer (voir plus bas).
 - Le serveur analyse l'e-mail et renvoie un verdict. Il ne stocke ni le
   contenu des e-mails, ni les expéditeurs, ni les objets.
 - Votre historique d'analyses reste dans votre navigateur. Il n'est
   jamais envoyé.
 - Pas de compte, pas de mesure d'audience, pas de publicité et aucune
   vente de données.
+- Vous pouvez signaler un verdict faux, ou partager les statistiques de
+  vos avis. Seul ce que vous voyez et confirmez est envoyé : le texte de
+  l'e-mail sans noms, adresses, numéros ni chemins de liens, ou des
+  statistiques sans aucun contenu d'e-mail.
 
 ## Ce que l'extension lit
 
@@ -62,12 +66,45 @@ l'objet) :
 - PhishTank (comparaison avec une liste téléchargée sur le serveur ;
   aucune requête par e-mail).
 
+## Les signalements que vous choisissez d'envoyer
+
+Sous chaque verdict, PhishLens indique la langue détectée et propose un
+lien **Verdict faux ? Le signaler** ; la vue Statistiques propose le même
+lien pour les analyses marquées **Faux**, et un bouton **Partager mes
+statistiques**. Rien n'est envoyé avant que vous appuyiez sur
+**Envoyer** après avoir relu ce qui sera envoyé.
+
+| Signalement | Ce qui est envoyé | Ce qui n'est jamais envoyé |
+| --- | --- | --- |
+| Verdict faux | L'objet, le texte et les domaines des liens de cet e-mail après anonymisation (noms après une salutation ou un titre, votre propre nom et adresse tels qu'ils apparaissent sur la page de la messagerie, adresses e-mail, numéros de téléphone, longs nombres comme les comptes, cartes et codes, IBAN, @pseudos et noms d'utilisateur, chemin et paramètres de chaque lien), le texte tel que vous l'avez modifié, le verdict, les scores, le mode de calcul, la langue détectée et votre réponse, la version de l'extension et la langue de l'interface | L'adresse de l'expéditeur, l'e-mail d'origine, ses en-têtes et ses pièces jointes |
+| Statistiques | Pour chaque analyse de votre historique : le jour, où elle a été faite (Gmail, Outlook, fenêtre de l'extension), le verdict, les scores, si l'expéditeur était de confiance, votre avis Juste / Faux, la langue détectée et votre réponse | Objets, expéditeurs, textes, liens |
+
+Les signalements vont à PhishLens Cloud, quel que soit le serveur que
+vous utilisez pour les analyses. Le serveur anonymise le texte une
+seconde fois avec les mêmes règles, enregistre le signalement sans votre
+adresse IP ni aucune autre donnée de la requête (le journal du serveur
+web décrit plus bas enregistre toutefois la requête pendant 30 jours),
+et renvoie une référence. Les signalements servent uniquement à mesurer
+et à améliorer PhishLens (par exemple à entraîner le modèle de texte sur
+des e-mails légitimes qu'il a mal jugés) ; ils ne sont jamais publiés ni
+partagés. Ils sont conservés au plus deux ans. Pour faire supprimer un
+signalement, ouvrez un ticket sur
+https://github.com/AnzouK/PhishLens/issues en indiquant sa référence (la
+référence seule ne révèle rien du signalement).
+
+Pour permettre un signalement depuis la vue Statistiques, le texte
+anonymisé de vos dernières analyses Gmail et Outlook est conservé dans
+votre navigateur pendant 7 jours (50 e-mails au plus). Il ne quitte
+jamais le navigateur, sauf si vous signalez cette analyse.
+
 ## Ce qui est conservé, et combien de temps
 
 | Donnée | Où | Durée |
 | --- | --- | --- |
-| Historique des analyses (objet, expéditeur, verdict, scores, principaux mots de l'explication) | Votre navigateur (`chrome.storage.local`) | Jusqu'à ce que vous l'effaciez (Statistiques, **Effacer**), au plus les 500 dernières analyses |
+| Historique des analyses (objet, expéditeur, verdict, scores, principaux mots de l'explication, langue détectée et votre réponse) | Votre navigateur (`chrome.storage.local`) | Jusqu'à ce que vous l'effaciez (Statistiques, **Effacer**), au plus les 500 dernières analyses |
 | Cache des explications | Votre navigateur | Jusqu'à la suppression de l'extension |
+| Texte anonymisé des analyses Gmail et Outlook récentes, pour les signalements | Votre navigateur | 7 jours, 50 e-mails au plus ; effacé avec l'historique |
+| Signalements que vous avez envoyés (texte anonymisé ou statistiques, voir plus haut) | PhishLens Cloud | Au plus deux ans ; supprimés sur demande avec la référence |
 | Résultats de l'analyse automatique (identifiant de conversation, verdict, score) | Votre navigateur | Les 500 derniers e-mails |
 | Réglages | Votre navigateur | Jusqu'à leur modification |
 | Verdicts des liens (URL, verdict, source) | Cache du serveur (SQLite) | 24 heures |
@@ -108,6 +145,8 @@ ordinaire de votre navigateur.
   votre ordinateur.
 - Effacez l'historique depuis la vue Statistiques, ou supprimez
   l'extension pour effacer tout ce qu'elle a enregistré.
+- Si vous n'envoyez jamais de signalement, rien ne quitte votre
+  navigateur hormis les analyses elles-mêmes, vers le serveur choisi.
 
 ## Enfants
 

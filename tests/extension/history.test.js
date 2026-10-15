@@ -107,7 +107,7 @@ test("live evaluation from user reviews", async () => {
     assert.equal(live.accuracy, 0.5);
     await H.setLabel(d, null);                             // clearing a review
     assert.equal((await H.getStats()).live.reviewed, 3);
-    assert.match(await H.exportCSV(), /,label\n/);
+    assert.match(await H.exportCSV(), /,label,lang,lang_user\n/);
 });
 
 test("daily buckets use the local date", async () => {
@@ -119,4 +119,31 @@ test("daily buckets use the local date", async () => {
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     assert.equal(today.date, key);
     assert.equal(today.safe, 1);
+});
+
+test("language answers, reports and drafts", async () => {
+    installFakeChrome();
+    const H = loadLib("history.js");
+    const id = await H.saveScan({ verdict: "phishing", subject: "Your bank", sender: "a@b.c", lang: "fr" });
+    assert.equal(await H.updateScan(id, { lang_user: "pt", reported: "a1b2c3d4e5f6", label: "wrong" }), true);
+    assert.equal(await H.updateScan(id, { lang_user: "<x>", reported: "not a ref" }), true);
+    const [e] = await H.getHistory();
+    assert.equal(e.lang, "fr");
+    assert.equal(e.lang_user, "pt");
+    assert.equal(e.reported, "a1b2c3d4e5f6");
+    await H.saveDraft(id, "Bonjour <NAME>, votre compte");
+    assert.equal(await H.getDraft(id), "Bonjour <NAME>, votre compte");
+    await H.deleteScan(id);
+    assert.equal(await H.getDraft(id), "");
+});
+
+test("shared statistics carry no subject, sender or text", async () => {
+    installFakeChrome();
+    const H = loadLib("history.js");
+    await H.saveScan({ verdict: "safe", subject: "Secret plan", sender: "boss@corp.example", score: 0.2, lang: "en" });
+    const rows = H.statsRows(await H.getHistory());
+    assert.equal(rows.length, 1);
+    assert.ok(!JSON.stringify(rows).includes("Secret") && !JSON.stringify(rows).includes("corp"));
+    assert.deepEqual(Object.keys(rows[0]).sort(),
+        ["agents", "day", "label", "lang", "lang_user", "score", "source", "trusted", "verdict"]);
 });

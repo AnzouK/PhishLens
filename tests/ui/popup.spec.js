@@ -55,7 +55,10 @@ function fakeChrome() {
             },
         },
         runtime: {
-            sendMessage: () => Promise.resolve({}),
+            sendMessage: (msg) => {
+                window.__sent = (window.__sent || []).concat([msg]);
+                return Promise.resolve(msg?.type === "phishlens.feedback" ? { ok: true, reference: "a1b2c3d4e5f6" } : {});
+            },
             getManifest: () => ({ version: "test" }),
         },
     };
@@ -76,6 +79,7 @@ function analyseResponse(verdict) {
             spamhaus_dbl_listed: false, reasons: [], score_delta: 0,
         },
         url_reputation: { checked: 0, malicious_count: 0, sources_hit: [], threat_types: [], verdicts: [] },
+        language: { code: "en", confidence: 0.9 },
         agents: {
             text: { phishing_probability: p, verdict: verdict === "phishing" ? "Phishing" : "Safe" },
             url: { phishing_probability: 0.05, phishing_probability_raw: 0.05, verdict: "Safe" },
@@ -157,3 +161,29 @@ test("an encrypted archive gets a caution verdict, not \"looks safe\"", async ({
     await page.click("#analyze-btn");
     await expect(page.locator("#verdict-label")).toHaveText("Could not look inside this file");
 });
+
+test("pasted text: language confirmation and a redacted report", async ({ page }) => {
+    await page.route(`${API}/analyse`, (route) => route.fulfill({ json: analyseResponse("phishing") }));
+    await page.goto(`${base}/popup/popup.html`);
+    await page.click('.tab[data-tab="paste"]');
+    await page.fill("#paste-input", "Dear Kalinda, your account 12345678 is locked. Verify at https://x.tk/login?u=kalinda now please.");
+    await page.click("#analyze-btn");
+    await expect(page.locator(".plr-lang")).toContainText("Language detected: English");
+    await page.click('.plr-lang button:has-text("Not this language")');
+    await page.selectOption(".plr-lang select", "fr");
+    await expect(page.locator(".plr-lang")).toContainText("Noted: French");
+    await page.click(".plr-link");
+    const text = await page.locator(".plr-report__text").inputValue();
+    expect(text).not.toContain("Kalinda");
+    expect(text).not.toContain("12345678");
+    expect(text).toContain("<URL:x.tk>");
+    await expect(page.locator(".plr-report .plr-btn--strong")).toBeDisabled();
+    await page.check(".plr-report__check input");
+    await page.click(".plr-report .plr-btn--strong");
+    await expect(page.locator(".plr-report")).toContainText("a1b2c3d4e5f6");
+    const sent = await page.evaluate(() => window.__sent.find((m) => m.type === "phishlens.feedback").payload);
+    expect(sent.kind).toBe("false_positive");
+    expect(sent.lang_user).toBe("fr");
+    expect(sent.text).not.toContain("Kalinda");
+});
+
