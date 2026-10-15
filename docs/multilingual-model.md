@@ -114,7 +114,12 @@ Real mail, threshold 0.7 unless stated (false alarms / phishing caught).
 | r4 | 22 languages: FineWeb-2 web text, NLLB-200 translations, per-language tests | en 2.7% / 92.5%; fr 2.9% / 87.4%; AUC 0.975 / 0.976; SpaPhish false alarms 15.9%; web text flagged at most 1.7% in the 19 new languages; recent phishing caught de 95.6%, nl 92.9%, pt 98.7%, es 90.9%; 232 ms | best model; trained partly on private mail, so private |
 | r4p | r4 without any personal mail | en 59.5% / 96.1%; fr 58.0% / 96.1%; AUC 0.826 / 0.826 | learned "account email = phishing": no public legitimate notifications |
 | r5p | r4p + 3,000 legitimate and 1,500 phishing synthetic notifications, translated | en 58.0% / 96.7%; fr 53.6% / 91.3%; AUC 0.902 / 0.847; SpaPhish 26% | templates are short and clean, real notifications long and noisy: the model learns "synthetic or real" |
-| r5 | r4 + stronger anonymisation + synthetic notifications + training mail close to a test email removed | in progress | replaces r4 only if at least as good on mail it never saw |
+| r5 | r4 + stronger anonymisation + synthetic notifications + training mail close to a test email removed | on mail no model saw: en 0.4% / 91.9% (r4: 0.4% / 92.5%); fr 0% / 80.1% (r4: 1.6% / 87.4%); AUC 0.981 / 0.986; SpaPhish 13.6%; 236 ms | slightly fewer false alarms but 7 points less French phishing caught, real scams included: r4 is kept |
+
+The r4 figures in the r5 row are measured on the test sets after the
+second anonymisation and split into mail seen or never seen in training,
+like r5's, which is why they differ from the r4 row (2.7% becomes 0.4% in
+English). Compare figures within a row.
 
 How optimistic is r4? Only 7 of the 334 legitimate test emails have a
 close copy in its training mail (same template, or TF-IDF cosine >= 0.5),
@@ -140,9 +145,12 @@ users elsewhere may see more false alarms. User reports will measure it.
 
 ## Decisions and status
 
-- PhishLens 2.0 ships r5 if it is at least as good as r4 on unseen mail
-  (false alarms and recall at 0.7), otherwise r4, from a private Hugging
-  Face repository.
+- PhishLens 2.0 ships r4, from a private Hugging Face repository. The rule
+  set before round 5 was to take r5 only if it was at least as good on
+  unseen mail at 0.7; it matched r4 on false alarms but caught 7 points
+  less French phishing.
+- Open: r4's recipe on the cleaned data, without the synthetic
+  notifications (r6). It does not block 2.0.
 - No public model yet: r4p and r5p are research results, not models to
   use. A public model waits for real public legitimate mail, such as
   reviewed user reports.
