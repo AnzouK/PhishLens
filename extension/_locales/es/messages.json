@@ -3,6 +3,6 @@
     "message": "PhishLens"
   },
   "extDescription": {
-    "message": "Detecta correos de phishing en Gmail y explica por qué: texto, enlaces, remitente, inteligencia de amenazas y adjuntos."
+    "message": "Detecta correos de phishing en Gmail y Outlook y explica por qué: texto, enlaces, remitente, amenazas conocidas y adjuntos."
   }
 }

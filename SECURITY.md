@@ -1,7 +1,7 @@
 # Security policy
 
-PhishLens is a cybersecurity research project: please help keep it
-honest by reporting anything that looks off.
+PhishLens is a security tool, so its own security matters: please
+report anything that looks off.
 
 ## Reporting a vulnerability
 
@@ -50,8 +50,8 @@ before we've had a chance to fix them.
 
 ## What we won't do
 
-- Pay a bounty (this is a Nile University final-year project, not a
-  funded product).
+- Pay a bounty (PhishLens is a free, independent open-source project,
+  not a funded product).
 - Sign an NDA in advance of a report.
 
 Thanks for helping.

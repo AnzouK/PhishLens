@@ -92,8 +92,11 @@ decisions: [docs/architecture.md](docs/architecture.md).
 
 ## Quickstart
 
-**1. Load the extension.** Open `chrome://extensions`, turn on Developer
-mode, click **Load unpacked** and pick the `extension/` folder.
+**1. Load the extension.** Download `PhishLens-extension-<version>.zip`
+from the [latest release](https://github.com/AnzouK/PhishLens/releases/latest)
+and unzip it (or use the `extension/` folder of a clone). Open
+`chrome://extensions`, turn on Developer mode, click **Load unpacked** and
+pick the unzipped folder.
 
 **2. Pick a backend** in the extension's gear menu (PhishLens Cloud is
 the default, so this step is optional):
@@ -128,7 +131,7 @@ The backend is ready when the logs show `Text model loaded from ...`, or when `/
 
 - **In Gmail:** open an email and click **Scan with PhishLens** next to
   the subject. The verdict appears above the body with per-agent scores,
-  sender-authentication chips and a "Why?" panel. Emails with attachments
+  sender-authentication chips and a "Why this verdict?" panel. Emails with attachments
   get a **Scan N attachments** button.
 - **In the popup:** drop a `.eml` file or an attachment (PDF, image,
   Word, Excel, PowerPoint, HTML, ZIP, RAR, 7z, .ics), or paste the text of an email.
@@ -161,7 +164,7 @@ The backend is configured with environment variables. The most useful:
 | `RATE_LIMIT_ANALYSE` | `30/minute` | Per-IP limit (also `RATE_LIMIT_ATTACHMENT`, `RATE_LIMIT_EXPLAIN`) |
 | `LIME_NUM_SAMPLES` | `100` | Forward passes per explanation: higher is sharper and slower |
 | `OCR_MAX_PAGES` / `OCR_TIMEOUT_S` | `3` / `10` | Pages of a scanned PDF sent to OCR, and the time limit per page |
-| `AGENTS_ALLOW_PICKLE` | `1` | Set to `0` once the `.skops` agents are published, to refuse pickle files |
+| `AGENTS_ALLOW_PICKLE` | `1` | `0` refuses pickle files and loads only the `.skops` agents (PhishLens Cloud runs with `0`) |
 | `MODEL_DIR` / `HF_MODEL_REPO` | `./model` / `AnzouKiona/phishlens-distilbert` | Where the text model is stored, and which Hugging Face repository it comes from ([switching models](docs/operations.md#switch-the-text-model)) |
 | `HF_TOKEN` | empty | Read-only token, only for a private model repository |
 | `OCR_LANG` | `auto` | Tesseract languages; `auto` picks them from the script of each image |
@@ -178,27 +181,26 @@ sender list are explained in
 ## Project layout
 
 ```
-backend/               FastAPI app, agents, sender auth, threat intel, attachments
-  extension_backend.py   HTTP API (endpoints, limits, metrics)
-  settings.py            version, environment, scoring constants
-  email_parsing.py       text, links and headers of an email
-  sender_trust.py        sender domain, allowlist, Gmail auth hints
-  text_model.py          text agent and LIME
-  structured_agents.py   URL and metadata agents
-  fusion.py              scores to verdict (pure functions)
-  auth_headers.py        SPF / DKIM / DMARC and Spamhaus DBL
-  reputation.py          threat-intel cascade with SQLite cache
-  attachment_analysis.py attachment dispatcher (PDF, HTML, text)
-  ocr.py                 OCR for images and scanned PDFs, QR decoding
-  office_analysis.py     Word / Excel / PowerPoint: text, links, macros
-  agent_io.py            loads the Random Forests without pickle (skops)
-  tests/                 offline pytest suite
-extension/             Chrome MV3 extension (plain JS, no build step)
-tests/                 extension unit tests (node:test), popup and website UI tests (Playwright)
-site/                  website, built in 8 languages (do not edit by hand)
-site-src/              its template, texts and translated legal pages
-docs/                  architecture, threat model, operations, overview
-scripts/locustfile.py  load test
+backend/                  FastAPI app (one module per concern)
+  extension_backend.py      HTTP API: endpoints, limits, metrics
+  settings.py               version, environment, scoring constants
+  email_parsing.py          text, links and headers of an email
+  sender_trust.py           sender domain, allowlist, Gmail auth hints
+  text_model.py             text agent and LIME; text_normalize.py, language.py
+  structured_agents.py      URL and metadata agents (rf_agent.py, agent_io.py)
+  fusion.py                 scores to verdict (pure functions)
+  auth_headers.py           SPF / DKIM / DMARC and Spamhaus DBL
+  reputation.py             threat-intel cascade with SQLite cache
+  attachment_analysis.py    attachments: PDF, HTML, images (ocr.py), Office
+                            (office_analysis.py), archives (archive_analysis.py)
+  feedback.py               reports users send, redacted again (redaction.py)
+  tests/                    offline pytest suite
+extension/                Chrome MV3 extension (plain JS, no build step)
+site/                     website in 8 languages, generated from site-src/
+tests/                    extension unit tests (node:test), popup and website UI tests (Playwright)
+docs/                     architecture, threat model, operations, languages, model
+scripts/                  website build, redeploy and backup, load test,
+                          translation review, report deletion, version check
 ```
 
 ## Documentation
@@ -222,18 +224,16 @@ both repositories, the models, the report and every guide.
 
 ## Roadmap
 
-- **Chrome Web Store release** once the extension UI is final.
-- **Outlook on the web:** manual scans work (v1.15); next, attachments,
-  full headers and automatic scanning there, then Yahoo Mail.
-- **Live evaluation at scale:** the review buttons and
-  `scripts/live_eval.py` are in place; the next step is a few hundred
-  reviewed real emails, plus phishing reported after the training
-  cut-off.
-- **Multilingual detection:** a version of the multilingual text model
-  trained only on public data, so that it can be published, and a native
-  review of the Hausa translation.
-- **Research:** SHAP as a comparison for LIME, retraining the agents on
-  OCR text and QR-code phishing.
+- **Outlook on the web:** manual scans work; next, attachments, full
+  headers and automatic scanning through Microsoft's mail API.
+- **Yahoo Mail.**
+- **Live evaluation and research:** a few hundred reviewed real emails
+  and the reports users send, SHAP as a comparison for LIME, retraining
+  on OCR text and QR-code phishing.
+- **Multilingual model:** a version trained only on public data, so that
+  it can be published; a native review of the Hausa translation is under
+  way.
+- **Chrome Web Store release.**
 
 ## Origin
 
@@ -241,8 +241,7 @@ PhishLens started as a final-year project for a B.Sc. in Cybersecurity at
 [Nile University of Nigeria](https://nileuniversity.edu.ng/) (2025/2026)
 and is now maintained independently. The training and evaluation of the
 original models live in the companion repository
-[PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector). The
-accompanying paper describes PhishLens as it was when it was written;
+[PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector);
 everything added since is in the [CHANGELOG](CHANGELOG.md).
 
 ## Credits

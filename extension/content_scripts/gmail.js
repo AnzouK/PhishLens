@@ -62,5 +62,4 @@ const _autoObs = new MutationObserver(() => {
 PLL_OBSERVERS.push(_autoObs);
 if (PLL_IS_GMAIL) _autoObs.observe(document.body, { childList: true, subtree: true });
 
-console.log(TAG, "Gmail content script loaded.");
 if (PLL_IS_GMAIL) _autoCacheGet().then((c) => { _autoCacheMem = c; paintAutoBadges(); }).catch(() => {});
