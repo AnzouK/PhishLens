@@ -44,8 +44,8 @@ imitate it.
 
 | Part | Choice |
 | --- | --- |
-| Teacher | `Horizon-Labs/phishing-scam-detector-base` |
-| Student | `jhu-clsp/mmBERT-small`, two classes |
+| Teacher | [`Horizon-Labs/phishing-scam-detector-base`](https://huggingface.co/Horizon-Labs/phishing-scam-detector-base) |
+| Student | [`jhu-clsp/mmBERT-small`](https://huggingface.co/jhu-clsp/mmBERT-small), two classes |
 | Teacher score | P(fraud) + 0.5 x P(spam), capped at 1 (with 1 x P(spam), newsletters looked like phishing) |
 | Loss | 0.7 x class-weighted cross-entropy on the gold label + 0.3 x binary cross-entropy towards the teacher score |
 | Training | 2 epochs, learning rate 3e-5, batch 32, 256 tokens |
@@ -62,19 +62,19 @@ the routing: simpler to run, explain and audit.
 
 | Source | Languages | Licence | Use |
 | --- | --- | --- | --- |
-| zefang-liu/phishing-email-dataset | en | LGPL-3.0 | train and test (seen by v1) |
-| cybersectony/PhishingEmailDetectionv2.0 | en | not stated | train and test (seen by v1) |
-| MeAJOR corpus (Zenodo) | mostly en | CC BY 4.0 | legitimate and fraudulent mail, capped |
-| MOZ-Smishing | pt | OpenRAIL-M | test only (real SMS) |
-| french-spam-text-dataset | fr | CC BY 4.0 | synthetic, reported apart |
-| SMS Spam multilingual | fr, pt | GPL | machine-translated, training only |
-| Nazario phishing corpus | several | CC BY 4.0 | 2023-2024 train, 2025 test |
-| phishing_pot | several | CC BY-NC 4.0 | before 2026 train, 2026 test |
-| untroubled.org spam traps | several | free use | kept as phishing only when the teacher says fraud (P >= 0.7) |
-| nyuuzyou/phishing-snapshots | fr, pt, es, ... | CC0 | text of real phishing pages with a form |
-| SpaPhish (Mendeley) | es | CC BY 4.0 | real Spanish mail; 2025 is test |
-| FineWeb, FineWeb-2 | 22 languages | ODC-By | ordinary web text as legitimate; 300 pages per language held out |
-| OPUS-MT and NLLB-200 translations | 21 languages | CC BY 4.0 / CC BY-NC 4.0 | phishing and legitimate translated in equal numbers |
+| [zefang-liu/phishing-email-dataset](https://huggingface.co/datasets/zefang-liu/phishing-email-dataset) | en | LGPL-3.0 | train and test (seen by v1) |
+| [cybersectony/PhishingEmailDetectionv2.0](https://huggingface.co/datasets/cybersectony/PhishingEmailDetectionv2.0) | en | not stated | train and test (seen by v1) |
+| [MeAJOR corpus (Zenodo)](https://zenodo.org/records/18471483) | mostly en | CC BY 4.0 | legitimate and fraudulent mail, capped |
+| [MOZ-Smishing](https://huggingface.co/datasets/MOZNLP/MOZ-Smishing) | pt | OpenRAIL-M | test only (real SMS) |
+| [french-spam-text-dataset](https://github.com/Djochrist/french-spam-text-dataset-v1.0) | fr | CC BY 4.0 | synthetic, reported apart |
+| [SMS Spam multilingual](https://huggingface.co/datasets/dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset) | fr, pt | GPL | machine-translated, training only |
+| [Nazario phishing corpus](https://monkey.org/~jose/phishing/) | several | CC BY 4.0 | 2023-2024 train, 2025 test |
+| [phishing_pot](https://github.com/rf-peixoto/phishing_pot) | several | CC BY-NC 4.0 | before 2026 train, 2026 test |
+| [untroubled.org spam traps](https://untroubled.org/spam/) | several | free use | kept as phishing only when the teacher says fraud (P >= 0.7) |
+| [nyuuzyou/phishing-snapshots](https://huggingface.co/datasets/nyuuzyou/phishing-snapshots) | fr, pt, es, ... | CC0 | text of real phishing pages with a form |
+| [SpaPhish (Mendeley)](https://data.mendeley.com/datasets/hz2d6gz7pc) | es | CC BY 4.0 | real Spanish mail; 2025 is test |
+| [FineWeb](https://huggingface.co/datasets/HuggingFaceFW/fineweb), [FineWeb-2](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2) | 22 languages | ODC-By | ordinary web text as legitimate; 300 pages per language held out |
+| Translations with [OPUS-MT](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-fr) and [NLLB-200](https://huggingface.co/facebook/nllb-200-distilled-600M) | 21 languages | CC BY 4.0 / CC BY-NC 4.0 | phishing and legitimate translated in equal numbers |
 | Synthetic notifications (round 5) | 22 languages | made for PhishLens | legitimate notifications and phishing on the same topics |
 | A maintainer's mailbox (private) | en, fr | private | legitimate test mail; mass mail used to train the private models only |
 
@@ -168,3 +168,26 @@ users elsewhere may see more false alarms. User reports will measure it.
   Multilingual dataset (embargoed until 2 December 2026), real French and
   Nigerian-language phishing, then SHAP and retraining on OCR text and QR
   phishing.
+
+## Sources
+
+- [Horizon-Labs/phishing-scam-detector-base](https://huggingface.co/Horizon-Labs/phishing-scam-detector-base)
+- [jhu-clsp/mmBERT-small](https://huggingface.co/jhu-clsp/mmBERT-small)
+- [zefang-liu/phishing-email-dataset](https://huggingface.co/datasets/zefang-liu/phishing-email-dataset)
+- [cybersectony/PhishingEmailDetectionv2.0](https://huggingface.co/datasets/cybersectony/PhishingEmailDetectionv2.0)
+- [MeAJOR corpus (Zenodo 18471483)](https://zenodo.org/records/18471483)
+- [MOZNLP/MOZ-Smishing](https://huggingface.co/datasets/MOZNLP/MOZ-Smishing)
+- [Djochrist/french-spam-text-dataset](https://github.com/Djochrist/french-spam-text-dataset-v1.0)
+- [dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset](https://huggingface.co/datasets/dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset)
+- [Nazario phishing corpus](https://monkey.org/~jose/phishing/)
+- [phishing_pot](https://github.com/rf-peixoto/phishing_pot)
+- [untroubled.org spam archive](https://untroubled.org/spam/)
+- [nyuuzyou/phishing-snapshots](https://huggingface.co/datasets/nyuuzyou/phishing-snapshots)
+- [SpaPhish (Mendeley Data)](https://data.mendeley.com/datasets/hz2d6gz7pc)
+- [FineWeb](https://huggingface.co/datasets/HuggingFaceFW/fineweb)
+- [FineWeb-2](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2)
+- [OPUS-MT en-fr](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-fr)
+- [OPUS-MT en-pt](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-pt)
+- [NLLB-200 distilled 600M](https://huggingface.co/facebook/nllb-200-distilled-600M)
+- [LIME](https://github.com/marcotcr/lime)
+- [Signal Spam](https://www.signal-spam.fr/)
