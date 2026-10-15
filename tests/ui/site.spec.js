@@ -90,3 +90,18 @@ test.describe("a French browser on an English page", () => {
         await expect(link).toHaveAttribute("href", "fr/terms.html");
     });
 });
+
+test("the header hides on scroll down, returns on scroll up, and the page has a way back to the top", async ({ page }) => {
+    await page.goto(`${base}/fr/`);
+    const head = page.locator(".site-head");
+    const top = page.locator(".to-top");
+    await expect(top).toBeHidden();
+    await page.mouse.wheel(0, 2500);
+    await expect(head).toHaveClass(/is-hidden/);
+    await expect(top).toBeVisible();
+    await expect(top).toHaveText("Haut de page");
+    await page.mouse.wheel(0, -300);
+    await expect(head).not.toHaveClass(/is-hidden/);
+    await top.click();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+});

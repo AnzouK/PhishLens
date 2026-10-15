@@ -156,5 +156,6 @@
   "js_analysing": "analyse en cours ; la première vérification après une période calme peut prendre quelques secondes",
   "js_rate": "Trop de vérifications depuis votre réseau. Réessayez dans une minute.",
   "js_server_answered": "Le serveur a répondu {status}.",
-  "js_failed": "La vérification a échoué"
+  "js_failed": "La vérification a échoué",
+  "js_to_top": "Haut de page"
 }

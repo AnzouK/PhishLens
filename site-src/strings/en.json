@@ -156,5 +156,6 @@
   "js_analysing": "analysing; the first check after a quiet period can take a few seconds",
   "js_rate": "Too many checks from your network. Try again in a minute.",
   "js_server_answered": "The server answered {status}.",
-  "js_failed": "The check failed"
+  "js_failed": "The check failed",
+  "js_to_top": "Back to top"
 }

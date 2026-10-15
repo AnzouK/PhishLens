@@ -156,5 +156,6 @@
   "js_analysing": "bezig met controleren; de eerste controle na een rustige periode kan enkele seconden duren",
   "js_rate": "Te veel controles vanaf uw netwerk. Probeer het over een minuut opnieuw.",
   "js_server_answered": "De server antwoordde {status}.",
-  "js_failed": "De controle is mislukt"
+  "js_failed": "De controle is mislukt",
+  "js_to_top": "Naar boven"
 }

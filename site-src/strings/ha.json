@@ -156,5 +156,6 @@
   "js_analysing": "ana dubawa; bincike na farko bayan shiru na iya ɗaukar wasu daƙiƙoƙi",
   "js_rate": "Bincike ya yi yawa daga cibiyar sadarwarka. Sake gwadawa bayan minti ɗaya.",
   "js_server_answered": "Sabar ta amsa {status}.",
-  "js_failed": "Binciken ya kasa"
+  "js_failed": "Binciken ya kasa",
+  "js_to_top": "Koma sama"
 }

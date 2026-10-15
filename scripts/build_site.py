@@ -138,6 +138,7 @@ def head(lang, s, *, title, desc, base, page, og_desc=None, scripts=False, noind
         f'<link rel="stylesheet" href="{base}style.css">',
         f'<script src="{base}i18n/{lang}.js" defer></script>',
         f'<script src="{base}lang.js" defer></script>',
+        f'<script src="{base}nav.js" defer></script>',
     ]
     if scripts:
         out.append(f'<script src="{base}app.js" defer></script>')

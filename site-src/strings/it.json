@@ -156,5 +156,6 @@
   "js_analysing": "analisi in corso; il primo controllo dopo un periodo di inattività può richiedere qualche secondo",
   "js_rate": "Troppi controlli dalla tua rete. Riprova tra un minuto.",
   "js_server_answered": "Il server ha risposto {status}.",
-  "js_failed": "Il controllo non è riuscito"
+  "js_failed": "Il controllo non è riuscito",
+  "js_to_top": "Torna su"
 }

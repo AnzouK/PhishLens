@@ -156,5 +156,6 @@
   "js_analysing": "analizando; la primera comprobación tras un periodo de calma puede tardar unos segundos",
   "js_rate": "Demasiadas comprobaciones desde su red. Vuelva a intentarlo en un minuto.",
   "js_server_answered": "El servidor respondió {status}.",
-  "js_failed": "La comprobación falló"
+  "js_failed": "La comprobación falló",
+  "js_to_top": "Volver arriba"
 }

@@ -156,5 +156,6 @@
   "js_analysing": "wird geprüft; die erste Prüfung nach einer ruhigen Phase kann einige Sekunden dauern",
   "js_rate": "Zu viele Prüfungen aus Ihrem Netzwerk. Versuchen Sie es in einer Minute erneut.",
   "js_server_answered": "Der Server antwortete mit {status}.",
-  "js_failed": "Die Prüfung ist fehlgeschlagen"
+  "js_failed": "Die Prüfung ist fehlgeschlagen",
+  "js_to_top": "Nach oben"
 }

@@ -156,5 +156,6 @@
   "js_analysing": "a analisar; a primeira verificação após um período calmo pode demorar alguns segundos",
   "js_rate": "Demasiadas verificações a partir da sua rede. Tente novamente dentro de um minuto.",
   "js_server_answered": "O servidor respondeu {status}.",
-  "js_failed": "A verificação falhou"
+  "js_failed": "A verificação falhou",
+  "js_to_top": "Voltar ao topo"
 }
