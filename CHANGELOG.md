@@ -7,6 +7,8 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-10-15
+
 ### Added
 - The website's "try it" result shows the detected language, with
   Correct / Not this language, and **Wrong verdict? Report it**, with the
@@ -783,7 +785,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/AnzouK/PhishLens/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/AnzouK/PhishLens/compare/v1.15.5...v2.0.0
 [1.15.5]: https://github.com/AnzouK/PhishLens/compare/v1.15.4...v1.15.5
 [1.15.4]: https://github.com/AnzouK/PhishLens/compare/v1.15.3...v1.15.4
