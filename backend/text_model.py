@@ -118,16 +118,61 @@ def display_name(meta: dict[str, Any], repo: str = HF_MODEL_REPO) -> str:
     return f"{name} {version}" if version else name
 
 
+_SPECIAL = (
+    "bos_token",
+    "eos_token",
+    "unk_token",
+    "sep_token",
+    "pad_token",
+    "cls_token",
+    "mask_token",
+)
+
+
+def fast_tokenizer_kwargs(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Special tokens of a tokenizer_config.json, in the form
+    PreTrainedTokenizerFast accepts (see _load_tokenizer)."""
+    kwargs: dict[str, Any] = {k: cfg[k] for k in _SPECIAL if isinstance(cfg.get(k), str)}
+    extra = cfg.get("extra_special_tokens") or cfg.get("additional_special_tokens")
+    if isinstance(extra, list) and extra:
+        kwargs["additional_special_tokens"] = [str(t) for t in extra]
+    return kwargs
+
+
+def _load_tokenizer(model_dir: Path):
+    """AutoTokenizer, or the plain fast tokenizer built from tokenizer.json
+    when the checkpoint was saved by a newer Transformers whose tokenizer
+    class this version does not know (Transformers 5 writes
+    "TokenizersBackend"). The tokenizer.json format is the same."""
+    from transformers import AutoTokenizer
+
+    try:
+        return AutoTokenizer.from_pretrained(str(model_dir))
+    except (ValueError, TypeError, AttributeError) as e:
+        if not (model_dir / "tokenizer.json").is_file():
+            raise
+        from transformers import PreTrainedTokenizerFast
+
+        logger.info("AutoTokenizer failed (%s): using tokenizer.json directly.", e)
+        cfg = json.loads((model_dir / "tokenizer_config.json").read_text())
+        tok = PreTrainedTokenizerFast(
+            tokenizer_file=str(model_dir / "tokenizer.json"), **fast_tokenizer_kwargs(cfg)
+        )
+        tok.padding_side = cfg.get("padding_side", "right")
+        tok.model_max_length = int(cfg.get("model_max_length", 512))
+        return tok
+
+
 def load() -> None:
     """Load the tokenizer, the model and the LIME explainer into STATE."""
     import torch
     from lime.lime_text import LimeTextExplainer
-    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    from transformers import AutoModelForSequenceClassification
 
     model_dir = ensure_model_available()
     device = _pick_device()
     dtype = torch.float16 if MODEL_DTYPE == "float16" else torch.float32
-    tok = AutoTokenizer.from_pretrained(str(model_dir))
+    tok = _load_tokenizer(model_dir)
     model = AutoModelForSequenceClassification.from_pretrained(str(model_dir), torch_dtype=dtype)
     model.to(device).eval()
     meta = read_meta(model_dir)

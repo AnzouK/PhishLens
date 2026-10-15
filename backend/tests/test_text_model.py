@@ -218,3 +218,21 @@ def test_each_repository_has_its_own_folder(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "huggingface_hub", hub)
     out = text_model.ensure_model_available(tmp_path, "AnzouKiona/other")
     assert out == tmp_path / "AnzouKiona--other" and calls == [("AnzouKiona/other", str(out))]
+
+
+def test_fast_tokenizer_kwargs_from_a_transformers_5_config():
+    cfg = {
+        "tokenizer_class": "TokenizersBackend",
+        "bos_token": "<bos>",
+        "pad_token": "<pad>",
+        "mask_token": "<mask>",
+        "extra_special_tokens": ["<start_of_turn>", "<end_of_turn>"],
+        "model_max_length": 8192,
+    }
+    kw = text_model.fast_tokenizer_kwargs(cfg)
+    assert kw == {
+        "bos_token": "<bos>",
+        "pad_token": "<pad>",
+        "mask_token": "<mask>",
+        "additional_special_tokens": ["<start_of_turn>", "<end_of_turn>"],
+    }
