@@ -43,9 +43,12 @@ backend share one version number.
   results, as it already did for Gmail scans.
 
 ### Documentation
-- The first public benchmark run, against PhishLens Cloud 2.0.7, with
-  its full figures and what caused the false alarms
-  (`docs/evaluation.md`).
+- The public benchmark runs, from 2.0.7 to 2.0.8, with their full
+  figures and what each one showed (`docs/evaluation.md`). On 2.0.8:
+  1 of 297 legitimate mailing-list emails flagged (95% CI 0.1% to
+  1.9%) and 436 of 500 phishing emails caught (84.0% to 89.8%), against
+  130 of 297 and 461 of 500 on 2.0.7. The README shows the 2.0.8
+  figures next to the text model's.
 - The figures of the multilingual model come with their counts and 95%
   confidence intervals (README, website, project overview, model notes):
   English 1/255 legitimate emails flagged and 1,805/1,952 phishing caught,

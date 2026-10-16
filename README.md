@@ -85,6 +85,19 @@ the language. Measure it yourself with the public benchmark
 [multilingual-model.md](docs/multilingual-model.md); what can go wrong:
 [known limitations](docs/threat-model.md#residual-risks-and-known-limitations).
 
+The whole system, measured with the public benchmark on 2026-10-16
+(PhishLens Cloud, real mail sent from January 2026: phishing from
+phishing_pot and Nazario, legitimate mail from public Apache mailing
+lists):
+
+| Legitimate emails flagged | Phishing caught |
+| --- | --- |
+| 1 of 297: 0.3% (95% CI 0.1% to 1.9%) | 436 of 500: 87.2% (84.0% to 89.8%) |
+
+The legitimate side is technical mailing-list mail, with no bank or
+delivery notices; the misses and their causes are in
+[evaluation.md](docs/evaluation.md#results).
+
 A scan takes about 65 ms on the server (median, CPU only), plus the
 threat-intelligence lookups.
 
