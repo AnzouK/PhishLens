@@ -81,6 +81,7 @@ legitimate mail from public Apache mailing-list archives, all sent from
 | --- | --- | --- | --- |
 | 2026-10-16 | PhishLens Cloud 2.0.7, text model r4 | 130 of 297: 43.8% (95% CI 38.2% to 49.5%) | 461 of 500: 92.2% (89.5% to 94.2%) |
 | 2026-10-16 | main after the metadata fix, not released | 14 of 297: 4.7% (2.8% to 7.8%) | 225 of 500: 45.0% (40.7% to 49.4%) |
+| 2026-10-16 | main after the subject fix, not released | 14 of 297: 4.7% (2.8% to 7.8%) | 436 of 500: 87.2% (84.0% to 89.8%) |
 
 **What the 2.0.7 run showed.** On the 130 false alarms, the mean scores
 were 1% for the wording, 56% for the links and 92% for the sender, and
@@ -103,5 +104,26 @@ with the subject (112 of 120 above 0.85). From 2.0.8 the model reads
 the subject. The 14 remaining false alarms were all decided by the link
 score alone, on plain-text mailing-list mail whose written-out links
 (build servers, personal sites) go to the link model.
+
+
+**What the third run showed.** With the subject, detection rose to
+87.2% (Dutch from 11% to 90%, Portuguese from 29% to 95%) and false
+alarms did not move. The 14 false alarms were all on the default path,
+decided by the link score alone: a plain `http://` link was enough to
+confirm the trained link model. Replayed on the cached scores with the
+link score never deciding alone, false alarms fall to 1 of 297, for 2
+more missed phishing emails. 2.0.8 still lets strong link signs (raw IP
+address, "@" before the host, suspicious TLD, file on a public cloud
+host) confirm it; the next run measures the result.
+
+Of the 64 missed phishing emails, 38 were on the `crypto_verified`
+path: DKIM aligned with the sender's domain, which an attacker gets for
+their own domain. On that path the text weighs half and only Safe
+Browsing forces the verdict. Replayed on the same scores, sending
+unlisted DKIM-aligned senders to the default path together with the
+link change catches 465 of 500 (93.0%) for 2 of 297 false alarms. That
+discount exists for legitimate bank, delivery and university mail from
+unlisted domains, which these mailing lists do not contain: the change
+waits for a measurement on such mail.
 
 The run on 2.0.8 will be added here.

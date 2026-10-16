@@ -88,11 +88,11 @@ class TestDecideEmail:
         p_meta=0.0,
         path=PATH_DEFAULT,
         rep=NO_REP,
-        rule=0.0,
+        strong=False,
         text_used=True,
     ):
         return fusion.decide_email(
-            p_text, p_url, p_meta, text_used=text_used, path=path, rep=rep, url_rule_score=rule
+            p_text, p_url, p_meta, text_used=text_used, path=path, rep=rep, strong_link=strong
         )
 
     def test_weighted_sum_below_threshold_is_safe(self):
@@ -120,15 +120,16 @@ class TestDecideEmail:
             text_used=True,
             path=PATH_DEFAULT,
             rep=NO_REP,
-            url_rule_score=0.0,
             text_override=0.7,
         )
         assert v.high_conf and v.is_phishing
         assert not self.decide(p_text=0.75).high_conf
 
-    def test_url_model_alone_needs_a_confirming_sign(self):
-        assert not self.decide(p_url=0.95, rule=0.15).high_conf
-        assert self.decide(p_url=0.95, rule=0.25).high_conf
+    def test_url_score_alone_needs_a_strong_sign(self):
+        # plain http or a long link no longer confirms the link model
+        v = self.decide(p_url=0.94, p_meta=0.49)
+        assert not v.high_conf and not v.is_phishing
+        assert self.decide(p_url=0.95, strong=True).high_conf
         assert self.decide(p_url=0.95, rep=URLHAUS).high_conf
 
     @pytest.mark.parametrize(

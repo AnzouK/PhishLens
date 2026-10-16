@@ -586,7 +586,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         text_used=text_used,
         path=path,
         rep=rep,
-        url_rule_score=structured_agents.url_heuristic(urls),
+        strong_link=structured_agents.strong_link_sign(urls),
         text_override=text_model.override_threshold(),
     )
     _count_verdict("/analyse", verdict.is_phishing, verdict.trust_path)

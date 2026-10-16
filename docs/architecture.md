@@ -119,7 +119,7 @@ flowchart TD
     T -- no --> P2["crypto_verified<br/>text x0.5, override only on GSB hit, threshold 0.65"]
     C -- no --> I{"Gmail delivered to Inbox<br/>and no DKIM/DMARC fail?"}
     I -- yes --> P3["gmail_inbox_soft<br/>text x0.6, override only on GSB hit, threshold 0.62"]
-    I -- no --> P4["default<br/>weights 0.34 / 0.33 / 0.33, override if text or metadata >= 0.85<br/>(URL only with a confirming sign), threshold 0.5"]
+    I -- no --> P4["default<br/>weights 0.34 / 0.33 / 0.33, override if text or metadata >= 0.85<br/>(URL only with threat intel or a strong link sign), threshold 0.5"]
 ```
 
 Before the paths apply, two external signals are folded in: a Google Safe
@@ -149,7 +149,7 @@ How each trust path changes them:
 | `crypto_verified` | x0.5 | only on a Safe Browsing hit | 0.65 | |
 | `gmail_inbox_soft` | x0.6 | only on a Safe Browsing hit | 0.62 | |
 | `outlook_internal` | x0.6 | only on a Safe Browsing hit | 0.62 | Outlook sender from the user's own organisation (address hidden by Outlook, mail authenticated by the organisation's server); the organisation's domain is used for the allowlist check, so an allowlisted organisation gets `trusted_sender` instead |
-| `default` | x1.0 | text or metadata >= 0.85; URL >= 0.85 only with a concrete sign (threat-intel hit, raw IP, plain http, `@`, suspicious TLD) | 0.5 | |
+| `default` | x1.0 | text or metadata >= 0.85; URL >= 0.85 only with a threat-intel hit or a strong link sign (raw IP, `@` before the host, suspicious TLD, file on a public cloud host); plain http no longer counts (v2.0.8) | 0.5 | |
 
 A Google Safe Browsing match on any link forces the phishing verdict on
 every path: a trusted or signed sender carrying a blocklisted link means

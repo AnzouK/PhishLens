@@ -120,3 +120,34 @@ def test_function_words_are_not_explanation_words():
         assert word in FUNCTION_WORDS
     for word in ("account", "click", "dear", "verify", "cher", "client"):
         assert word not in FUNCTION_WORDS
+
+
+@pytest.mark.parametrize(
+    ("urls", "strong"),
+    [
+        (
+            ["http://ci.apache.org/builders/commons-text/builds/1234/steps/compile/logs/stdio"],
+            False,
+        ),
+        (["http://httpd.example.com/blog/2026/01/05/release-notes"], False),
+        (["https://github.com/apache/commons-text/pull/12"], False),
+        (["http://192.168.10.5/login"], True),
+        (["https://paypal.com@evil.example/x"], True),
+        (["https://secure-login.click/x"], True),
+        (["https://storage.googleapis.com/bucket/invoice.html"], True),
+    ],
+)
+def test_strong_link_sign(urls, strong):
+    assert sa.strong_link_sign(urls) is strong
+
+
+def test_plain_http_mailing_list_link_does_not_force_phishing(client, monkeypatch):
+    monkeypatch.setattr(sa, "url_agent", lambda urls, body_text="": 0.95)
+    j = client.post(
+        "/analyse",
+        json={
+            "raw_text": "Build failed, logs at http://ci.apache.org/builders/x/builds/1/steps/compile/logs/stdio for the record."
+        },
+    ).json()
+    assert j["high_confidence_override"] is False
+    assert j["verdict"] == "safe"
