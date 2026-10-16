@@ -14,6 +14,10 @@ backend share one version number.
   without the emails so a run resumes and can be published.
 
 ### Documentation
+- The figures of the multilingual model come with their counts and 95%
+  confidence intervals (README, website, project overview, model notes):
+  English 1/255 legitimate emails flagged and 1,805/1,952 phishing caught,
+  French 1/63 and 202/231.
 - `docs/evaluation.md`: what each figure measures, why every rate comes
   with its count and a confidence interval, the benchmark protocol and
   its public sources.

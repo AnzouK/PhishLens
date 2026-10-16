@@ -28,7 +28,7 @@
   "r_caught": "van de phishing herkend in Engelse mails die het model nooit zag",
   "r_latency": "mediane controle op een server zonder GPU",
   "r_sources": "bronnen van dreigingsinformatie",
-  "results_note_html": "Gemeten op echte mail die geen enkel model tijdens de training zag (ongeveer 330 legitieme mails uit één mailbox) en met een belastingstest op PhishLens Cloud: een ordegrootte, geen garantie. Zie de <a href=\"https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations\">bekende beperkingen</a>.",
+  "results_note_html": "Gemeten op echte mail die geen enkel model tijdens de training zag (318 legitieme mails uit één mailbox, 2.183 phishingmails; 95%-betrouwbaarheidsinterval 91,2% tot 93,6%) en met een belastingstest op PhishLens Cloud: een ordegrootte, geen garantie. Zie de <a href=\"https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations\">bekende beperkingen</a>.",
   "live_h": "PhishLens Cloud, op dit moment",
   "live_loading": "tellers van de server worden geladen",
   "live_note": "Van de server gelezen bij het laden van de pagina. De tellers beginnen opnieuw na een herstart van de server.",

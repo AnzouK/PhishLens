@@ -28,7 +28,7 @@
   "r_caught": "na phishing da aka gano a imel na Turanci da samfurin bai taɓa gani ba",
   "r_latency": "matsakaicin lokacin bincike a sabar da ba ta da GPU",
   "r_sources": "majiyoyin bayanan barazana",
-  "results_note_html": "An auna a kan imel na gaske da babu samfurin da ya gani lokacin horo (kusan imel 330 na halal daga akwati ɗaya) da gwajin nauyi a PhishLens Cloud: ƙiyasi ne, ba tabbaci ba. Duba <a href=\"https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations\">iyakokin da aka sani</a>.",
+  "results_note_html": "An auna a kan imel na gaske da babu samfurin da ya gani lokacin horo (imel 318 na halal daga akwati ɗaya, imel na phishing 2,183; tazarar amincewa ta 95%: 91.2% zuwa 93.6%) da gwajin nauyi a PhishLens Cloud: ƙiyasi ne, ba tabbaci ba. Duba <a href=\"https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations\">iyakokin da aka sani</a>.",
   "live_h": "PhishLens Cloud, a yanzu",
   "live_loading": "ana loda ƙididdigar sabar",
   "live_note": "An karanta daga sabar lokacin da shafin ya buɗe. Ƙididdigar tana komawa sifili idan sabar ta sake farawa.",

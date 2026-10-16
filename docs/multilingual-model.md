@@ -121,6 +121,28 @@ second anonymisation and split into mail seen or never seen in training,
 like r5's, which is why they differ from the r4 row (2.7% becomes 0.4% in
 English). Compare figures within a row.
 
+### Confidence intervals
+
+r4 on mail no model saw (`compare_unseen.py`, 95% Wilson intervals).
+The legitimate side is the mailbox mail with no close copy in training
+(255 English, 63 French emails); the phishing is Nazario 2025 and
+phishing_pot 2026.
+
+| Set | Threshold | Legitimate flagged | Phishing caught |
+| --- | --- | --- | --- |
+| English | 0.5 | 2/255 = 0.8% (0.2% to 2.8%) | 1,813/1,952 = 92.9% (91.7% to 93.9%) |
+| English | 0.7 | 1/255 = 0.4% (0.1% to 2.2%) | 1,805/1,952 = 92.5% (91.2% to 93.6%) |
+| English | 0.85 | 1/255 = 0.4% (0.1% to 2.2%) | 1,792/1,952 = 91.8% (90.5% to 92.9%) |
+| French | 0.5 | 1/63 = 1.6% (0.3% to 8.5%) | 204/231 = 88.3% (83.5% to 91.8%) |
+| French | 0.7 | 1/63 = 1.6% (0.3% to 8.5%) | 202/231 = 87.4% (82.6% to 91.1%) |
+| French | 0.85 | 1/63 = 1.6% (0.3% to 8.5%) | 199/231 = 86.1% (81.1% to 90.0%) |
+
+AUC on unseen legitimate mail against phishing: 0.981 (English), 0.983
+(French). The phishing side is large enough for a tight interval; the
+legitimate side is not, especially in French, which is why the reports
+users send, and a public benchmark ([evaluation.md](evaluation.md)),
+matter more than any further tuning.
+
 How optimistic is r4? Only 7 of the 334 legitimate test emails have a
 close copy in its training mail (same template, or TF-IDF cosine >= 0.5),
 so its false-alarm rate is mostly measured on kinds of email it never
