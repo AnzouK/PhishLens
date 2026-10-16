@@ -108,10 +108,11 @@ class TrustPath:
 W_TEXT, W_URL, W_META = 0.34, 0.33, 0.33
 
 # One agent above this forces the phishing verdict on the default path
-# (the URL agent needs a confirming sign, see URL_OVERRIDE_RULE_MIN).
+# (on an email, the URL agent needs a threat-intel hit or
+# structured_agents.strong_link_sign; on an attachment, see below).
 HIGH_CONF_OVERRIDE = 0.85
-# Rule-based URL score a link needs before the URL agent alone may force
-# the verdict: one concrete sign (plain http 0.25, raw IP 0.40, "@" 0.35,
+# Rule-based URL score a link in an attachment needs before the URL agent
+# alone may force the verdict: one concrete sign (plain http 0.25, raw IP 0.40, "@" 0.35,
 # suspicious TLD 0.30); length or keywords alone (0.15, 0.10) are not.
 URL_OVERRIDE_RULE_MIN = 0.25
 

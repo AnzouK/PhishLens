@@ -166,6 +166,25 @@ def url_heuristic(urls: list[str]) -> float:
     return bad
 
 
+def strong_link_sign(urls: list[str]) -> bool:
+    """A link sign that legitimate mail rarely shows: a raw IP host, "@"
+    before the host, a suspicious TLD, a file on a public cloud host.
+    Plain http, length and keywords are left out: build servers, archives
+    and personal sites written out in mailing-list mail have them."""
+    for u in urls:
+        if well_known_link(u):
+            continue
+        rest = u.split("://", 1)[-1]
+        host = rest.split("/", 1)[0].split(":", 1)[0].lower()
+        if re.match(r"\d{1,3}(\.\d{1,3}){3}$", host):
+            return True
+        if "@" in rest.split("/", 1)[0]:
+            return True
+        if host.rsplit(".", 1)[-1] in SUSPICIOUS_TLDS or on_cloud_file_host(u):
+            return True
+    return False
+
+
 def url_agent(urls: list[str], body_text: str = "") -> float:
     """URL score.
 

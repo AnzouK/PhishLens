@@ -121,7 +121,8 @@ def fuse(
 
 
 def url_confirmed(rep: Reputation, url_rule_score: float) -> bool:
-    """The URL agent alone may force the verdict only with a concrete sign:
+    """For an attachment, the URL agent alone may force the verdict only
+    with a concrete sign:
     a threat-intel hit or a rule (raw IP, plain http, "@", suspicious TLD).
     The trained URL model alone scores most real URLs with a path high."""
     return rep.any_hit or url_rule_score >= URL_OVERRIDE_RULE_MIN
@@ -135,19 +136,24 @@ def decide_email(
     text_used: bool,
     path: TrustPath,
     rep: Reputation,
-    url_rule_score: float,
+    strong_link: bool = False,
     text_override: float = HIGH_CONF_OVERRIDE,
 ) -> Verdict:
     """Verdict for an email. On the softer paths only a Safe Browsing hit
-    can force phishing; on the default path any confident agent can.
-    text_override is the text model's own threshold (lower for a
-    calibrated model, see text_model.override_threshold)."""
+    can force phishing; on the default path a confident text or sender
+    score can, and the link score only with a threat-intelligence hit or
+    a strong link sign (structured_agents.strong_link_sign): the trained
+    URL model scores the written-out links of legitimate mailing-list
+    mail near 1.0, and plain http was enough to confirm it (14 of 14
+    false alarms of the public benchmark). text_override is the text model's own
+    threshold (lower for a calibrated model, see
+    text_model.override_threshold)."""
     fused = fuse(p_text, p_url, p_meta, text_used=text_used, text_factor=path.text_factor)
     if path is PATH_DEFAULT:
         high_conf = (
             (text_used and p_text >= text_override)
             or p_meta >= HIGH_CONF_OVERRIDE
-            or (p_url >= HIGH_CONF_OVERRIDE and url_confirmed(rep, url_rule_score))
+            or (p_url >= HIGH_CONF_OVERRIDE and (rep.any_hit or strong_link))
         )
     else:
         high_conf = rep.gsb_hit
