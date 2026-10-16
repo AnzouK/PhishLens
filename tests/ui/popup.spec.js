@@ -181,6 +181,8 @@ test("pasted text: language confirmation and a redacted report", async ({ page }
     await page.check(".plr-report__check input");
     await page.click(".plr-report .plr-btn--strong");
     await expect(page.locator(".plr-report")).toContainText("a1b2c3d4e5f6");
+    await expect(page.locator(".plr-ref")).toHaveText("a1b2c3d4e5f6");
+    await expect(page.locator('.plr-sent button:has-text("Copy")')).toBeVisible();
     const sent = await page.evaluate(() => window.__sent.find((m) => m.type === "phishlens.feedback").payload);
     expect(sent.kind).toBe("false_positive");
     expect(sent.lang_user).toBe("fr");

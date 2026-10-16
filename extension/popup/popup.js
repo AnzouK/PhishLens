@@ -1016,8 +1016,7 @@ function renderShareStats(list) {
                 type: "phishlens.feedback",
                 payload: { kind: "stats", rows, ui_lang: I18N.language(), version: chrome.runtime.getManifest?.().version || null },
             }).catch((e) => ({ ok: false, error: String(e?.message || e) }));
-            if (r?.ok) panel.replaceChildren(Object.assign(document.createElement("p"), {
-                className: "plr-report__status", textContent: t("fb_sent", { ref: r.reference }) }));
+            if (r?.ok) panel.replaceChildren(REPORT.sentMessage(r.reference));
             else { status.textContent = t("fb_failed", { error: r?.error || t("unknown_error") }); send.disabled = false; }
         });
         const actions = document.createElement("div");

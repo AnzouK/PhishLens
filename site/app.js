@@ -285,7 +285,20 @@
         });
         const x = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(r.status === 429 ? t("js_rate") : x.detail || t("js_server_answered", { status: r.status }));
-        panel.replaceChildren(el("p", "small", t("js_fb_sent", { ref: x.reference })));
+        const ref = el("code", "fb-ref", x.reference);
+        const copy = btn(t("js_fb_copy"));
+        copy.addEventListener("click", async () => {
+          try { await navigator.clipboard.writeText(x.reference); copy.textContent = t("js_fb_copied"); }
+          catch {
+            const range = document.createRange();
+            range.selectNodeContents(ref);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+          }
+        });
+        const row = el("p", "fb__lang small");
+        row.append(ref, copy);
+        panel.replaceChildren(el("p", "small", t("js_fb_sent", { ref: x.reference })), row);
       } catch (err) {
         state.textContent = t("js_fb_failed", { error: err.message || String(err) });
         cancel.disabled = false; refresh();

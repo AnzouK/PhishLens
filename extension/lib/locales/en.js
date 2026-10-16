@@ -352,6 +352,8 @@
     "fb_send": "Send",
     "fb_cancel": "Cancel",
     "fb_sending": "Sending…",
+    "fb_copy": "Copy",
+    "fb_copied": "Copied",
     "fb_sent": "Thank you. Reference {ref}: quote it if you want this report deleted.",
     "fb_failed": "The report could not be sent: {error}",
     "fb_too_short": "Write at least 3 words to send the report.",

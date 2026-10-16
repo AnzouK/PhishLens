@@ -321,3 +321,4 @@ html[data-phishlens-theme="dark"] {
 .plr-report__text { box-sizing: border-box; width: 100%; margin: 6px 0; padding: 6px; font: 12px/1.4 var(--pll-mono); color: var(--pll-text); background: var(--pll-surface); border: 1px solid var(--pll-line); border-radius: 4px; resize: vertical; }
 .plr-report__check { display: flex; gap: 6px; align-items: flex-start; }
 .plr-report__actions { display: flex; gap: 8px; margin-top: 8px; }
+.plr-ref { font: 12px/1.4 var(--pll-mono); padding: 2px 6px; border: 1px solid var(--pll-line); border-radius: 4px; user-select: all; }

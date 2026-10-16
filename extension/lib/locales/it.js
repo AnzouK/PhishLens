@@ -352,6 +352,8 @@
     "fb_send": "Invia",
     "fb_cancel": "Annulla",
     "fb_sending": "Invio…",
+    "fb_copy": "Copia",
+    "fb_copied": "Copiato",
     "fb_sent": "Grazie. Riferimento {ref}: indicalo se vuoi far cancellare questa segnalazione.",
     "fb_failed": "Impossibile inviare la segnalazione: {error}",
     "fb_too_short": "Scrivi almeno 3 parole per inviare la segnalazione.",

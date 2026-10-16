@@ -177,5 +177,7 @@
   "js_fb_sending": "Envoi…",
   "js_fb_sent": "Merci. Référence {ref} : indiquez-la si vous voulez faire supprimer ce signalement.",
   "js_fb_failed": "Le signalement n'a pas pu être envoyé : {error}",
-  "js_fb_too_short": "Écrivez au moins 3 mots pour envoyer le signalement."
+  "js_fb_too_short": "Écrivez au moins 3 mots pour envoyer le signalement.",
+  "js_fb_copy": "Copier",
+  "js_fb_copied": "Copié"
 }

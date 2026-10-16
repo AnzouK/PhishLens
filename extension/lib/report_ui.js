@@ -76,6 +76,30 @@ function languageLine({ code, onChoice }) {
     return line;
 }
 
+// "Thank you. Reference ...", with a button that copies the reference.
+function sentMessage(reference) {
+    const box = el("div", "plr-sent");
+    box.append(el("p", "plr-report__status", t("fb_sent", { ref: reference })));
+    const ref = el("code", "plr-ref", reference);
+    const copy = button(t("fb_copy"));
+    copy.addEventListener("click", async () => {
+        try {
+            await navigator.clipboard.writeText(reference);
+            copy.textContent = t("fb_copied");
+        } catch {
+            const range = document.createRange();
+            range.selectNodeContents(ref);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+    });
+    const row = el("div", "plr-lang");
+    row.append(ref, copy);
+    box.append(row);
+    return box;
+}
+
 // The report panel: what will be sent, editable, behind a confirmation.
 // send(kind, text) returns a promise of {ok, reference, error}.
 function reportPanel({ verdict, text, redact, send, onSent }) {
@@ -121,7 +145,7 @@ function reportPanel({ verdict, text, redact, send, onSent }) {
         status.textContent = t("fb_sending");
         const r = await send(kind, redact(area.value)).catch((e) => ({ ok: false, error: String(e?.message || e) }));
         if (r?.ok) {
-            panel.replaceChildren(el("p", "plr-report__status", t("fb_sent", { ref: r.reference })));
+            panel.replaceChildren(sentMessage(r.reference));
             onSent?.(kind, r.reference);
         } else {
             status.textContent = t("fb_failed", { error: r?.error || t("unknown_error") });
@@ -152,7 +176,7 @@ function reportButton({ verdict, getText, redact, send, onSent }) {
     return wrap;
 }
 
-const api = Object.freeze({ LANGS, languageName, languageLine, reportPanel, reportButton });
+const api = Object.freeze({ LANGS, languageName, languageLine, reportPanel, reportButton, sentMessage });
 // eslint-disable-next-line no-undef
 if (typeof module !== "undefined" && module.exports) module.exports = api;
 globalThis.PhishLensReport = api;
