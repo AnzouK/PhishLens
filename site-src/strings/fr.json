@@ -28,7 +28,7 @@
   "r_caught": "des phishings détectés dans des e-mails anglais jamais vus par le modèle",
   "r_latency": "analyse médiane sur un serveur sans GPU",
   "r_sources": "sources de renseignement sur les menaces",
-  "results_note_html": "Mesuré sur du vrai courrier qu'aucun modèle n'a vu pendant l'entraînement (environ 330 e-mails légitimes d'une seule boîte) et par un test de charge sur PhishLens Cloud : un ordre de grandeur, pas une garantie. Voir les <a href=\"https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations\">limites connues</a>.",
+  "results_note_html": "Mesuré sur du vrai courrier qu'aucun modèle n'a vu pendant l'entraînement (318 e-mails légitimes d'une seule boîte, 2 183 phishings ; intervalle de confiance à 95 % : 91,2 % à 93,6 %) et par un test de charge sur PhishLens Cloud : un ordre de grandeur, pas une garantie. Voir les <a href=\"https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations\">limites connues</a>.",
   "live_h": "PhishLens Cloud, en ce moment",
   "live_loading": "chargement des compteurs du serveur",
   "live_note": "Lus sur le serveur au chargement de la page. Les compteurs repartent à zéro quand le serveur redémarre.",

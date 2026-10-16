@@ -28,7 +28,7 @@
   "r_caught": "phishing caught in English mail the model never saw",
   "r_latency": "median scan on a CPU-only server",
   "r_sources": "threat-intelligence sources",
-  "results_note_html": "Measured on real mail no model saw during training (about 330 legitimate emails from one mailbox) and with a load test on PhishLens Cloud: an order of magnitude, not a guarantee. See the <a href=\"https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations\">known limitations</a>.",
+  "results_note_html": "Measured on real mail no model saw during training (318 legitimate emails from one mailbox, 2,183 phishing; 95% confidence interval 91.2% to 93.6%) and with a load test on PhishLens Cloud: an order of magnitude, not a guarantee. See the <a href=\"https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations\">known limitations</a>.",
   "live_h": "PhishLens Cloud, right now",
   "live_loading": "loading the server's counters",
   "live_note": "Read from the server when the page loads. Counters reset when the server restarts.",

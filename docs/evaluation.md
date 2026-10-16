@@ -13,7 +13,7 @@ to measure it yourself.
 | Original agents | The English DistilBERT and the two Random Forests, offline, on public corpora | [PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector#results) |
 
 Every rate is given with its count and a 95% Wilson confidence
-interval: "1/257 = 0.4% (95% CI 0.1% to 2.2%)" says how little a single
+interval: "1/255 = 0.4% (95% CI 0.1% to 2.2%)" says how little a single
 error out of a few hundred emails pins down. A rate without its count is
 not reported.
 

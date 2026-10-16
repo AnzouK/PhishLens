@@ -69,12 +69,14 @@ model, at its 0.7 threshold:
 
 | Language | Legitimate emails flagged | Phishing caught |
 | --- | --- | --- |
-| English | 0.4% | 92.5% |
-| French | 1.6% | 87.4% |
+| English | 1 of 255: 0.4% (95% CI 0.1% to 2.2%) | 1,805 of 1,952: 92.5% (91.2% to 93.6%) |
+| French | 1 of 63: 1.6% (0.3% to 8.5%) | 202 of 231: 87.4% (82.6% to 91.1%) |
 
-The legitimate emails behind these figures come from one mailbox (about
-330 of them) and the phishing from recent public collections, so read
-them as an order of magnitude: another inbox may see more false alarms. The model was trained on 22
+The intervals say how much these counts pin down: with one false alarm
+in 63 French emails, the true rate could be anywhere from 0.3% to 8.5%.
+The legitimate emails all come from one mailbox and the phishing from
+recent public collections (Nazario 2025, phishing_pot 2026): another
+inbox may see more false alarms. The model was trained on 22
 languages but tested on real phishing only in English, French, German,
 Dutch, Portuguese and Spanish; in other languages its score is less
 proven. The link, sender and threat-intelligence checks do not depend on
