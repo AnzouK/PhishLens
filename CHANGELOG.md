@@ -7,6 +7,11 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Fixed
+- The social preview image (shown when the website link is shared)
+  still gave the former address; it now shows phishlens.dev, and its URL
+  carries a content hash so that apps load the new image.
+
 ## [2.0.6] - 2026-10-16
 
 ### Added
