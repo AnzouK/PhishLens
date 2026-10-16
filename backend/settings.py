@@ -50,6 +50,11 @@ PORT = int(os.environ.get("PORT", "8000"))
 CORS_ALLOW_ORIGINS = os.environ.get("CORS_ALLOW_ORIGINS", "*").split(",")
 METRICS_ENABLED = os.environ.get("METRICS_ENABLED", "1") != "0"
 ENABLE_DBL = os.environ.get("REPUTATION_ENABLE_DBL", "1") != "0"
+# The trained metadata Random Forest learned old corpora whose headers
+# differ from today's (ARC, long Received chains, mailing-list headers):
+# it scores most modern legitimate mail near 1.0. Off by default; the
+# rules and the real SPF/DKIM/DMARC results are used instead.
+METADATA_MODEL_ENABLED = os.environ.get("METADATA_MODEL_ENABLED", "0") == "1"
 
 RATE_LIMIT_DEFAULT = os.environ.get("RATE_LIMIT_DEFAULT", "60/minute")
 RATE_LIMIT_STORAGE = os.environ.get("SLOWAPI_STORAGE_URI", "memory://")

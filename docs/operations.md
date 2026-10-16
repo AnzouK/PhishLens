@@ -187,6 +187,7 @@ The most useful:
 | `REPUTATION_ENABLE_GSB` / `_PHISHTANK` / `_URLHAUS` / `_DBL` | `1` | Turn each threat-intel source on or off |
 | `PHISHTANK_API_KEY` / `PHISHTANK_REFRESH_S` | empty / 6 h (1 h with a key) | PhishTank application key, and how often its feed is downloaded; the last good feed is kept next to the cache (`PHISHTANK_FEED_PATH`) |
 | `REPUTATION_CACHE_DB` | `~/.cache/phishlens/reputation.db` | SQLite cache for URL verdicts (24 h TTL) |
+| `METADATA_MODEL_ENABLED` | `0` | `1` scores raw emails with the trained metadata Random Forest; off because it flags most modern legitimate headers ([evaluation](evaluation.md#results)) |
 | `RATE_LIMIT_ANALYSE` | `30/minute` | Per-IP limit (also `RATE_LIMIT_ATTACHMENT`, `RATE_LIMIT_EXPLAIN`) |
 | `LIME_NUM_SAMPLES` | `100` | Forward passes per explanation: higher is sharper and slower |
 | `OCR_MAX_PAGES` / `OCR_TIMEOUT_S` | `3` / `10` | Pages of a scanned PDF sent to OCR, and the time limit per page |

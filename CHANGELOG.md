@@ -17,7 +17,20 @@ backend share one version number.
   same ones. It keeps each check's score and says which check the false
   alarms and the missed phishing come from.
 
+### Fixed
+- Legitimate emails scanned from a `.eml` file (popup, website, API) are
+  no longer flagged because of their headers. The trained metadata
+  Random Forest scored modern and mailing-list headers near 1.0 and
+  forced the verdict: the public benchmark found 43.8% of legitimate
+  mailing-list emails flagged, 121 of the 130 by that check alone. It is
+  now off by default (`METADATA_MODEL_ENABLED=1` turns it back on); the
+  sender score comes from the rules and the real SPF, DKIM and DMARC
+  results, as it already did for Gmail scans.
+
 ### Documentation
+- The first public benchmark run, against PhishLens Cloud 2.0.7, with
+  its full figures and what caused the false alarms
+  (`docs/evaluation.md`).
 - The figures of the multilingual model come with their counts and 95%
   confidence intervals (README, website, project overview, model notes):
   English 1/255 legitimate emails flagged and 1,805/1,952 phishing caught,

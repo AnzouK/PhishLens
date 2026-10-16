@@ -39,7 +39,7 @@ Where each part of PhishLens lives, and where to find answers.
 | --- | --- | --- |
 | Multilingual text model, real mail it never saw, threshold 0.7 | English: 1/255 false alarms (95% CI 0.1% to 2.2%), 1,805/1,952 caught (91.2% to 93.6%); French: 1/63 (0.3% to 8.5%), 202/231 (82.6% to 91.1%) | The closest to real use, but the 318 legitimate emails come from one mailbox ([details](multilingual-model.md#confidence-intervals)) |
 | English DistilBERT, held-out split | Accuracy 97.34%, F1 0.967 | Offline, on public corpora |
-| URL and metadata Random Forests, held-out splits | F1 0.991 and 0.999 | Upper bounds: phishing and legitimate samples come from different corpora and years, which makes them easy to tell apart |
+| URL and metadata Random Forests, held-out splits | F1 0.991 and 0.999 | Upper bounds: phishing and legitimate samples come from different corpora and years, which makes them easy to tell apart. The metadata one flagged most modern legitimate headers and is off by default since 2.0.8 ([evaluation](evaluation.md#results)) |
 
 Every figure should come with its count and a confidence interval, and
 the public benchmark lets anyone measure the running system

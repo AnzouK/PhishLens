@@ -75,6 +75,7 @@ from settings import (
     MAX_EMAIL_B64_CHARS,
     MAX_LINK_URLS,
     MAX_TEXT_CHARS,
+    METADATA_MODEL_ENABLED,
     METRICS_ENABLED,
     MIN_TEXT_WORDS,
     RATE_LIMIT_ANALYSE,
@@ -451,11 +452,16 @@ async def analyse(request: Request, req: AnalyseRequest):
     )
     rep_task = asyncio.create_task(_check_urls(urls))
 
-    # Headers from Gmail's "Show original" are modern provider headers
-    # (ARC, X-Gm-*, long Received chains) that the trained metadata model
-    # never saw and scores ~1.0 on legitimate mail: the rules and the real
-    # SPF/DKIM/DMARC results are used for them instead.
-    raw_for_meta_model = None if ctx.get("headers_source") == "gmail_show_original" else raw_bytes
+    # The trained metadata model scores modern provider and mailing-list
+    # headers (ARC, X-Gm-*, List-*, long Received chains) near 1.0 on
+    # legitimate mail, so the rules and the real SPF/DKIM/DMARC results
+    # are used unless METADATA_MODEL_ENABLED is set. Gmail's "Show
+    # original" headers never go to it.
+    raw_for_meta_model = (
+        raw_bytes
+        if METADATA_MODEL_ENABLED and ctx.get("headers_source") != "gmail_show_original"
+        else None
+    )
     try:
         p_text, p_url, p_meta = await run_in_threadpool(
             _run_agents, body, urls, headers, raw_for_meta_model

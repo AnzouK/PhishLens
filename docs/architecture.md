@@ -206,6 +206,17 @@ tracking links as phishing.
 sender), `agents.metadata.checked` is false and the interfaces show "not
 checked" instead of the neutral default score.
 
+**Sender score from the rules (v2.0.8):** the trained metadata Random
+Forest is off by default (`METADATA_MODEL_ENABLED=0`). It learned old
+corpora and scored the headers of modern legitimate mail (ARC, long
+Received chains, mailing-list headers) near 1.0, which forced the verdict
+through the override; the public benchmark measured 43.8% of legitimate
+mailing-list emails flagged because of it
+([evaluation](evaluation.md#results)). The sender score now comes from
+the rules (Reply-To, failed or missing authentication, brand names) and
+the real SPF, DKIM and DMARC results, for Gmail scans as before and now
+for `.eml` files too.
+
 **Why the discounts exist:** DistilBERT learned that "verify your
 account" wording means phishing, and real bank, hospital and university
 messages use the same templates. Discounting the text agent only when the
