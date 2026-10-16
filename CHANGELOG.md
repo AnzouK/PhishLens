@@ -24,9 +24,9 @@ backend share one version number.
   the verdict: it decided all 14 remaining false alarms of the public
   benchmark. It now needs a threat-intelligence hit or a strong sign (a
   raw IP address, "@" before the host, a suspicious TLD, a file on a
-  public cloud host). Replayed on the benchmark's scores, false alarms
-  go from 14 to at most 1 of 297, for at most 2 of 500 phishing emails
-  missed in addition.
+  public cloud host). Replayed on the benchmark's scores with the link
+  score never deciding alone, false alarms go from 14 to 1 of 297, for
+  2 of 500 phishing emails missed in addition.
 - **The text model reads the subject again.** It was trained and
   measured on "subject + body", but the server gave it the body only, in
   Gmail, Outlook and `.eml` scans alike. On 120 phishing emails the
