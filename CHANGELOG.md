@@ -14,7 +14,8 @@ backend share one version number.
   without the emails so a run resumes and can be published. It shows its
   progress, prints the report of what was scored when stopped with
   Ctrl+C, and `--sample N` scores at most N emails per label, always the
-  same ones.
+  same ones. It keeps each check's score and says which check the false
+  alarms and the missed phishing come from.
 
 ### Documentation
 - The figures of the multilingual model come with their counts and 95%
