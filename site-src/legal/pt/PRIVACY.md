@@ -1,11 +1,11 @@
 # Política de privacidade do PhishLens
 
-Última atualização: 15 de outubro de 2026.
+Última atualização: 16 de outubro de 2026.
 
 O PhishLens é uma extensão do Chrome que verifica se os e-mails são
 phishing. Esta página explica que dados trata, para onde vão e o que é
 guardado. Aplica-se à extensão e ao servidor alojado, PhishLens Cloud, em
-`anzouk.duckdns.org`.
+`phishlens.dev`.
 
 ## Em resumo
 
@@ -114,7 +114,7 @@ e-mails.
 
 ## Este site
 
-`anzouk.duckdns.org` não coloca cookies nem usa scripts de rastreio, por
+`phishlens.dev` não coloca cookies nem usa scripts de rastreio, por
 isso não há nada a aceitar. A contagem de visitas vem dos registos do
 próprio servidor web (página, hora, página de origem, tipo de navegador,
 endereço IP), lidos com uma ferramenta alojada pelo próprio; são
@@ -131,7 +131,7 @@ um pedido normal do seu navegador.
 | `scripting` | Após uma atualização, colocar a nova versão dos botões de análise nos separadores do Gmail e do Outlook já abertos, para que não tenha de os atualizar. |
 | Acesso a `mail.google.com` | Acrescentar os botões de análise e as faixas ao Gmail e ler o e-mail que analisa. |
 | Acesso ao Outlook na web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | O mesmo, no Outlook (apenas análises manuais). |
-| Acesso a `127.0.0.1:8000`, `localhost:8000`, `anzouk.duckdns.org` | Enviar as análises para o servidor que escolheu. |
+| Acesso a `127.0.0.1:8000`, `localhost:8000`, `phishlens.dev` | Enviar as análises para o servidor que escolheu. |
 
 ## As suas opções
 

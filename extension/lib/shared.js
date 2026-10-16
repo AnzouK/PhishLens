@@ -10,7 +10,7 @@
 // Servers the user can choose in Settings ("custom" takes a typed URL).
 const BACKEND_PRESETS = Object.freeze({
     local: "http://127.0.0.1:8000",
-    cloud: "https://anzouk.duckdns.org",
+    cloud: "https://phishlens.dev",
 });
 const DEFAULT_BACKEND = "cloud";
 

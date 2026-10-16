@@ -14,7 +14,7 @@
   const pct = (v) => Math.round((Number(v) || 0) * 100);
   // Same-origin on the real site; PhishLens Cloud when the page is opened
   // elsewhere (local preview), which the server allows (CORS).
-  const API = location.hostname === "anzouk.duckdns.org" ? "" : "https://anzouk.duckdns.org";
+  const API = location.hostname === "phishlens.dev" ? "" : "https://phishlens.dev";
 
   // ---------- server status ----------
   const status = $("status");

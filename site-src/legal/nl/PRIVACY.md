@@ -1,11 +1,11 @@
 # Privacybeleid van PhishLens
 
-Laatst bijgewerkt: 15 oktober 2026.
+Laatst bijgewerkt: 16 oktober 2026.
 
 PhishLens is een Chrome-extensie die e-mails op phishing controleert.
 Deze pagina legt uit welke gegevens ze verwerkt, waar die naartoe gaan
 en wat bewaard wordt. Ze geldt voor de extensie en voor de gehoste
-server, PhishLens Cloud, op `anzouk.duckdns.org`.
+server, PhishLens Cloud, op `phishlens.dev`.
 
 ## In het kort
 
@@ -114,7 +114,7 @@ PhishLens Cloud telt ook oordelen per beoordelingsroute voor monitoring
 
 ## Deze website
 
-`anzouk.duckdns.org` plaatst geen cookies en gebruikt geen
+`phishlens.dev` plaatst geen cookies en gebruikt geen
 trackingscripts, dus er is niets om mee in te stemmen. Bezoekersaantallen
 komen uit de logs van de eigen webserver (pagina, tijd, verwijzende
 pagina, browsertype, IP-adres), gelezen met een zelf gehost hulpmiddel;
@@ -131,7 +131,7 @@ ziet als een gewoon verzoek van uw browser.
 | `scripting` | Na een update de nieuwe versie van de controleknoppen in al geopende Gmail- en Outlook-tabbladen zetten, zodat u ze niet hoeft te vernieuwen. |
 | Toegang tot `mail.google.com` | De controleknoppen en meldingen aan Gmail toevoegen en de e-mail lezen die u controleert. |
 | Toegang tot Outlook op het web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Hetzelfde, in Outlook (alleen handmatige controles). |
-| Toegang tot `127.0.0.1:8000`, `localhost:8000`, `anzouk.duckdns.org` | Controles naar de door u gekozen server sturen. |
+| Toegang tot `127.0.0.1:8000`, `localhost:8000`, `phishlens.dev` | Controles naar de door u gekozen server sturen. |
 
 ## Uw keuzes
 

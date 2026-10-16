@@ -1,9 +1,9 @@
 # PhishLens terms of use
 
-Last updated: October 15, 2026.
+Last updated: October 16, 2026.
 
 These terms cover the PhishLens Chrome extension, the website
-`anzouk.duckdns.org` and PhishLens Cloud, the hosted analysis server.
+`phishlens.dev` and PhishLens Cloud, the hosted analysis server.
 By using them you accept these terms. The code itself is published under
 the [GNU AGPL-3.0 license](LICENSE), which governs copying, modifying and
 redistributing it: modified versions, including ones run as a service,

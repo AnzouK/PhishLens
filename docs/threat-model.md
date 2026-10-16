@@ -1,7 +1,7 @@
 # Threat model
 
 Scope: the PhishLens runtime (Chrome extension, FastAPI backend,
-PhishLens Cloud at anzouk.duckdns.org). The training pipeline in PhishingDetector is
+PhishLens Cloud at phishlens.dev). The training pipeline in PhishingDetector is
 covered only where it affects the runtime (the published models).
 Method: STRIDE per trust boundary, then a list of the risks we accept.
 

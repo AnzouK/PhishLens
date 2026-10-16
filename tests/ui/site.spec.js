@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const SITE = path.resolve(__dirname, "..", "..", "site");
-const API = "https://anzouk.duckdns.org";
+const API = "https://phishlens.dev";
 const LANGS = ["en", "fr", "pt", "es", "de", "it", "nl", "ha"];
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png" };
 

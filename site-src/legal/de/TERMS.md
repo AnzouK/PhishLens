@@ -1,9 +1,9 @@
 # Nutzungsbedingungen von PhishLens
 
-Zuletzt aktualisiert: 15. Oktober 2026.
+Zuletzt aktualisiert: 16. Oktober 2026.
 
 Diese Bedingungen gelten für die Chrome-Erweiterung PhishLens, die
-Website `anzouk.duckdns.org` und PhishLens Cloud, den gehosteten
+Website `phishlens.dev` und PhishLens Cloud, den gehosteten
 Prüfserver. Mit der Nutzung akzeptieren Sie diese Bedingungen. Der Code
 selbst wird unter der [Lizenz GNU AGPL-3.0](LICENSE) veröffentlicht, die das
 Kopieren und Ändern regelt. Geänderte Fassungen, auch solche, die als Online-Dienst angeboten werden, müssen unter derselben Lizenz veröffentlicht werden.

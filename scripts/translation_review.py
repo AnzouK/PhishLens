@@ -93,7 +93,7 @@ def export(lang: str, out: str) -> None:
             "Correction: the better wording, or empty"
         ],
         [],
-        ["Tabs: Extension (the Chrome extension) and Website (anzouk.duckdns.org)."],
+        ["Tabs: Extension (the Chrome extension) and Website (phishlens.dev)."],
     ]
     for r in rows:
         info.append(r)

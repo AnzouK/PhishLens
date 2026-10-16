@@ -32,7 +32,7 @@ before we've had a chance to fix them.
   domains are listed is a product decision. A way to get the allowlist's
   softer verdict without authenticating as the listed domain *is* a
   security bug.
-- PhishLens Cloud (`https://anzouk.duckdns.org`) is intentionally
+- PhishLens Cloud (`https://phishlens.dev`) is intentionally
   a shared open backend with permissive CORS. Rate-limiting bypass is
   a bug, but "someone can query the API without signing up" is not.
 - Model-quality issues (false positives / false negatives on specific
