@@ -7,6 +7,17 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Added
+- `scripts/benchmark.py`: a public, reproducible benchmark of a PhishLens
+  server on labelled `.eml` and `.mbox` files, with the confusion matrix
+  per detected language and 95% confidence intervals; results are cached
+  without the emails so a run resumes and can be published.
+
+### Documentation
+- `docs/evaluation.md`: what each figure measures, why every rate comes
+  with its count and a confidence interval, the benchmark protocol and
+  its public sources.
+
 ## [2.0.7] - 2026-10-16
 
 ### Added

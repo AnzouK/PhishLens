@@ -41,6 +41,8 @@ Where each part of PhishLens lives, and where to find answers.
 | English DistilBERT, held-out split | Accuracy 97.34%, F1 0.967 | Offline, on public corpora |
 | URL and metadata Random Forests, held-out splits | F1 0.991 and 0.999 | Upper bounds: phishing and legitimate samples come from different corpora and years, which makes them easy to tell apart |
 
-None of these is a live-traffic measurement. The reports users send
+Every figure should come with its count and a confidence interval, and
+the public benchmark lets anyone measure the running system
+([evaluation.md](evaluation.md)). None of these is a live-traffic measurement. The reports users send
 will give one; until then, see the
 [known limitations](threat-model.md#residual-risks-and-known-limitations).
