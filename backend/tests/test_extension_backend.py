@@ -731,7 +731,7 @@ class TestV115Scoring:
         client.post(
             "/analyse", json={"raw_email_b64": b64(eml), "raw_text": "Run failed. View results"}
         )
-        assert seen["body"] == "Run failed. View results"
+        assert seen["body"] == "CI\nRun failed. View results"
 
     def test_eml_prefers_rendered_html_part(self):
         eml = (
