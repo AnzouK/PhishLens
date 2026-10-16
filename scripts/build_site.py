@@ -130,7 +130,7 @@ def head(lang, s, *, title, desc, base, page, og_desc=None, scripts=False, noind
     if page:
         out.append(f'<meta property="og:url" content="{url(lang, page)}">')
     out += [
-        f'<meta property="og:image" content="{SITE}/img/og.png">',
+        f'<meta property="og:image" content="{SITE}/{asset("", "img/og.png")}">',
         '<meta property="og:image:width" content="1200">',
         '<meta property="og:image:height" content="630">',
         f'<meta property="og:image:alt" content="{esc(s["og_alt"])}">',
