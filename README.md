@@ -78,7 +78,8 @@ them as an order of magnitude: another inbox may see more false alarms. The mode
 languages but tested on real phishing only in English, French, German,
 Dutch, Portuguese and Spanish; in other languages its score is less
 proven. The link, sender and threat-intelligence checks do not depend on
-the language. How the model was built and measured:
+the language. Measure it yourself with the public benchmark
+([evaluation.md](docs/evaluation.md)). How the model was built and measured:
 [multilingual-model.md](docs/multilingual-model.md); what can go wrong:
 [known limitations](docs/threat-model.md#residual-risks-and-known-limitations).
 
@@ -128,6 +129,7 @@ monitoring: [operations guide](docs/operations.md).
 | [User guide (wiki)](https://github.com/AnzouK/PhishLens/wiki) | Install, Gmail and Outlook, reading a verdict, settings, troubleshooting |
 | [Architecture](docs/architecture.md) | Components, scoring, trust paths, design decisions |
 | [Multilingual model](docs/multilingual-model.md) | How the text model was trained and measured |
+| [Evaluation](docs/evaluation.md) | What is measured, confidence intervals, and a public benchmark you can run |
 | [Languages](docs/languages.md) | Translations, OCR languages, adding a language |
 | [Threat model](docs/threat-model.md) | Risks, mitigations, known limitations |
 | [Operations](docs/operations.md) | Deployment, configuration, logs, metrics, load testing |
