@@ -352,6 +352,8 @@
     "fb_send": "Senden",
     "fb_cancel": "Abbrechen",
     "fb_sending": "Wird gesendet…",
+    "fb_copy": "Kopieren",
+    "fb_copied": "Kopiert",
     "fb_sent": "Danke. Referenz {ref}: Geben Sie sie an, wenn diese Meldung gelöscht werden soll.",
     "fb_failed": "Die Meldung konnte nicht gesendet werden: {error}",
     "fb_too_short": "Schreiben Sie mindestens 3 Wörter, um die Meldung zu senden.",

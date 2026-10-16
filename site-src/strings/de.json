@@ -177,5 +177,7 @@
   "js_fb_sending": "Wird gesendet…",
   "js_fb_sent": "Danke. Referenz {ref}: Geben Sie sie an, wenn diese Meldung gelöscht werden soll.",
   "js_fb_failed": "Die Meldung konnte nicht gesendet werden: {error}",
-  "js_fb_too_short": "Schreiben Sie mindestens 3 Wörter, um die Meldung zu senden."
+  "js_fb_too_short": "Schreiben Sie mindestens 3 Wörter, um die Meldung zu senden.",
+  "js_fb_copy": "Kopieren",
+  "js_fb_copied": "Kopiert"
 }

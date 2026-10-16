@@ -177,5 +177,7 @@
   "js_fb_sending": "Sending…",
   "js_fb_sent": "Thank you. Reference {ref}: quote it if you want this report deleted.",
   "js_fb_failed": "The report could not be sent: {error}",
-  "js_fb_too_short": "Write at least 3 words to send the report."
+  "js_fb_too_short": "Write at least 3 words to send the report.",
+  "js_fb_copy": "Copy",
+  "js_fb_copied": "Copied"
 }

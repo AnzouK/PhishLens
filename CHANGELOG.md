@@ -7,6 +7,12 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.6] - 2026-10-16
+
+### Added
+- After a report is sent, its reference comes with a **Copy** button
+  (extension and website), to keep it for a deletion request.
+
 ## [2.0.5] - 2026-10-16
 
 ### Changed
@@ -870,7 +876,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.5...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.6...HEAD
+[2.0.6]: https://github.com/AnzouK/PhishLens/compare/v2.0.5...v2.0.6
 [2.0.5]: https://github.com/AnzouK/PhishLens/compare/v2.0.4...v2.0.5
 [2.0.4]: https://github.com/AnzouK/PhishLens/compare/v2.0.3...v2.0.4
 [2.0.3]: https://github.com/AnzouK/PhishLens/compare/v2.0.2...v2.0.3

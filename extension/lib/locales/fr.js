@@ -352,6 +352,8 @@
     "fb_send": "Envoyer",
     "fb_cancel": "Annuler",
     "fb_sending": "Envoi…",
+    "fb_copy": "Copier",
+    "fb_copied": "Copié",
     "fb_sent": "Merci. Référence {ref} : indiquez-la si vous voulez faire supprimer ce signalement.",
     "fb_failed": "Le signalement n'a pas pu être envoyé : {error}",
     "fb_too_short": "Écrivez au moins 3 mots pour envoyer le signalement.",

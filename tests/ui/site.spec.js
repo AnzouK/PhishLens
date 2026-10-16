@@ -130,6 +130,8 @@ test("a result shows the detected language and sends a redacted report", async (
     await page.check(".fb-report__check input");
     await page.click(".fb-btn--strong");
     await expect(page.locator(".fb")).toContainText("a1b2c3d4e5f6");
+    await expect(page.locator(".fb-ref")).toHaveText("a1b2c3d4e5f6");
+    await expect(page.locator('.fb button:has-text("Copier")')).toBeVisible();
     expect(sent.kind).toBe("false_positive");
     expect(sent.lang_user).toBe("fr");
     expect(sent.text).not.toContain("Kalinda");

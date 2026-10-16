@@ -353,6 +353,8 @@
     "fb_send": "Aika",
     "fb_cancel": "Soke",
     "fb_sending": "Ana aikawa…",
+    "fb_copy": "Kwafa",
+    "fb_copied": "An kwafa",
     "fb_sent": "Nagode. Lambar shaida {ref}: ambace ta idan kana son a share wannan rahoto.",
     "fb_failed": "Ba a iya aika rahoton ba: {error}",
     "fb_too_short": "Rubuta aƙalla kalmomi 3 don aika rahoton.",

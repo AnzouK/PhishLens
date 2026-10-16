@@ -177,5 +177,7 @@
   "js_fb_sending": "Invio…",
   "js_fb_sent": "Grazie. Riferimento {ref}: indicalo se vuoi far cancellare questa segnalazione.",
   "js_fb_failed": "Impossibile inviare la segnalazione: {error}",
-  "js_fb_too_short": "Scrivi almeno 3 parole per inviare la segnalazione."
+  "js_fb_too_short": "Scrivi almeno 3 parole per inviare la segnalazione.",
+  "js_fb_copy": "Copia",
+  "js_fb_copied": "Copiato"
 }

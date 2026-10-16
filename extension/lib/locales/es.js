@@ -352,6 +352,8 @@
     "fb_send": "Enviar",
     "fb_cancel": "Cancelar",
     "fb_sending": "Enviando…",
+    "fb_copy": "Copiar",
+    "fb_copied": "Copiado",
     "fb_sent": "Gracias. Referencia {ref}: indíquela si quiere que se borre este aviso.",
     "fb_failed": "No se pudo enviar el aviso: {error}",
     "fb_too_short": "Escriba al menos 3 palabras para enviar el aviso.",

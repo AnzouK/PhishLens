@@ -296,3 +296,4 @@ main, section, .wrap > * { min-width: 0; }
 .fb-report__check { display: flex; gap: 8px; align-items: flex-start; }
 .fb-report__actions { display: flex; gap: 8px; margin-top: 10px; }
 .fb-report p:empty { display: none; }
+.fb-ref { font-family: var(--mono); font-size: 0.85rem; padding: 2px 8px; border: 1px solid var(--line); border-radius: var(--radius); user-select: all; }

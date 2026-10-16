@@ -352,6 +352,8 @@
     "fb_send": "Versturen",
     "fb_cancel": "Annuleren",
     "fb_sending": "Bezig met versturen…",
+    "fb_copy": "Kopiëren",
+    "fb_copied": "Gekopieerd",
     "fb_sent": "Bedankt. Referentie {ref}: vermeld die als u deze melding wilt laten verwijderen.",
     "fb_failed": "De melding kon niet worden verstuurd: {error}",
     "fb_too_short": "Schrijf minstens 3 woorden om de melding te versturen.",
