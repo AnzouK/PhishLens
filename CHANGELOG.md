@@ -7,6 +7,32 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.7] - 2026-10-17
+
+### Added
+- **Brand impersonation:** an email whose sender name is a known brand
+  (Chronopost, La Poste, PayPal, DHL, Spotify, banks, administrations in
+  France, Nigeria and elsewhere) while the address belongs to another
+  domain loses every softer trust path, and its sender score is at least
+  0.9, which makes it phishing. The banner, the popup and the website
+  say "Uses the name X, sent from Y". The extension now sends the sender
+  name it shows with the address.
+- The release workflow can also be started by hand from the Actions
+  tab: it tags `main` with the code's version and publishes the release.
+- **Links to public cloud hosts** (Google Cloud Storage, Firebase,
+  Azure Blob, R2, Pages, IPFS gateways...) raise the link score.
+
+### Changed
+- Links that only go to large known sites (Amazon, Coinbase, La Poste...)
+  are no longer scored by the trained link model, which read their long
+  tracking links as phishing (a real Amazon order link was at 97%).
+- Without any sender information (pasted text), the sender score shows
+  "not checked" instead of a default value.
+- The explanation no longer shows words such as "the", "votre" or "est".
+- The website shows "Phishing risk: X%" instead of "Overall score".
+- The allowlist of authenticated senders covers large European and
+  international senders as well as Nigerian ones.
+
 ### Fixed
 - The social preview image (shown when the website link is shared)
   still gave the former address; it now shows phishlens.dev, and its URL
@@ -881,7 +907,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.6...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.7...HEAD
+[2.0.7]: https://github.com/AnzouK/PhishLens/compare/v2.0.6...v2.0.7
 [2.0.6]: https://github.com/AnzouK/PhishLens/compare/v2.0.5...v2.0.6
 [2.0.5]: https://github.com/AnzouK/PhishLens/compare/v2.0.4...v2.0.5
 [2.0.4]: https://github.com/AnzouK/PhishLens/compare/v2.0.3...v2.0.4

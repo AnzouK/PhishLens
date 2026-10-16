@@ -1,6 +1,6 @@
 # Datenschutzerklärung von PhishLens
 
-Zuletzt aktualisiert: 16. Oktober 2026.
+Zuletzt aktualisiert: 17. Oktober 2026.
 
 PhishLens ist eine Chrome-Erweiterung, die E-Mails auf Phishing prüft.
 Diese Seite erklärt, welche Daten sie verarbeitet, wohin diese gehen und
@@ -31,7 +31,7 @@ Server PhishLens Cloud unter `phishlens.dev`.
 Bei einer Prüfung liest die Erweiterung aus der geöffneten Gmail- oder
 Outlook-Seite:
 
-- den Text der Nachricht, ihren Betreff und die Adresse des Absenders;
+- den Text der Nachricht, ihren Betreff sowie Namen und Adresse des Absenders;
 - die Ziele der Links in der Nachricht;
 - die Authentifizierungshinweise, die Gmail anzeigt (gesendet von,
   signiert von);

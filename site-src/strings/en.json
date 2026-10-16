@@ -142,7 +142,7 @@
   "js_tag_shared": "Shared file: {services}",
   "js_verdict_bad": "Looks like phishing",
   "js_verdict_good": "Looks safe",
-  "js_overall": "Overall score {pct}%.",
+  "js_overall": "Phishing risk: {pct}%.",
   "js_m_wording": "Wording",
   "js_m_links": "Links",
   "js_m_sender": "Sender",
@@ -179,5 +179,7 @@
   "js_fb_failed": "The report could not be sent: {error}",
   "js_fb_too_short": "Write at least 3 words to send the report.",
   "js_fb_copy": "Copy",
-  "js_fb_copied": "Copied"
+  "js_fb_copied": "Copied",
+  "js_m_not_checked": "not checked",
+  "js_tag_impersonation": "Uses the name {brand}, sent from {domain}"
 }

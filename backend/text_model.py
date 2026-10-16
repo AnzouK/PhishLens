@@ -30,6 +30,7 @@ from typing import Any
 
 import numpy as np
 
+from language import FUNCTION_WORDS
 from settings import (
     CLASS_NAMES,
     HF_MODEL_REPO,
@@ -245,13 +246,16 @@ def explain(body: str) -> list[dict[str, Any]]:
         body[:LIME_MAX_CHARS],
         predict_proba_batch,
         num_samples=LIME_NUM_SAMPLES,
-        num_features=12,
+        num_features=20,
         labels=(1,),  # explain in the phishing direction
     )
+    # Words such as "the", "votre", "est" are left out of the display:
+    # they say nothing to a reader even when the model leans on them.
     feats = [
         {"token": word, "weight": float(w), "supports": "phishing" if w > 0 else "safe"}
         for word, w in exp.as_list(label=1)
-    ]
+        if str(word).lower() not in FUNCTION_WORDS
+    ][:12]
     feats.sort(key=lambda f: abs(f["weight"]), reverse=True)
     strong = [f for f in feats if abs(f["weight"]) >= 0.003]
     return strong if len(strong) >= 5 else feats[:8]

@@ -42,8 +42,20 @@ function bannerLead(data, phishing) {
     return t("lead_safe");
 }
 
-// One compact meter per agent: label, bar, percentage.
+// "la poste" -> "La Poste": brand names come from the backend in lower case.
+function pllBrand(name) {
+    return String(name || "").replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+}
+
+// One compact meter per agent: label, bar, percentage; value null: the
+// agent had nothing to read ("not checked").
 function pllMeter(label, value) {
+    if (value === null) {
+        return `<div class="pll-meter" title="${escapeHTML(t("meter_not_checked_title", { label }))}">
+        <span class="pll-meter__l">${escapeHTML(label)}</span>
+        <span class="pll-meter__off">${escapeHTML(t("meter_not_checked"))}</span>
+    </div>`;
+    }
     const p = Math.max(0, Math.min(100, Number(value) || 0));
     const level = p >= 70 ? "high" : p >= 40 ? "mid" : "low";
     return `<div class="pll-meter" title="${escapeHTML(t("meter_title", { label, pct: p }))}">
@@ -80,7 +92,7 @@ function showBanner(emailView, data, anchor = null) {
         banner.classList.add(phishing ? "pll-banner--danger" : "pll-banner--safe");
         const text   = pct(data.agents?.text?.phishing_probability);
         const url    = pct(data.agents?.url?.phishing_probability);
-        const meta   = pct(data.agents?.metadata?.phishing_probability);
+        const meta   = data.agents?.metadata?.checked === false ? null : pct(data.agents?.metadata?.phishing_probability);
         // Trust pill: allowlist > DKIM alignment > Gmail-inbox-soft > nothing.
         const cryptoVerified   = !!data.sender_auth?.cryptographically_verified;
         const gmailSoftVerified = !!data.sender_auth?.gmail_inbox_soft_verified;
@@ -175,6 +187,13 @@ const _SOURCE_LABEL_GMAIL = {
 
 function renderBannerSignals(data) {
     const chips = [];
+
+    // A brand's name over another domain's address.
+    const imp = data.sender_auth?.impersonation;
+    if (imp?.brand) {
+        const vars = { brand: pllBrand(imp.brand), domain: imp.domain || "?" };
+        chips.push(`<span class="pll-chip pll-chip--bad" title="${escapeHTML(t("chip_impersonation_title", vars))}">${escapeHTML(t("chip_impersonation", vars))}</span>`);
+    }
 
     // Forwarded email, shared-file links, thread position.
     if (data.forwarded?.detected) {

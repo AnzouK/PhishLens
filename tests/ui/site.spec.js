@@ -153,3 +153,20 @@ test("a report of fewer than 3 words says why it cannot be sent", async ({ page 
     await expect(page.locator(".fb-btn--strong")).toBeEnabled();
     await expect(page.locator(".fb-report")).not.toContainText("at least 3 words");
 });
+
+test("the result names an impersonated brand, says the sender was not checked, and shows the risk", async ({ page }) => {
+    await page.route(`${API}/analyse`, (r) => r.fulfill({
+        json: {
+            verdict: "phishing", fused_score: 0.74, language: { code: "fr", confidence: 0.9 },
+            sender_auth: { impersonation: { brand: "la poste", domain: "evil.example" } },
+            agents: { text: { phishing_probability: 1 }, url: { phishing_probability: 0.95 },
+                      metadata: { phishing_probability: 0.25, checked: false } },
+        },
+    }));
+    await page.goto(`${base}/fr/`);
+    await page.click('[data-sample="phish"]');
+    await page.click("#demo-submit");
+    await expect(page.locator("#demo-result")).toContainText("Risque de phishing : 74 %");
+    await expect(page.locator("#demo-result .tags")).toContainText("Se fait passer pour La Poste, envoyé depuis evil.example");
+    await expect(page.locator("#demo-result .meter__off")).toHaveText("non vérifié");
+});

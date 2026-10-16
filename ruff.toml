@@ -33,5 +33,5 @@ known-first-party = [
     "email_parsing", "extension_backend", "feature_extraction", "fusion",
     "metadata_agent", "ocr", "office_analysis", "reputation", "result_cache",
     "rf_agent", "sender_trust", "settings", "structured_agents", "text_model",
-    "trusted_domains", "url_agent", "language", "redaction", "feedback", "text_normalize",
+    "trusted_domains", "url_agent", "language", "redaction", "feedback", "text_normalize", "known_domains",
 ]

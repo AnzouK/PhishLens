@@ -146,6 +146,7 @@ html[data-phishlens-theme="dark"] {
 .pll-meter__l { color: var(--pll-text-2); }
 .pll-meter__track { height: 6px; border-radius: 99px; background: var(--pll-track); overflow: hidden; }
 .pll-meter__fill { display: block; height: 100%; border-radius: 99px; }
+.pll-meter__off { grid-column: 2 / 4; color: var(--pll-text-2); font-style: italic; }
 .pll-meter__fill--low  { background: var(--pll-good); }
 .pll-meter__fill--mid  { background: var(--pll-warn); }
 .pll-meter__fill--high { background: var(--pll-bad); }

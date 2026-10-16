@@ -116,6 +116,7 @@ async function olScan(pane, btn) {
         const payload = {
             raw_text: ((!body || body.length < 20) ? [subject, body].filter(Boolean).join("\n") || "(no text)" : body).slice(0, 4000),
             sender_email: senderEmail || null,
+            sender_name: senderName || null,
             client_context: {
                 origin: "outlook",
                 subject,

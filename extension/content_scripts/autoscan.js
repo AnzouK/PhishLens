@@ -53,6 +53,7 @@ function _inboxRows() {
         id: row.querySelector("[data-legacy-thread-id]")?.getAttribute("data-legacy-thread-id") || "",
         unread: row.classList.contains("zE"),
         sender: row.querySelector("span[email]")?.getAttribute("email") || "",
+        senderName: row.querySelector("span[email]")?.getAttribute("name") || "",
         subject: (row.querySelector(".bog")?.textContent || "").trim(),
     })).filter((r) => /^[0-9a-f]{8,20}$/.test(r.id));
 }
@@ -113,6 +114,7 @@ async function runAutoScan() {
                 payload: {
                     raw_email_b64: utf8ToB64(original),
                     sender_email: r.sender || null,
+                    sender_name: r.senderName || null,
                     client_context: {
                         origin: "gmail",
                         subject: r.subject,

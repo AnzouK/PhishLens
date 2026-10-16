@@ -60,7 +60,7 @@ flowchart LR
 | `backend/extension_backend.py` | HTTP API only: endpoints, request limits, rate limiting, metrics, result cache, error references |
 | `backend/settings.py` | Version, environment variables, every scoring constant (weights, thresholds, trust paths) |
 | `backend/email_parsing.py` | Visible text, links and headers of an email; forwarded emails; links to file-sharing services |
-| `backend/sender_trust.py`, `trusted_domains.py` | Sender domain, allowlist (authenticated senders only), Gmail "signed-by" / "mailed-by" as an Authentication-Results header |
+| `backend/sender_trust.py`, `trusted_domains.py`, `known_domains.py` | Sender domain, allowlist (authenticated senders only), brand impersonation, Gmail "signed-by" / "mailed-by" as an Authentication-Results header; known brands, sites and cloud file hosts |
 | `backend/text_model.py`, `text_normalize.py` | Text agent: loading the model and its settings, calibrated scores, LIME explanation; text normalisation for models trained on normalised text |
 | `backend/structured_agents.py`, `rf_agent.py`, `url_agent.py`, `metadata_agent.py` | URL and metadata agents: trained Random Forests with rule-based fallbacks |
 | `backend/agent_io.py` | Loads the Random Forests from skops files with a type allowlist |
@@ -160,9 +160,18 @@ default`. The allowlist (`TRUSTED_DOMAINS`) only applies to an
 authenticated sender: DKIM aligned with the From: domain (real headers
 or Gmail's "signed-by"), or internal Outlook mail authenticated by the
 organisation's own server. Until v1.15 the From: text alone was enough,
-so a forged bank address got the softest path (fixed in v2.0). It is
-Nigerian-centric by default (banks, telcos, universities); extend it for
-your region. An empty allowlist is safe.
+so a forged bank address got the softest path (fixed in v2.0). It covers
+Nigerian institutions and large European and international senders;
+extend it for your region. An empty allowlist is safe.
+
+**Impersonation (v2.0.7):** when the From: name is a known brand
+("Chronopost", "La Poste", "PayPal", `known_domains.BRANDS`) and the
+address belongs to another domain, the email loses every softer path
+(DKIM on the impostor's own domain proves nothing about the brand) and
+the sender score is at least `IMPERSONATION_META` (0.9), which decides
+the verdict on the default path. The extension sends the name it shows
+(`sender_name`) with the address; `sender_auth.impersonation` names the
+brand and the domain.
 
 **Forwarded emails (v1.14):** when the body carries a forward marker
 ("Forwarded message", "Begin forwarded message:", "Message transféré",
@@ -184,6 +193,18 @@ and the threat-intel cascade. Links to file-sharing and form services
 ...) are listed in `shared_links` and shown as a warning, without
 changing the score: the domain is legitimate, the shared file is the
 lure.
+
+**Cloud file hosts and known sites (v2.0.7):** a link to storage or a
+page anyone can publish (`storage.googleapis.com`, `*.web.app`,
+`*.r2.dev`, IPFS gateways...) adds 0.45 to the link rule score, enough to
+confirm a high URL score. Links that only go to large known sites
+(`known_domains.WELL_KNOWN`, without an embedded second address) keep the
+rule score instead of the trained URL model, which reads their long
+tracking links as phishing.
+
+**Sender not checked (v2.0.7):** without headers (pasted text with no
+sender), `agents.metadata.checked` is false and the interfaces show "not
+checked" instead of the neutral default score.
 
 **Why the discounts exist:** DistilBERT learned that "verify your
 account" wording means phishing, and real bank, hospital and university

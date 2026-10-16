@@ -1,6 +1,6 @@
 # Manufar sirri ta PhishLens
 
-An sabunta ta ƙarshe: 16 ga Oktoba, 2026.
+An sabunta ta ƙarshe: 17 ga Oktoba, 2026.
 
 PhishLens ƙarin Chrome ne da ke duba ko imel phishing ne. Wannan shafin
 yana bayyana bayanan da yake sarrafawa, inda suke zuwa da abin da ake
@@ -29,7 +29,7 @@ ajiyewa. Ya shafi ƙarin da kuma sabar da aka ɗauka, PhishLens Cloud, a
 Lokacin da ake bincike, ƙarin yana karantawa daga shafin Gmail ko
 Outlook da ke buɗe:
 
-- rubutun saƙon, jigonsa da adireshin mai aikawa;
+- rubutun saƙon, jigonsa, da suna da adireshin mai aikawa;
 - inda hanyoyin haɗin cikin saƙon ke zuwa;
 - alamun tabbatarwa da Gmail ke nunawa (wanda ya aika, wanda ya sa
   hannu);

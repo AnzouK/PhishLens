@@ -12,8 +12,10 @@ transactional mail ("verify", "statement", "alert") is often mistaken for
 phishing by the text model, and that only sends from its own domain.
 Personal mail providers (gmail.com, outlook.com...) are never listed.
 
-The default list is Nigerian-centric (the project started at Nile
-University of Nigeria); a fork for another region should extend it.
+The list started with Nigerian institutions and now also covers large
+European and international senders; a fork for another region should
+extend it. Mail providers whose users have addresses on the domain
+(orange.fr, free.fr, laposte.net...) are left out.
 """
 
 TRUSTED_DOMAINS = frozenset(
@@ -78,5 +80,39 @@ TRUSTED_DOMAINS = frozenset(
         "twitter.com",
         "x.com",
         "anthropic.com",
+        # International services, continued
+        "netflix.com",
+        "spotify.com",
+        "coinbase.com",
+        "booking.com",
+        "airbnb.com",
+        "dhl.com",
+        "ups.com",
+        "fedex.com",
+        "docusign.net",
+        "dropbox.com",
+        # France
+        "laposte.fr",
+        "chronopost.fr",
+        "ameli.fr",
+        "impots.gouv.fr",
+        "dgfip.finances.gouv.fr",
+        "caf.fr",
+        "service-public.fr",
+        "francetravail.fr",
+        "edf.fr",
+        "credit-agricole.fr",
+        "bnpparibas.com",
+        "societegenerale.fr",
+        "labanquepostale.fr",
+        "boursorama.com",
+        # Elsewhere in Europe
+        "correos.es",
+        "ctt.pt",
+        "deutschepost.de",
+        "postnl.nl",
+        "bpost.be",
+        "royalmail.com",
+        "posteitaliane.it",
     }
 )

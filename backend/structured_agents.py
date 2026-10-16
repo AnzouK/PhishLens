@@ -16,7 +16,16 @@ import re
 from email.utils import parseaddr
 from pathlib import Path
 
+from known_domains import CLOUD_FILE_HOSTS, WELL_KNOWN
 from settings import AGENTS_ALLOW_PICKLE, HF_AGENTS_REPO
+
+try:
+    from auth_headers import org_domain
+except Exception:  # auth_headers missing: the host itself
+
+    def org_domain(d: str) -> str:
+        return (d or "").lower().strip(".")
+
 
 logger = logging.getLogger("phishlens.structured_agents")
 
@@ -105,9 +114,33 @@ def _init_agent(stem: str, env_var: str, factory):
         return None
 
 
+def _host(url: str) -> str:
+    return url.split("://", 1)[-1].split("/", 1)[0].split("?", 1)[0].split(":", 1)[0].lower()
+
+
+def on_cloud_file_host(url: str) -> bool:
+    """The link points to storage or a page anyone can publish
+    (storage.googleapis.com, *.web.app, *.r2.dev...)."""
+    host = _host(url)
+    return any(host == h or host.endswith("." + h) for h in CLOUD_FILE_HOSTS)
+
+
+def well_known_link(url: str) -> bool:
+    """The link goes to a large, known site and carries no other address
+    (an open redirect such as ...?url=https://elsewhere is not known)."""
+    host = _host(url)
+    if not host or on_cloud_file_host(url):
+        return False
+    rest = url.split("://", 1)[-1][len(host) :]
+    if re.search(r"https?(:|%3a)(//|%2f%2f)", rest, re.I):
+        return False
+    return host in WELL_KNOWN or org_domain(host) in WELL_KNOWN
+
+
 def url_heuristic(urls: list[str]) -> float:
     """Rule-based URL score (worst URL): plain http, raw IP host, "@" in
-    the URL, very long URL, suspicious TLD, credential keywords."""
+    the URL, very long URL, suspicious TLD, credential keywords, a file
+    or page on a public cloud host."""
     bad = 0.0
     for u in urls:
         score = 0.0
@@ -125,6 +158,10 @@ def url_heuristic(urls: list[str]) -> float:
             score += 0.30
         if re.search(r"(login|verify|account|update|secure)", u, re.I):
             score += 0.10
+        if on_cloud_file_host(u):
+            score += 0.45
+        if well_known_link(u):
+            score = min(score, 0.10)
         bad = max(bad, min(score, 1.0))
     return bad
 
@@ -152,7 +189,13 @@ def url_agent(urls: list[str], body_text: str = "") -> float:
     score = 0.05
     if visible:
         score = url_heuristic(visible)
-        if _URL_AGENT is not None and _FEATURE_EXTRACT is not None:
+        # Links that only go to large known sites keep the rule score: the
+        # trained model reads their long tracking links as phishing.
+        if (
+            _URL_AGENT is not None
+            and _FEATURE_EXTRACT is not None
+            and not all(well_known_link(u) for u in visible)
+        ):
             try:
                 feats = _FEATURE_EXTRACT.extract_url_features(body_text)
                 pred = _URL_AGENT.get_prediction_with_confidence(feats)

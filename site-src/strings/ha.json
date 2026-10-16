@@ -142,7 +142,7 @@
   "js_tag_shared": "Fayil da aka raba: {services}",
   "js_verdict_bad": "Yana kama da phishing",
   "js_verdict_good": "Yana kama da amintacce",
-  "js_overall": "Jimillar maki: {pct}%.",
+  "js_overall": "Haɗarin phishing: {pct}%.",
   "js_m_wording": "Rubutu",
   "js_m_links": "Hanyoyin haɗi",
   "js_m_sender": "Mai aikawa",
@@ -179,5 +179,7 @@
   "js_fb_failed": "Ba a iya aika rahoton ba: {error}",
   "js_fb_too_short": "Rubuta aƙalla kalmomi 3 don aika rahoton.",
   "js_fb_copy": "Kwafa",
-  "js_fb_copied": "An kwafa"
+  "js_fb_copied": "An kwafa",
+  "js_m_not_checked": "ba a duba ba",
+  "js_tag_impersonation": "Yana amfani da sunan {brand}, an aiko daga {domain}"
 }

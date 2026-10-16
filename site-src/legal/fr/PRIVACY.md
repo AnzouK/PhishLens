@@ -1,6 +1,6 @@
 # Politique de confidentialité de PhishLens
 
-Dernière mise à jour : 16 octobre 2026.
+Dernière mise à jour : 17 octobre 2026.
 
 PhishLens est une extension Chrome qui vérifie si des e-mails sont du
 phishing. Cette page explique quelles données elle traite, où elles vont
@@ -31,7 +31,7 @@ hébergé, PhishLens Cloud, à l'adresse `phishlens.dev`.
 
 Lors d'une analyse, l'extension lit dans la page Gmail ou Outlook ouverte :
 
-- le texte du message, son objet et l'adresse de l'expéditeur ;
+- le texte du message, son objet, le nom et l'adresse de l'expéditeur ;
 - les destinations des liens du message ;
 - les indices d'authentification affichés par Gmail (envoyé par, signé
   par) ;

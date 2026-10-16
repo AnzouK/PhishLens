@@ -49,6 +49,82 @@ _WORDS: dict[str, frozenset[str]] = {
     }.items()
 }
 
+# Words that carry no meaning on their own: the common words above,
+# minus those that can be a sign in an email (greetings, "account",
+# "click", "please"...), plus a few very short ones. Used to keep the
+# explanation readable (text_model.explain).
+_KEEP = set(
+    [
+        "account",
+        "click",
+        "here",
+        "please",
+        "dear",
+        "thank",
+        "thanks",
+        "merci",
+        "bonjour",
+        "cordialement",
+        "obrigado",
+        "olá",
+        "gracias",
+        "hola",
+        "bitte",
+        "danke",
+        "grazie",
+        "ciao",
+        "bedankt",
+        "hallo",
+        "konto",
+        "hesabınız",
+        "lütfen",
+        "akun",
+        "akaunti",
+        "tafadhali",
+        "asusun",
+    ]
+)
+_SHORT = [
+    "a",
+    "i",
+    "to",
+    "of",
+    "in",
+    "on",
+    "it",
+    "is",
+    "be",
+    "as",
+    "at",
+    "by",
+    "or",
+    "an",
+    "me",
+    "my",
+    "so",
+    "if",
+    "do",
+    "no",
+    "we",
+    "he",
+    "she",
+    "they",
+    "them",
+    "a",
+    "à",
+    "en",
+    "et",
+    "il",
+    "je",
+    "un",
+    "y",
+    "o",
+    "e",
+]
+FUNCTION_WORDS = frozenset(
+    w for words in _WORDS.values() for w in words if w not in _KEEP
+) | frozenset(_SHORT)
+
 # Unicode script of a character, from its name (stable across versions).
 _SCRIPT_LANG = (
     ("HANGUL", "ko"),

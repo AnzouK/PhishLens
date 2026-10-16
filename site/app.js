@@ -136,6 +136,9 @@
   });
 
   function meter(label, v) {
+    if (v === null) {
+      return `<div class="meter"><span>${esc(label)}</span><span class="meter__off">${esc(t("js_m_not_checked"))}</span></div>`;
+    }
     const p = pct(v), cls = p >= 70 ? " meter__fill--high" : p >= 40 ? " meter__fill--mid" : "";
     return `<div class="meter"><span>${esc(label)}</span><span class="meter__track"><span class="meter__fill${cls}" data-w="${p}"></span></span><span class="meter__v">${p}%</span></div>`;
   }
@@ -144,6 +147,10 @@
     const bad = d.verdict === "phishing";
     const tags = [];
     const sa = d.sender_auth || {};
+    if (sa.impersonation?.brand) {
+      const brand = String(sa.impersonation.brand).replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+      tags.push(["bad", t("js_tag_impersonation", { brand, domain: sa.impersonation.domain || "?" })]);
+    }
     if (d.trusted_sender) tags.push(["good", t("js_tag_trusted")]);
     else if (sa.cryptographically_verified) tags.push(["good", t("js_tag_dkim")]);
     for (const k of ["spf", "dkim", "dmarc"]) if (sa[k] === "fail") tags.push(["bad", t("js_tag_auth_fail", { name: k.toUpperCase() })]);
@@ -157,7 +164,7 @@
       <p class="small muted">${esc(t("js_overall", { pct: pct(d.fused_score) }))}</p>
       ${meter(t("js_m_wording"), d.agents?.text?.phishing_probability)}
       ${meter(t("js_m_links"), d.agents?.url?.phishing_probability)}
-      ${a ? "" : meter(t("js_m_sender"), d.agents?.metadata?.phishing_probability)}
+      ${a ? "" : meter(t("js_m_sender"), d.agents?.metadata?.checked === false ? null : d.agents?.metadata?.phishing_probability)}
       ${tags.length ? `<ul class="tags">${tags.map(([c, t]) => `<li class="${c}">${esc(t)}</li>`).join("")}</ul>` : ""}
       ${isEmail ? `<h3>${esc(t("js_lime_h"))}</h3><p class="small muted">${esc(t("js_lime_hint"))}</p><div id="lime" class="status"><span class="spinner" aria-hidden="true"></span> ${esc(t("js_computing"))}</div>` : ""}`;
     out.querySelectorAll(".meter__fill").forEach((el) => { el.style.width = `${el.dataset.w}%`; });

@@ -231,3 +231,17 @@ test("insights: a scan marked wrong offers a report that stays open", async ({ p
     await expect(panel).toBeVisible();
     await expect(page.locator('.history-item .review-btn[data-label="wrong"]')).toHaveClass(/review-btn--on/);
 });
+
+test("pasted text: the sender is shown as not checked", async ({ page }) => {
+    await page.route(`${API}/analyse`, (route) => {
+        const body = analyseResponse("safe");
+        body.agents.metadata.checked = false;
+        return route.fulfill({ json: body });
+    });
+    await page.goto(`${base}/popup/popup.html`);
+    await page.click('.tab[data-tab="paste"]');
+    await page.fill("#paste-input", "Hi team, the sprint review moved to Thursday at 3pm, same room.");
+    await page.click("#analyze-btn");
+    await expect(page.locator("#meta-score")).toHaveText("—");
+    await expect(page.locator("#meta-hint")).toContainText("Not checked");
+});

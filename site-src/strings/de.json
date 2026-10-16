@@ -142,7 +142,7 @@
   "js_tag_shared": "Geteilte Datei: {services}",
   "js_verdict_bad": "Wirkt wie Phishing",
   "js_verdict_good": "Wirkt sicher",
-  "js_overall": "Gesamtwert: {pct} %.",
+  "js_overall": "Phishing-Risiko: {pct} %.",
   "js_m_wording": "Text",
   "js_m_links": "Links",
   "js_m_sender": "Absender",
@@ -179,5 +179,7 @@
   "js_fb_failed": "Die Meldung konnte nicht gesendet werden: {error}",
   "js_fb_too_short": "Schreiben Sie mindestens 3 Wörter, um die Meldung zu senden.",
   "js_fb_copy": "Kopieren",
-  "js_fb_copied": "Kopiert"
+  "js_fb_copied": "Kopiert",
+  "js_m_not_checked": "nicht geprüft",
+  "js_tag_impersonation": "Nutzt den Namen {brand}, gesendet von {domain}"
 }
