@@ -36,6 +36,7 @@ import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
+from email.utils import parseaddr
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
@@ -57,10 +58,17 @@ from email_parsing import (
 )
 from language import detect_language
 from result_cache import ResultCache, make_key
-from sender_trust import is_hostname, is_trusted_domain, sender_domain, synthesize_auth_results
+from sender_trust import (
+    impersonated_brand,
+    is_hostname,
+    is_trusted_domain,
+    sender_domain,
+    synthesize_auth_results,
+)
 from settings import (
     CORS_ALLOW_ORIGINS,
     ENABLE_DBL,
+    IMPERSONATION_META,
     INNER_FILE_WORDING_THRESHOLD,
     MAX_ATTACHMENT_B64_CHARS,
     MAX_BODY_BYTES,
@@ -233,7 +241,8 @@ class AnalyseRequest(BaseModel):
     """An email: raw_email_b64 (a base64 .eml) and/or raw_text (the text
     as the page shows it).
 
-    sender_email gives the sender when only the text is sent.
+    sender_email gives the sender when only the text is sent, and
+    sender_name the name the mail client shows for it.
     client_context carries hints from the mail client page, loosely typed
     so new hints need no API change. Gmail: origin, gmail_signed_by,
     gmail_mailed_by, gmail_via, gmail_in_inbox, headers_source,
@@ -244,7 +253,16 @@ class AnalyseRequest(BaseModel):
     raw_email_b64: str | None = Field(None, max_length=MAX_EMAIL_B64_CHARS)
     raw_text: str | None = Field(None, max_length=MAX_TEXT_CHARS)
     sender_email: str | None = Field(None, max_length=512)
+    sender_name: str | None = Field(None, max_length=200)
     client_context: dict[str, Any] | None = None
+
+
+def _from_value(email: str, name: str | None, original: str = "") -> str:
+    """From: built from the address the client sent and the name it shows
+    (or the name of the original header), so that the name can be checked
+    against the address (impersonation)."""
+    display = (name or parseaddr(original)[0] or "").replace('"', "'").strip()[:200]
+    return f'"{display}" <{email}>' if display else email
 
 
 class AttachmentRequest(BaseModel):
@@ -273,7 +291,7 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         urls = merge_link_urls(urls_in_text(body), ctx.get("link_urls"))
         headers: dict[str, str] = {}
         if req.sender_email:
-            headers["from"] = req.sender_email
+            headers["from"] = _from_value(req.sender_email, req.sender_name)
         synth = synthesize_auth_results(ctx, req.sender_email)
         if synth:
             headers["authentication-results"] = synth
@@ -290,7 +308,7 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         logger.info("EML parse error: %s", e)
         raise HTTPException(400, "Could not parse this email.") from e
     if req.sender_email:
-        headers["from"] = req.sender_email
+        headers["from"] = _from_value(req.sender_email, req.sender_name, headers.get("from", ""))
     if req.raw_text and req.raw_text.strip():
         body = req.raw_text.strip()
         urls = merge_link_urls(urls_in_text(body), urls)
@@ -496,6 +514,13 @@ async def analyse(request: Request, req: AnalyseRequest):
     if forwarded["detected"]:
         # The sender vouches for the forward, not for the forwarded content.
         allowlisted = crypto_verified = outlook_internal = False
+    # A brand's name over another domain's address: authentication only
+    # proves who the impostor is, so no softer path, and the sender score
+    # is at least IMPERSONATION_META.
+    impersonation = None if forwarded["detected"] else impersonated_brand(headers.get("from", ""))
+    if impersonation:
+        allowlisted = crypto_verified = outlook_internal = False
+        p_meta = max(p_meta, IMPERSONATION_META)
     # The allowlist counts only for an authenticated sender: the From: text
     # alone can be forged.
     trusted_sender = allowlisted and (crypto_verified or outlook_internal)
@@ -503,6 +528,7 @@ async def analyse(request: Request, req: AnalyseRequest):
     # checks: a soft signal, used when nothing stronger is available.
     inbox_soft = (
         not crypto_verified
+        and not impersonation
         and not forwarded["detected"]
         and ((ctx.get("origin") == "gmail" and bool(ctx.get("gmail_in_inbox"))) or outlook_internal)
         and auth.get("dmarc") != "fail"
@@ -518,6 +544,15 @@ async def analyse(request: Request, req: AnalyseRequest):
     if trusted_sender:
         p_meta = min(p_meta, TRUSTED_META_CEILING)
     text_used = len(body.split()) >= MIN_TEXT_WORDS
+    # Without headers there is no sender to check (pasted text, a client
+    # that sent no headers): the sender score is then a neutral default,
+    # shown as "not checked".
+    meta_checked = bool(
+        raw_bytes
+        or headers.get("authentication-results")
+        or impersonation
+        or ctx.get("gmail_in_inbox")
+    )
     verdict = fusion.decide_email(
         p_text,
         p_url,
@@ -553,6 +588,9 @@ async def analyse(request: Request, req: AnalyseRequest):
             "aligned": auth.get("aligned", False),
             "spamhaus_dbl_listed": bool(auth_signal.get("spamhaus_dbl", {}).get("listed")),
             "reasons": auth_signal.get("reasons", []),
+            "impersonation": (
+                {"brand": impersonation, "domain": domain or ""} if impersonation else None
+            ),
             "score_delta": auth_signal.get("score_delta", 0.0),
         },
         "url_reputation": rep.as_dict(),
@@ -578,6 +616,7 @@ async def analyse(request: Request, req: AnalyseRequest):
                 "phishing_probability": p_meta,
                 "phishing_probability_raw": p_meta_raw,
                 "verdict": _verdict_label(p_meta),
+                "checked": meta_checked,
                 "source": (
                     "model"
                     if structured_agents.metadata_model_ready() and raw_for_meta_model

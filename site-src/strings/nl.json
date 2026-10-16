@@ -142,7 +142,7 @@
   "js_tag_shared": "Gedeeld bestand: {services}",
   "js_verdict_bad": "Lijkt op phishing",
   "js_verdict_good": "Lijkt veilig",
-  "js_overall": "Totaalscore: {pct}%.",
+  "js_overall": "Phishingrisico: {pct}%.",
   "js_m_wording": "Tekst",
   "js_m_links": "Links",
   "js_m_sender": "Afzender",
@@ -179,5 +179,7 @@
   "js_fb_failed": "De melding kon niet worden verstuurd: {error}",
   "js_fb_too_short": "Schrijf minstens 3 woorden om de melding te versturen.",
   "js_fb_copy": "Kopiëren",
-  "js_fb_copied": "Gekopieerd"
+  "js_fb_copied": "Gekopieerd",
+  "js_m_not_checked": "niet gecontroleerd",
+  "js_tag_impersonation": "Gebruikt de naam {brand}, verzonden vanaf {domain}"
 }

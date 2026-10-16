@@ -1,6 +1,6 @@
 # Privacybeleid van PhishLens
 
-Laatst bijgewerkt: 16 oktober 2026.
+Laatst bijgewerkt: 17 oktober 2026.
 
 PhishLens is een Chrome-extensie die e-mails op phishing controleert.
 Deze pagina legt uit welke gegevens ze verwerkt, waar die naartoe gaan
@@ -30,7 +30,7 @@ server, PhishLens Cloud, op `phishlens.dev`.
 Tijdens een controle leest de extensie van de geopende Gmail- of
 Outlook-pagina:
 
-- de tekst van het bericht, het onderwerp en het adres van de afzender;
+- de tekst van het bericht, het onderwerp en de naam en het adres van de afzender;
 - de bestemmingen van de links in het bericht;
 - de authenticatiehints die Gmail toont (verzonden door, ondertekend
   door);

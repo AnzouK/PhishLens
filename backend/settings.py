@@ -15,7 +15,7 @@ from pathlib import Path
 
 # Shared by the backend and the extension (extension/manifest.json);
 # the CI checks that both say the same.
-VERSION = "2.0.6"
+VERSION = "2.0.7"
 
 # ---------------------------------------------------------------------
 # Text model
@@ -118,6 +118,10 @@ PATH_CRYPTO = TrustPath("crypto_verified", text_factor=0.5, threshold=0.65)
 PATH_INBOX_SOFT = TrustPath("gmail_inbox_soft", text_factor=0.6, threshold=0.62)
 PATH_OUTLOOK_INTERNAL = TrustPath("outlook_internal", text_factor=0.6, threshold=0.62)
 PATH_DEFAULT = TrustPath("default", text_factor=1.0, threshold=0.5)
+# Sender score floor when the From: shows a brand's name over another
+# domain's address (sender_trust.impersonated_brand): at or above
+# HIGH_CONF_OVERRIDE, so it decides the verdict on the default path.
+IMPERSONATION_META = 0.9
 # Metadata score ceiling for an authenticated allowlisted sender.
 TRUSTED_META_CEILING = 0.05
 

@@ -21,7 +21,7 @@ let _olQueued = false;
 const _olObs = new MutationObserver(() => {
     if (pllShutdownIfDead() || _olQueued) return;
     _olQueued = true;
-    setTimeout(() => { _olQueued = false; olInject(); }, 300);
+    setTimeout(() => { _olQueued = false; pllRefreshTheme(); olInject(); }, 300);
 });
 PLL_OBSERVERS.push(_olObs);
 _olObs.observe(document.body, { childList: true, subtree: true });
@@ -116,6 +116,7 @@ async function olScan(pane, btn) {
         const payload = {
             raw_text: ((!body || body.length < 20) ? [subject, body].filter(Boolean).join("\n") || "(no text)" : body).slice(0, 4000),
             sender_email: senderEmail || null,
+            sender_name: senderName || null,
             client_context: {
                 origin: "outlook",
                 subject,

@@ -142,7 +142,7 @@
   "js_tag_shared": "Archivo compartido: {services}",
   "js_verdict_bad": "Parece phishing",
   "js_verdict_good": "Parece seguro",
-  "js_overall": "Puntuación global: {pct} %.",
+  "js_overall": "Riesgo de phishing: {pct} %.",
   "js_m_wording": "Texto",
   "js_m_links": "Enlaces",
   "js_m_sender": "Remitente",
@@ -179,5 +179,7 @@
   "js_fb_failed": "No se pudo enviar el aviso: {error}",
   "js_fb_too_short": "Escriba al menos 3 palabras para enviar el aviso.",
   "js_fb_copy": "Copiar",
-  "js_fb_copied": "Copiado"
+  "js_fb_copied": "Copiado",
+  "js_m_not_checked": "no comprobado",
+  "js_tag_impersonation": "Usa el nombre {brand}, enviado desde {domain}"
 }

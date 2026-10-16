@@ -1,16 +1,19 @@
 # =====================================================================
 # PhishLens release
 # =====================================================================
-# On a version tag (v2.0.4...): checks that the tag matches the version
-# of the backend and the extension, zips extension/ and publishes the
-# GitHub release with that zip and the version's CHANGELOG section.
-# If the release already exists, only the zip is (re)attached.
+# On a version tag (v2.0.4...), or by hand from the Actions tab ("Run
+# workflow", on main: the tag is made from the code's version): checks
+# that the tag matches the version of the backend and the extension, zips
+# extension/ and publishes the GitHub release with that zip and the
+# version's CHANGELOG section. If the release already exists, only the
+# zip is (re)attached.
 # =====================================================================
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -25,7 +28,13 @@ jobs:
       - name: Tag matches the code version
         run: |
           version=$(python3 scripts/check_version.py | awk '{print $2}')
-          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, code $version"; exit 1; }
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            test "$GITHUB_REF_NAME" = "main" || { echo "run it on main"; exit 1; }
+            echo "TAG=v$version" >> "$GITHUB_ENV"
+          else
+            test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, code $version"; exit 1; }
+            echo "TAG=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+          fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Extension zip
@@ -54,8 +63,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           zip="PhishLens-extension-$VERSION.zip"
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "$zip" --clobber
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$zip" --clobber
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            gh release create "$TAG" "$zip" --title "PhishLens $VERSION" --notes-file notes.md --target "$GITHUB_SHA"
           else
-            gh release create "$GITHUB_REF_NAME" "$zip" --title "PhishLens $VERSION" --notes-file notes.md --verify-tag
+            gh release create "$TAG" "$zip" --title "PhishLens $VERSION" --notes-file notes.md --verify-tag
           fi

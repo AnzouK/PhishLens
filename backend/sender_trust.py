@@ -4,6 +4,8 @@ Who sent the email, and can we believe it.
 - sender_domain(): the domain of a From: value.
 - is_trusted_domain(): allowlist match (trusted_domains.py). The caller
   applies it only to an authenticated sender.
+- impersonated_brand(): a From: whose name is a known brand while the
+  address belongs to another domain.
 - synthesize_auth_results(): an Authentication-Results header built from
   the "signed-by" / "mailed-by" values Gmail shows, so auth_headers can
   check alignment the same way as for real headers.
@@ -12,8 +14,11 @@ Who sent the email, and can we believe it.
 from __future__ import annotations
 
 import re
+import unicodedata
+from email.utils import parseaddr
 from typing import Any
 
+from known_domains import BRANDS
 from trusted_domains import TRUSTED_DOMAINS
 
 try:
@@ -43,6 +48,43 @@ def is_trusted_domain(domain: str | None) -> bool:
         return False
     d = domain.lower()
     return d in TRUSTED_DOMAINS or any(d.endswith("." + td) for td in TRUSTED_DOMAINS)
+
+
+def _plain_words(text: str, lower: bool = True) -> str:
+    """Accents and look-alike letters folded (NFKC turns the mathematical
+    bold letters some phishing uses into plain ones), every other
+    character a space; padded so that whole words match. Dots are kept
+    ("booking.com") and the same words are added with dots as spaces
+    ("impots.gouv" also gives "impots gouv")."""
+    folded = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", text))
+    folded = "".join(c for c in folded if not unicodedata.combining(c))
+    if lower:
+        folded = folded.lower()
+    kept = " ".join("".join(c if c.isalnum() or c == "." else " " for c in folded).split())
+    return f" {kept} {kept.replace('.', ' ')} "
+
+
+def impersonated_brand(from_header: str) -> str | None:
+    """The brand a From: claims when its address is not the brand's.
+
+    "Chronopost <info@qdsoddsmn.us>" -> "chronopost". The name is checked
+    as whole words against known_domains.BRANDS (brands of three letters
+    or fewer only in capitals, "UPS" but not "ups"); the address passes
+    when the first label of its organisational domain is one of the
+    brand's.
+    """
+    name, addr = parseaddr((from_header or "")[:400])
+    if not name:
+        return None
+    domain = sender_domain(addr or from_header) or ""
+    label = org_domain(domain).split(".", 1)[0] if domain else ""
+    words = _plain_words(name[:200])
+    upper = _plain_words(name[:200], lower=False)
+    for brand, labels in BRANDS.items():
+        found = f" {brand.upper()} " in upper if len(brand) <= 3 else f" {brand} " in words
+        if found and label not in labels:
+            return brand
+    return None
 
 
 def is_hostname(name: str) -> bool:

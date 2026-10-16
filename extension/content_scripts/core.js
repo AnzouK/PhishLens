@@ -50,20 +50,47 @@ const PLL_ICON = {
 };
 
 // ---------------------------------------------------------------------
-// Theme: read the popup's saved choice and apply to injected UI.
-// The popup writes to chrome.storage.local under key "theme".
+// Theme: the popup's saved choice (chrome.storage.local "theme"). In
+// "auto", the colours follow the mail page itself, not the system: Gmail
+// can be light on a dark system and the reverse, and translucent hover
+// colours over the wrong page made the button labels unreadable.
 // ---------------------------------------------------------------------
-function applyTheme(theme) {
-    if (theme === "light" || theme === "dark") {
-        document.documentElement.setAttribute("data-phishlens-theme", theme);
-    } else {
-        document.documentElement.removeAttribute("data-phishlens-theme");
+let _pllThemeChoice = "auto";
+let _pllThemeCheckedAt = 0;
+
+// Dark when the first opaque background behind the mail view is dark.
+function pllPageIsDark() {
+    let el = document.querySelector('div[role="main"]') || document.body;
+    while (el) {
+        const bg = getComputedStyle(el).backgroundColor;
+        const m = bg && bg.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/);
+        if (m && (m[4] === undefined || Number(m[4]) > 0.5)) {
+            const lum = (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255;
+            return lum < 0.45;
+        }
+        el = el.parentElement;
     }
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches || false;
 }
+
+function applyTheme(theme) {
+    _pllThemeChoice = theme === "light" || theme === "dark" ? theme : "auto";
+    const resolved = _pllThemeChoice === "auto" ? (pllPageIsDark() ? "dark" : "light") : _pllThemeChoice;
+    document.documentElement.setAttribute("data-phishlens-theme", resolved);
+    _pllThemeCheckedAt = Date.now();
+}
+
+// Called as the page changes (gmail.js, outlook.js): the user may switch
+// the mail theme while the tab is open. At most every two seconds.
+function pllRefreshTheme() {
+    if (_pllThemeChoice === "auto" && Date.now() - _pllThemeCheckedAt > 2000) applyTheme("auto");
+}
+
 chrome.storage?.local?.get(["theme"], (s) => applyTheme(s.theme));
 chrome.storage?.onChanged?.addListener((changes, area) => {
     if (area === "local" && changes.theme) applyTheme(changes.theme.newValue);
 });
+window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener?.("change", () => applyTheme(_pllThemeChoice));
 
 // ---------------------------------------------------------------------
 // Detection: which DOM nodes mean "an email view is open"?

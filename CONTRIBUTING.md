@@ -125,4 +125,6 @@ Maintainers bump the version in `extension/manifest.json` and
 the tag `vX.Y.Z` on `main`. The release workflow
 (`.github/workflows/release.yml`) checks that the tag matches the code,
 zips `extension/` and publishes the GitHub release with that zip and the
-version's changelog section.
+version's changelog section. The same workflow can be started by hand
+from the Actions tab (**Release**, **Run workflow** on `main`): it then
+makes the tag from the code's version.

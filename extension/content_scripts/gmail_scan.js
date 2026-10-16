@@ -139,6 +139,7 @@ async function runScan(emailView, btn) {
                 ? { raw_email_b64: utf8ToB64(original), ...(shortBody ? {} : { raw_text: body.slice(0, 4000) }) }
                 : { raw_text: (shortBody ? [subject, body].filter(Boolean).join("\n") || "(no text)" : body).slice(0, 4000) }),
             sender_email: senderEmail || null,
+            sender_name: senderName || null,
             client_context: {
                 origin: "gmail",
                 subject,

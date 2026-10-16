@@ -1,6 +1,6 @@
 # PhishLens privacy policy
 
-Last updated: October 16, 2026.
+Last updated: October 17, 2026.
 
 PhishLens is a Chrome extension that checks emails for phishing. This
 page explains what data it handles, where that data goes and what is
@@ -30,7 +30,7 @@ kept. It applies to the extension and to the hosted backend, PhishLens Cloud, at
 
 When a scan runs, the extension reads from the open Gmail or Outlook page:
 
-- the text of the message, its subject and the sender's address;
+- the text of the message, its subject and the sender's name and address;
 - the targets of the links in the message;
 - the authentication hints Gmail shows (mailed-by, signed-by);
 - with **Read full headers** on (default), the original message as

@@ -424,6 +424,12 @@ function renderResult(data) {
         "metadata", $("meta-score"), $("meta-bar"), $("meta-hint"),
         (p) => t(p >= 0.7 ? "meta_high" : p >= 0.4 ? "meta_mid" : "meta_low")
     );
+    if (data.agents.metadata?.checked === false) {
+        $("meta-score").textContent = "—";
+        $("meta-bar").style.width = "0%";
+        $("meta-bar").closest(".agent").dataset.flagged = "safe";
+        $("meta-hint").textContent = t("meta_not_checked");
+    }
 
     // Reputation & auth badges
     renderUrlBadges(data.url_reputation);
@@ -544,6 +550,11 @@ function renderMetaBadges(auth) {
     if (!auth) { host.hidden = true; return; }
 
     const badges = [];
+    if (auth.impersonation?.brand) {
+        const brand = String(auth.impersonation.brand).replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+        const vars = { brand, domain: auth.impersonation.domain || "?" };
+        badges.push(_mkBadge(t("chip_impersonation", vars), "bad", t("chip_impersonation_title", vars)));
+    }
     if (auth.cryptographically_verified) {
         badges.push(_mkBadge(t("dkim_aligned"), "good", t("dkim_aligned_title")));
     }

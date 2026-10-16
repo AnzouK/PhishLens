@@ -39,6 +39,7 @@ function load(entry) {
         },
         navigator: { language: "en-US" },
         addEventListener() {},
+        getComputedStyle: () => ({ backgroundColor: "rgb(255, 255, 255)" }),
     };
     ctx.window = ctx;
     ctx.globalThis = ctx;
@@ -68,3 +69,18 @@ for (const entry of manifest.content_scripts) {
         });
     });
 }
+
+test("in automatic theme, the banner colours follow the mail page, not the system", () => {
+    const entry = manifest.content_scripts[0];
+    const { ctx } = load(entry);
+    const set = {};
+    ctx.document.documentElement.setAttribute = (k, v) => { set[k] = v; };
+    ctx.getComputedStyle = () => ({ backgroundColor: "rgb(32, 33, 36)" });
+    vm.runInContext('applyTheme("auto")', ctx);
+    assert.equal(set["data-phishlens-theme"], "dark");
+    ctx.getComputedStyle = () => ({ backgroundColor: "rgb(255, 255, 255)" });
+    vm.runInContext('applyTheme("auto")', ctx);
+    assert.equal(set["data-phishlens-theme"], "light");
+    vm.runInContext('applyTheme("dark")', ctx);
+    assert.equal(set["data-phishlens-theme"], "dark");
+});
