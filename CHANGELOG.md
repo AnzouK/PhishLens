@@ -7,16 +7,14 @@ backend share one version number.
 
 ## [Unreleased]
 
-### Changed
-- `scripts/benchmark.py` shows its progress and the time left, prints
-  the report of what was scored when stopped with Ctrl+C, and takes
-  `--sample N` (at most N emails per label, always the same ones).
-
 ### Added
 - `scripts/benchmark.py`: a public, reproducible benchmark of a PhishLens
   server on labelled `.eml` and `.mbox` files, with the confusion matrix
   per detected language and 95% confidence intervals; results are cached
-  without the emails so a run resumes and can be published.
+  without the emails so a run resumes and can be published. It shows its
+  progress, prints the report of what was scored when stopped with
+  Ctrl+C, and `--sample N` scores at most N emails per label, always the
+  same ones.
 
 ### Documentation
 - The figures of the multilingual model come with their counts and 95%
