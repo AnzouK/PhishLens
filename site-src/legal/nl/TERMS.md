@@ -1,9 +1,9 @@
 # Gebruiksvoorwaarden van PhishLens
 
-Laatst bijgewerkt: 15 oktober 2026.
+Laatst bijgewerkt: 16 oktober 2026.
 
 Deze voorwaarden gelden voor de Chrome-extensie PhishLens, de website
-`anzouk.duckdns.org` en PhishLens Cloud, de gehoste controleserver. Door
+`phishlens.dev` en PhishLens Cloud, de gehoste controleserver. Door
 ze te gebruiken aanvaardt u deze voorwaarden. De code zelf is
 gepubliceerd onder de [GNU AGPL-3.0-licentie](LICENSE), die het kopiëren en
 wijzigen ervan regelt. Gewijzigde versies, ook versies die als onlinedienst worden aangeboden, moeten onder dezelfde licentie worden gepubliceerd.

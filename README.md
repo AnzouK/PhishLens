@@ -9,7 +9,7 @@
 [![CI](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml/badge.svg)](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/AnzouK/PhishLens?color=blueviolet)](https://github.com/AnzouK/PhishLens/releases/latest)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-green.svg)](LICENSE)
-[![Website](https://img.shields.io/badge/Website-anzouk.duckdns.org-F80000)](https://anzouk.duckdns.org)
+[![Website](https://img.shields.io/badge/Website-phishlens.dev-F80000)](https://phishlens.dev)
 [![Text model](https://img.shields.io/badge/text%20model-22%20languages-yellow)](docs/multilingual-model.md)
 
 <picture>

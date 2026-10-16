@@ -7,6 +7,16 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.5] - 2026-10-16
+
+### Changed
+- **New address: phishlens.dev.** The website and PhishLens Cloud move
+  from `anzouk.duckdns.org`, a free dynamic-DNS name of the kind
+  phishing campaigns also use, to `phishlens.dev`. The extension uses the
+  new address; the former one keeps answering the API for older
+  versions of the extension and redirects its pages.
+- Privacy policy and terms: the new address (dated October 16, 2026).
+
 ### Documentation
 - README rewritten shorter: what PhishLens checks, a **Privacy** section
   (what is sent where, what is kept), and the figures with how far they
@@ -860,7 +870,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.4...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.5...HEAD
+[2.0.5]: https://github.com/AnzouK/PhishLens/compare/v2.0.4...v2.0.5
 [2.0.4]: https://github.com/AnzouK/PhishLens/compare/v2.0.3...v2.0.4
 [2.0.3]: https://github.com/AnzouK/PhishLens/compare/v2.0.2...v2.0.3
 [2.0.2]: https://github.com/AnzouK/PhishLens/compare/v2.0.1...v2.0.2

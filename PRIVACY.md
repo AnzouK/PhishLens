@@ -1,11 +1,11 @@
 # PhishLens privacy policy
 
-Last updated: October 15, 2026.
+Last updated: October 16, 2026.
 
 PhishLens is a Chrome extension that checks emails for phishing. This
 page explains what data it handles, where that data goes and what is
 kept. It applies to the extension and to the hosted backend, PhishLens Cloud, at
-`anzouk.duckdns.org`.
+`phishlens.dev`.
 
 ## In short
 
@@ -109,7 +109,7 @@ PhishLens Cloud also counts verdicts per scoring path for monitoring
 
 ## This website
 
-`anzouk.duckdns.org` sets no cookies and uses no tracking scripts, so
+`phishlens.dev` sets no cookies and uses no tracking scripts, so
 there is nothing to consent to. Visit counts come from the web server's
 own logs (page, time, referrer, browser type, IP address), read with a
 self-hosted tool; they are kept for 30 days and never shared. The page
@@ -125,7 +125,7 @@ sees as a normal request from your browser.
 | `scripting` | After an update, put the new version of the scan buttons into Gmail and Outlook tabs that are already open, so you do not have to refresh them. |
 | Access to `mail.google.com` | Add the scan buttons and banners to Gmail and read the email you scan. |
 | Access to Outlook on the web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Same, in Outlook (manual scans only). |
-| Access to `127.0.0.1:8000`, `localhost:8000`, `anzouk.duckdns.org` | Send scans to the backend you chose. |
+| Access to `127.0.0.1:8000`, `localhost:8000`, `phishlens.dev` | Send scans to the backend you chose. |
 
 ## Your choices
 

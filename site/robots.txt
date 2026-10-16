@@ -5,4 +5,4 @@ Disallow: /analyse_attachment
 Disallow: /explain
 Disallow: /reputation/
 
-Sitemap: https://anzouk.duckdns.org/sitemap.xml
+Sitemap: https://phishlens.dev/sitemap.xml

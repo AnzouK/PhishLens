@@ -94,7 +94,7 @@ HF_TOKEN=hf_...                     # private repositories only
 Re-create the container, then check what answers:
 
 ```bash
-curl -s https://anzouk.duckdns.org/health | python3 -m json.tool
+curl -s https://phishlens.dev/health | python3 -m json.tool
 ```
 
 `text_model` shows the repository, the display name, `normalize`,
@@ -148,6 +148,33 @@ next to the reputation cache (`/data/phishtank.json.gz` with
 restart costs no download. When a download is refused,
 `/reputation/stats` shows why in `phishtank_last_error` (for example
 `HTTP 429`), and the previous list stays in use.
+
+## Domains
+
+`phishlens.dev` serves the website and, on the API paths, PhishLens
+Cloud; `www.phishlens.dev` redirects to it. The former address,
+`anzouk.duckdns.org`, keeps answering the API paths so that extensions
+older than 2.0.5 go on working, and redirects every other page to
+`phishlens.dev`. In the Caddyfile:
+
+```caddy
+www.phishlens.dev {
+        redir https://phishlens.dev{uri} permanent
+}
+
+anzouk.duckdns.org {
+        import security_headers
+        @api path /analyse* /explain* /health /reputation* /feedback
+        handle @api {
+                reverse_proxy phishlens:7860
+        }
+        handle {
+                redir https://phishlens.dev{uri} permanent
+        }
+}
+```
+
+The `phishlens.dev` block is the former main domain block, renamed.
 
 ## Configuration
 

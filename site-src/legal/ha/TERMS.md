@@ -1,9 +1,9 @@
 # Sharuɗɗan amfani da PhishLens
 
-An sabunta ta ƙarshe: 15 ga Oktoba, 2026.
+An sabunta ta ƙarshe: 16 ga Oktoba, 2026.
 
 Waɗannan sharuɗɗan sun shafi ƙarin Chrome na PhishLens, shafin yanar
-gizo `anzouk.duckdns.org` da PhishLens Cloud, sabar bincike da aka
+gizo `phishlens.dev` da PhishLens Cloud, sabar bincike da aka
 ɗauka. Ta amfani da su, ka amince da waɗannan sharuɗɗan. Ita kanta
 lambar an wallafa ta ƙarƙashin [lasisin GNU AGPL-3.0](LICENSE), wanda ke tsara
 kwafi da gyara ta. Sigogin da aka gyara, har da waɗanda ake bayarwa a matsayin sabis na yanar gizo, dole ne a wallafa su ƙarƙashin lasisi ɗaya.

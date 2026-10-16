@@ -223,7 +223,7 @@
     "settings_intro": "Scegli dove PhishLens invia le email da analizzare. La scelta viene mantenuta tra una sessione e l'altra.",
     "server_heading": "Server",
     "cloud_default": "predefinito",
-    "cloud_sub_html": "<code>anzouk.duckdns.org</code>: servizio ospitato, HTTPS, niente da installare.",
+    "cloud_sub_html": "<code>phishlens.dev</code>: servizio ospitato, HTTPS, niente da installare.",
     "local_title": "Server locale (Docker)",
     "local_sub_html": "<code>http://127.0.0.1:8000</code>: privato, niente da configurare una volta avviato Docker.",
     "custom_title": "URL personalizzato",

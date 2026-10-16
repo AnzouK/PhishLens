@@ -34,7 +34,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "site-src"
 OUT = ROOT / "site"
-SITE = "https://anzouk.duckdns.org"
+SITE = "https://phishlens.dev"
 GITHUB = "https://github.com/AnzouK/PhishLens/blob/main/"
 
 # Native names, in the order of the language menu.

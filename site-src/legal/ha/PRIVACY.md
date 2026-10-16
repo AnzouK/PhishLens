@@ -1,11 +1,11 @@
 # Manufar sirri ta PhishLens
 
-An sabunta ta ƙarshe: 15 ga Oktoba, 2026.
+An sabunta ta ƙarshe: 16 ga Oktoba, 2026.
 
 PhishLens ƙarin Chrome ne da ke duba ko imel phishing ne. Wannan shafin
 yana bayyana bayanan da yake sarrafawa, inda suke zuwa da abin da ake
 ajiyewa. Ya shafi ƙarin da kuma sabar da aka ɗauka, PhishLens Cloud, a
-`anzouk.duckdns.org`.
+`phishlens.dev`.
 
 ## A taƙaice
 
@@ -112,7 +112,7 @@ don sa ido (ƙididdigar Prometheus). Lambobi ne kawai, babu bayanan imel.
 
 ## Wannan shafin yanar gizo
 
-`anzouk.duckdns.org` ba ya saka kukis kuma ba ya amfani da rubutun bin
+`phishlens.dev` ba ya saka kukis kuma ba ya amfani da rubutun bin
 diddigi, don haka babu abin da za a amince da shi. Yawan ziyara yana
 fitowa daga bayanan ayyukan sabar yanar gizo (shafi, lokaci, shafin da
 aka fito, irin burauza, adireshin IP), ana karanta su da kayan aiki na
@@ -129,7 +129,7 @@ matsayin buƙata ta al'ada daga burauzarka.
 | `scripting` | Bayan sabuntawa, saka sabuwar sigar maɓallan bincike a shafukan Gmail da Outlook da ke buɗe, don kada ka sabunta su. |
 | Samun dama ga `mail.google.com` | Ƙara maɓallan bincike da tutoci a Gmail da karanta imel ɗin da kake dubawa. |
 | Samun dama ga Outlook a yanar gizo (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Haka nan, a Outlook (bincike da hannu kawai). |
-| Samun dama ga `127.0.0.1:8000`, `localhost:8000`, `anzouk.duckdns.org` | Aika bincike zuwa sabar da ka zaɓa. |
+| Samun dama ga `127.0.0.1:8000`, `localhost:8000`, `phishlens.dev` | Aika bincike zuwa sabar da ka zaɓa. |
 
 ## Zaɓuɓɓukanka
 

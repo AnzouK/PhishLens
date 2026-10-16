@@ -11,7 +11,7 @@ Where each part of PhishLens lives, and where to find answers.
 | AnzouKiona/phishlens-text-v2 (private) | The multilingual text agent PhishLens Cloud runs (mmBERT-small, distilled and calibrated). Private because part of its training mail is; how it was built: [multilingual-model.md](multilingual-model.md). |
 | [AnzouKiona/phishlens-distilbert](https://huggingface.co/AnzouKiona/phishlens-distilbert) | The fine-tuned English DistilBERT text agent (model card, weights, tokenizer). The default of a self-hosted backend. |
 | [AnzouKiona/phishlens-agents](https://huggingface.co/AnzouKiona/phishlens-agents) | The trained URL and metadata Random Forest agents (skops files, with the original joblib ones). Pulled by the backend at startup. |
-| [anzouk.duckdns.org](https://anzouk.duckdns.org) | Website in 8 languages: landing page, try-it widget, privacy policy and terms, and the PhishLens Cloud backend used by the extension's "PhishLens Cloud" setting. |
+| [phishlens.dev](https://phishlens.dev) | Website in 8 languages: landing page, try-it widget, privacy policy and terms, and the PhishLens Cloud backend used by the extension's "PhishLens Cloud" setting. |
 | [Wiki](https://github.com/AnzouK/PhishLens/wiki) | The user guide: installing, using PhishLens in Gmail and Outlook, reading a verdict, settings, troubleshooting. |
 | Project report | B.Sc. final-year report (Department of Cybersecurity, Nile University of Nigeria, 2025/2026): literature review, methodology, evaluation. Not published here; available on request through the university. |
 

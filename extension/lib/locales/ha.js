@@ -224,7 +224,7 @@
     "settings_intro": "Zaɓi inda PhishLens zai aika imel don dubawa. Za a ajiye zaɓinka daga wannan zama zuwa wancan.",
     "server_heading": "Sabar",
     "cloud_default": "na asali",
-    "cloud_sub_html": "<code>anzouk.duckdns.org</code>: sabis da aka ɗauka, HTTPS, babu abin girkawa.",
+    "cloud_sub_html": "<code>phishlens.dev</code>: sabis da aka ɗauka, HTTPS, babu abin girkawa.",
     "local_title": "Sabar ta gida (Docker)",
     "local_sub_html": "<code>http://127.0.0.1:8000</code>: na sirri, babu abin saitawa da zarar Docker yana aiki.",
     "custom_title": "URL na musamman",
