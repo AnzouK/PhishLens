@@ -23,7 +23,7 @@ not reported.
 python3 scripts/benchmark.py \
     --phishing phishing_pot/email nazario/phishing-2025.mbox \
     --legit legit/*.mbox \
-    --since 2026-01-01 \
+    --since 2026-01-01 --sample 500 \
     --server http://127.0.0.1:8000 --markdown
 ```
 
@@ -34,6 +34,10 @@ legitimate emails flagged and the share of phishing caught, each with its
 confidence interval. Answers are kept in `benchmark-results.jsonl` (a
 hash of each email, its label and the result, never the email), so a run
 resumes where it stopped and the per-email results can be published.
+`--sample N` scores at most N emails per label, always the same ones (the
+N smallest hashes), so another person picks the same emails from the
+same sources. The script shows its progress and, on Ctrl+C, prints the
+report of what was scored so far.
 
 Run it against your own server: PhishLens Cloud answers 30 requests a
 minute (`--per-minute 25`) and its Safe Browsing quota is shared by every

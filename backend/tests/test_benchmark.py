@@ -21,6 +21,7 @@ def make_args(tmp_path, phishing, legit, since=None):
         server="http://test",
         since=since,
         per_minute=0,
+        sample=0,
         cache=str(tmp_path / "cache.jsonl"),
         markdown=True,
     )
@@ -77,3 +78,31 @@ def test_server_errors_are_not_cached(tmp_path):
     assert results[0]["error"] == "TimeoutError"
     assert "could not be scored" in bm.report(results)
     assert not (tmp_path / "cache.jsonl").read_text()
+
+
+def test_sample_is_a_fixed_pick_per_label(tmp_path):
+    phish = tmp_path / "phish"
+    phish.mkdir()
+    for i in range(6):
+        (phish / f"{i}.eml").write_bytes(eml(f"bad {i}"))
+    args = make_args(tmp_path, [str(phish)], [])
+    args.sample = 3
+    first = {r["id"] for r in bm.run(args, send=fake_server([]))}
+    (tmp_path / "cache.jsonl").unlink()
+    again = {r["id"] for r in bm.run(args, send=fake_server([]))}
+    assert len(first) == 3 and first == again
+
+
+def test_interrupt_keeps_what_was_scored(tmp_path):
+    for i in range(3):
+        (tmp_path / f"{i}.eml").write_bytes(eml(f"bad {i}"))
+    calls = []
+
+    def stop_after_one(server, raw):
+        if calls:
+            raise KeyboardInterrupt
+        calls.append(raw)
+        return {"verdict": "phishing", "fused_score": 0.9, "language": {"code": "en"}}
+
+    results = bm.run(make_args(tmp_path, [str(tmp_path)], []), send=stop_after_one)
+    assert len(results) == 1

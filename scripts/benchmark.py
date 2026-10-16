@@ -11,7 +11,7 @@ a 95% Wilson confidence interval.
     python3 scripts/benchmark.py \\
         --phishing phishing_pot/email nazario-2025.mbox \\
         --legit my-public-legit.mbox \\
-        --since 2026-01-01 --server http://127.0.0.1:8000 --markdown
+        --since 2026-01-01 --sample 500 --server http://127.0.0.1:8000 --markdown
 
 It measures the whole system (text model, links, sender checks, threat
 intelligence), not one model. Every answer is kept in --cache (JSON
@@ -92,47 +92,89 @@ def load_cache(path: Path) -> dict[str, dict]:
     return {r["id"]: r for r in rows}
 
 
+def _kept(args, since) -> Iterator[tuple[str, str, bytes]]:
+    """(label, id, raw) of every email the date filter keeps."""
+    for label, sources in (("phishing", args.phishing), ("legit", args.legit)):
+        for source in sources or []:
+            for raw in emails_in(source):
+                if since:
+                    d = sent_on(raw)
+                    if d is None or d < since:
+                        continue
+                yield label, hashlib.sha256(raw).hexdigest()[:16], raw
+
+
+def _selection(args, since) -> tuple[set[str] | None, dict[str, int]]:
+    """Ids to score with --sample (per label, the N smallest ids: a fixed,
+    reproducible pick), and how many emails each label has."""
+    ids: dict[str, list[str]] = {"phishing": [], "legit": []}
+    for label, eid, _raw in _kept(args, since):
+        ids[label].append(eid)
+    counts = {k: len(v) for k, v in ids.items()}
+    if not args.sample:
+        return None, counts
+    return {e for v in ids.values() for e in sorted(set(v))[: args.sample]}, counts
+
+
+def _progress(done: int, total: int, cached: int, errors: int, pause: float) -> None:
+    left = (total - done) * pause / 60
+    eta = f", about {left:.0f} min left" if pause and done < total else ""
+    print(
+        f"\r{done}/{total} emails ({cached} from the cache, {errors} errors){eta}   ",
+        end="",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def run(args, send=analyse) -> list[dict]:
     cache_path = Path(args.cache)
     cache = load_cache(cache_path)
     since = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc) if args.since else None
     pause = 60.0 / args.per_minute if args.per_minute else 0.0
-    results, skipped = [], 0
-    with cache_path.open("a", encoding="utf-8") as out:
-        for label, sources in (("phishing", args.phishing), ("legit", args.legit)):
-            for source in sources or []:
-                for raw in emails_in(source):
-                    if since:
-                        d = sent_on(raw)
-                        if d is None or d < since:
-                            skipped += 1
-                            continue
-                    eid = hashlib.sha256(raw).hexdigest()[:16]
-                    if eid in cache:
-                        results.append(cache[eid])
-                        continue
-                    try:
-                        r = send(args.server, raw)
-                        row = {
-                            "id": eid,
-                            "label": label,
-                            "verdict": r.get("verdict"),
-                            "score": r.get("fused_score"),
-                            "lang": (r.get("language") or {}).get("code") or "und",
-                            "trust_path": r.get("trust_path"),
-                        }
-                    except (urllib.error.URLError, TimeoutError, ValueError) as e:
-                        row = {"id": eid, "label": label, "error": type(e).__name__}
-                    if "error" not in row:
-                        out.write(json.dumps(row) + "\n")
-                        out.flush()
-                    results.append(row)
-                    if pause:
-                        time.sleep(pause)
-    if skipped:
-        print(
-            f"{skipped} emails dated before {args.since} or undated were left out", file=sys.stderr
-        )
+    chosen, counts = _selection(args, since)
+    total = len(chosen) if chosen is not None else sum(counts.values())
+    print(
+        f"{counts['phishing']} phishing and {counts['legit']} legitimate emails"
+        + (f" after {args.since}" if args.since else "")
+        + (f"; scoring {total} (--sample {args.sample} per label)" if chosen is not None else ""),
+        file=sys.stderr,
+    )
+    results, cached, errors, seen = [], 0, 0, set()
+    try:
+        with cache_path.open("a", encoding="utf-8") as out:
+            for label, eid, raw in _kept(args, since):
+                if eid in seen or (chosen is not None and eid not in chosen):
+                    continue
+                seen.add(eid)
+                if eid in cache:
+                    results.append(cache[eid])
+                    cached += 1
+                    _progress(len(results), total, cached, errors, pause)
+                    continue
+                try:
+                    r = send(args.server, raw)
+                    row = {
+                        "id": eid,
+                        "label": label,
+                        "verdict": r.get("verdict"),
+                        "score": r.get("fused_score"),
+                        "lang": (r.get("language") or {}).get("code") or "und",
+                        "trust_path": r.get("trust_path"),
+                    }
+                except (urllib.error.URLError, TimeoutError, ValueError) as e:
+                    row = {"id": eid, "label": label, "error": type(e).__name__}
+                    errors += 1
+                if "error" not in row:
+                    out.write(json.dumps(row) + "\n")
+                    out.flush()
+                results.append(row)
+                _progress(len(results), total, cached, errors, pause)
+                if pause:
+                    time.sleep(pause)
+    except KeyboardInterrupt:
+        print("\nInterrupted: the report below covers the emails scored so far.", file=sys.stderr)
+    print(file=sys.stderr)
     return results
 
 
@@ -196,6 +238,9 @@ def main() -> None:
         type=float,
         default=0,
         help="requests per minute (PhishLens Cloud allows 30; 0: no pause)",
+    )
+    ap.add_argument(
+        "--sample", type=int, default=0, help="score at most N emails per label (a fixed pick)"
     )
     ap.add_argument("--cache", default="benchmark-results.jsonl")
     ap.add_argument("--markdown", action="store_true")
