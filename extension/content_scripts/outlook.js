@@ -21,7 +21,7 @@ let _olQueued = false;
 const _olObs = new MutationObserver(() => {
     if (pllShutdownIfDead() || _olQueued) return;
     _olQueued = true;
-    setTimeout(() => { _olQueued = false; olInject(); }, 300);
+    setTimeout(() => { _olQueued = false; pllRefreshTheme(); olInject(); }, 300);
 });
 PLL_OBSERVERS.push(_olObs);
 _olObs.observe(document.body, { childList: true, subtree: true });

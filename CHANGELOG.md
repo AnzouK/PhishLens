@@ -34,6 +34,10 @@ backend share one version number.
   international senders as well as Nigerian ones.
 
 ### Fixed
+- **Readable buttons on any Gmail or Outlook theme:** in automatic mode
+  the banner and button colours followed the system, so a light Gmail on
+  a dark system showed a white label on a light orange hover. They now
+  follow the mail page itself, and change with it.
 - The social preview image (shown when the website link is shared)
   still gave the former address; it now shows phishlens.dev and the
   same tagline as the website (shield icon, "8 languages"), and its URL

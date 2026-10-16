@@ -9,7 +9,7 @@
 // ---------------------------------------------------------------------
 // MutationObserver entry point
 // ---------------------------------------------------------------------
-const obs = new MutationObserver(() => { if (!pllShutdownIfDead()) scheduleScan(); });
+const obs = new MutationObserver(() => { if (!pllShutdownIfDead()) { pllRefreshTheme(); scheduleScan(); } });
 PLL_OBSERVERS.push(obs);
 if (PLL_IS_GMAIL) obs.observe(document.body, { childList: true, subtree: true });
 
