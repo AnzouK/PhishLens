@@ -7,7 +7,7 @@ backend share one version number.
 
 ## [Unreleased]
 
-## [2.0.7] - 2026-10-17
+## [2.0.7] - 2026-10-16
 
 ### Added
 - **Brand impersonation:** an email whose sender name is a known brand
