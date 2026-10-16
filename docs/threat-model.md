@@ -88,6 +88,17 @@ proven. A self-hosted server keeps the English DistilBERT unless
 checks do not depend on the language
 ([languages.md](languages.md#text-model)).
 
+**R9. A phishing domain that signs its own mail gets the softer path.**
+DKIM aligned with the From: domain proves who sent the email, not that
+the sender is honest, and an attacker sets it up for their own domain.
+On that `crypto_verified` path the text weighs half and only Safe
+Browsing forces the verdict: 38 of the 64 phishing emails the 2.0.8
+benchmark missed went through it. Sending unlisted domains to the
+default path would catch about 29 more, but the discount protects real
+bank, delivery and university mail from unlisted domains, which the
+benchmark does not contain; it stays until that cost is measured
+([evaluation](evaluation.md#results)).
+
 **R8. The Hausa interface is a draft translation.** A wrong word in a
 warning could confuse a reader. It is marked for review by a native
 speaker; English stays available in Settings.
