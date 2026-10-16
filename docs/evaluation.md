@@ -80,6 +80,7 @@ legitimate mail from public Apache mailing-list archives, all sent from
 | Date | Server | Legitimate emails flagged | Phishing caught |
 | --- | --- | --- | --- |
 | 2026-10-16 | PhishLens Cloud 2.0.7, text model r4 | 130 of 297: 43.8% (95% CI 38.2% to 49.5%) | 461 of 500: 92.2% (89.5% to 94.2%) |
+| 2026-10-16 | main after the metadata fix, not released | 14 of 297: 4.7% (2.8% to 7.8%) | 225 of 500: 45.0% (40.7% to 49.4%) |
 
 **What the 2.0.7 run showed.** On the 130 false alarms, the mean scores
 were 1% for the wording, 56% for the links and 92% for the sender, and
@@ -90,4 +91,17 @@ verdict. Emails scanned in Gmail did not go through it: their headers
 already went to the rules. From 2.0.8 the trained metadata model is off
 by default for every request (`METADATA_MODEL_ENABLED`), and the sender
 score comes from the rules and the real SPF, DKIM and DMARC results.
-The same run on 2.0.8 will be added here.
+
+**What the second run showed.** Without that model, false alarms fell
+to 4.7%, and so did detection, to 45.0%: the 92.2% had come in large
+part from a check that flagged almost everything. On the 275 missed
+phishing emails the text score averaged 13%, far from the 92.5%
+measured offline. The server gave the text model the body only, while
+the model was trained and measured on the subject followed by the body:
+on 120 of the missed emails, the score went from 10% on average to 94%
+with the subject (112 of 120 above 0.85). From 2.0.8 the model reads
+the subject. The 14 remaining false alarms were all decided by the link
+score alone, on plain-text mailing-list mail whose written-out links
+(build servers, personal sites) go to the link model.
+
+The run on 2.0.8 will be added here.

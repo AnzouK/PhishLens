@@ -291,6 +291,12 @@ previous model by mistake (a private repository needs a read-only
 `HF_TOKEN`). The original DistilBERT may also sit directly in
 `MODEL_DIR`, as earlier versions expected.
 
+The model reads the subject, then the visible body (v2.0.8): it was
+trained and measured on that text, and on the body alone it scored the
+benchmark's missed phishing 10% on average, against 94% with the
+subject. The subject comes from the email's headers, or from the page
+for Gmail and Outlook scans; LIME explains the same text.
+
 How the backend feeds the model and reads its output is described next
 to the weights, in `phishlens_text_agent.json`, so a new model needs no
 code change:

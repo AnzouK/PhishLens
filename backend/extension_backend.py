@@ -316,11 +316,25 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     return body, merge_link_urls(urls, ctx.get("link_urls")), headers, raw_bytes
 
 
+def _model_text(body: str, headers: dict[str, str], ctx: dict[str, Any]) -> str:
+    """The text the text model reads: subject, then body. The model was
+    trained and measured on "subject + body"; on the body alone it scored
+    the public benchmark's missed phishing 10% on average, against 94%
+    with the subject. Unchanged when the body already starts with it."""
+    subject = headers.get("subject") or ctx.get("subject")
+    if not isinstance(subject, str):
+        return body
+    subject = " ".join(subject.split())[:300]
+    if not subject or body.startswith(subject):
+        return body
+    return f"{subject}\n{body}"
+
+
 def _run_agents(
-    body: str, urls: list[str], headers: dict[str, str], raw_email: bytes | None
+    text: str, body: str, urls: list[str], headers: dict[str, str], raw_email: bytes | None
 ) -> tuple[float, float, float]:
     return (
-        text_model.text_agent(body),
+        text_model.text_agent(text),
         structured_agents.url_agent(urls, body_text=body),
         structured_agents.metadata_agent(headers, raw_email=raw_email),
     )
@@ -405,15 +419,16 @@ def send_feedback(request: Request, req: feedback.FeedbackRequest):
 def explain(request: Request, req: AnalyseRequest):
     """Top words behind the text agent's score (LIME). A sync endpoint:
     FastAPI runs it in a worker thread."""
-    body, _, _, _ = _resolve_email(req)
+    body, _, headers, _ = _resolve_email(req)
     if not body:
         raise HTTPException(400, "Could not extract any text from this email.")
-    cache_key = make_key("explain", {"body": body[:800], "n": text_model.LIME_NUM_SAMPLES})
+    text = _model_text(body, headers, req.client_context or {})
+    cache_key = make_key("explain", {"body": text[:800], "n": text_model.LIME_NUM_SAMPLES})
     cached = _RESULT_CACHE.get(cache_key)
     if cached is not None:
         return cached
     try:
-        result = {"features": text_model.explain(body)}
+        result = {"features": text_model.explain(text)}
     except Exception as e:
         raise _server_error("Explanation") from e
     _RESULT_CACHE.set(cache_key, result)
@@ -464,7 +479,12 @@ async def analyse(request: Request, req: AnalyseRequest):
     )
     try:
         p_text, p_url, p_meta = await run_in_threadpool(
-            _run_agents, body, urls, headers, raw_for_meta_model
+            _run_agents,
+            _model_text(body, headers, ctx),
+            body,
+            urls,
+            headers,
+            raw_for_meta_model,
         )
     except Exception as e:
         for task in (auth_task, rep_task):

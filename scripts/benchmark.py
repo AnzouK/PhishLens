@@ -32,7 +32,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterator
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -229,9 +229,11 @@ def _why(results: list[dict]) -> str:
             k: sum(r["agents"][k] for r in wrong) / len(wrong) for k in ("text", "url", "metadata")
         }
         forced = sum(1 for r in wrong if r.get("override"))
+        paths = Counter(r.get("trust_path") or "?" for r in wrong)
         lines.append(
             f"{name} ({len(wrong)}): mean wording {mean['text']:.0%}, links {mean['url']:.0%}, "
-            f"sender {mean['metadata']:.0%}; decided by one check alone: {forced}"
+            f"sender {mean['metadata']:.0%}; decided by one check alone: {forced}; "
+            "trust paths: " + ", ".join(f"{k} {v}" for k, v in paths.most_common())
         )
     return "\n".join(lines)
 

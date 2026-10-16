@@ -77,3 +77,28 @@ def test_trained_model_only_when_enabled(client, monkeypatch):
     j = _scan(client)
     assert j["agents"]["metadata"]["source"] == "model"
     assert j["agents"]["metadata"]["phishing_probability_raw"] >= 0.9
+
+
+def test_text_model_reads_the_subject(client, monkeypatch):
+    seen = []
+    monkeypatch.setattr(tm, "text_agent", lambda text: seen.append(text) or 0.02)
+    _scan(client)
+    client.post(
+        "/analyse",
+        json={
+            "raw_text": "Please review the release candidate and vote by Friday.",
+            "client_context": {"origin": "outlook", "subject": "  [VOTE]   Release 1.15.0 "},
+        },
+    )
+    client.post(
+        "/analyse",
+        json={
+            "raw_text": "[VOTE] Release 1.15.0\nPlease vote.",
+            "client_context": {"origin": "gmail", "subject": "[VOTE] Release 1.15.0"},
+        },
+    )
+    assert seen[0].startswith("[VOTE] Release Commons Text 1.15.0 based on RC1\nPlease review")
+    assert (
+        seen[1] == "[VOTE] Release 1.15.0\nPlease review the release candidate and vote by Friday."
+    )
+    assert seen[2] == "[VOTE] Release 1.15.0\nPlease vote."

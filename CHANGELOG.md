@@ -15,9 +15,15 @@ backend share one version number.
   progress, prints the report of what was scored when stopped with
   Ctrl+C, and `--sample N` scores at most N emails per label, always the
   same ones. It keeps each check's score and says which check the false
-  alarms and the missed phishing come from.
+  alarms and the missed phishing come from, and on which trust path.
 
 ### Fixed
+- **The text model reads the subject again.** It was trained and
+  measured on "subject + body", but the server gave it the body only, in
+  Gmail, Outlook and `.eml` scans alike. On 120 phishing emails the
+  public benchmark missed, its score went from 10% on average with the
+  body alone to 94% with the subject. The "Why?" words come from the
+  same text.
 - Legitimate emails scanned from a `.eml` file (popup, website, API) are
   no longer flagged because of their headers. The trained metadata
   Random Forest scored modern and mailing-list headers near 1.0 and
