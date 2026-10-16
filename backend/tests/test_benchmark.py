@@ -35,6 +35,8 @@ def fake_server(calls):
             "verdict": "phishing" if "bad" in text else "safe",
             "fused_score": 0.9 if "bad" in text else 0.1,
             "language": {"code": "fr" if "bonjour" in text else "en"},
+            "agents": {"metadata": {"phishing_probability": 0.95 if "bad" in text else 0.1}},
+            "high_confidence_override": "bad" in text,
         }
 
     return send
@@ -61,6 +63,10 @@ def test_counts_dates_and_resume(tmp_path):
     report = bm.report(results, markdown=True)
     assert "| all | 50.0% (1/2, 95% CI" in report
     assert "66.7% (2/3" in report
+    assert (
+        "False alarms (1): mean wording 0%, links 0%, sender 95%; decided by one check alone: 1"
+        in report
+    )
     # A second run reads every answer from the cache.
     calls.clear()
     assert len(bm.run(args, send=fake_server(calls))) == 5

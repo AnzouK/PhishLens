@@ -120,7 +120,7 @@ def _progress(done: int, total: int, cached: int, errors: int, pause: float) -> 
     left = (total - done) * pause / 60
     eta = f", about {left:.0f} min left" if pause and done < total else ""
     print(
-        f"\r{done}/{total} emails ({cached} from the cache, {errors} errors){eta}   ",
+        f"\r\x1b[K{done}/{total} emails ({cached} from the cache, {errors} errors){eta}",
         end="",
         file=sys.stderr,
         flush=True,
@@ -161,6 +161,21 @@ def run(args, send=analyse) -> list[dict]:
                         "score": r.get("fused_score"),
                         "lang": (r.get("language") or {}).get("code") or "und",
                         "trust_path": r.get("trust_path"),
+                        "agents": {
+                            k: round(
+                                float(
+                                    (r.get("agents") or {}).get(k, {}).get("phishing_probability")
+                                    or 0
+                                ),
+                                3,
+                            )
+                            for k in ("text", "url", "metadata")
+                        },
+                        "sources": {
+                            k: (r.get("agents") or {}).get(k, {}).get("source")
+                            for k in ("url", "metadata")
+                        },
+                        "override": bool(r.get("high_confidence_override")),
                     }
                 except (urllib.error.URLError, TimeoutError, ValueError) as e:
                     row = {"id": eid, "label": label, "error": type(e).__name__}
@@ -193,6 +208,34 @@ def summary(results: list[dict]) -> dict[str, dict[str, int]]:
     return dict(groups)
 
 
+def _why(results: list[dict]) -> str:
+    """Mean score of each check over the false alarms and the missed
+    phishing, and how often one check alone decided: where to look."""
+    lines = []
+    for name, wrong in (
+        (
+            "False alarms",
+            [r for r in results if r.get("label") == "legit" and r.get("verdict") == "phishing"],
+        ),
+        (
+            "Missed phishing",
+            [r for r in results if r.get("label") == "phishing" and r.get("verdict") == "safe"],
+        ),
+    ):
+        wrong = [r for r in wrong if "agents" in r]
+        if not wrong:
+            continue
+        mean = {
+            k: sum(r["agents"][k] for r in wrong) / len(wrong) for k in ("text", "url", "metadata")
+        }
+        forced = sum(1 for r in wrong if r.get("override"))
+        lines.append(
+            f"{name} ({len(wrong)}): mean wording {mean['text']:.0%}, links {mean['url']:.0%}, "
+            f"sender {mean['metadata']:.0%}; decided by one check alone: {forced}"
+        )
+    return "\n".join(lines)
+
+
 def report(results: list[dict], markdown: bool = False) -> str:
     groups = summary(results)
     errors = sum(1 for r in results if "error" in r)
@@ -217,6 +260,9 @@ def report(results: list[dict], markdown: bool = False) -> str:
             lines.append(f"{g}: false alarms {fa}; phishing caught {caught}")
     if errors:
         lines.append(f"\n{errors} emails could not be scored (server errors); run again to retry.")
+    why = _why(results)
+    if why:
+        lines.append("\n" + why)
     small = [g for g in order if g in groups and sum(groups[g].values()) < 30]
     if small:
         lines.append(
