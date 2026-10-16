@@ -7,6 +7,8 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.8] - 2026-10-17
+
 ### Added
 - `scripts/benchmark.py`: a public, reproducible benchmark of a PhishLens
   server on labelled `.eml` and `.mbox` files, with the confusion matrix
@@ -962,7 +964,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.7...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.8...HEAD
+[2.0.8]: https://github.com/AnzouK/PhishLens/compare/v2.0.7...v2.0.8
 [2.0.7]: https://github.com/AnzouK/PhishLens/compare/v2.0.6...v2.0.7
 [2.0.6]: https://github.com/AnzouK/PhishLens/compare/v2.0.5...v2.0.6
 [2.0.5]: https://github.com/AnzouK/PhishLens/compare/v2.0.4...v2.0.5
