@@ -672,6 +672,7 @@ class TestShowOriginal:
             return 0.1
 
         monkeypatch.setattr(sa, "metadata_agent", fake_meta)
+        monkeypatch.setattr(eb, "METADATA_MODEL_ENABLED", True)
         client.post("/analyse", json={"raw_email_b64": b64(self.EML)})
         client.post(
             "/analyse",

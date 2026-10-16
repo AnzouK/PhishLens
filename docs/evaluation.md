@@ -73,8 +73,21 @@ Report the legitimate side source by source.
 
 ## Results
 
-| Date | Server | Sources | Table |
-| --- | --- | --- | --- |
-| to come | | | |
+Sources of every run below: phishing from phishing_pot and Nazario 2025,
+legitimate mail from public Apache mailing-list archives, all sent from
+2026-01-01, `--sample 500`.
 
-The first public run will be added here with its full table.
+| Date | Server | Legitimate emails flagged | Phishing caught |
+| --- | --- | --- | --- |
+| 2026-10-16 | PhishLens Cloud 2.0.7, text model r4 | 130 of 297: 43.8% (95% CI 38.2% to 49.5%) | 461 of 500: 92.2% (89.5% to 94.2%) |
+
+**What the 2.0.7 run showed.** On the 130 false alarms, the mean scores
+were 1% for the wording, 56% for the links and 92% for the sender, and
+121 were decided by one check alone. The sender score came from the
+trained metadata Random Forest, which read the raw `.eml` and scored the
+headers of modern mailing-list mail near 1.0, enough to force the
+verdict. Emails scanned in Gmail did not go through it: their headers
+already went to the rules. From 2.0.8 the trained metadata model is off
+by default for every request (`METADATA_MODEL_ENABLED`), and the sender
+score comes from the rules and the real SPF, DKIM and DMARC results.
+The same run on 2.0.8 will be added here.

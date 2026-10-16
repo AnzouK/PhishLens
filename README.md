@@ -34,7 +34,7 @@ you can decide, and it can be wrong.
 | --- | --- |
 | Wording | A multilingual text model scores the email; LIME shows the words that weighed most |
 | Links | Every real link target, including the one behind "Click here", against Google Safe Browsing, PhishTank, URLhaus and Spamhaus, plus a link model |
-| Sender | SPF, DKIM and DMARC, read from Gmail's original headers; whether the name shown ("Chronopost", "PayPal") matches the address; a header model |
+| Sender | SPF, DKIM and DMARC, read from Gmail's original headers; whether the name shown ("Chronopost", "PayPal") matches the address |
 | Attachments | PDFs (scanned ones through OCR), images, QR codes, Office files and their macros, archives, calendar invites |
 
 The text score alone would flag real bank and university emails, because
