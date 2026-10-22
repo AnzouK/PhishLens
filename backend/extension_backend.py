@@ -349,7 +349,7 @@ async def _check_urls(urls: list[str]) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------
 # Small endpoints
 # ---------------------------------------------------------------------
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
     return {
         "status": "ok",
@@ -364,7 +364,8 @@ def root():
     }
 
 
-@app.get("/health")
+# HEAD too: uptime monitors (UptimeRobot's free plan) probe with HEAD.
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     """Liveness, version, and which agents run a trained model."""
     return {

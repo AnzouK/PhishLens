@@ -186,6 +186,13 @@ class TestSimpleEndpoints:
         assert r.status_code == 200
         assert r.json()["status"] == "ok"
 
+    def test_health_answers_head(self, client):
+        # uptime monitors probe with HEAD; a 405 shows the server as down
+        for path in ("/health", "/"):
+            r = client.head(path)
+            assert r.status_code == 200
+            assert r.content == b""
+
     def test_reputation_stats_when_disabled(self, client):
         r = client.get("/reputation/stats")
         assert r.status_code == 200
