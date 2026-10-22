@@ -7,6 +7,11 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Fixed
+- `/health` and `/` answer `HEAD` requests (200 instead of 405), so
+  uptime monitors that probe with `HEAD`, such as UptimeRobot's free
+  plan, no longer report the server as down.
+
 ## [2.0.8] - 2026-10-17
 
 ### Added
