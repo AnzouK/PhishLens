@@ -112,3 +112,19 @@ def test_interrupt_keeps_what_was_scored(tmp_path):
 
     results = bm.run(make_args(tmp_path, [str(tmp_path)], []), send=stop_after_one)
     assert len(results) == 1
+
+
+def test_exclude_gives_a_disjoint_control_sample(tmp_path):
+    phish = tmp_path / "phish"
+    phish.mkdir()
+    for i in range(6):
+        (phish / f"{i}.eml").write_bytes(eml(f"bad {i}"))
+    args = make_args(tmp_path, [str(phish)], [])
+    args.sample = 3
+    first = {r["id"] for r in bm.run(args, send=fake_server([]))}
+    control = make_args(tmp_path, [str(phish)], [])
+    control.sample = 3
+    control.cache = str(tmp_path / "control.jsonl")
+    control.exclude = [str(tmp_path / "cache.jsonl")]
+    second = {r["id"] for r in bm.run(control, send=fake_server([]))}
+    assert len(second) == 3 and not first & second

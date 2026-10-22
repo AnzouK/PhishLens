@@ -93,7 +93,9 @@ def load_cache(path: Path) -> dict[str, dict]:
 
 
 def _kept(args, since) -> Iterator[tuple[str, str, bytes]]:
-    """(label, id, raw) of every email the date filter keeps."""
+    """(label, id, raw) of every email the date filter keeps, minus the
+    emails of earlier runs given with --exclude."""
+    excluded = getattr(args, "excluded_ids", None) or set()
     for label, sources in (("phishing", args.phishing), ("legit", args.legit)):
         for source in sources or []:
             for raw in emails_in(source):
@@ -101,7 +103,9 @@ def _kept(args, since) -> Iterator[tuple[str, str, bytes]]:
                     d = sent_on(raw)
                     if d is None or d < since:
                         continue
-                yield label, hashlib.sha256(raw).hexdigest()[:16], raw
+                eid = hashlib.sha256(raw).hexdigest()[:16]
+                if eid not in excluded:
+                    yield label, eid, raw
 
 
 def _selection(args, since) -> tuple[set[str] | None, dict[str, int]]:
@@ -130,6 +134,11 @@ def _progress(done: int, total: int, cached: int, errors: int, pause: float) -> 
 def run(args, send=analyse) -> list[dict]:
     cache_path = Path(args.cache)
     cache = load_cache(cache_path)
+    args.excluded_ids = {
+        eid for path in getattr(args, "exclude", None) or [] for eid in load_cache(Path(path))
+    }
+    if args.excluded_ids:
+        print(f"{len(args.excluded_ids)} emails of earlier runs left out", file=sys.stderr)
     since = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc) if args.since else None
     pause = 60.0 / args.per_minute if args.per_minute else 0.0
     chosen, counts = _selection(args, since)
@@ -289,6 +298,12 @@ def main() -> None:
     )
     ap.add_argument(
         "--sample", type=int, default=0, help="score at most N emails per label (a fixed pick)"
+    )
+    ap.add_argument(
+        "--exclude",
+        nargs="+",
+        default=[],
+        help="caches of earlier runs: their emails are left out (a control sample)",
     )
     ap.add_argument("--cache", default="benchmark-results.jsonl")
     ap.add_argument("--markdown", action="store_true")
