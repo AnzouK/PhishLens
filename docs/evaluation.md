@@ -38,8 +38,12 @@ resumes where it stopped and the per-email results can be published.
 N smallest hashes), so another person picks the same emails from the
 same sources. `--exclude` leaves out the emails of earlier runs (their
 caches): a change tuned while looking at one sample is then measured on
-emails nobody looked at. The script shows its progress and, on Ctrl+C,
-prints the report of what was scored so far.
+emails nobody looked at. `--domain-age` adds the age of each
+sender's domain at sending time (RDAP, looked up from your machine, not
+by the server); the lookups go to `<cache>.domains-private.json`, which
+lists sender domains: publish the cache, not that file. The script shows
+its progress and, on Ctrl+C, prints the report of what was scored so
+far.
 
 Run it against your own server: PhishLens Cloud answers 30 requests a
 minute (`--per-minute 25`) and its Safe Browsing quota is shared by every

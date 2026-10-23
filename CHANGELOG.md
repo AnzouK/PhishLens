@@ -7,6 +7,15 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Added
+- `scripts/benchmark.py --domain-age` adds to each cached result the age
+  of the sender's domain when the email was sent, looked up with RDAP
+  from the machine running the benchmark (`scripts/domain_age.py`). It
+  measures whether a young domain tells the attacker's own DKIM-signed
+  phishing from legitimate mail before any such rule ships; the server
+  is unchanged. The domain lookups are kept in a separate local file,
+  which lists sender domains and is not meant to be published.
+
 ### Fixed
 - **An email the parser rejects is scanned instead of refused.** A
   malformed header (a group address with an empty address, for example)

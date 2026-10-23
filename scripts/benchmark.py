@@ -184,6 +184,36 @@ def show_errors(args, results: list[dict]) -> None:
         )
 
 
+def add_domain_ages(args, results: list[dict], ages=None) -> int:
+    """Add, to each scored email of the cache, the age in days of the
+    sender's domain when it was sent ("domain_age_days", None when
+    unknown), looked up on this machine (domain_age.py). Rewrites the
+    cache; returns how many emails got an age."""
+    from domain_age import DomainAges
+
+    cache_path = Path(args.cache)
+    ages = ages or DomainAges(cache_path.with_suffix(".domains-private.json"))
+    todo = {r["id"] for r in results if "verdict" in r and "domain_age_days" not in r}
+    if not todo:
+        return 0
+    since = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc) if args.since else None
+    by_id = {r["id"]: r for r in results}
+    done = 0
+    for _label, eid, raw in _kept(args, since):
+        if eid in todo:
+            todo.discard(eid)
+            by_id[eid]["domain_age_days"] = ages.age_days(raw, sent_on(raw))
+            done += 1
+            print(f"\r\x1b[Kdomain ages: {done}", end="", file=sys.stderr, flush=True)
+    print(file=sys.stderr)
+    rows = load_cache(cache_path)
+    rows.update({eid: r for eid, r in by_id.items() if "verdict" in r})
+    tmp = cache_path.with_suffix(".tmp")
+    tmp.write_text("".join(json.dumps(r) + "\n" for r in rows.values()), encoding="utf-8")
+    tmp.replace(cache_path)
+    return done
+
+
 def run(args, send=analyse) -> list[dict]:
     cache_path = Path(args.cache)
     cache = load_cache(cache_path)
@@ -377,12 +407,19 @@ def main() -> None:
         action="store_true",
         help="print the sender domain and subject of each error (local only)",
     )
+    ap.add_argument(
+        "--domain-age",
+        action="store_true",
+        help="add the sender domain's age (RDAP, looked up from this machine) to the cache",
+    )
     ap.add_argument("--cache", default="benchmark-results.jsonl")
     ap.add_argument("--markdown", action="store_true")
     args = ap.parse_args()
     if not (args.phishing or args.legit):
         ap.error("give --phishing and/or --legit")
     results = run(args)
+    if args.domain_age:
+        add_domain_ages(args, results)
     if args.show_errors:
         show_errors(args, results)
     print(report(results, markdown=args.markdown))
