@@ -10,7 +10,9 @@ backend share one version number.
 ### Added
 - `scripts/benchmark.py --exclude`: leaves out the emails of earlier
   runs, so a change tuned on one sample is measured on a control sample
-  nobody looked at (`docs/evaluation.md`).
+  nobody looked at (`docs/evaluation.md`). The report says why an email
+  could not be scored (the HTTP status and the server's reason, or a
+  timeout), so a refusal is told apart from a passing failure.
 
 ### Fixed
 - `/health` and `/` answer `HEAD` requests (200 instead of 405), so

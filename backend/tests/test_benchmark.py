@@ -128,3 +128,19 @@ def test_exclude_gives_a_disjoint_control_sample(tmp_path):
     control.exclude = [str(tmp_path / "cache.jsonl")]
     second = {r["id"] for r in bm.run(control, send=fake_server([]))}
     assert len(second) == 3 and not first & second
+
+
+def test_refused_email_says_why(tmp_path):
+    import io
+    import urllib.error
+
+    (tmp_path / "a.eml").write_bytes(eml("bad"))
+
+    def refuses(_server, _raw):
+        body = io.BytesIO(b'{"detail": "raw_email_b64 is too large."}')
+        raise urllib.error.HTTPError("http://test/analyse", 413, "Too large", {}, body)
+
+    args = make_args(tmp_path, [str(tmp_path / "a.eml")], [])
+    results = bm.run(args, send=refuses)
+    assert results[0]["error"] == "HTTP 413: raw_email_b64 is too large."
+    assert "HTTP 413: raw_email_b64 is too large. (1)" in bm.report(results)
