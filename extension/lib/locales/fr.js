@@ -368,5 +368,9 @@
     "share_stats_send": "Envoyer les statistiques",
     "review_report": "Signaler",
     "review_report_title": "Envoyer cet e-mail, anonymisé, pour examen",
-    "review_reported": "Signalé"
+    "review_reported": "Signalé",
+    "privacy_notice_title": "Avant votre premier scan",
+    "privacy_notice_text": "Pour vérifier un email, PhishLens envoie son texte, ses liens et ses en-têtes à PhishLens Cloud. L'email est analysé en mémoire et n'est pas conservé. Pour qu'aucun email ne quitte votre ordinateur, lancez votre propre serveur et choisissez-le dans les réglages.",
+    "privacy_notice_ok": "J'ai compris",
+    "privacy_notice_link": "Politique de confidentialité"
 };

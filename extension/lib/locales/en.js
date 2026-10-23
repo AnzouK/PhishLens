@@ -368,5 +368,9 @@
     "share_stats_send": "Send the statistics",
     "review_report": "Report",
     "review_report_title": "Send this email, redacted, for review",
-    "review_reported": "Reported"
+    "review_reported": "Reported",
+    "privacy_notice_title": "Before your first scan",
+    "privacy_notice_text": "To check an email, PhishLens sends its text, links and headers to PhishLens Cloud. The email is analysed in memory and not stored. To keep every email on your computer, run your own server and choose it in the settings.",
+    "privacy_notice_ok": "Got it",
+    "privacy_notice_link": "Privacy policy"
 };

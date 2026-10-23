@@ -368,5 +368,9 @@
     "share_stats_send": "Statistik senden",
     "review_report": "Melden",
     "review_report_title": "Diese E-Mail anonymisiert zur Prüfung senden",
-    "review_reported": "Gemeldet"
+    "review_reported": "Gemeldet",
+    "privacy_notice_title": "Vor dem ersten Scan",
+    "privacy_notice_text": "Um eine E-Mail zu prüfen, sendet PhishLens ihren Text, ihre Links und ihre Header an PhishLens Cloud. Die E-Mail wird im Arbeitsspeicher analysiert und nicht gespeichert. Damit keine E-Mail Ihren Computer verlässt, betreiben Sie Ihren eigenen Server und wählen Sie ihn in den Einstellungen.",
+    "privacy_notice_ok": "Verstanden",
+    "privacy_notice_link": "Datenschutzerklärung"
 };

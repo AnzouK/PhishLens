@@ -92,7 +92,32 @@ async function loadBackendChoice() {
         }
     } catch {}
 }
-loadBackendChoice();
+loadBackendChoice().then(initPrivacyNotice);
+
+// ---------- first-run privacy notice ----------
+// Says where emails go before the first scan, while PhishLens Cloud is
+// the server; hidden for good once dismissed ("privacy_notice_seen").
+const PRIVACY_NOTICE_KEY = "privacy_notice_seen";
+function privacyPolicyUrl(lang) {
+    return `https://phishlens.dev/${lang && lang !== "en" ? lang + "/" : ""}privacy.html`;
+}
+async function initPrivacyNotice() {
+    const box = $("privacy-notice");
+    if (!box || !STORAGE) return;
+    let seen = false;
+    try {
+        seen = Boolean((await new Promise((r) => STORAGE.get([PRIVACY_NOTICE_KEY], r)))?.[PRIVACY_NOTICE_KEY]);
+    } catch {}
+    const link = $("privacy-notice-link");
+    const setLink = () => { if (link) link.href = privacyPolicyUrl(I18N.language()); };
+    setLink();
+    I18N.onChange(setLink);
+    box.hidden = seen || backendChoice !== "cloud";
+    $("privacy-notice-ok")?.addEventListener("click", () => {
+        box.hidden = true;
+        try { STORAGE.set({ [PRIVACY_NOTICE_KEY]: true }); } catch {}
+    });
+}
 
 themeBtn.addEventListener("click", () => {
     const current = document.documentElement.getAttribute("data-theme") || "dark";

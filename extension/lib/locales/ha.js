@@ -369,5 +369,9 @@
     "share_stats_send": "Aika ƙididdiga",
     "review_report": "Rahoto",
     "review_report_title": "Aika wannan imel, ba tare da bayanan sirri ba, don dubawa",
-    "review_reported": "An ba da rahoto"
+    "review_reported": "An ba da rahoto",
+    "privacy_notice_title": "Kafin bincikenka na farko",
+    "privacy_notice_text": "Don duba imel, PhishLens tana aika rubutunsa, hanyoyin haɗinsa da kanun bayanansa zuwa PhishLens Cloud. Ana nazarin imel ɗin a ƙwaƙwalwa ba a ajiye shi ba. Idan kana so kowane imel ya zauna a kwamfutarka, gudanar da sabar ka ta kanka ka zaɓe ta a cikin saituna.",
+    "privacy_notice_ok": "Na gane",
+    "privacy_notice_link": "Manufar sirri"
 };

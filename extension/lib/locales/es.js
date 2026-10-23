@@ -368,5 +368,9 @@
     "share_stats_send": "Enviar las estadísticas",
     "review_report": "Avisar",
     "review_report_title": "Enviar este correo, anonimizado, para revisión",
-    "review_reported": "Enviado"
+    "review_reported": "Enviado",
+    "privacy_notice_title": "Antes de tu primer análisis",
+    "privacy_notice_text": "Para revisar un correo, PhishLens envía su texto, sus enlaces y sus cabeceras a PhishLens Cloud. El correo se analiza en memoria y no se guarda. Para que ningún correo salga de tu ordenador, ejecuta tu propio servidor y elígelo en los ajustes.",
+    "privacy_notice_ok": "Entendido",
+    "privacy_notice_link": "Política de privacidad"
 };
