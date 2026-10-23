@@ -13,6 +13,11 @@ backend share one version number.
   nobody looked at (`docs/evaluation.md`). The report says why an email
   could not be scored (the HTTP status and the server's reason, or a
   timeout), so a refusal is told apart from a passing failure.
+- `scripts/benchmark.py --show-errors` prints, on the machine running it
+  only, the sender domain and subject of each false alarm and missed
+  phishing; `--drop` leaves out emails checked by hand and found
+  mislabelled (a phishing that reached an inbox export), and the run
+  says how many.
 
 ### Fixed
 - `/health` and `/` answer `HEAD` requests (200 instead of 405), so

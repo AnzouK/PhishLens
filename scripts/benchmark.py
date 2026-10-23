@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import argparse
 import base64
+import email
+import email.policy
 import hashlib
 import json
 import mailbox
@@ -35,7 +37,7 @@ import urllib.request
 from collections import Counter, defaultdict
 from collections.abc import Iterator
 from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
+from email.utils import parseaddr, parsedate_to_datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -144,12 +146,54 @@ def _progress(done: int, total: int, cached: int, errors: int, pause: float) -> 
     )
 
 
+def _ids_in(path: str | None) -> set[str]:
+    """Email ids listed in a text file, one per line (# starts a comment)."""
+    if not path:
+        return set()
+    lines = Path(path).read_text(encoding="utf-8").splitlines()
+    return {line.split("#", 1)[0].strip() for line in lines} - {""}
+
+
+def show_errors(args, results: list[dict]) -> None:
+    """Print, on this machine only, the sender domain and subject of
+    each false alarm and missed phishing, so a mislabelled email (a
+    phishing in an inbox export) can be found and listed with --drop.
+    Nothing of it goes to the cache or the report."""
+    wrong = {
+        r["id"]: ("false alarm" if r["label"] == "legit" else "missed")
+        for r in results
+        if "verdict" in r and (r["verdict"] == "phishing") != (r["label"] == "phishing")
+    }
+    if not wrong:
+        return
+    since = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc) if args.since else None
+    by_id = {r["id"]: r for r in results}
+    print("\nErrors, for review (local only):", file=sys.stderr)
+    for _label, eid, raw in _kept(args, since):
+        if eid not in wrong:
+            continue
+        msg = email.message_from_bytes(raw[:200_000], policy=email.policy.default)
+        sender = parseaddr(str(msg.get("from", "")))[1].rsplit("@", 1)[-1]
+        subject = " ".join(str(msg.get("subject", "")).split())[:70]
+        a = by_id[eid].get("agents") or {}
+        print(
+            f"{eid}  {wrong.pop(eid):11s} {by_id[eid].get('trust_path') or '?':16s} "
+            f"text {a.get('text', 0):.2f} links {a.get('url', 0):.2f} "
+            f"sender {a.get('metadata', 0):.2f}  {sender}  {subject}",
+            file=sys.stderr,
+        )
+
+
 def run(args, send=analyse) -> list[dict]:
     cache_path = Path(args.cache)
     cache = load_cache(cache_path)
     args.excluded_ids = {
         eid for path in getattr(args, "exclude", None) or [] for eid in load_cache(Path(path))
     }
+    dropped = _ids_in(getattr(args, "drop", None))
+    if dropped:
+        print(f"{len(dropped)} emails dropped as mislabelled (--drop)", file=sys.stderr)
+        args.excluded_ids |= dropped
     if args.excluded_ids:
         print(f"{len(args.excluded_ids)} emails of earlier runs left out", file=sys.stderr)
     since = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc) if args.since else None
@@ -324,12 +368,24 @@ def main() -> None:
         default=[],
         help="caches of earlier runs: their emails are left out (a control sample)",
     )
+    ap.add_argument(
+        "--drop",
+        help="file of email ids (one per line) checked by hand and found mislabelled",
+    )
+    ap.add_argument(
+        "--show-errors",
+        action="store_true",
+        help="print the sender domain and subject of each error (local only)",
+    )
     ap.add_argument("--cache", default="benchmark-results.jsonl")
     ap.add_argument("--markdown", action="store_true")
     args = ap.parse_args()
     if not (args.phishing or args.legit):
         ap.error("give --phishing and/or --legit")
-    print(report(run(args), markdown=args.markdown))
+    results = run(args)
+    if args.show_errors:
+        show_errors(args, results)
+    print(report(results, markdown=args.markdown))
 
 
 if __name__ == "__main__":
