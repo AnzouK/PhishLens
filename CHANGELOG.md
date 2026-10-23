@@ -27,6 +27,9 @@ backend share one version number.
   says how many.
 
 ### Documentation
+- The README and the project overview show the 2.0.9 figures: 85.5%
+  of 1,997 control phishing emails caught, 1 of 297 mailing-list emails
+  and 0 of 117 real inbox emails flagged.
 - `docs/evaluation.md`: a control sample of 2,000 phishing emails nobody
   looked at (85.5% caught, 83.9% to 87.0%), 117 legitimate emails from
   real inboxes received after the model's training mail (1.7% flagged),
