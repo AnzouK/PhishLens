@@ -8,5 +8,12 @@ module.exports = defineConfig({
     retries: 1,
     reporter: [["list"]],
     // English UI whatever the machine language: the tests check English texts.
-    use: { browserName: "chromium", headless: true, locale: "en-US" },
+    // PW_CHANNEL=chrome uses the Google Chrome already installed (CI
+    // runners have it) instead of downloading Playwright's Chromium.
+    use: {
+        browserName: "chromium",
+        channel: process.env.PW_CHANNEL || undefined,
+        headless: true,
+        locale: "en-US",
+    },
 });

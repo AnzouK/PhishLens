@@ -124,19 +124,22 @@ jobs:
   # been green for a while.
   ui:
     name: Popup UI tests (Playwright)
-    # Pinned: on Ubuntu 26 (ubuntu-latest from October 2026) installing
-    # Chromium's system dependencies hangs until the job times out.
+    # Uses the Google Chrome preinstalled on the runner: downloading
+    # Playwright's Chromium and its system packages hung until the job
+    # timed out, on Ubuntu 24.04 as on 26.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      PW_CHANNEL: chrome
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
-      - name: Install Playwright + Chromium
-        timeout-minutes: 5
-        run: |
-          npm install --no-save --no-package-lock --silent @playwright/test@1
-          npx playwright install --with-deps chromium
+      - name: Install Playwright
+        timeout-minutes: 3
+        run: npm install --no-save --no-package-lock --silent @playwright/test@1
+      - name: Chrome version
+        run: google-chrome --version
       - name: Run
         run: npx playwright test --config tests/ui/playwright.config.js
