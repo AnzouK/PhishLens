@@ -7,6 +7,14 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Fixed
+- **An email the parser rejects is scanned instead of refused.** A
+  malformed header (a group address with an empty address, for example)
+  made the standard parser fail, and the server answered "Could not
+  parse this email": a crafted email could escape the scan that way.
+  Such an email is now read with the lenient legacy parser, or as raw
+  text when even that fails.
+
 ## [2.0.9] - 2026-10-23
 
 ### Added
