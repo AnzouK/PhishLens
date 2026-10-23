@@ -200,6 +200,53 @@ def _pdf_scan_markers(raw: bytes) -> list[str]:
     return flags
 
 
+def _pdf_text_layer(raw: bytes) -> tuple[list[str], int, int]:
+    """Text of the first pages: (chunks, pages read, page count)."""
+    text_chunks: list[str] = []
+    pages_read = 0
+    with pdfplumber.open(io.BytesIO(raw)) as pdf:
+        page_count = len(pdf.pages)
+        for i, page in enumerate(pdf.pages):
+            if i >= PDF_PAGE_LIMIT:
+                break
+            try:
+                t = page.extract_text() or ""
+                if t:
+                    text_chunks.append(t)
+                pages_read = i + 1
+                if sum(len(c) for c in text_chunks) >= MAX_EXTRACTED_TEXT:
+                    break
+            except Exception:
+                continue
+    return text_chunks, pages_read, page_count
+
+
+def _add_new(urls: list[str], more: list[str]) -> None:
+    for u in more:
+        if u not in urls:
+            urls.append(u)
+
+
+def _add_uri_annotations(raw: bytes, urls: list[str]) -> None:
+    """Link annotations the text layer misses (a clickable button with no
+    visible URL): grabs (/URI (https://...)).
+
+    The inner class is length-capped (2048 bytes) to close a
+    polynomial-ReDoS surface that CodeQL flagged: a crafted PDF with a
+    very long /URI( body and no closing paren could push the regex engine
+    into O(n^2) territory. 2 KB is more than any legit annotation holds.
+    """
+    for m in re.finditer(rb"/URI\s*\(([^)]{1,2048})\)", raw):
+        try:
+            u = m.group(1).decode("latin-1", errors="ignore").strip()
+            if u.lower().startswith(("http://", "https://")) and u not in urls:
+                urls.append(u)
+                if len(urls) >= MAX_EXTRACTED_URLS:
+                    break
+        except Exception:
+            continue
+
+
 def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
     """
     Extract text + URLs from a PDF, plus a list of qualitative feature
@@ -210,24 +257,8 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
 
     markers = _pdf_scan_markers(raw)
 
-    text_chunks: list[str] = []
-    pages_read = 0
-    page_count = 0
     try:
-        with pdfplumber.open(io.BytesIO(raw)) as pdf:
-            page_count = len(pdf.pages)
-            for i, page in enumerate(pdf.pages):
-                if i >= PDF_PAGE_LIMIT:
-                    break
-                try:
-                    t = page.extract_text() or ""
-                    if t:
-                        text_chunks.append(t)
-                    pages_read = i + 1
-                    if sum(len(c) for c in text_chunks) >= MAX_EXTRACTED_TEXT:
-                        break
-                except Exception:
-                    continue
+        text_chunks, pages_read, page_count = _pdf_text_layer(raw)
     except Exception as e:
         if b"/Encrypt" in raw:
             # Password-protected PDF: nothing to read, which is the point
@@ -251,21 +282,7 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
     # with no visible URL text). We also parse /URI markers directly.
     urls = extract_urls(text)
     if len(urls) < MAX_EXTRACTED_URLS:
-        # Cheap annotation URI scan: grabs (/URI (https://…)).
-        # The inner class is length-capped (2048 bytes) to close a
-        # polynomial-ReDoS surface that CodeQL flagged: a crafted PDF
-        # with a very long /URI( body and no closing paren could push
-        # the regex engine into O(n²) territory. 2 KB is more than any
-        # legit annotation ever holds.
-        for m in re.finditer(rb"/URI\s*\(([^)]{1,2048})\)", raw):
-            try:
-                u = m.group(1).decode("latin-1", errors="ignore").strip()
-                if u.lower().startswith(("http://", "https://")) and u not in urls:
-                    urls.append(u)
-                    if len(urls) >= MAX_EXTRACTED_URLS:
-                        break
-            except Exception:
-                continue
+        _add_uri_annotations(raw, urls)
 
     # Scanned / image-only PDFs and QR codes. The first pages are
     # rendered once; QR decoding always runs on them, OCR only when the
@@ -280,13 +297,9 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
         if scan["text"]:
             text = (text + "\n" + scan["text"]).strip()[:MAX_EXTRACTED_TEXT]
             ocr_used = True
-            for u in extract_urls(scan["text"]):
-                if u not in urls:
-                    urls.append(u)
         qr_found = scan["qr_urls"]
-        for u in qr_found:
-            if u not in urls:
-                urls.append(u)
+        _add_new(urls, extract_urls(scan["text"]) if scan["text"] else [])
+        _add_new(urls, qr_found)
     if scanned:
         markers.append("image_only_pdf")
     if qr_found:

@@ -80,40 +80,34 @@ def html_to_text(html_src: str) -> str:
 _HREF_RE = re.compile(r"""href=["'](https?://[^"'\s<>]{1,2048})""", re.IGNORECASE)
 
 
-def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
-    """Return (body_text, urls_list, headers_dict)."""
-    msg = message_from_bytes(raw_bytes, policy=policy.default)
-    # body text
-    body = ""
-    if msg.is_multipart():
-        # The rendered HTML part first: it is the text the reader sees, with
-        # links behind their labels. Plain-text alternatives spell every
-        # URL out, which pushes the text model toward phishing.
-        for part in msg.walk():
-            if part.get_content_type() == "text/html" and not part.is_attachment():
-                try:
-                    body = html_to_text(part.get_content())
-                    if body.strip():
-                        break
-                except Exception:
-                    body = ""
-        if not body.strip():
-            for part in msg.walk():
-                if part.get_content_type() == "text/plain" and not part.is_attachment():
-                    try:
-                        body = part.get_content()
-                        break
-                    except Exception:
-                        pass
-    else:
+def _body_text(msg, raw_bytes: bytes) -> str:
+    """Visible text of the email: the rendered HTML part first, the plain
+    text part otherwise."""
+    if not msg.is_multipart():
         try:
             body = msg.get_content()
-            if msg.get_content_type() == "text/html":
-                body = html_to_text(body)
+            return html_to_text(body) if msg.get_content_type() == "text/html" else body
         except Exception:
-            body = raw_bytes.decode("utf-8", errors="ignore")
-    # urls: from the text, then the real link targets of the HTML part
-    # (an HTML email shows "Click here", the address is in the href).
+            return raw_bytes.decode("utf-8", errors="ignore")
+    # The rendered HTML part first: it is the text the reader sees, with
+    # links behind their labels. Plain-text alternatives spell every URL
+    # out, which pushes the text model toward phishing.
+    for kind, render in (("text/html", html_to_text), ("text/plain", str)):
+        for part in msg.walk():
+            if part.get_content_type() != kind or part.is_attachment():
+                continue
+            try:
+                body = render(part.get_content())
+            except Exception:
+                continue
+            if body.strip():
+                return body
+    return ""
+
+
+def _link_targets(msg, body: str) -> list[str]:
+    """URLs written in the text, then the real targets of the HTML part's
+    links (an HTML email shows "Click here", the address is in the href)."""
     urls = urls_in_text(body)
     for part in msg.walk() if msg.is_multipart() else [msg]:
         if part.get_content_type() != "text/html":
@@ -123,12 +117,18 @@ def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
         except Exception:
             continue
         for m in _HREF_RE.finditer(html_src[:500_000]):
-            u = m.group(1)
-            if u not in urls:
-                urls.append(u)
+            if m.group(1) not in urls:
+                urls.append(m.group(1))
             if len(urls) >= 200:
                 break
-    return body.strip(), urls, header_dict(msg.items())
+    return urls
+
+
+def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
+    """Return (body_text, urls_list, headers_dict)."""
+    msg = message_from_bytes(raw_bytes, policy=policy.default)
+    body = _body_text(msg, raw_bytes)
+    return body.strip(), _link_targets(msg, body), header_dict(msg.items())
 
 
 # Headers each relay adds on top of the message: the first (topmost) one

@@ -193,6 +193,50 @@ class _Entry:
         self.name, self.size, self.packed, self.is_dir = name, size, packed, is_dir
 
 
+def _choose_inner(raw: bytes, entries: list[_Entry], add: Callable[[str], None]) -> list[str]:
+    """Supported inner files within the size and ratio limits."""
+    chosen: list[str] = []
+    total = 0
+    for e in entries:
+        if len(chosen) >= MAX_INNER_FILES:
+            break
+        if e.is_dir or _ext(e.name) not in DOCUMENT_EXTS:
+            continue
+        size = e.size or 0
+        if size > MAX_INNER_BYTES or total + size > MAX_TOTAL_INNER:
+            add("oversized_inner_file")
+            continue
+        # Ratio per member when the format gives it, else against the
+        # whole archive (solid 7z / RAR blocks have no per-file size).
+        packed = e.packed if e.packed else len(raw)
+        if size / max(packed, 1) > MAX_RATIO:
+            add("zip_bomb_suspected")
+            continue
+        chosen.append(e.name)
+        total += size
+    return chosen
+
+
+def _inner_result(inner, data: bytes, name: str) -> dict[str, Any] | None:
+    try:
+        return inner(data[:MAX_INNER_BYTES], name)
+    except (ValueError, RuntimeError, zipfile.BadZipFile, NotImplementedError):
+        return None
+
+
+def _inner_entry(name: str, res: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "filename": name,
+        "kind": res.get("kind"),
+        "notable_features": res.get("notable_features", []),
+        "url_count": len(res.get("extracted_urls", []) or []),
+        # Private, for the per-file report; removed by the endpoint before
+        # the response is sent.
+        "_text": (res.get("extracted_text") or "")[:4000],
+        "_urls": list(res.get("extracted_urls", []) or [])[:50],
+    }
+
+
 def _analyse_listing(
     raw: bytes,
     filename: str,
@@ -218,27 +262,7 @@ def _analyse_listing(
     if encrypted:
         add("encrypted_archive")
 
-    chosen: list[str] = []
-    total = 0
-    if inner and read and not encrypted:
-        for e in entries:
-            if len(chosen) >= MAX_INNER_FILES:
-                break
-            if e.is_dir or _ext(e.name) not in DOCUMENT_EXTS:
-                continue
-            size = e.size or 0
-            if size > MAX_INNER_BYTES or total + size > MAX_TOTAL_INNER:
-                add("oversized_inner_file")
-                continue
-            # Ratio per member when the format gives it, else against the
-            # whole archive (solid 7z / RAR blocks have no per-file size).
-            packed = e.packed if e.packed else len(raw)
-            if size / max(packed, 1) > MAX_RATIO:
-                add("zip_bomb_suspected")
-                continue
-            chosen.append(e.name)
-            total += size
-
+    chosen = _choose_inner(raw, entries, add) if inner and read and not encrypted else []
     texts: list[str] = []
     urls: list[str] = []
     inner_results: list[dict[str, Any]] = []
@@ -250,29 +274,15 @@ def _analyse_listing(
             add("inner_files_not_extracted")
         for name in chosen:
             data = data_by_name.get(name)
-            if data is None:
+            res = _inner_result(inner, data, name) if data is not None else None
+            if res is None:
                 continue
-            try:
-                res = inner(data[:MAX_INNER_BYTES], name)
-            except (ValueError, RuntimeError, zipfile.BadZipFile, NotImplementedError):
-                continue
-            inner_results.append(
-                {
-                    "filename": name,
-                    "kind": res.get("kind"),
-                    "notable_features": res.get("notable_features", []),
-                    "url_count": len(res.get("extracted_urls", []) or []),
-                    # Private, for the per-file report; removed by
-                    # the endpoint before the response is sent.
-                    "_text": (res.get("extracted_text") or "")[:4000],
-                    "_urls": list(res.get("extracted_urls", []) or [])[:50],
-                }
-            )
+            inner_results.append(_inner_entry(name, res))
             if res.get("extracted_text"):
                 texts.append(res["extracted_text"])
-            for u in res.get("extracted_urls", []) or []:
-                if u not in urls:
-                    urls.append(u)
+            urls.extend(
+                dict.fromkeys(u for u in res.get("extracted_urls", []) or [] if u not in urls)
+            )
             for f in res.get("notable_features", []) or []:
                 add(f)
 

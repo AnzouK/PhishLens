@@ -36,6 +36,7 @@ import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from email.utils import parseaddr
 from typing import Any
 
@@ -439,26 +440,51 @@ def explain(request: Request, req: AnalyseRequest):
 # ---------------------------------------------------------------------
 # /analyse
 # ---------------------------------------------------------------------
-@app.post("/analyse")
-@_rate_limited(RATE_LIMIT_ANALYSE)
-async def analyse(request: Request, req: AnalyseRequest):
-    cache_key = make_key("analyse", req.model_dump())
-    cached = _RESULT_CACHE.get(cache_key)
-    if cached is not None:
-        _count_verdict(
-            "/analyse", cached.get("verdict") == "phishing", cached.get("trust_path", "default")
-        )
-        return {**cached, "cached": True}
+@dataclass
+class _Scores:
+    """The three agents' scores, after threat intelligence and sender
+    authentication, with what the response reports about them."""
 
-    body, urls, headers, raw_bytes = _resolve_email(req)
-    if not body and raw_bytes:
-        # Attachment-only email: the subject stands in for the text (too
-        # short for the text agent, see MIN_TEXT_WORDS).
-        body = (headers.get("subject") or "").strip() or "(no text)"
-    if not body:
-        raise HTTPException(400, "Could not extract any text from this email.")
-    ctx = req.client_context or {}
+    p_text: float
+    p_url: float
+    p_meta: float
+    p_url_raw: float
+    p_meta_raw: float
+    auth_signal: dict[str, Any]
+    rep: fusion.Reputation
+    meta_model_used: bool
+    cacheable: bool  # a partial result is not cached
 
+
+@dataclass
+class _Sender:
+    """Who sent the email, and how far that is proven."""
+
+    domain: str
+    crypto_verified: bool
+    outlook_internal: bool
+    trusted_sender: bool
+    inbox_soft: bool
+    forwarded: dict[str, Any]
+    impersonation: str | None
+
+
+_NO_AUTH_SIGNAL: dict[str, Any] = {
+    "score_delta": 0.0,
+    "reasons": [],
+    "auth": {},
+    "spamhaus_dbl": {},
+}
+
+
+async def _score(
+    body: str,
+    urls: list[str],
+    headers: dict[str, str],
+    raw_bytes: bytes | None,
+    ctx: dict[str, Any],
+) -> _Scores:
+    """Run the agents, sender authentication and URL reputation."""
     # Sender authentication and URL reputation are network calls: started
     # first, collected after the model inference.
     auth_task = (
@@ -493,13 +519,8 @@ async def analyse(request: Request, req: AnalyseRequest):
                 task.cancel()
         raise _server_error("Inference") from e
 
-    cacheable = True  # a partial result is not cached
-    auth_signal: dict[str, Any] = {
-        "score_delta": 0.0,
-        "reasons": [],
-        "auth": {},
-        "spamhaus_dbl": {},
-    }
+    cacheable = True
+    auth_signal = dict(_NO_AUTH_SIGNAL)
     if auth_task:
         try:
             auth_signal = await auth_task
@@ -513,12 +534,22 @@ async def analyse(request: Request, req: AnalyseRequest):
         rep = fusion.summarize_reputation([])
         cacheable = False
 
-    p_url_raw, p_meta_raw = p_url, p_meta
-    p_url = fusion.apply_reputation(p_url, rep)
-    p_meta = max(0.0, min(1.0, p_meta + float(auth_signal.get("score_delta", 0.0))))
-    auth = auth_signal.get("auth", {})
+    return _Scores(
+        p_text=p_text,
+        p_url=fusion.apply_reputation(p_url, rep),
+        p_meta=max(0.0, min(1.0, p_meta + float(auth_signal.get("score_delta", 0.0)))),
+        p_url_raw=p_url,
+        p_meta_raw=p_meta,
+        auth_signal=auth_signal,
+        rep=rep,
+        meta_model_used=bool(structured_agents.metadata_model_ready() and raw_for_meta_model),
+        cacheable=cacheable,
+    )
 
-    # Who is the sender, and is it proven?
+
+def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict) -> _Sender:
+    """Who the sender is and whether it is proven: the inputs of the
+    trust path."""
     domain = sender_domain(headers.get("from", ""))
     allowlisted = is_trusted_domain(domain)
     crypto_verified = bool(auth.get("cryptographically_verified"))
@@ -538,19 +569,13 @@ async def analyse(request: Request, req: AnalyseRequest):
 
     subject = headers.get("subject") or ctx.get("subject")
     forwarded = detect_forwarded(body, subject if isinstance(subject, str) else None)
-    if forwarded["detected"]:
-        # The sender vouches for the forward, not for the forwarded content.
-        allowlisted = crypto_verified = outlook_internal = False
     # A brand's name over another domain's address: authentication only
-    # proves who the impostor is, so no softer path, and the sender score
-    # is at least IMPERSONATION_META.
+    # proves who the impostor is, so no softer path.
     impersonation = None if forwarded["detected"] else impersonated_brand(headers.get("from", ""))
-    if impersonation:
+    if forwarded["detected"] or impersonation:
+        # The sender vouches for the forward, not for the forwarded
+        # content; an impostor's authentication proves nothing.
         allowlisted = crypto_verified = outlook_internal = False
-        p_meta = max(p_meta, IMPERSONATION_META)
-    # The allowlist counts only for an authenticated sender: the From: text
-    # alone can be forged.
-    trusted_sender = allowlisted and (crypto_verified or outlook_internal)
     # Gmail delivered the message to the inbox after its own SPF/DKIM/DMARC
     # checks: a soft signal, used when nothing stronger is available.
     inbox_soft = (
@@ -561,108 +586,152 @@ async def analyse(request: Request, req: AnalyseRequest):
         and auth.get("dmarc") != "fail"
         and auth.get("dkim") != "fail"
     )
+    return _Sender(
+        domain=domain,
+        crypto_verified=crypto_verified,
+        outlook_internal=outlook_internal,
+        # The allowlist counts only for an authenticated sender: the From:
+        # text alone can be forged.
+        trusted_sender=allowlisted and (crypto_verified or outlook_internal),
+        inbox_soft=inbox_soft,
+        forwarded=forwarded,
+        impersonation=impersonation,
+    )
+
+
+def _agents_block(
+    s: _Scores, body: str, urls: list[str], meta_checked: bool
+) -> dict[str, dict[str, Any]]:
+    if not urls:
+        url_source = "none"
+    elif structured_agents.url_model_ready() and any(u in body for u in urls):
+        url_source = "model"
+    else:
+        url_source = "rules"
+    return {
+        "text": {
+            "phishing_probability": s.p_text,
+            "verdict": _verdict_label(s.p_text),
+            "source": "model",
+        },
+        "url": {
+            "phishing_probability": s.p_url,
+            "phishing_probability_raw": s.p_url_raw,
+            "verdict": _verdict_label(s.p_url),
+            "source": url_source,
+        },
+        "metadata": {
+            "phishing_probability": s.p_meta,
+            "phishing_probability_raw": s.p_meta_raw,
+            "verdict": _verdict_label(s.p_meta),
+            "checked": meta_checked,
+            "source": "model" if s.meta_model_used else "rules",
+        },
+    }
+
+
+def _sender_auth_block(s: _Scores, who: _Sender) -> dict[str, Any]:
+    auth = s.auth_signal.get("auth", {})
+    return {
+        "cryptographically_verified": who.crypto_verified,
+        "gmail_inbox_soft_verified": bool(who.inbox_soft and not who.outlook_internal),
+        "outlook_internal": bool(who.outlook_internal),
+        "spf": auth.get("spf", "none"),
+        "dkim": auth.get("dkim", "none"),
+        "dmarc": auth.get("dmarc", "none"),
+        "aligned": auth.get("aligned", False),
+        "spamhaus_dbl_listed": bool(s.auth_signal.get("spamhaus_dbl", {}).get("listed")),
+        "reasons": s.auth_signal.get("reasons", []),
+        "impersonation": (
+            {"brand": who.impersonation, "domain": who.domain or ""} if who.impersonation else None
+        ),
+        "score_delta": s.auth_signal.get("score_delta", 0.0),
+    }
+
+
+def _auth_source(headers: dict[str, str]) -> str:
+    """Where the sender checks came from: real headers, or the values
+    Gmail shows (Gmail verified them, we did not)."""
+    auth_header = headers.get("authentication-results", "") or ""
+    if auth_header.startswith("gmail-client-context"):
+        return "gmail_ui"
+    return "headers" if auth_header else "none"
+
+
+@app.post("/analyse")
+@_rate_limited(RATE_LIMIT_ANALYSE)
+async def analyse(request: Request, req: AnalyseRequest):
+    cache_key = make_key("analyse", req.model_dump())
+    cached = _RESULT_CACHE.get(cache_key)
+    if cached is not None:
+        _count_verdict(
+            "/analyse", cached.get("verdict") == "phishing", cached.get("trust_path", "default")
+        )
+        return {**cached, "cached": True}
+
+    body, urls, headers, raw_bytes = _resolve_email(req)
+    if not body and raw_bytes:
+        # Attachment-only email: the subject stands in for the text (too
+        # short for the text agent, see MIN_TEXT_WORDS).
+        body = (headers.get("subject") or "").strip() or "(no text)"
+    if not body:
+        raise HTTPException(400, "Could not extract any text from this email.")
+    ctx = req.client_context or {}
+
+    s = await _score(body, urls, headers, raw_bytes, ctx)
+    who = _sender(body, headers, ctx, s.auth_signal.get("auth", {}))
+    if who.impersonation:
+        s.p_meta = max(s.p_meta, IMPERSONATION_META)
+    if who.trusted_sender:
+        s.p_meta = min(s.p_meta, TRUSTED_META_CEILING)
 
     path = fusion.choose_trust_path(
-        trusted_sender=trusted_sender,
-        crypto_verified=crypto_verified,
-        inbox_soft=inbox_soft,
-        outlook_internal=outlook_internal,
+        trusted_sender=who.trusted_sender,
+        crypto_verified=who.crypto_verified,
+        inbox_soft=who.inbox_soft,
+        outlook_internal=who.outlook_internal,
     )
-    if trusted_sender:
-        p_meta = min(p_meta, TRUSTED_META_CEILING)
     text_used = len(body.split()) >= MIN_TEXT_WORDS
+    verdict = fusion.decide_email(
+        s.p_text,
+        s.p_url,
+        s.p_meta,
+        text_used=text_used,
+        path=path,
+        rep=s.rep,
+        strong_link=structured_agents.strong_link_sign(urls),
+        text_override=text_model.override_threshold(),
+    )
+    _count_verdict("/analyse", verdict.is_phishing, verdict.trust_path)
+
     # Without headers there is no sender to check (pasted text, a client
     # that sent no headers): the sender score is then a neutral default,
     # shown as "not checked".
     meta_checked = bool(
         raw_bytes
         or headers.get("authentication-results")
-        or impersonation
+        or who.impersonation
         or ctx.get("gmail_in_inbox")
     )
-    verdict = fusion.decide_email(
-        p_text,
-        p_url,
-        p_meta,
-        text_used=text_used,
-        path=path,
-        rep=rep,
-        strong_link=structured_agents.strong_link_sign(urls),
-        text_override=text_model.override_threshold(),
-    )
-    _count_verdict("/analyse", verdict.is_phishing, verdict.trust_path)
-
-    auth_header = headers.get("authentication-results", "") or ""
     result = {
         "verdict": "phishing" if verdict.is_phishing else "safe",
         "fused_score": float(verdict.fused),
         "high_confidence_override": bool(verdict.high_conf),
         # trusted_sender > crypto_verified > gmail_inbox_soft / outlook_internal > default
         "trust_path": verdict.trust_path,
-        "trusted_sender": bool(trusted_sender),
-        "sender_domain": domain,
-        "forwarded": forwarded,
+        "trusted_sender": bool(who.trusted_sender),
+        "sender_domain": who.domain,
+        "forwarded": who.forwarded,
         "shared_links": detect_shared_links(urls),
         "text_agent_used": text_used,
         "language": detect_language(body),
-        "sender_auth": {
-            "cryptographically_verified": crypto_verified,
-            "gmail_inbox_soft_verified": bool(inbox_soft and not outlook_internal),
-            "outlook_internal": bool(outlook_internal),
-            "spf": auth.get("spf", "none"),
-            "dkim": auth.get("dkim", "none"),
-            "dmarc": auth.get("dmarc", "none"),
-            "aligned": auth.get("aligned", False),
-            "spamhaus_dbl_listed": bool(auth_signal.get("spamhaus_dbl", {}).get("listed")),
-            "reasons": auth_signal.get("reasons", []),
-            "impersonation": (
-                {"brand": impersonation, "domain": domain or ""} if impersonation else None
-            ),
-            "score_delta": auth_signal.get("score_delta", 0.0),
-        },
-        "url_reputation": rep.as_dict(),
-        "agents": {
-            "text": {
-                "phishing_probability": p_text,
-                "verdict": _verdict_label(p_text),
-                "source": "model",
-            },
-            "url": {
-                "phishing_probability": p_url,
-                "phishing_probability_raw": p_url_raw,
-                "verdict": _verdict_label(p_url),
-                "source": (
-                    "none"
-                    if not urls
-                    else "model"
-                    if structured_agents.url_model_ready() and any(u in body for u in urls)
-                    else "rules"
-                ),
-            },
-            "metadata": {
-                "phishing_probability": p_meta,
-                "phishing_probability_raw": p_meta_raw,
-                "verdict": _verdict_label(p_meta),
-                "checked": meta_checked,
-                "source": (
-                    "model"
-                    if structured_agents.metadata_model_ready() and raw_for_meta_model
-                    else "rules"
-                ),
-            },
-        },
-        # Where the sender checks came from: real headers, or the values
-        # Gmail shows (Gmail verified them, we did not).
-        "auth_source": (
-            "gmail_ui"
-            if auth_header.startswith("gmail-client-context")
-            else "headers"
-            if auth_header
-            else "none"
-        ),
+        "sender_auth": _sender_auth_block(s, who),
+        "url_reputation": s.rep.as_dict(),
+        "agents": _agents_block(s, body, urls, meta_checked),
+        "auth_source": _auth_source(headers),
         "cached": False,
     }
-    if cacheable:
+    if s.cacheable:
         _RESULT_CACHE.set(cache_key, result)
     return result
 

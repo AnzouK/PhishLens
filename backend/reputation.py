@@ -787,6 +787,62 @@ class ReputationEngine:
             url = "http://" + url
         return url
 
+    async def _from_cache(self, norm: list[str], verdicts: dict[str, UrlVerdict]) -> list[str]:
+        """Fill `verdicts` from the cache; return the URLs it did not have."""
+        uncached: list[str] = []
+        for u in norm:
+            cached = await self.cache.get(u)
+            if cached is None:
+                uncached.append(u)
+                self._misses += 1
+                continue
+            self._hits += 1
+            verdicts[u] = UrlVerdict(
+                url=u,
+                malicious=cached.get("malicious", False),
+                score=cached.get("score", 0.0),
+                threat_types=cached.get("threat_types", []),
+                sources=cached.get("sources", []),
+                tiers_run=cached.get("tiers_run", []),
+                cached=True,
+                raw_matches=cached.get("raw_matches", []),
+            )
+        return uncached
+
+    async def _fallback(self, v: UrlVerdict) -> None:
+        """PhishTank, URLhaus and the Spamhaus DBL for one URL Safe
+        Browsing did not flag."""
+        u = v.url
+        pt_result = self.phishtank.check(u) if self.phishtank else None
+        uh_result_task = self.urlhaus.check(u) if self.urlhaus else None
+        netloc = urlparse(u).netloc
+        sh_task = _spamhaus_dbl(netloc) if netloc else None
+
+        uh_result = await uh_result_task if uh_result_task else None
+        sh_result = await sh_task if sh_task else None
+
+        for tier_name, r in (
+            ("phishtank", pt_result),
+            ("urlhaus", uh_result),
+            ("spamhaus_dbl", sh_result),
+        ):
+            v.tiers_run.append(tier_name)
+            if r:
+                v.malicious = True
+                v.threat_types.extend(r.get("threat_types", []))
+                v.sources.append(r["source"])
+                v.raw_matches.append(r)
+
+        # Score: 1.0 from GSB, 0.4 per fallback source (capped at 1.0)
+        if v.malicious:
+            if "google_safe_browsing" in v.sources:
+                v.score = 1.0
+            else:
+                n_fallback = sum(
+                    1 for s in v.sources if s in ("phishtank", "urlhaus", "spamhaus_dbl")
+                )
+                v.score = min(1.0, 0.4 * n_fallback + 0.2)
+
     async def check_urls(self, urls: Iterable[str]) -> list[dict[str, Any]]:
         """Cascade lookup: returns one verdict dict per input URL."""
         if not _HTTPX_AVAILABLE:
@@ -813,25 +869,7 @@ class ReputationEngine:
         verdicts: dict[str, UrlVerdict] = {u: UrlVerdict(url=u) for u in norm}
 
         # ---- 1. Cache lookup for every URL ----
-        uncached: list[str] = []
-        for u in norm:
-            cached = await self.cache.get(u)
-            if cached is None:
-                uncached.append(u)
-                self._misses += 1
-                continue
-            self._hits += 1
-            verdicts[u] = UrlVerdict(
-                url=u,
-                malicious=cached.get("malicious", False),
-                score=cached.get("score", 0.0),
-                threat_types=cached.get("threat_types", []),
-                sources=cached.get("sources", []),
-                tiers_run=cached.get("tiers_run", []),
-                cached=True,
-                raw_matches=cached.get("raw_matches", []),
-            )
-
+        uncached = await self._from_cache(norm, verdicts)
         if not uncached:
             return [verdicts[u].to_dict() for u in norm]
 
@@ -844,56 +882,11 @@ class ReputationEngine:
 
         # ---- 3. Fallback cascade for URLs GSB didn't flag ----
         # (also for the case where GSB is disabled / quota exhausted)
-        need_fallback: list[str] = []
-        for u in uncached:
-            if u in gsb_hits:
-                v = verdicts[u]
-                v.malicious = True
-                v.score = 1.0
-                v.threat_types.extend(gsb_hits[u].get("threat_types", []))
-                v.sources.append("google_safe_browsing")
-                v.tiers_run.append("gsb")
-                v.raw_matches.append(gsb_hits[u])
-            else:
-                if gsb_used:
-                    verdicts[u].tiers_run.append("gsb_clean")
-                need_fallback.append(u)
-
-        # Run fallback tiers in parallel per URL
-        async def _fallback_for(u: str):
-            v = verdicts[u]
-            pt_result = self.phishtank.check(u) if self.phishtank else None
-            uh_result_task = self.urlhaus.check(u) if self.urlhaus else None
-            netloc = urlparse(u).netloc
-            sh_task = _spamhaus_dbl(netloc) if netloc else None
-
-            uh_result = await uh_result_task if uh_result_task else None
-            sh_result = await sh_task if sh_task else None
-
-            for tier_name, r in (
-                ("phishtank", pt_result),
-                ("urlhaus", uh_result),
-                ("spamhaus_dbl", sh_result),
-            ):
-                v.tiers_run.append(tier_name)
-                if r:
-                    v.malicious = True
-                    v.threat_types.extend(r.get("threat_types", []))
-                    v.sources.append(r["source"])
-                    v.raw_matches.append(r)
-
-            # Score: 1.0 from GSB, 0.4 per fallback source (capped at 1.0)
-            if v.malicious:
-                if "google_safe_browsing" in v.sources:
-                    v.score = 1.0
-                else:
-                    n_fallback = sum(
-                        1 for s in v.sources if s in ("phishtank", "urlhaus", "spamhaus_dbl")
-                    )
-                    v.score = min(1.0, 0.4 * n_fallback + 0.2)
-
+        need_fallback = _apply_gsb(verdicts, uncached, gsb_hits, gsb_used)
         if need_fallback:
-            await asyncio.gather(*(_fallback_for(u) for u in need_fallback), return_exceptions=True)
+            await asyncio.gather(
+                *(self._fallback(verdicts[u]) for u in need_fallback), return_exceptions=True
+            )
 
         # ---- 4. Persist to cache ----
         for u in uncached:
@@ -946,3 +939,28 @@ async def check_urls(urls: Iterable[str]) -> list[dict[str, Any]]:
 
 def stats() -> dict[str, Any]:
     return get_engine().stats() if _ENGINE else {"engine": "not_initialised"}
+
+
+def _apply_gsb(
+    verdicts: dict[str, UrlVerdict],
+    uncached: list[str],
+    gsb_hits: dict[str, dict[str, Any]],
+    gsb_used: bool,
+) -> list[str]:
+    """Mark Safe Browsing matches; return the URLs left for the fallback
+    sources."""
+    need_fallback: list[str] = []
+    for u in uncached:
+        if u in gsb_hits:
+            v = verdicts[u]
+            v.malicious = True
+            v.score = 1.0
+            v.threat_types.extend(gsb_hits[u].get("threat_types", []))
+            v.sources.append("google_safe_browsing")
+            v.tiers_run.append("gsb")
+            v.raw_matches.append(gsb_hits[u])
+        else:
+            if gsb_used:
+                verdicts[u].tiers_run.append("gsb_clean")
+            need_fallback.append(u)
+    return need_fallback
