@@ -151,3 +151,32 @@ def test_plain_http_mailing_list_link_does_not_force_phishing(client, monkeypatc
     ).json()
     assert j["high_confidence_override"] is False
     assert j["verdict"] == "safe"
+
+
+RELAYED = (
+    b"Return-Path: <office@nileuniversity.edu.ng>\r\n"
+    b"Authentication-Results: mx.google.com; dkim=pass header.i=@nileuniversity.edu.ng "
+    b"header.s=selector1; spf=pass smtp.mailfrom=nileuniversity.edu.ng; "
+    b"dmarc=pass header.from=nileuniversity.edu.ng\r\n"
+    b"DKIM-Signature: v=1; a=rsa-sha256; d=nileuniversity.edu.ng; s=selector1; b=x\r\n"
+    b"From: ACADEMIC DIVISION <office@nileuniversity.edu.ng>\r\n"
+    b"Subject: Processed request for attestation letter\r\n"
+    b"authentication-results: mx.microsoft.com 1; dkim=none (message not signed) "
+    b"header.d=none;dmarc=none action=none header.from=nileuniversity.edu.ng;\r\n"
+    b"Content-Type: text/plain\r\n\r\n"
+    b"Your request for an attestation letter has been processed. Please log in to the portal.\r\n"
+)
+
+
+def test_topmost_authentication_results_wins():
+    from email_parsing import parse_eml
+
+    _body, _urls, headers = parse_eml(RELAYED)
+    assert headers["authentication-results"].startswith("mx.google.com")
+
+
+def test_microsoft_relay_keeps_the_trusted_path(client):
+    import base64
+
+    j = client.post("/analyse", json={"raw_email_b64": base64.b64encode(RELAYED).decode()}).json()
+    assert j["trust_path"] == "trusted_sender"

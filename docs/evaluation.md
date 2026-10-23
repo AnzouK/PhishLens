@@ -143,3 +143,28 @@ the sender score alone. By language, among the phishing emails: German
 50 of 52 caught, Dutch 145 of 161, Portuguese 113 of 119, French 21 of
 25, English 88 of 122; English is the weakest, and the 38 phishing
 emails on the `crypto_verified` path are the largest group of misses.
+
+**Control sample (2026-10-23).** 2,000 phishing emails drawn with
+`--exclude` from every earlier run, from the same sources and dates,
+against the same server: 1,708 of 1,998 caught, 85.5% (83.9% to 87.0%);
+2 files could not be parsed. The 87.2% of the 500 emails studied holds
+on emails nobody looked at. 190 of the 290 misses were on the
+`crypto_verified` path.
+
+**Real inbox mail (2026-10-23).** 117 legitimate emails received in
+five personal Gmail inboxes after the text model's training mail was
+exported (from 2026-10-15), with bank, university and service
+notifications: 2 flagged, 1.7% (0.5% to 6.0%). Both came from a
+university on the allowlist, DKIM-signed and passing DMARC, yet were
+scored on the default path: the message also carried an
+`Authentication-Results` header from an internal Microsoft 365 relay
+("dkim=none"), lower in the headers, and the parser kept that one. From
+2.0.9 the topmost one, written by the receiving provider, is used.
+
+**A change measured and rejected.** On the `crypto_verified` path,
+letting a text score of 0.95 or more force the verdict caught 92.6%
+(91.4% to 93.7%) of the control phishing instead of 85.5%, but flagged 2
+more of the 117 inbox emails (3.4%, 1.3% to 8.5%): legitimate
+DKIM-signed notifications from domains outside the allowlist score as
+high as 0.98 and 1.00. It is not shipped; those misses wait for a
+better text model or another signal.

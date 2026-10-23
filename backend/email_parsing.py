@@ -128,9 +128,26 @@ def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
                 urls.append(u)
             if len(urls) >= 200:
                 break
-    # headers (subset)
-    headers = {k.lower(): str(v) for k, v in msg.items()}
-    return body.strip(), urls, headers
+    return body.strip(), urls, header_dict(msg.items())
+
+
+# Headers each relay adds on top of the message: the first (topmost) one
+# is the receiving provider's. Lower ones come from earlier hops (an
+# internal Microsoft 365 relay says "dkim=none") or from the sender, who
+# can write anything there.
+_TOPMOST_WINS = frozenset({"authentication-results", "arc-authentication-results"})
+
+
+def header_dict(items) -> dict[str, str]:
+    """Header name (lowercased) -> value. A repeated header keeps its last
+    value, except the authentication results, which keep the topmost."""
+    headers: dict[str, str] = {}
+    for k, v in items:
+        key = k.lower()
+        if key in _TOPMOST_WINS and key in headers:
+            continue
+        headers[key] = str(v)
+    return headers
 
 
 # ---------------------------------------------------------------------
