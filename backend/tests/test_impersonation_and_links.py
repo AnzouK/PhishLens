@@ -182,3 +182,38 @@ def test_microsoft_relay_keeps_the_trusted_path(client):
 
     j = client.post("/analyse", json={"raw_email_b64": base64.b64encode(RELAYED).decode()}).json()
     assert j["trust_path"] == "trusted_sender"
+
+
+# The standard parser raises on this To: header (a group with an empty
+# address): the email used to be refused with "Could not parse".
+UNPARSEABLE = (
+    b"From: Bank <alerts@evil.example>\r\n"
+    b'To: undisclosed-recipients:;; "" <@>\r\n'
+    b"Subject: Your account is locked\r\n"
+    b"Content-Type: text/html\r\n\r\n"
+    b'<p>Confirm your password <a href="http://evil.example/login">here</a> today.</p>\r\n'
+)
+
+
+def test_unparseable_email_is_read_leniently():
+    from email_parsing import parse_eml
+
+    body, urls, headers = parse_eml(UNPARSEABLE)
+    assert "Confirm your password" in body
+    assert "http://evil.example/login" in urls
+    assert headers["from"].startswith("Bank")
+
+
+def test_unparseable_email_is_scanned_not_refused(client):
+    import base64
+
+    r = client.post("/analyse", json={"raw_email_b64": base64.b64encode(UNPARSEABLE).decode()})
+    assert r.status_code == 200
+    assert r.json()["agents"]["url"]["phishing_probability"] > 0
+
+
+def test_garbage_falls_back_to_the_raw_text():
+    from email_parsing import _parse_lenient
+
+    body, urls, _headers = _parse_lenient(b"\xff\xfe not an email http://x.example/a")
+    assert "not an email" in body and urls == ["http://x.example/a"]

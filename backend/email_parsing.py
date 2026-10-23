@@ -125,10 +125,55 @@ def _link_targets(msg, body: str) -> list[str]:
 
 
 def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
-    """Return (body_text, urls_list, headers_dict)."""
-    msg = message_from_bytes(raw_bytes, policy=policy.default)
-    body = _body_text(msg, raw_bytes)
-    return body.strip(), _link_targets(msg, body), header_dict(msg.items())
+    """Return (body_text, urls_list, headers_dict).
+
+    A message the standard parser rejects (a malformed header, a broken
+    MIME structure) is read leniently instead of refused: a crafted
+    email must not escape the scan by failing to parse."""
+    try:
+        msg = message_from_bytes(raw_bytes, policy=policy.default)
+        body = _body_text(msg, raw_bytes)
+        return body.strip(), _link_targets(msg, body), header_dict(msg.items())
+    except Exception:
+        return _parse_lenient(raw_bytes)
+
+
+def _decoded(part) -> str:
+    data = part.get_payload(decode=True)
+    if not isinstance(data, bytes):
+        return ""
+    charset = part.get_content_charset() or "utf-8"
+    try:
+        return data.decode(charset, errors="replace")
+    except LookupError:  # unknown charset name
+        return data.decode("utf-8", errors="replace")
+
+
+def _parse_lenient(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
+    """The legacy parser, which keeps headers as plain strings and never
+    builds header objects; the raw bytes as text when even that fails."""
+    try:
+        msg = message_from_bytes(raw_bytes, policy=policy.compat32)
+        headers = header_dict((k, v) for k, v in msg.items() if isinstance(v, str))
+        texts = {"text/html": "", "text/plain": ""}
+        for part in msg.walk():
+            kind = part.get_content_type()
+            if kind in texts and not texts[kind] and not part.get_filename():
+                texts[kind] = _decoded(part)
+        html = html_to_text(texts["text/html"]) if texts["text/html"] else ""
+        body = (html if html.strip() else texts["text/plain"]).strip()
+        urls = urls_in_text(body)
+        for m in _HREF_RE.finditer(texts["text/html"][:500_000]):
+            if m.group(1) not in urls and len(urls) < 200:
+                urls.append(m.group(1))
+        if body or urls:
+            return body, urls, headers
+    except Exception:
+        headers = {}
+    text = raw_bytes[:1_000_000].decode("utf-8", errors="replace")
+    _head, _sep, rest = text.partition("\n\n")
+    body = (rest or text).strip()
+    return body, urls_in_text(body), headers
 
 
 # Headers each relay adds on top of the message: the first (topmost) one
