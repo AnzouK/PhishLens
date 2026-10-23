@@ -27,6 +27,13 @@ backend share one version number.
   decide on the `crypto_verified` path would catch 7 points more
   phishing but doubles the false alarms on real inbox mail.
 
+### Changed
+- The `/analyse` handler is split into named steps (scores, sender
+  trust, response blocks), and the email parser, the reputation cascade
+  and the PDF, Office and archive parsers into smaller functions; the
+  ruff complexity limit goes from 25 to 15. Responses are unchanged:
+  216 varied requests give byte-identical answers before and after.
+
 ### Fixed
 - **Mail relayed through Microsoft 365 keeps its authenticated
   sender.** When an email carried several `Authentication-Results`

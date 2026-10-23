@@ -20,9 +20,9 @@ ignore = [
 ]
 
 [lint.mccabe]
-# The attachment parsers walk file formats branch by branch; above 25 is
-# a function to split.
-max-complexity = 25
+# Above 15 branches, a function is split into named steps (the /analyse
+# handler, the email and attachment parsers, the reputation cascade).
+max-complexity = 15
 
 [lint.per-file-ignores]
 "backend/tests/*" = ["B011", "B017"]

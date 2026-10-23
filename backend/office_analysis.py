@@ -177,6 +177,59 @@ def _external_rels(data: bytes) -> list[tuple[str, str]]:
     return rels
 
 
+def _part_name_flags(names: list[str]) -> list[str]:
+    """Risky features visible from the part names alone."""
+    flags: list[str] = []
+    lower = [n.lower() for n in names]
+    if any(n.endswith("vbaproject.bin") for n in lower) or any(
+        n.startswith("xl/macrosheets/") for n in lower
+    ):
+        flags.append("contains_macros")
+    if any("/embeddings/" in n and (n.endswith(".bin") or "oleobject" in n) for n in lower):
+        flags.append("embedded_ole_object")
+    if any("/activex/" in n for n in lower):
+        flags.append("contains_activex")
+    if "xl/connections.xml" in lower:
+        flags.append("external_data_connection")
+    return flags
+
+
+def _text_parts(kind: str, names: list[str]) -> tuple[list[str], set[str], set[str]]:
+    """The XML parts holding the document's text, in reading order, with
+    the tags that hold text and the tags that end a block."""
+    if kind == "docx":
+        pattern = r"word/(document|header\d*|footer\d*|footnotes|endnotes|comments)\.xml"
+        text_tags, block_tags = {"t"}, {"p", "tr"}
+    elif kind == "xlsx":
+        pattern = r"xl/sharedStrings\.xml|xl/worksheets/sheet\d+\.xml"
+        text_tags, block_tags = {"t", "f"}, {"si", "row"}
+    else:
+        pattern = r"ppt/(slides/slide\d+|notesSlides/notesSlide\d+)\.xml"
+        text_tags, block_tags = {"t"}, {"p"}
+    parts = [n for n in names if re.fullmatch(pattern, n)]
+    # stable order: document.xml / sheet1 / slide1 first
+    parts.sort(key=lambda n: [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", n)])
+    return parts, text_tags, block_tags
+
+
+def _scan_relationships(
+    zf: zipfile.ZipFile, names: list[str], flags: list[str], urls: list[str]
+) -> None:
+    """Relationships: hyperlinks, remote templates, external OLE links."""
+    for name in names:
+        if not name.endswith(".rels"):
+            continue
+        data = _read_part(zf, name, flags)
+        if data is None:
+            continue
+        for rtype, target in _external_rels(data):
+            if rtype == "attachedTemplate" and "remote_template" not in flags:
+                flags.append("remote_template")
+            if rtype == "oleObject" and "embedded_ole_object" not in flags:
+                flags.append("embedded_ole_object")
+            _urls_from(target, urls)
+
+
 def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
     try:
         zf = zipfile.ZipFile(io.BytesIO(raw))
@@ -201,49 +254,10 @@ def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
                 "Unsupported ZIP attachment: not a Word, Excel or PowerPoint document."
             )
 
-        flags: list[str] = []
-        lower = [n.lower() for n in names]
-        if any(n.endswith("vbaproject.bin") for n in lower) or any(
-            n.startswith("xl/macrosheets/") for n in lower
-        ):
-            flags.append("contains_macros")
-        if any("/embeddings/" in n and (n.endswith(".bin") or "oleobject" in n) for n in lower):
-            flags.append("embedded_ole_object")
-        if any("/activex/" in n for n in lower):
-            flags.append("contains_activex")
-        if "xl/connections.xml" in lower:
-            flags.append("external_data_connection")
-
+        flags = _part_name_flags(names)
         texts: list[str] = []
         urls: list[str] = []
-
-        if kind == "docx":
-            parts = [
-                n
-                for n in names
-                if re.fullmatch(
-                    r"word/(document|header\d*|footer\d*|footnotes|endnotes|comments)\.xml", n
-                )
-            ]
-            text_tags, block_tags = {"t"}, {"p", "tr"}
-        elif kind == "xlsx":
-            parts = [
-                n
-                for n in names
-                if n == "xl/sharedStrings.xml" or re.fullmatch(r"xl/worksheets/sheet\d+\.xml", n)
-            ]
-            text_tags, block_tags = {"t", "f"}, {"si", "row"}
-        else:
-            parts = [
-                n
-                for n in names
-                if re.fullmatch(r"ppt/(slides/slide\d+|notesSlides/notesSlide\d+)\.xml", n)
-            ]
-            text_tags, block_tags = {"t"}, {"p"}
-
-        # stable order: document.xml / sheet1 / slide1 first
-        parts.sort(key=lambda n: [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", n)])
-
+        parts, text_tags, block_tags = _text_parts(kind, names)
         for name in parts:
             data = _read_part(zf, name, flags)
             if data is None:
@@ -258,19 +272,7 @@ def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
             if sum(len(t) for t in texts) >= MAX_TEXT:
                 break
 
-        # Relationships: hyperlinks, remote templates, external OLE links
-        for name in names:
-            if not name.endswith(".rels"):
-                continue
-            data = _read_part(zf, name, flags)
-            if data is None:
-                continue
-            for rtype, target in _external_rels(data):
-                if rtype == "attachedTemplate" and "remote_template" not in flags:
-                    flags.append("remote_template")
-                if rtype == "oleObject" and "embedded_ole_object" not in flags:
-                    flags.append("embedded_ole_object")
-                _urls_from(target, urls)
+        _scan_relationships(zf, names, flags, urls)
 
     text = "\n".join(t for t in texts if t)[:MAX_TEXT]
     _urls_from(text, urls)
