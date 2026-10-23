@@ -93,6 +93,7 @@ legitimate mail from public Apache mailing-list archives, all sent from
 | 2026-10-16 | main after the metadata fix, not released | 14 of 297: 4.7% (2.8% to 7.8%) | 225 of 500: 45.0% (40.7% to 49.4%) |
 | 2026-10-16 | main after the subject fix, not released | 14 of 297: 4.7% (2.8% to 7.8%) | 436 of 500: 87.2% (84.0% to 89.8%) |
 | 2026-10-16 | 2.0.8 code (link fix), text model r4 | 1 of 297: 0.3% (0.1% to 1.9%) | 436 of 500: 87.2% (84.0% to 89.8%) |
+| 2026-10-23 | 2.0.9 code, text model r4 | 1 of 297: 0.3% (0.1% to 1.9%) | control sample: 1,707 of 1,997: 85.5% (83.9% to 87.0%) |
 
 **What the 2.0.7 run showed.** On the 130 false alarms, the mean scores
 were 1% for the wording, 56% for the links and 92% for the sender, and
