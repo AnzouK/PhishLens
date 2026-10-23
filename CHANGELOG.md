@@ -7,6 +7,11 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Added
+- `scripts/benchmark.py --exclude`: leaves out the emails of earlier
+  runs, so a change tuned on one sample is measured on a control sample
+  nobody looked at (`docs/evaluation.md`).
+
 ### Fixed
 - `/health` and `/` answer `HEAD` requests (200 instead of 405), so
   uptime monitors that probe with `HEAD`, such as UptimeRobot's free

@@ -36,8 +36,10 @@ hash of each email, its label and the result, never the email), so a run
 resumes where it stopped and the per-email results can be published.
 `--sample N` scores at most N emails per label, always the same ones (the
 N smallest hashes), so another person picks the same emails from the
-same sources. The script shows its progress and, on Ctrl+C, prints the
-report of what was scored so far.
+same sources. `--exclude` leaves out the emails of earlier runs (their
+caches): a change tuned while looking at one sample is then measured on
+emails nobody looked at. The script shows its progress and, on Ctrl+C,
+prints the report of what was scored so far.
 
 Run it against your own server: PhishLens Cloud answers 30 requests a
 minute (`--per-minute 25`) and its Safe Browsing quota is shared by every
@@ -67,6 +69,10 @@ Report the legitimate side source by source.
 - **No selection after the fact.** Decide the sources and the date
   before looking at the results, and keep every email the server could
   read.
+- **A control sample for every tuned change.** A threshold or rule
+  chosen while looking at a run's errors is measured again on a sample
+  drawn with `--exclude` from that run, and that second figure is the
+  one published.
 - **Report everything:** the server version (`/health`), the date of the
   run, the sources with their dates, the table, and the emails that could
   not be scored.
