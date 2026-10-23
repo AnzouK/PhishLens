@@ -162,3 +162,10 @@ def test_show_errors_and_drop(tmp_path, capsys):
     args.drop = str(tmp_path / "drop.txt")
     again = bm.run(args, send=fake_server([]))
     assert [r["id"] for r in again] != [] and fa not in {r["id"] for r in again}
+
+
+def test_interval_never_prints_negative_zero():
+    from live_eval import fmt
+
+    assert "-0.0%" not in fmt(0, 81)
+    assert fmt(0, 81).endswith("(0/81, 95% CI 0.0% to 4.5%)")

@@ -159,7 +159,9 @@ university on the allowlist, DKIM-signed and passing DMARC, yet were
 scored on the default path: the message also carried an
 `Authentication-Results` header from an internal Microsoft 365 relay
 ("dkim=none"), lower in the headers, and the parser kept that one. From
-2.0.9 the topmost one, written by the receiving provider, is used.
+2.0.9 the topmost one, written by the receiving provider, is used. The
+same 117 emails against the fixed server: 0 flagged, 0.0% (0.0% to
+3.2%).
 
 **A change measured and rejected.** On the `crypto_verified` path,
 letting a text score of 0.95 or more force the verdict caught 92.6%

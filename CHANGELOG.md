@@ -35,7 +35,10 @@ backend share one version number.
   provider (Gmail): a DKIM-signed, DMARC-passing sender on the allowlist
   lost its trusted path, and two real university notifications were
   flagged. The topmost one is now used, in Gmail scans and `.eml` files
-  alike; a sender cannot place one above the provider's.
+  alike; a sender cannot place one above the provider's. On the same
+  117 inbox emails, false alarms went from 2 to 0 (0.0%, 95% CI 0.0% to
+  3.2%).
+- Confidence intervals no longer print "-0.0%" as their lower bound.
 - `/health` and `/` answer `HEAD` requests (200 instead of 405), so
   uptime monitors that probe with `HEAD`, such as UptimeRobot's free
   plan, no longer report the server as down.
