@@ -172,7 +172,9 @@ def test_topmost_authentication_results_wins():
     from email_parsing import parse_eml
 
     _body, _urls, headers = parse_eml(RELAYED)
-    assert headers["authentication-results"].startswith("mx.google.com")
+    # the provider's verdict, not the internal relay's "dkim=none"
+    ar = headers["authentication-results"]
+    assert "dkim=pass" in ar and "dkim=none" not in ar
 
 
 def test_microsoft_relay_keeps_the_trusted_path(client):
