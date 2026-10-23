@@ -245,3 +245,22 @@ test("pasted text: the sender is shown as not checked", async ({ page }) => {
     await expect(page.locator("#meta-score")).toHaveText("—");
     await expect(page.locator("#meta-hint")).toContainText("Not checked");
 });
+
+test("first run: the privacy notice says where emails go until dismissed", async ({ page }) => {
+    await page.goto(`${base}/popup/popup.html`);
+    const notice = page.locator("#privacy-notice");
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText("PhishLens Cloud");
+    await expect(page.locator("#privacy-notice-link")).toHaveAttribute("href", "https://phishlens.dev/privacy.html");
+    await page.click("#privacy-notice-ok");
+    await expect(notice).toBeHidden();
+    const seen = await page.evaluate(() => window.chrome.storage.local.get(["privacy_notice_seen"]));
+    expect(seen.privacy_notice_seen).toBe(true);
+});
+
+test("first run: no privacy notice with a local server", async ({ page }) => {
+    await page.addInitScript(() => window.chrome.storage.local.set({ backend: "local" }));
+    await page.goto(`${base}/popup/popup.html`);
+    await expect(page.locator("#view-upload")).toBeVisible();
+    await expect(page.locator("#privacy-notice")).toBeHidden();
+});

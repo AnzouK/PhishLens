@@ -55,6 +55,19 @@
     <!-- ===== upload view ===== -->
     <section id="view-upload" class="view view--active">
 
+      <!-- Shown until dismissed, while PhishLens Cloud is the server -->
+      <div id="privacy-notice" class="privacy-notice" role="note" hidden>
+        <svg class="i hint__icon" aria-hidden="true"><use href="#i-info"/></svg>
+        <div class="privacy-notice__body">
+          <strong data-i18n="privacy_notice_title">Before your first scan</strong>
+          <p data-i18n="privacy_notice_text">To check an email, PhishLens sends its text, links and headers to PhishLens Cloud. The email is analysed in memory and not stored. To keep every email on your computer, run your own server and choose it in the settings.</p>
+          <div class="privacy-notice__actions">
+            <a id="privacy-notice-link" href="https://phishlens.dev/privacy.html" target="_blank" rel="noopener" data-i18n="privacy_notice_link">Privacy policy</a>
+            <button id="privacy-notice-ok" class="btn btn--ghost" type="button" data-i18n="privacy_notice_ok">Got it</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Tab switcher: File / Paste -->
       <div class="tabs" role="tablist">
         <button class="tab tab--active" data-tab="file" role="tab">

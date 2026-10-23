@@ -368,5 +368,9 @@
     "share_stats_send": "Statistieken versturen",
     "review_report": "Melden",
     "review_report_title": "Deze e-mail geanonimiseerd ter controle versturen",
-    "review_reported": "Gemeld"
+    "review_reported": "Gemeld",
+    "privacy_notice_title": "Voor je eerste scan",
+    "privacy_notice_text": "Om een e-mail te controleren, stuurt PhishLens de tekst, links en headers naar PhishLens Cloud. De e-mail wordt in het geheugen geanalyseerd en niet bewaard. Wil je dat geen enkele e-mail je computer verlaat, draai dan je eigen server en kies die in de instellingen.",
+    "privacy_notice_ok": "Begrepen",
+    "privacy_notice_link": "Privacybeleid"
 };

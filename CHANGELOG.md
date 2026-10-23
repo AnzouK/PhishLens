@@ -8,6 +8,13 @@ backend share one version number.
 ## [Unreleased]
 
 ### Added
+- **The popup says where emails go before the first scan.** While
+  PhishLens Cloud is the server, a notice explains that the text, links
+  and headers are sent to it, analysed in memory and not stored, and how
+  to keep every email on the computer instead, with a link to the
+  privacy policy in the interface language. It disappears for good once
+  dismissed, and is not shown with a local or custom server. In the 8
+  interface languages (Hausa still a draft).
 - `scripts/benchmark.py --exclude`: leaves out the emails of earlier
   runs, so a change tuned on one sample is measured on a control sample
   nobody looked at (`docs/evaluation.md`). The report says why an email
