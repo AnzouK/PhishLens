@@ -144,3 +144,21 @@ def test_refused_email_says_why(tmp_path):
     results = bm.run(args, send=refuses)
     assert results[0]["error"] == "HTTP 413: raw_email_b64 is too large."
     assert "HTTP 413: raw_email_b64 is too large. (1)" in bm.report(results)
+
+
+def test_show_errors_and_drop(tmp_path, capsys):
+    legit = tmp_path / "legit"
+    legit.mkdir()
+    (legit / "a.eml").write_bytes(eml("bad but legit"))
+    (legit / "b.eml").write_bytes(eml("fine"))
+    args = make_args(tmp_path, [], [str(legit)])
+    results = bm.run(args, send=fake_server([]))
+    bm.show_errors(args, results)
+    err = capsys.readouterr().err
+    assert "false alarm" in err and "Subject" not in err and "bad but legit" in err
+    fa = next(r["id"] for r in results if r["verdict"] == "phishing")
+    (tmp_path / "drop.txt").write_text(f"{fa}  # a real phishing in the inbox\n")
+    args = make_args(tmp_path, [], [str(legit)])
+    args.drop = str(tmp_path / "drop.txt")
+    again = bm.run(args, send=fake_server([]))
+    assert [r["id"] for r in again] != [] and fa not in {r["id"] for r in again}

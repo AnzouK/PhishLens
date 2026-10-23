@@ -73,6 +73,10 @@ Report the legitimate side source by source.
   chosen while looking at a run's errors is measured again on a sample
   drawn with `--exclude` from that run, and that second figure is the
   one published.
+- **Check the errors, not the rest.** `--show-errors` lists the false
+  alarms and missed phishing (sender domain and subject, on your machine
+  only). A phishing found in an inbox export is listed in a file passed
+  with `--drop`; report how many were dropped and why.
 - **Report everything:** the server version (`/health`), the date of the
   run, the sources with their dates, the table, and the emails that could
   not be scored.
