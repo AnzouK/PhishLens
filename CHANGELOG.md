@@ -19,7 +19,23 @@ backend share one version number.
   mislabelled (a phishing that reached an inbox export), and the run
   says how many.
 
+### Documentation
+- `docs/evaluation.md`: a control sample of 2,000 phishing emails nobody
+  looked at (85.5% caught, 83.9% to 87.0%), 117 legitimate emails from
+  real inboxes received after the model's training mail (1.7% flagged),
+  and a change measured and rejected: letting a confident text score
+  decide on the `crypto_verified` path would catch 7 points more
+  phishing but doubles the false alarms on real inbox mail.
+
 ### Fixed
+- **Mail relayed through Microsoft 365 keeps its authenticated
+  sender.** When an email carried several `Authentication-Results`
+  headers, the parser kept the lowest one, written by an internal relay
+  ("dkim=none"), instead of the topmost one, written by the receiving
+  provider (Gmail): a DKIM-signed, DMARC-passing sender on the allowlist
+  lost its trusted path, and two real university notifications were
+  flagged. The topmost one is now used, in Gmail scans and `.eml` files
+  alike; a sender cannot place one above the provider's.
 - `/health` and `/` answer `HEAD` requests (200 instead of 405), so
   uptime monitors that probe with `HEAD`, such as UptimeRobot's free
   plan, no longer report the server as down.

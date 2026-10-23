@@ -94,9 +94,10 @@ the sender is honest, and an attacker sets it up for their own domain.
 On that `crypto_verified` path the text weighs half and only Safe
 Browsing forces the verdict: 38 of the 64 phishing emails the 2.0.8
 benchmark missed went through it. Sending unlisted domains to the
-default path would catch about 29 more, but the discount protects real
-bank, delivery and university mail from unlisted domains, which the
-benchmark does not contain; it stays until that cost is measured
+default path, or letting a text score of 0.95 decide there, catches
+about 7 points more phishing, but on real inbox mail it doubled the
+false alarms: legitimate notifications from unlisted, DKIM-signed
+domains score as high as phishing. The discount stays
 ([evaluation](evaluation.md#results)).
 
 **R8. The Hausa interface is a draft translation.** A wrong word in a
