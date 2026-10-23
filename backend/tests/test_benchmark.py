@@ -169,3 +169,46 @@ def test_interval_never_prints_negative_zero():
 
     assert "-0.0%" not in fmt(0, 81)
     assert fmt(0, 81).endswith("(0/81, 95% CI 0.0% to 4.5%)")
+
+
+def test_domain_ages_are_added_to_the_cache(tmp_path):
+    import json
+
+    import domain_age as da
+
+    legit = tmp_path / "legit"
+    legit.mkdir()
+    (legit / "a.eml").write_bytes(
+        b"From: Shop <news@mail.young-shop.example>\nDate: Mon, 05 Jan 2026 10:00:00 +0000\n"
+        b"Subject: hi\n\nHello there\n"
+    )
+    (legit / "b.eml").write_bytes(eml("fine"))
+    args = make_args(tmp_path, [], [str(legit)])
+    results = bm.run(args, send=fake_server([]))
+    asked = []
+
+    def fetch(domain):
+        asked.append(domain)
+        return "2025-12-26" if domain == "young-shop.example" else da.UNKNOWN
+
+    ages = da.DomainAges(tmp_path / "ages.json", fetch=fetch, pause=0)
+    assert bm.add_domain_ages(args, results, ages=ages) == 2
+    rows = [json.loads(x) for x in (tmp_path / "cache.jsonl").read_text().splitlines()]
+    assert sorted(r["domain_age_days"] is None for r in rows) == [False, True]
+    assert 10 in {r["domain_age_days"] for r in rows}
+    assert asked == ["young-shop.example", "example.org"]
+    # already there: nothing asked again
+    assert bm.add_domain_ages(args, rows, ages=ages) == 0
+
+
+def test_rdap_registration_event():
+    import domain_age as da
+
+    rdap = {
+        "events": [
+            {"eventAction": "last changed", "eventDate": "2026-01-01T00:00:00Z"},
+            {"eventAction": "registration", "eventDate": "2019-03-04T12:00:00Z"},
+        ]
+    }
+    assert da.registration_date(rdap) == "2019-03-04"
+    assert da.registration_date({}) is None
