@@ -120,6 +120,19 @@ def _selection(args, since) -> tuple[set[str] | None, dict[str, int]]:
     return {e for v in ids.values() for e in sorted(set(v))[: args.sample]}, counts
 
 
+def _error_name(e: Exception) -> str:
+    """ "HTTP 413: <detail>" for an answer the server refused, the exception
+    name otherwise (timeouts, connection errors)."""
+    if isinstance(e, urllib.error.HTTPError):
+        detail = ""
+        try:
+            detail = str(json.loads(e.read() or b"{}").get("detail") or "")[:80]
+        except (ValueError, AttributeError, OSError):
+            pass
+        return f"HTTP {e.code}" + (f": {detail}" if detail else "")
+    return type(e).__name__
+
+
 def _progress(done: int, total: int, cached: int, errors: int, pause: float) -> None:
     left = (total - done) * pause / 60
     eta = f", about {left:.0f} min left" if pause and done < total else ""
@@ -187,7 +200,7 @@ def run(args, send=analyse) -> list[dict]:
                         "override": bool(r.get("high_confidence_override")),
                     }
                 except (urllib.error.URLError, TimeoutError, ValueError) as e:
-                    row = {"id": eid, "label": label, "error": type(e).__name__}
+                    row = {"id": eid, "label": label, "error": _error_name(e)}
                     errors += 1
                 if "error" not in row:
                     out.write(json.dumps(row) + "\n")
@@ -270,7 +283,13 @@ def report(results: list[dict], markdown: bool = False) -> str:
         else:
             lines.append(f"{g}: false alarms {fa}; phishing caught {caught}")
     if errors:
-        lines.append(f"\n{errors} emails could not be scored (server errors); run again to retry.")
+        kinds = Counter(r["error"] for r in results if "error" in r)
+        lines.append(
+            f"\n{errors} emails could not be scored: "
+            + "; ".join(f"{k} ({v})" for k, v in kinds.most_common())
+            + ". A 4xx answer is the server refusing that email and comes back on"
+            " every run; timeouts and 5xx answers may pass when run again."
+        )
     why = _why(results)
     if why:
         lines.append("\n" + why)
