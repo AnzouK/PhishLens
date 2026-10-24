@@ -43,6 +43,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from link_alignment import link_profile, links_elsewhere_only
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -68,6 +69,7 @@ from sender_trust import (
 )
 from settings import (
     CORS_ALLOW_ORIGINS,
+    CRYPTO_LINK_RULE,
     ENABLE_DBL,
     IMPERSONATION_META,
     INNER_FILE_WORDING_THRESHOLD,
@@ -692,6 +694,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         outlook_internal=who.outlook_internal,
     )
     text_used = len(body.split()) >= MIN_TEXT_WORDS
+    links = link_profile(urls, headers.get("from", ""))
     verdict = fusion.decide_email(
         s.p_text,
         s.p_url,
@@ -701,6 +704,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         rep=s.rep,
         strong_link=structured_agents.strong_link_sign(urls),
         text_override=text_model.override_threshold(),
+        links_elsewhere=CRYPTO_LINK_RULE and links_elsewhere_only(links),
     )
     _count_verdict("/analyse", verdict.is_phishing, verdict.trust_path)
 
@@ -723,6 +727,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         "sender_domain": who.domain,
         "forwarded": who.forwarded,
         "shared_links": detect_shared_links(urls),
+        "link_alignment": links,
         "text_agent_used": text_used,
         "language": detect_language(body),
         "sender_auth": _sender_auth_block(s, who),

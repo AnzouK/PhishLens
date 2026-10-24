@@ -24,6 +24,14 @@ backend share one version number.
   DKIM-signed phishing from legitimate signed mail, before any rule
   ships.
 
+### Changed
+- Every `/analyse` answer reports where the links go compared with the
+  sender's domain (`link_alignment`: counts only). Behind the
+  `CRYPTO_LINK_RULE` setting, off by default: on the `crypto_verified`
+  path, links that all lead away from the sender's domain (click
+  tracking and large known sites aside) with a text score of 0.5 or more
+  force the phishing verdict. Verdicts are unchanged while it is off.
+
 ### Fixed
 - **An email the parser rejects is scanned instead of refused.** A
   malformed header (a group address with an empty address, for example)

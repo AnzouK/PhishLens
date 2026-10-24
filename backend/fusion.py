@@ -17,6 +17,7 @@ from settings import (
     ATTACHMENT_THRESHOLD,
     ATTACHMENT_TRUSTED_TEXT_FACTOR,
     ATTACHMENT_TRUSTED_THRESHOLD,
+    CRYPTO_LINK_TEXT_MIN,
     GSB_URL_FLOOR,
     HIGH_CONF_OVERRIDE,
     PATH_CRYPTO,
@@ -138,6 +139,7 @@ def decide_email(
     rep: Reputation,
     strong_link: bool = False,
     text_override: float = HIGH_CONF_OVERRIDE,
+    links_elsewhere: bool = False,
 ) -> Verdict:
     """Verdict for an email. On the softer paths only a Safe Browsing hit
     can force phishing; on the default path a confident text or sender
@@ -155,6 +157,11 @@ def decide_email(
             or p_meta >= HIGH_CONF_OVERRIDE
             or (p_url >= HIGH_CONF_OVERRIDE and (rep.any_hit or strong_link))
         )
+    elif path is PATH_CRYPTO:
+        # A signature proves the domain, not the sender's honesty: with all
+        # its links leading elsewhere and phishing-like wording, it does not
+        # protect (links_elsewhere is set only when CRYPTO_LINK_RULE is on).
+        high_conf = rep.gsb_hit or (links_elsewhere and p_text >= CRYPTO_LINK_TEXT_MIN)
     else:
         high_conf = rep.gsb_hit
     return Verdict(
