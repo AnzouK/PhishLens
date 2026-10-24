@@ -220,11 +220,11 @@ def add_domain_ages(args, results: list[dict], ages=None) -> int:
 
 
 def add_link_profiles(args, results: list[dict]) -> int:
-    """Where the links go compared with the sender's domain ("links": counts
-    only, link_profile.py)."""
+    """Where the links go compared with the sender's domain ("link_profile":
+    counts only, link_profile.py)."""
     from link_profile import profile
 
-    return _enrich(args, results, "links", profile)
+    return _enrich(args, results, "link_profile", profile)
 
 
 def run(args, send=analyse) -> list[dict]:

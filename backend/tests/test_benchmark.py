@@ -223,9 +223,18 @@ def test_link_profile_counts_where_links_go(tmp_path):
         b"From: Bank <alerts@mail.bank.example>\nDate: Mon, 05 Jan 2026 10:00:00 +0000\n"
         b"Subject: hi\nContent-Type: text/html\n\n"
         b'<a href="https://www.bank.example/account">a</a> <a href="https://github.com/x">b</a>'
-        b' <a href="http://evil.example/login">c</a> <a href="http://evil.example/login">dup</a>\n'
+        b' <a href="http://evil.example/login">c</a> <a href="http://evil.example/login">dup</a>'
+        b' <a href="https://u1.ct.sendgrid.net/ls/click?x">t</a>'
+        b' <link href="https://fonts.googleapis.com/css?family=Roboto">\n'
     )
-    assert lp.profile(raw) == {"links": 3, "aligned": 1, "well_known": 1, "cloud": 0, "other": 1}
+    assert lp.profile(raw) == {
+        "links": 4,
+        "aligned": 1,
+        "well_known": 1,
+        "cloud": 0,
+        "tracking": 1,
+        "other": 1,
+    }
     legit = tmp_path / "legit"
     legit.mkdir()
     (legit / "a.eml").write_bytes(raw)
@@ -233,4 +242,4 @@ def test_link_profile_counts_where_links_go(tmp_path):
     results = bm.run(args, send=fake_server([]))
     assert bm.add_link_profiles(args, results) == 1
     row = json.loads((tmp_path / "cache.jsonl").read_text())
-    assert row["links"]["aligned"] == 1 and "evil" not in json.dumps(row)
+    assert row["link_profile"]["aligned"] == 1 and "evil" not in json.dumps(row)
