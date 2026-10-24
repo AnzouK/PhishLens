@@ -412,7 +412,7 @@ function renderResult(data) {
 
     const flagText = flags.length ? t("found_flags", { flags: flags.map(flagLabel).join(", ") }) : "";
     $("verdict-sub").textContent = isPhishing
-        ? t("sub_phishing") + flagText
+        ? (data.links_elsewhere ? t("lead_links_elsewhere") : t("sub_phishing")) + flagText
         : caution
         ? t("sub_caution") + flagText
         : data.forwarded?.detected

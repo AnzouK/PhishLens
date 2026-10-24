@@ -372,5 +372,6 @@
     "privacy_notice_title": "Prima della prima analisi",
     "privacy_notice_text": "Per controllare un'email, PhishLens invia il testo, i link e le intestazioni a PhishLens Cloud. L'email viene analizzata in memoria e non viene conservata. Perché nessuna email lasci il tuo computer, avvia un tuo server e sceglilo nelle impostazioni.",
     "privacy_notice_ok": "Ho capito",
-    "privacy_notice_link": "Informativa sulla privacy"
+    "privacy_notice_link": "Informativa sulla privacy",
+    "lead_links_elsewhere": "Il dominio è autentico (DKIM), ma nessuno dei suoi link porta a quel dominio e il testo sembra phishing. Non cliccare e non rispondere prima di aver verificato il mittente in un altro modo."
 };

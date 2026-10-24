@@ -70,6 +70,7 @@ from sender_trust import (
 from settings import (
     CORS_ALLOW_ORIGINS,
     CRYPTO_LINK_RULE,
+    CRYPTO_LINK_TEXT_MIN,
     ENABLE_DBL,
     IMPERSONATION_META,
     INNER_FILE_WORDING_THRESHOLD,
@@ -706,6 +707,14 @@ async def analyse(request: Request, req: AnalyseRequest):
         text_override=text_model.override_threshold(),
         links_elsewhere=CRYPTO_LINK_RULE and links_elsewhere_only(links),
     )
+    # The signed-sender discount was lifted by the link rule: said in the
+    # interface, next to a "DKIM verified" badge.
+    links_rule_fired = bool(
+        CRYPTO_LINK_RULE
+        and path is fusion.PATH_CRYPTO
+        and links_elsewhere_only(links)
+        and s.p_text >= CRYPTO_LINK_TEXT_MIN
+    )
     _count_verdict("/analyse", verdict.is_phishing, verdict.trust_path)
 
     # Without headers there is no sender to check (pasted text, a client
@@ -728,6 +737,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         "forwarded": who.forwarded,
         "shared_links": detect_shared_links(urls),
         "link_alignment": links,
+        "links_elsewhere": links_rule_fired,
         "text_agent_used": text_used,
         "language": detect_language(body),
         "sender_auth": _sender_auth_block(s, who),

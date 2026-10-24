@@ -253,8 +253,10 @@ def test_crypto_link_rule_is_off_by_default(client, monkeypatch):
     body = {"raw_email_b64": base64.b64encode(SIGNED_ELSEWHERE).decode()}
     j = client.post("/analyse", json=body).json()
     assert j["trust_path"] == "crypto_verified" and j["verdict"] == "safe"
+    assert j["links_elsewhere"] is False
     assert j["link_alignment"]["aligned"] == 0 and j["link_alignment"]["other"] == 1
     monkeypatch.setattr(eb, "CRYPTO_LINK_RULE", True)
     eb._RESULT_CACHE.clear()
     j = client.post("/analyse", json=body).json()
     assert j["trust_path"] == "crypto_verified" and j["verdict"] == "phishing"
+    assert j["links_elsewhere"] is True

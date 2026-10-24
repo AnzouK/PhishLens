@@ -372,5 +372,6 @@
     "privacy_notice_title": "Voor je eerste scan",
     "privacy_notice_text": "Om een e-mail te controleren, stuurt PhishLens de tekst, links en headers naar PhishLens Cloud. De e-mail wordt in het geheugen geanalyseerd en niet bewaard. Wil je dat geen enkele e-mail je computer verlaat, draai dan je eigen server en kies die in de instellingen.",
     "privacy_notice_ok": "Begrepen",
-    "privacy_notice_link": "Privacybeleid"
+    "privacy_notice_link": "Privacybeleid",
+    "lead_links_elsewhere": "Het domein is echt (DKIM), maar geen van de links leidt naar dat domein en de tekst lijkt op phishing. Klik niet en antwoord niet voordat u de afzender via een andere weg hebt gecontroleerd."
 };

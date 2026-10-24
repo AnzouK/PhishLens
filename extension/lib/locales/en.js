@@ -372,5 +372,6 @@
     "privacy_notice_title": "Before your first scan",
     "privacy_notice_text": "To check an email, PhishLens sends its text, links and headers to PhishLens Cloud. The email is analysed in memory and not stored. To keep every email on your computer, run your own server and choose it in the settings.",
     "privacy_notice_ok": "Got it",
-    "privacy_notice_link": "Privacy policy"
+    "privacy_notice_link": "Privacy policy",
+    "lead_links_elsewhere": "Its domain is genuine (DKIM), but none of its links lead to that domain and its wording looks like phishing. Don't click them or reply until you have checked the sender another way."
 };
