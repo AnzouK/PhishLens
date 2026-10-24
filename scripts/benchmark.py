@@ -184,16 +184,11 @@ def show_errors(args, results: list[dict]) -> None:
         )
 
 
-def add_domain_ages(args, results: list[dict], ages=None) -> int:
-    """Add, to each scored email of the cache, the age in days of the
-    sender's domain when it was sent ("domain_age_days", None when
-    unknown), looked up on this machine (domain_age.py). Rewrites the
-    cache; returns how many emails got an age."""
-    from domain_age import DomainAges
-
+def _enrich(args, results: list[dict], key: str, compute) -> int:
+    """Add `key` = compute(raw) to each scored email of the cache that has
+    no such value yet, then rewrite the cache; returns how many got one."""
     cache_path = Path(args.cache)
-    ages = ages or DomainAges(cache_path.with_suffix(".domains-private.json"))
-    todo = {r["id"] for r in results if "verdict" in r and "domain_age_days" not in r}
+    todo = {r["id"] for r in results if "verdict" in r and key not in r}
     if not todo:
         return 0
     since = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc) if args.since else None
@@ -202,9 +197,9 @@ def add_domain_ages(args, results: list[dict], ages=None) -> int:
     for _label, eid, raw in _kept(args, since):
         if eid in todo:
             todo.discard(eid)
-            by_id[eid]["domain_age_days"] = ages.age_days(raw, sent_on(raw))
+            by_id[eid][key] = compute(raw)
             done += 1
-            print(f"\r\x1b[Kdomain ages: {done}", end="", file=sys.stderr, flush=True)
+            print(f"\r\x1b[K{key}: {done}", end="", file=sys.stderr, flush=True)
     print(file=sys.stderr)
     rows = load_cache(cache_path)
     rows.update({eid: r for eid, r in by_id.items() if "verdict" in r})
@@ -212,6 +207,24 @@ def add_domain_ages(args, results: list[dict], ages=None) -> int:
     tmp.write_text("".join(json.dumps(r) + "\n" for r in rows.values()), encoding="utf-8")
     tmp.replace(cache_path)
     return done
+
+
+def add_domain_ages(args, results: list[dict], ages=None) -> int:
+    """The age in days of the sender's domain when the email was sent
+    ("domain_age_days", None when unknown), looked up on this machine
+    (domain_age.py)."""
+    from domain_age import DomainAges
+
+    ages = ages or DomainAges(Path(args.cache).with_suffix(".domains-private.json"))
+    return _enrich(args, results, "domain_age_days", lambda raw: ages.age_days(raw, sent_on(raw)))
+
+
+def add_link_profiles(args, results: list[dict]) -> int:
+    """Where the links go compared with the sender's domain ("links": counts
+    only, link_profile.py)."""
+    from link_profile import profile
+
+    return _enrich(args, results, "links", profile)
 
 
 def run(args, send=analyse) -> list[dict]:
@@ -412,6 +425,11 @@ def main() -> None:
         action="store_true",
         help="add the sender domain's age (RDAP, looked up from this machine) to the cache",
     )
+    ap.add_argument(
+        "--link-profile",
+        action="store_true",
+        help="add where the links go compared with the sender's domain (counts only) to the cache",
+    )
     ap.add_argument("--cache", default="benchmark-results.jsonl")
     ap.add_argument("--markdown", action="store_true")
     args = ap.parse_args()
@@ -420,6 +438,8 @@ def main() -> None:
     results = run(args)
     if args.domain_age:
         add_domain_ages(args, results)
+    if args.link_profile:
+        add_link_profiles(args, results)
     if args.show_errors:
         show_errors(args, results)
     print(report(results, markdown=args.markdown))

@@ -212,3 +212,25 @@ def test_rdap_registration_event():
     }
     assert da.registration_date(rdap) == "2019-03-04"
     assert da.registration_date({}) is None
+
+
+def test_link_profile_counts_where_links_go(tmp_path):
+    import json
+
+    import link_profile as lp
+
+    raw = (
+        b"From: Bank <alerts@mail.bank.example>\nDate: Mon, 05 Jan 2026 10:00:00 +0000\n"
+        b"Subject: hi\nContent-Type: text/html\n\n"
+        b'<a href="https://www.bank.example/account">a</a> <a href="https://github.com/x">b</a>'
+        b' <a href="http://evil.example/login">c</a> <a href="http://evil.example/login">dup</a>\n'
+    )
+    assert lp.profile(raw) == {"links": 3, "aligned": 1, "well_known": 1, "cloud": 0, "other": 1}
+    legit = tmp_path / "legit"
+    legit.mkdir()
+    (legit / "a.eml").write_bytes(raw)
+    args = make_args(tmp_path, [], [str(legit)])
+    results = bm.run(args, send=fake_server([]))
+    assert bm.add_link_profiles(args, results) == 1
+    row = json.loads((tmp_path / "cache.jsonl").read_text())
+    assert row["links"]["aligned"] == 1 and "evil" not in json.dumps(row)
