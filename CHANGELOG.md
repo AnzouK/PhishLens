@@ -26,11 +26,12 @@ backend share one version number.
 
 ### Changed
 - Every `/analyse` answer reports where the links go compared with the
-  sender's domain (`link_alignment`: counts only). Behind the
-  `CRYPTO_LINK_RULE` setting, off by default: on the `crypto_verified`
-  path, links that all lead away from the sender's domain (click
-  tracking and large known sites aside) with a text score of 0.5 or more
-  force the phishing verdict. Verdicts are unchanged while it is off.
+  sender's domain (`link_alignment`: counts only). **On the
+  `crypto_verified` path, links that all lead away from the sender's
+  domain** (click tracking and large known sites aside) **with a text
+  score of 0.5 or more force the phishing verdict**: a DKIM signature
+  proves the domain, not the sender's honesty. On by default since the
+  measurement on the running server; `CRYPTO_LINK_RULE=0` turns it off.
   Measured before use on 2,000 phishing emails nobody had looked at:
   85.4% caught (83.8% to 86.9%) without the rule, 90.6% (89.2% to
   91.8%) with it, and no more false alarms on the 414 legitimate emails
@@ -46,6 +47,11 @@ backend share one version number.
   text when even that fails.
 
 ### Documentation
+- The link rule, measured on the running server: 90.6% of 2,000 fresh
+  phishing emails caught (95% CI 89.2% to 91.8%; 85.4% without it),
+  English 81.6% and French 87.2%, 1 of 297 mailing-list emails and 0 of
+  117 inbox emails flagged. In the README, the project overview,
+  `docs/evaluation.md` and the threat model (R9).
 - `docs/evaluation.md` and `docs/multilingual-model.md`: two changes
   measured and not shipped. The sender domain's age catches 0.45 points
   more phishing (most of the attacker-signed phishing comes from domains

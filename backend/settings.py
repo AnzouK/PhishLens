@@ -133,9 +133,9 @@ TRUSTED_META_CEILING = 0.05
 # On the crypto_verified path (DKIM aligned, sender not on the allowlist),
 # links that all lead away from the sender's domain plus a text score of
 # at least CRYPTO_LINK_TEXT_MIN force the phishing verdict
-# (link_alignment.py). Off unless CRYPTO_LINK_RULE=1, until measured on
-# the running server.
-CRYPTO_LINK_RULE = os.environ.get("CRYPTO_LINK_RULE", "0") == "1"
+# (link_alignment.py). Measured on fresh phishing and on the running
+# server (docs/evaluation.md); CRYPTO_LINK_RULE=0 turns it off.
+CRYPTO_LINK_RULE = os.environ.get("CRYPTO_LINK_RULE", "1") != "0"
 CRYPTO_LINK_TEXT_MIN = 0.5
 
 # Threat intelligence on the URL score: a Safe Browsing match lifts it to

@@ -97,7 +97,12 @@ benchmark missed went through it. Sending unlisted domains to the
 default path, or letting a text score of 0.95 decide there, catches
 about 7 points more phishing, but on real inbox mail it doubled the
 false alarms: legitimate notifications from unlisted, DKIM-signed
-domains score as high as phishing. The discount stays
+domains score as high as phishing. Since 2.0.10 the discount no longer
+holds when every link leads away from the sender's domain and the
+wording looks like phishing (`CRYPTO_LINK_RULE`): on fresh phishing,
+the misses on that path fell from about 191 to 81 out of 2,000, with no
+more false alarms. Signed phishing that links to its own domain, sends
+no link, or goes through click tracking still gets the discount
 ([evaluation](evaluation.md#results)).
 
 **R8. The Hausa interface is a draft translation.** A wrong word in a
