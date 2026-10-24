@@ -175,3 +175,35 @@ more of the 117 inbox emails (3.4%, 1.3% to 8.5%): legitimate
 DKIM-signed notifications from domains outside the allowlist score as
 high as 0.98 and 1.00. It is not shipped; those misses wait for a
 better text model or another signal.
+
+**Domain age, measured and rejected (2026-10-24).** On the same path, a
+young sender domain was the next candidate signal (`--domain-age`,
+RDAP looked up from the benchmark machine). Of the 191 control phishing
+emails on `crypto_verified`, RDAP gave an age for 67: only 9 were under
+90 days old, and the median was about 5.8 years. Flagging those 9 would
+catch 0.45 points more phishing with no inbox false alarm; not worth
+sending every user's sender domains to a third party, so it is not
+shipped. This phishing comes mostly from old, established domains, not
+freshly registered ones.
+
+**A new text model, measured and not shipped (2026-10-24).** r6 is r4's
+recipe on the cleaned training data, with recent real phishing
+(phishing_pot 2026, Nazario 2025) added to training except the control
+sample, which stayed the test set. The rule, fixed before training: r6
+replaces r4 only with at least 3 points more control phishing caught and
+no more false alarms than r4 on the inbox mail and at most 2 on the
+mailing lists. Measured the same day, against the same mail:
+
+| | r4 | r6 |
+| --- | --- | --- |
+| Control phishing caught | 1,709 of 2,000: 85.5% (83.8% to 86.9%) | 1,734 of 2,000: 86.7% (85.1% to 88.1%) |
+| English phishing caught | 357 of 493: 72.4% | 356 of 493: 72.2% |
+| Mailing lists flagged | 1 of 297 | 2 of 297 |
+| Inbox flagged | 0 of 117 | 0 of 117 |
+
++1.2 points: r4 stays. On the text alone, offline, r6 catches 95.9% of
+the same English phishing (r4: 93.0%); through the whole system, 72.2%.
+The missed phishing now has a mean wording score of 71%: the model sees
+it, and the `crypto_verified` path (text weighed by half, only Safe
+Browsing forces the verdict) holds it back. A better text model alone
+will not lift those misses; the trust path is the bottleneck.
