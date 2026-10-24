@@ -7,6 +7,8 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.10] - 2026-10-24
+
 ### Added
 - `scripts/benchmark.py --domain-age` adds to each cached result the age
   of the sender's domain when the email was sent, looked up with RDAP
@@ -1072,7 +1074,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.9...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.10...HEAD
+[2.0.10]: https://github.com/AnzouK/PhishLens/compare/v2.0.9...v2.0.10
 [2.0.9]: https://github.com/AnzouK/PhishLens/compare/v2.0.8...v2.0.9
 [2.0.8]: https://github.com/AnzouK/PhishLens/compare/v2.0.7...v2.0.8
 [2.0.7]: https://github.com/AnzouK/PhishLens/compare/v2.0.6...v2.0.7
