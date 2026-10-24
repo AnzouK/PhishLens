@@ -246,9 +246,13 @@ def test_links_elsewhere_only(urls, elsewhere):
     assert links_elsewhere_only(counts) is elsewhere
 
 
-def test_crypto_link_rule_is_off_by_default(client, monkeypatch):
+def test_crypto_link_rule_can_be_turned_off(client, monkeypatch):
     import base64
 
+    import settings
+
+    assert settings.CRYPTO_LINK_RULE  # on by default
+    monkeypatch.setattr(eb, "CRYPTO_LINK_RULE", False)
     monkeypatch.setattr(tm, "text_agent", lambda _t: 0.8)
     body = {"raw_email_b64": base64.b64encode(SIGNED_ELSEWHERE).decode()}
     j = client.post("/analyse", json=body).json()

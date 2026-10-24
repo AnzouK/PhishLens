@@ -98,6 +98,7 @@ legitimate mail from public Apache mailing-list archives, all sent from
 | 2026-10-16 | main after the subject fix, not released | 14 of 297: 4.7% (2.8% to 7.8%) | 436 of 500: 87.2% (84.0% to 89.8%) |
 | 2026-10-16 | 2.0.8 code (link fix), text model r4 | 1 of 297: 0.3% (0.1% to 1.9%) | 436 of 500: 87.2% (84.0% to 89.8%) |
 | 2026-10-23 | 2.0.9 code, text model r4 | 1 of 297: 0.3% (0.1% to 1.9%) | control sample: 1,707 of 1,997: 85.5% (83.9% to 87.0%) |
+| 2026-10-24 | 2.0.9 code + link rule, text model r4 | 1 of 297: 0.3% (0.1% to 1.9%); inbox 0 of 117 | fresh sample: 1,812 of 2,000: 90.6% (89.2% to 91.8%) |
 
 **What the 2.0.7 run showed.** On the 130 false alarms, the mean scores
 were 1% for the wording, 56% for the links and 92% for the sender, and
@@ -207,3 +208,34 @@ The missed phishing now has a mean wording score of 71%: the model sees
 it, and the `crypto_verified` path (text weighed by half, only Safe
 Browsing forces the verdict) holds it back. A better text model alone
 will not lift those misses; the trust path is the bottleneck.
+
+**Where the links go: shipped (2026-10-24).** On the `crypto_verified`
+path, 64% of the control phishing (123 of 191) had no link to its
+sender's own domain and at least one elsewhere, against 22% of the
+legitimate signed mail (10 of 46). The rule was chosen on the control
+sample, before any fresh mail was drawn, by its own criterion: no more
+false alarms on the 414 legitimate emails, then the most phishing
+caught. Links through a mass-mailing platform's click tracking
+(SendGrid, Mailchimp...) are not counted as "elsewhere" (a real payment
+service's notification linked only through SendGrid), and style sheets
+and web fonts are not links. The rule: on that path, no link to the
+sender's own domain, at least one to an unknown site or a public file
+host, and a text score of 0.5 or more make the email phishing
+(`CRYPTO_LINK_RULE`, `backend/link_alignment.py`).
+
+It was frozen, then checked on 2,000 phishing emails drawn with
+`--exclude` from every earlier run (the threshold, fixed in advance: at
+least 3 points more, no more false alarms), first on the cached scores
+and then on the running server with the rule on:
+
+| | Without the rule | With the rule (server, 2026-10-24) |
+| --- | --- | --- |
+| Fresh phishing caught | 1,708 of 2,000: 85.4% (83.8% to 86.9%) | 1,812 of 2,000: 90.6% (89.2% to 91.8%) |
+| English | 72.4% (control) | 395 of 484: 81.6% (77.9% to 84.8%) |
+| French | 75.7% (control) | 116 of 133: 87.2% (80.5% to 91.9%) |
+| Mailing lists flagged | 1 of 297 | 1 of 297 |
+| Inbox flagged | 0 of 117 | 0 of 117 |
+
+The server gave exactly the figure the replay predicted (1,812). The
+misses on `crypto_verified` fell from 191 to 81; the remaining ones send
+no link, link to their own domain, or go through click tracking.

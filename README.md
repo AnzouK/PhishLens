@@ -85,18 +85,18 @@ the language. Measure it yourself with the public benchmark
 [multilingual-model.md](docs/multilingual-model.md); what can go wrong:
 [known limitations](docs/threat-model.md#residual-risks-and-known-limitations).
 
-The whole system (PhishLens Cloud 2.0.9), measured with the public
-benchmark on real mail sent in 2026:
+The whole system (PhishLens Cloud, October 24, 2026), measured with the
+public benchmark on real mail sent in 2026:
 
 | Mail | Result |
 | --- | --- |
-| Phishing nobody looked at while tuning (phishing_pot, Nazario) | 1,707 of 1,997 caught: 85.5% (95% CI 83.9% to 87.0%) |
+| Phishing nobody looked at while tuning (phishing_pot, Nazario) | 1,812 of 2,000 caught: 90.6% (95% CI 89.2% to 91.8%) |
 | Legitimate, public Apache mailing lists | 1 of 297 flagged: 0.3% (0.1% to 1.9%) |
 | Legitimate, real personal inboxes (bank, university and service notifications), received after the model's training mail | 0 of 117 flagged: 0.0% (0.0% to 3.2%) |
 
-Most misses are phishing sent from the attacker's own DKIM-signed
-domain, and English (72.6%) and French (75.7%) are the weakest languages;
-the runs, their causes and what was rejected are in
+English (81.6%) and French (87.2%) are the weakest languages, and some
+phishing sent from the attacker's own DKIM-signed domain still gets
+through; the runs, their causes and what was rejected are in
 [evaluation.md](docs/evaluation.md#results).
 
 A scan takes about 65 ms on the server (median, CPU only), plus the
