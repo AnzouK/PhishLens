@@ -264,3 +264,17 @@ test("first run: no privacy notice with a local server", async ({ page }) => {
     await expect(page.locator("#view-upload")).toBeVisible();
     await expect(page.locator("#privacy-notice")).toBeHidden();
 });
+
+test("a DKIM-signed sender flagged by its links says why", async ({ page }) => {
+    const res = analyseResponse("phishing");
+    res.trust_path = "crypto_verified";
+    res.links_elsewhere = true;
+    res.sender_auth.cryptographically_verified = true;
+    await page.route(`${API}/analyse`, (route) => route.fulfill({ json: res }));
+    await page.goto(`${base}/popup/popup.html`);
+    await page.click('.tab[data-tab="paste"]');
+    await page.fill("#paste-input", "Your account will be closed, confirm your payment details at our secure page now.");
+    await page.click("#analyze-btn");
+    await expect(page.locator("#verdict-label")).toHaveText("This email looks like phishing");
+    await expect(page.locator("#verdict-sub")).toContainText("none of its links lead to that domain");
+});

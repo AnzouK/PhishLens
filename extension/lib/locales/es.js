@@ -372,5 +372,6 @@
     "privacy_notice_title": "Antes de tu primer análisis",
     "privacy_notice_text": "Para revisar un correo, PhishLens envía su texto, sus enlaces y sus cabeceras a PhishLens Cloud. El correo se analiza en memoria y no se guarda. Para que ningún correo salga de tu ordenador, ejecuta tu propio servidor y elígelo en los ajustes.",
     "privacy_notice_ok": "Entendido",
-    "privacy_notice_link": "Política de privacidad"
+    "privacy_notice_link": "Política de privacidad",
+    "lead_links_elsewhere": "Su dominio es auténtico (DKIM), pero ninguno de sus enlaces lleva a ese dominio y su redacción parece phishing. No haga clic ni responda antes de comprobar el remitente por otra vía."
 };

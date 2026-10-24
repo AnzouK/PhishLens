@@ -217,3 +217,46 @@ def test_garbage_falls_back_to_the_raw_text():
 
     body, urls, _headers = _parse_lenient(b"\xff\xfe not an email http://x.example/a")
     assert "not an email" in body and urls == ["http://x.example/a"]
+
+
+SIGNED_ELSEWHERE = (
+    b"From: Billing <billing@old-shop.example>\r\n"
+    b"Authentication-Results: mx.google.com; dkim=pass header.i=@old-shop.example; "
+    b"spf=pass smtp.mailfrom=old-shop.example; dmarc=pass header.from=old-shop.example\r\n"
+    b"Subject: Your account will be closed\r\n"
+    b"Content-Type: text/html\r\n\r\n"
+    b'<p>Confirm your payment details <a href="https://secure-verify.example/login">here</a>.</p>\r\n'
+)
+
+
+@pytest.mark.parametrize(
+    ("urls", "elsewhere"),
+    [
+        (["https://www.old-shop.example/a", "https://secure-verify.example/x"], False),
+        (["https://secure-verify.example/x"], True),
+        (["https://u1.ct.sendgrid.net/ls/click?x", "https://fonts.googleapis.com/css"], False),
+        (["https://github.com/x"], False),
+        ([], False),
+    ],
+)
+def test_links_elsewhere_only(urls, elsewhere):
+    from link_alignment import link_profile, links_elsewhere_only
+
+    counts = link_profile(urls, "Billing <billing@mail.old-shop.example>")
+    assert links_elsewhere_only(counts) is elsewhere
+
+
+def test_crypto_link_rule_is_off_by_default(client, monkeypatch):
+    import base64
+
+    monkeypatch.setattr(tm, "text_agent", lambda _t: 0.8)
+    body = {"raw_email_b64": base64.b64encode(SIGNED_ELSEWHERE).decode()}
+    j = client.post("/analyse", json=body).json()
+    assert j["trust_path"] == "crypto_verified" and j["verdict"] == "safe"
+    assert j["links_elsewhere"] is False
+    assert j["link_alignment"]["aligned"] == 0 and j["link_alignment"]["other"] == 1
+    monkeypatch.setattr(eb, "CRYPTO_LINK_RULE", True)
+    eb._RESULT_CACHE.clear()
+    j = client.post("/analyse", json=body).json()
+    assert j["trust_path"] == "crypto_verified" and j["verdict"] == "phishing"
+    assert j["links_elsewhere"] is True

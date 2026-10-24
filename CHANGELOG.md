@@ -24,6 +24,19 @@ backend share one version number.
   DKIM-signed phishing from legitimate signed mail, before any rule
   ships.
 
+### Changed
+- Every `/analyse` answer reports where the links go compared with the
+  sender's domain (`link_alignment`: counts only). Behind the
+  `CRYPTO_LINK_RULE` setting, off by default: on the `crypto_verified`
+  path, links that all lead away from the sender's domain (click
+  tracking and large known sites aside) with a text score of 0.5 or more
+  force the phishing verdict. Verdicts are unchanged while it is off.
+  Measured before use on 2,000 phishing emails nobody had looked at:
+  85.4% caught (83.8% to 86.9%) without the rule, 90.6% (89.2% to
+  91.8%) with it, and no more false alarms on the 414 legitimate emails
+  (mailing lists and real inbox mail). When it decides, the banner and
+  the popup say so ("lead_links_elsewhere", in the 8 languages).
+
 ### Fixed
 - **An email the parser rejects is scanned instead of refused.** A
   malformed header (a group address with an empty address, for example)

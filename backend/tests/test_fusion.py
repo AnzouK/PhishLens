@@ -187,3 +187,26 @@ class TestAttachments:
 
     def test_score_is_capped_at_one(self):
         assert self.decide(p_text=1.0, p_url=1.0, bonus=0.7).fused == 1.0
+
+
+class TestCryptoLinkRule:
+    def decide(self, p_text, links_elsewhere):
+        return fusion.decide_email(
+            p_text,
+            0.2,
+            0.1,
+            text_used=True,
+            path=PATH_CRYPTO,
+            rep=NO_REP,
+            links_elsewhere=links_elsewhere,
+        )
+
+    def test_links_elsewhere_and_phishing_wording_force_the_verdict(self):
+        v = self.decide(0.6, True)
+        assert v.high_conf and v.is_phishing
+
+    def test_wording_below_half_is_not_enough(self):
+        assert not self.decide(0.4, True).is_phishing
+
+    def test_off_or_aligned_links_keep_the_discount(self):
+        assert not self.decide(0.99, False).is_phishing

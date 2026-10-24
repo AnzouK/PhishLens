@@ -130,6 +130,13 @@ PATH_DEFAULT = TrustPath("default", text_factor=1.0, threshold=0.5)
 IMPERSONATION_META = 0.9
 # Metadata score ceiling for an authenticated allowlisted sender.
 TRUSTED_META_CEILING = 0.05
+# On the crypto_verified path (DKIM aligned, sender not on the allowlist),
+# links that all lead away from the sender's domain plus a text score of
+# at least CRYPTO_LINK_TEXT_MIN force the phishing verdict
+# (link_alignment.py). Off unless CRYPTO_LINK_RULE=1, until measured on
+# the running server.
+CRYPTO_LINK_RULE = os.environ.get("CRYPTO_LINK_RULE", "0") == "1"
+CRYPTO_LINK_TEXT_MIN = 0.5
 
 # Threat intelligence on the URL score: a Safe Browsing match lifts it to
 # at least GSB_URL_FLOOR; another source blends in with REP_BLEND.

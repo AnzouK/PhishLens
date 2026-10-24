@@ -11,7 +11,9 @@
 // red meters under a "looks safe" title read as a contradiction.
 function bannerLead(data, phishing) {
     if (phishing) {
-        return t("lead_phishing");
+        // A DKIM-signed sender flagged because all its links lead elsewhere:
+        // say why next to the "DKIM verified" badge.
+        return t(data.links_elsewhere ? "lead_links_elsewhere" : "lead_phishing");
     }
     if (data.forwarded?.detected) {
         return t("lead_forwarded");
