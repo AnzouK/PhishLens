@@ -24,6 +24,15 @@ backend share one version number.
   Such an email is now read with the lenient legacy parser, or as raw
   text when even that fails.
 
+### Documentation
+- `docs/evaluation.md` and `docs/multilingual-model.md`: two changes
+  measured and not shipped. The sender domain's age catches 0.45 points
+  more phishing (most of the attacker-signed phishing comes from domains
+  years old). r6, a text model trained with recent real phishing, catches
+  86.7% of the control phishing against r4's 85.5%, below the 3 points
+  set before training, so r4 stays; the misses are held back by the
+  `crypto_verified` trust path, not by the text model.
+
 ## [2.0.9] - 2026-10-23
 
 ### Added
