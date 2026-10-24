@@ -15,6 +15,14 @@ backend share one version number.
   phishing from legitimate mail before any such rule ships; the server
   is unchanged. The domain lookups are kept in a separate local file,
   which lists sender domains and is not meant to be published.
+- `scripts/benchmark.py --link-profile` adds to each cached result where
+  the email's links go compared with its sender's domain: to the
+  sender's own domain, to large known sites, to public file hosts,
+  through a mass-mailing platform's click tracking, or elsewhere; style
+  sheets and web fonts do not count (`scripts/link_profile.py`; counts
+  only, never a link or a domain). It measures whether links tell the attacker's own
+  DKIM-signed phishing from legitimate signed mail, before any rule
+  ships.
 
 ### Fixed
 - **An email the parser rejects is scanned instead of refused.** A
