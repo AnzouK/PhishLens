@@ -7,6 +7,13 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Documentation
+- `docs/evaluation.md` and `docs/multilingual-model.md`: r7h, a text
+  model leaning more on the true labels, measured against the system
+  with the link rule: 93.0% of the control phishing caught against r4's
+  90.4%, the same false alarms, below the +3 points set before training;
+  r4 stays.
+
 ## [2.0.10] - 2026-10-24
 
 ### Added
