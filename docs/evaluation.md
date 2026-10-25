@@ -239,3 +239,23 @@ and then on the running server with the rule on:
 The server gave exactly the figure the replay predicted (1,812). The
 misses on `crypto_verified` fell from 191 to 81; the remaining ones send
 no link, link to their own domain, or go through click tracking.
+
+**A text model leaning on the true labels, measured and not shipped
+(2026-10-25).** r7h is r6's training data with more weight on the true
+labels than on the teacher model (alpha 0.9 instead of 0.7). The rule,
+fixed before training, is the one r6 had, now against the system with
+the link rule: at least 3 points more control phishing caught, no more
+false alarms on the inbox mail, at most 2 on the mailing lists.
+
+| Same day, same mail | r4 | r7h |
+| --- | --- | --- |
+| Control phishing caught | 1,808 of 2,000: 90.4% (89.0% to 91.6%) | 1,859 of 2,000: 93.0% (91.7% to 94.0%) |
+| English | 81.5% | 84.4% |
+| French | 82.4% | 91.9% |
+| Mailing lists flagged | 1 of 297 | 1 of 297 |
+| Inbox flagged | 0 of 117 | 0 of 117 |
+
++2.6 points: below the 3 set in advance, so r4 stays, although the two
+intervals do not overlap. Offline, on the legitimate English mail of the
+inbox that no model saw, r7h flags 5 of 255 (r4: 1), a sign that more
+inbox mail could show more false alarms than these 117 do.
