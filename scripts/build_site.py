@@ -101,7 +101,36 @@ def fill(text: str, s: dict[str, str], **extra: str) -> str:
     return re.sub(r"\{\{(\w+)\}\}", sub, text)
 
 
-def head(lang, s, *, title, desc, base, page, og_desc=None, scripts=False, noindex=False) -> str:
+def jsonld(lang: str, s: dict[str, str]) -> str:
+    """schema.org description of the extension for search engines: a free,
+    open-source security application for Chrome. No author name, and no
+    version number: the committed site is not rebuilt at each release."""
+    data = {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "PhishLens",
+        "url": url(lang, "index.html"),
+        "description": s["meta_desc"],
+        "applicationCategory": "SecurityApplication",
+        "operatingSystem": "Chrome",
+        "browserRequirements": "Google Chrome, with Gmail or Outlook on the web",
+        "inLanguage": lang,
+        "availableLanguage": list(LANGS),
+        "isAccessibleForFree": True,
+        "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+        "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+        "downloadUrl": "https://github.com/AnzouK/PhishLens/releases/latest",
+        "image": f"{SITE}/{asset('', 'img/og.png')}",
+        "sameAs": ["https://github.com/AnzouK/PhishLens"],
+    }
+    # "<" escaped so that no text can close the script element.
+    body = json.dumps(data, ensure_ascii=False, indent=1).replace("<", "\\u003c")
+    return f'<script type="application/ld+json">\n{body}\n</script>'
+
+
+def head(
+    lang, s, *, title, desc, base, page, og_desc=None, scripts=False, noindex=False, ld=False
+) -> str:
     out = [
         "<!DOCTYPE html>",
         f'<html lang="{lang}">',
@@ -143,6 +172,8 @@ def head(lang, s, *, title, desc, base, page, og_desc=None, scripts=False, noind
         f'<script src="{asset(base, "lang.js")}" defer></script>',
         f'<script src="{asset(base, "nav.js")}" defer></script>',
     ]
+    if ld:
+        out.append(jsonld(lang, s))
     if scripts:
         out.append(f'<script src="{asset(base, "redact.js")}" defer></script>')
         out.append(f'<script src="{asset(base, "app.js")}" defer></script>')
@@ -254,6 +285,7 @@ def build_lang(lang: str, strings: dict[str, dict[str, str]]) -> None:
             page="index.html",
             og_desc=s["og_desc"],
             scripts=True,
+            ld=True,
         ),
     )
     page = page.replace("{{>header}}", header(lang, s, base=base, page="index.html"))

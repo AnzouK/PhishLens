@@ -7,6 +7,12 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Added
+- The home page in each language describes PhishLens to search engines
+  with a schema.org `SoftwareApplication` block (JSON-LD): a free,
+  open-source security application for Chrome, its languages, licence,
+  download page and source code. No author name.
+
 ### Documentation
 - `docs/evaluation.md` and `docs/multilingual-model.md`: r7b, the bigger
   text model (mmBERT-base): 91.2% of the control phishing caught against
