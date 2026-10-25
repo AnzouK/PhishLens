@@ -259,3 +259,22 @@ false alarms on the inbox mail, at most 2 on the mailing lists.
 intervals do not overlap. Offline, on the legitimate English mail of the
 inbox that no model saw, r7h flags 5 of 255 (r4: 1), a sign that more
 inbox mail could show more false alarms than these 117 do.
+
+**A bigger text model, measured and not shipped (2026-10-25).** r7b is
+mmBERT-base (about 2.2 times the weights of mmBERT-small) on the same
+data, with the same rule plus a speed limit fixed before training: a
+median scan under 250 ms on the server.
+
+| Same day, same mail | r4 | r7b |
+| --- | --- | --- |
+| Control phishing caught | 1,808 of 2,000: 90.4% (89.0% to 91.6%) | 1,825 of 2,000: 91.2% (89.9% to 92.4%) |
+| Mailing lists flagged | 1 of 297 | 0 of 297 |
+| Inbox flagged | 0 of 117 | 1 of 117 |
+| Median scan, a 250-token email | 190 ms | 395 ms |
+
++0.8 points, one more inbox false alarm and twice the time: r4 stays.
+The inbox false alarm is a real exchange's notice about crypto deposits,
+DKIM-signed, with its links on other domains: r7b scored its wording
+0.56, just above the link rule's 0.5, where r4 stays below. The link
+rule leans on the text score, so a new text model must be measured with
+it, as here.

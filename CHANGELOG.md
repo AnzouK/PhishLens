@@ -8,6 +8,10 @@ backend share one version number.
 ## [Unreleased]
 
 ### Documentation
+- `docs/evaluation.md` and `docs/multilingual-model.md`: r7b, the bigger
+  text model (mmBERT-base): 91.2% of the control phishing caught against
+  r4's 90.4%, one more inbox false alarm and twice the scan time;
+  not shipped.
 - `docs/evaluation.md` and `docs/multilingual-model.md`: r7h, a text
   model leaning more on the true labels, measured against the system
   with the link rule: 93.0% of the control phishing caught against r4's
