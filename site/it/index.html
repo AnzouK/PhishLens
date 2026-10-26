@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=89d31dd2ec">
-<script src="../i18n/it.js?v=edcb8e2edf" defer></script>
+<script src="../i18n/it.js?v=7bf0a76a40" defer></script>
 <script src="../lang.js?v=0eb2be978d" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -140,11 +140,11 @@
       <h2><span class="n">01</span>Risultati</h2>
       <div class="strip">
         <div class="cell"><div class="big">22</div><div class="lbl">lingue lette dal modello del testo</div></div>
-        <div class="cell"><div class="big">92.5%</div><div class="lbl">del phishing rilevato in email inglesi mai viste dal modello</div></div>
+        <div class="cell"><div class="big">90.6%</div><div class="lbl">del phishing rilevato dal sistema completo, in email recenti che nessuno aveva esaminato</div></div>
         <div class="cell"><div class="big">65 ms</div><div class="lbl">analisi mediana su un server senza GPU</div></div>
-        <div class="cell"><div class="big">4</div><div class="lbl">fonti di threat intelligence</div></div>
+        <div class="cell"><div class="big">0.2%</div><div class="lbl">delle email legittime segnalate come phishing</div></div>
       </div>
-      <p class="note">Misurato su posta reale che nessun modello ha visto in addestramento (318 email legittime di una sola casella, 2.183 di phishing; intervallo di confidenza al 95%: 91,2% - 93,6%) e con un test di carico su PhishLens Cloud: un ordine di grandezza, non una garanzia. Vedi i <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limiti noti</a>.</p>
+      <p class="note">Misurato su PhishLens Cloud il 24 ottobre 2026 con il benchmark pubblico: 1.812 su 2.000 email di phishing recenti, in più lingue, scelte tra quelle che nessuno aveva esaminato durante le regolazioni (intervallo di confidenza al 95%: 89,2% - 91,8%), e 1 su 414 email legittime (297 da mailing list pubbliche, 117 da caselle reali; 0,0% - 1,4%). Il tempo di analisi viene da un test di carico. Un ordine di grandezza, non una garanzia: vedi <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">come è stato misurato</a> e i <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limiti noti</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, in questo momento</h3>
       <div class="strip" id="live" aria-live="polite">
@@ -199,7 +199,7 @@
       <h2><span class="n">04</span>Come funziona</h2>
       <ol class="rows">
         <li><b>Leggere</b><span>Il testo, le vere destinazioni dei link, il mittente e, in Gmail, le intestazioni originali complete.</span></li>
-        <li><b>Valutare</b><span>Un modello multilingue per il testo, due Random Forest per i link e le intestazioni.</span></li>
+        <li><b>Valutare</b><span>Un modello multilingue per il testo, un modello e regole per i link, regole per il mittente e la destinazione dei link.</span></li>
         <li><b>Verificare</b><span>I risultati di autenticazione e quattro fonti di threat intelligence, prima di qualsiasi verdetto.</span></li>
         <li><b>Spiegare</b><span>Un verdetto, un punteggio per controllo, i segnali trovati e le parole che lo spiegano, sopra l'email.</span></li>
       </ol>

@@ -7,6 +7,13 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Changed
+- The website's results show the whole system as it runs, in the 8
+  languages: 90.6% of 2,000 recent phishing emails nobody had looked at
+  caught, and 1 of 414 legitimate emails flagged (0.2%), instead of the
+  text model's offline score alone; "How it works" no longer mentions
+  the header model, off since 2.0.8.
+
 ### Added
 - The home page in each language describes PhishLens to search engines
   with a schema.org `SoftwareApplication` block (JSON-LD): a free,
