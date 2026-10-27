@@ -54,8 +54,10 @@ import text_model
 from email_parsing import (
     detect_forwarded,
     detect_shared_links,
+    looks_like_source,
     merge_link_urls,
     parse_eml,
+    strip_markup_noise,
     urls_in_text,
 )
 from language import detect_language
@@ -293,6 +295,8 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     ctx = req.client_context or {}
     if req.raw_text and not req.raw_email_b64:
         body = req.raw_text.strip()
+        if looks_like_source(body):
+            body = strip_markup_noise(body)
         urls = merge_link_urls(urls_in_text(body), ctx.get("link_urls"))
         headers: dict[str, str] = {}
         if req.sender_email:
@@ -314,7 +318,9 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         raise HTTPException(400, "Could not parse this email.") from e
     if req.sender_email:
         headers["from"] = _from_value(req.sender_email, req.sender_name, headers.get("from", ""))
-    if req.raw_text and req.raw_text.strip():
+    # The page text, unless it is the email's source shown as text: then
+    # the text parsed from the original message is better.
+    if req.raw_text and req.raw_text.strip() and not looks_like_source(req.raw_text):
         body = req.raw_text.strip()
         urls = merge_link_urls(urls_in_text(body), urls)
     return body, merge_link_urls(urls, ctx.get("link_urls")), headers, raw_bytes

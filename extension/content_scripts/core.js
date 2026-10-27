@@ -130,12 +130,16 @@ PL.utf8ToB64 = (text) => PL.bytesToBase64(new TextEncoder().encode(text));
 
 // http(s) targets of the links in a message body, deduplicated, max 50:
 // the visible text only says "Click here", not where the link goes.
+// Links to the mail page itself are the mail service's own ("View entire
+// message" under a long Gmail email), not the sender's.
 PL.linkTargetsOf = function linkTargetsOf(el) {
     if (!el) return [];
     const out = new Set();
     for (const a of el.querySelectorAll("a[href]")) {
         const href = a.href || "";
-        if (/^https?:\/\//i.test(href) && href.length <= 2048) out.add(href);
+        if (!/^https?:\/\//i.test(href) || href.length > 2048) continue;
+        if (new URL(href).hostname === location.hostname) continue;
+        out.add(href);
         if (out.size >= 50) break;
     }
     return [...out];
