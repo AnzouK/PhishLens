@@ -1,6 +1,6 @@
 # PhishLens terms of use
 
-Last updated: October 16, 2026.
+Last updated: October 27, 2026.
 
 These terms cover the PhishLens Chrome extension, the website
 `phishlens.dev` and PhishLens Cloud, the hosted analysis server.
@@ -61,8 +61,18 @@ in the GNU AGPL-3.0 license. To the extent the law allows, the authors are not
 liable for any loss or damage arising from its use, including a missed
 phishing email or a legitimate email flagged by mistake.
 
+## Who runs PhishLens
+
+PhishLens is a personal, non-commercial project maintained by an
+individual, who is responsible for PhishLens Cloud and this website.
+PhishLens Cloud runs on Oracle Cloud Infrastructure (Oracle Corporation,
+Austin, Texas, United States), in its Frankfurt data centre in Germany.
+The domain's DNS goes through Cloudflare (Cloudflare, Inc., San
+Francisco, California, United States). Contact: privacy@phishlens.dev.
+
 ## Changes and contact
 
 These terms may change; the date at the top shows the last update, and
-changes are listed in the [changelog](CHANGELOG.md). Questions: open an
-issue at https://github.com/AnzouK/PhishLens/issues.
+changes are listed in the [changelog](CHANGELOG.md). Questions:
+privacy@phishlens.dev, or open an issue at
+https://github.com/AnzouK/PhishLens/issues.

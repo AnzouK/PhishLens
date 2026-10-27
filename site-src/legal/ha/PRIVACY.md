@@ -1,6 +1,6 @@
 # Manufar sirri ta PhishLens
 
-An sabunta ta ƙarshe: 16 ga Oktoba, 2026.
+An sabunta ta ƙarshe: 27 ga Oktoba, 2026.
 
 PhishLens ƙarin Chrome ne da ke duba ko imel phishing ne. Wannan shafin
 yana bayyana bayanan da yake sarrafawa, inda suke zuwa da abin da ake
@@ -75,17 +75,18 @@ ake aikawa har sai ka danna **Aika** bayan ka karanta abin da za a aika.
 | Hukunci ba daidai ba | Jigo, rubutu da yankunan hanyoyin haɗin wannan imel bayan an cire bayanan sirri (sunaye bayan gaisuwa ko laƙabi, sunanka da adireshinka kamar yadda suke a shafin imel, adireshin imel, lambobin waya, dogayen lambobi kamar asusu, katin kuɗi da lambobin sirri, IBAN, @sunayen masu amfani, hanya da sigogin kowace hanyar haɗi), rubutun kamar yadda ka gyara shi, hukunci, maki, hanyar lissafi, harshen da aka gano da amsarka, sigar ƙarin da harshen manhajar | Adireshin mai aikawa, imel na asali, kanun saƙonsa da haɗe-haɗensa |
 | Ƙididdiga | Ga kowane bincike a tarihinka: rana, inda aka yi shi (Gmail, Outlook, tagar ƙarin), hukunci, maki, ko mai aikawa amintacce ne, ra'ayinka Daidai / Ba daidai ba, harshen da aka gano da amsarka | Jigogi, masu aikawa, rubutu, hanyoyin haɗi |
 
-Ana aika rahotanni zuwa PhishLens Cloud, ko wace sabar kake amfani da ita
-don bincike. Sabar tana sake cire bayanan sirri daga rubutun da ƙa'idoji
-iri ɗaya, tana ajiye rahoton ba tare da adireshin IP ɗinka ko wani bayanin
-buƙata ba (bayanan ayyukan sabar yanar gizo da aka bayyana a ƙasa suna
-ci gaba da rubuta buƙatar har kwana 30), sannan ta dawo da lambar shaida.
-Ana amfani da rahotanni ne kawai don auna da inganta PhishLens (misali,
-don horar da samfurin rubutu a kan imel na gaskiya da ya yi kuskure a
-kansu); ba a taɓa wallafa su ko raba su. Ana ajiye su har shekara biyu
-mafi yawa. Don a share rahoto, buɗe batu a
-https://github.com/AnzouK/PhishLens/issues tare da lambar shaidarsa
-(lambar shaidar kaɗai ba ta bayyana komai game da rahoton).
+Ana aika rahotanni zuwa PhishLens Cloud, ko wace sabar kake amfani da
+ita don bincike. Sabar tana sake cire bayanan sirri daga rubutun da
+ƙa'idoji iri ɗaya, tana ajiye rahoton ba tare da adireshin IP ɗinka ko
+wani bayanin buƙata ba (bayanan ayyukan sabar yanar gizo da aka bayyana
+a ƙasa suna ci gaba da rubuta buƙatar har kwana 30), sannan ta dawo da
+lambar shaida. Ana amfani da rahotanni ne kawai don auna da inganta
+PhishLens (misali, don horar da samfurin rubutu a kan imel na gaskiya da
+ya yi kuskure a kansu); ba a taɓa wallafa su ko raba su. Ana ajiye su
+har shekara biyu mafi yawa. Don a share rahoto, rubuta zuwa
+privacy@phishlens.dev tare da lambar shaidarsa, ko buɗe batu a
+https://github.com/AnzouK/PhishLens/issues (lambar shaidar kaɗai ba ta
+bayyana komai game da rahoton).
 
 Don ba da damar ba da rahoto daga shafin Ƙididdiga, ana ajiye rubutun da
 aka cire wa bayanan sirri na bincikenka na ƙarshe a Gmail da Outlook a
@@ -146,9 +147,29 @@ matsayin buƙata ta al'ada daga burauzarka.
 PhishLens ba don yara aka yi shi ba kuma ba ya tattara bayanai game da
 su da gangan.
 
+## Wanda ke da alhaki
+
+PhishLens aiki ne na kai, ba na kasuwanci ba, wanda wani mutum ke kula
+da shi, kuma shi ke da alhakin PhishLens Cloud da wannan shafi.
+PhishLens Cloud yana aiki a kan Oracle Cloud Infrastructure (Oracle
+Corporation, Austin, Texas, Amurka), a cibiyar bayanansa da ke
+Frankfurt, Jamus. DNS na yankin yana bi ta Cloudflare (Cloudflare, Inc.,
+San Francisco, California, Amurka). Tuntuɓa: privacy@phishlens.dev.
+
+## Haƙƙoƙinka
+
+Za ka iya tambayar abin da PhishLens Cloud ke ajiye wanda ya shafe ka,
+kuma a share shi: rahoton da ka aika (ka ba da lambar shaidarsa), ko
+layukan rajistar sabar yanar gizo na buƙatunka, waɗanda ake ajiye
+kwanaki 30 (ka ba da kwanan wata da adireshin IP ɗinka). Rubuta zuwa
+privacy@phishlens.dev; za ka sami amsa cikin kwanaki 30. PhishLens ba ta
+ajiye imel, asusu ko bayanin mutum, don haka yawanci babu wani abu da za
+a mayar ko a share.
+
 ## Canje-canje da tuntuɓa
 
-Ana jera canje-canjen wannan manufa a
-[tarihin canje-canje](CHANGELOG.md) na aikin. Don tambayoyi, buɗe batu a
-https://github.com/AnzouK/PhishLens/issues, ko ka ba da rahoton matsalar
-tsaro a ɓoye kamar yadda aka bayyana a [SECURITY.md](SECURITY.md).
+Ana jera canje-canjen wannan manufa a [tarihin
+canje-canje](CHANGELOG.md) na aikin. Tambayoyi da buƙatu game da
+bayananka: privacy@phishlens.dev. Kurakurai da shawarwari: buɗe batu a
+https://github.com/AnzouK/PhishLens/issues. Matsalolin tsaro: ka ba da
+rahotonsu a ɓoye kamar yadda aka bayyana a [SECURITY.md](SECURITY.md).

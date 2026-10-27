@@ -1,6 +1,6 @@
 # Politique de confidentialité de PhishLens
 
-Dernière mise à jour : 16 octobre 2026.
+Dernière mise à jour : 27 octobre 2026.
 
 PhishLens est une extension Chrome qui vérifie si des e-mails sont du
 phishing. Cette page explique quelles données elle traite, où elles vont
@@ -88,8 +88,8 @@ et renvoie une référence. Les signalements servent uniquement à mesurer
 et à améliorer PhishLens (par exemple à entraîner le modèle de texte sur
 des e-mails légitimes qu'il a mal jugés) ; ils ne sont jamais publiés ni
 partagés. Ils sont conservés au plus deux ans. Pour faire supprimer un
-signalement, ouvrez un ticket sur
-https://github.com/AnzouK/PhishLens/issues en indiquant sa référence (la
+signalement, écrivez à privacy@phishlens.dev en indiquant sa référence,
+ou ouvrez un ticket sur https://github.com/AnzouK/PhishLens/issues (la
 référence seule ne révèle rien du signalement).
 
 Pour permettre un signalement depuis la vue Statistiques, le texte
@@ -153,11 +153,30 @@ ordinaire de votre navigateur.
 PhishLens ne s'adresse pas aux enfants et ne collecte pas sciemment de
 données les concernant.
 
+## Qui est responsable
+
+PhishLens est un projet personnel et non commercial, maintenu par un
+particulier, responsable de PhishLens Cloud et de ce site. PhishLens
+Cloud fonctionne sur Oracle Cloud Infrastructure (Oracle Corporation,
+Austin, Texas, États-Unis), dans son centre de données de Francfort, en
+Allemagne. Les DNS du domaine passent par Cloudflare (Cloudflare, Inc.,
+San Francisco, Californie, États-Unis). Contact : privacy@phishlens.dev.
+
+## Vos droits
+
+Vous pouvez demander ce que PhishLens Cloud conserve qui vous concerne,
+et le faire supprimer : un signalement que vous avez envoyé (indiquez sa
+référence), ou les lignes du journal du serveur web correspondant à vos
+requêtes, conservées 30 jours (indiquez la date et votre adresse IP).
+Écrivez à privacy@phishlens.dev ; vous recevrez une réponse sous 30
+jours. PhishLens ne conserve ni e-mail, ni compte, ni profil : il n'y a
+en général rien d'autre à communiquer ou à supprimer.
+
 ## Modifications et contact
 
-Les modifications de cette politique sont listées dans le
-[journal des modifications](CHANGELOG.md) du projet. Pour toute
-question, ouvrez un ticket sur
-https://github.com/AnzouK/PhishLens/issues, ou signalez un problème de
-sécurité de façon confidentielle comme décrit dans
+Les modifications de cette politique sont listées dans le [journal des
+modifications](CHANGELOG.md) du projet. Questions et demandes concernant
+vos données : privacy@phishlens.dev. Bogues et suggestions : ouvrez un
+ticket sur https://github.com/AnzouK/PhishLens/issues. Problèmes de
+sécurité : signalez-les de façon confidentielle comme décrit dans
 [SECURITY.md](SECURITY.md).

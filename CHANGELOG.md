@@ -7,6 +7,14 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Documentation
+- The privacy policy and the terms, in the 8 languages, say who runs
+  PhishLens (a personal, non-commercial project maintained by an
+  individual), where PhishLens Cloud is hosted (Oracle Cloud
+  Infrastructure, Frankfurt) and through whom the domain's DNS goes
+  (Cloudflare), give a contact address, privacy@phishlens.dev, and
+  explain how to ask what is kept and have it deleted.
+
 ### Changed
 - The website's results show the whole system as it runs, in the 8
   languages: 90.6% of 2,000 recent phishing emails nobody had looked at

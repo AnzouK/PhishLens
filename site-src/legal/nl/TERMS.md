@@ -1,6 +1,6 @@
 # Gebruiksvoorwaarden van PhishLens
 
-Laatst bijgewerkt: 16 oktober 2026.
+Laatst bijgewerkt: 27 oktober 2026.
 
 Deze voorwaarden gelden voor de Chrome-extensie PhishLens, de website
 `phishlens.dev` en PhishLens Cloud, de gehoste controleserver. Door
@@ -66,9 +66,19 @@ auteurs niet aansprakelijk voor verlies of schade door het gebruik
 ervan, waaronder een gemiste phishingmail of een legitieme e-mail die
 per vergissing is gemarkeerd.
 
+## Wie PhishLens beheert
+
+PhishLens is een persoonlijk, niet-commercieel project, onderhouden door
+een particulier, die verantwoordelijk is voor PhishLens Cloud en deze
+website. PhishLens Cloud draait op Oracle Cloud Infrastructure (Oracle
+Corporation, Austin, Texas, Verenigde Staten), in het datacenter in
+Frankfurt, Duitsland. De DNS van het domein loopt via Cloudflare
+(Cloudflare, Inc., San Francisco, Californië, Verenigde Staten).
+Contact: privacy@phishlens.dev.
+
 ## Wijzigingen en contact
 
 Deze voorwaarden kunnen veranderen; de datum bovenaan toont de laatste
 bijwerking, en wijzigingen staan in het
-[wijzigingslogboek](CHANGELOG.md). Voor vragen opent u een issue op
-https://github.com/AnzouK/PhishLens/issues.
+[wijzigingslogboek](CHANGELOG.md). Voor vragen: privacy@phishlens.dev,
+of open een issue op https://github.com/AnzouK/PhishLens/issues.
