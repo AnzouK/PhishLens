@@ -7,13 +7,11 @@ backend share one version number.
 
 ## [Unreleased]
 
-### Documentation
-- The privacy policy and the terms, in the 8 languages, say who runs
-  PhishLens (a personal, non-commercial project maintained by an
-  individual), where PhishLens Cloud is hosted (Oracle Cloud
-  Infrastructure, Frankfurt) and through whom the domain's DNS goes
-  (Cloudflare), give a contact address, privacy@phishlens.dev, and
-  explain how to ask what is kept and have it deleted.
+### Added
+- The home page in each language describes PhishLens to search engines
+  with a schema.org `SoftwareApplication` block (JSON-LD): a free,
+  open-source security application for Chrome, its languages, licence,
+  download page and source code. No author name.
 
 ### Changed
 - The website's results show the whole system as it runs, in the 8
@@ -22,13 +20,13 @@ backend share one version number.
   text model's offline score alone; "How it works" no longer mentions
   the header model, off since 2.0.8.
 
-### Added
-- The home page in each language describes PhishLens to search engines
-  with a schema.org `SoftwareApplication` block (JSON-LD): a free,
-  open-source security application for Chrome, its languages, licence,
-  download page and source code. No author name.
-
 ### Documentation
+- The privacy policy and the terms, in the 8 languages, say who runs
+  PhishLens (a personal, non-commercial project maintained by an
+  individual), where PhishLens Cloud is hosted (Oracle Cloud
+  Infrastructure, Frankfurt) and through whom the domain's DNS goes
+  (Cloudflare), give a contact address, privacy@phishlens.dev, and
+  explain how to ask what is kept and have it deleted.
 - `docs/evaluation.md` and `docs/multilingual-model.md`: r7b, the bigger
   text model (mmBERT-base): 91.2% of the control phishing caught against
   r4's 90.4%, one more inbox false alarm and twice the scan time;
