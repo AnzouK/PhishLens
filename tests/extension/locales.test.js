@@ -89,24 +89,32 @@ test("store listing strings exist for every _locales folder", () => {
     }
 });
 
-test("translated text is escaped wherever it is built into HTML", () => {
-    // t() values can carry email data ({sender}, {services}...): inside a
-    // template literal they must go through escapeHTML. Only the static
-    // *_html keys are inserted as is.
-    const files = ["popup/popup.js"]
-        .concat(fs.readdirSync(path.join(EXT, "content_scripts")).map((f) => `content_scripts/${f}`));
+test("no HTML is built from strings", () => {
+    // Text from emails and from the server only becomes text nodes and
+    // attribute values (lib/dom.js). The *_html translations go through
+    // PhishLensDom.setMarkup, which keeps an allowlist of tags.
+    const files = ["background.js"];
+    for (const dir of ["popup", "lib", "content_scripts"]) {
+        const walk = (d) => fs.readdirSync(path.join(EXT, d), { withFileTypes: true }).forEach((e) => {
+            const rel = `${d}/${e.name}`;
+            if (e.isDirectory()) walk(rel);
+            else if (e.name.endsWith(".js")) files.push(rel);
+        });
+        walk(dir);
+    }
     for (const f of files) {
-        const src = fs.readFileSync(path.join(EXT, f), "utf8");
-        for (const m of src.matchAll(/\$\{\s*(tn?)\(\s*"(\w+)"/g)) {
-            assert.ok(m[2].endsWith("_html"), `${f}: \${${m[1]}("${m[2]}") is not escaped`);
-        }
+        fs.readFileSync(path.join(EXT, f), "utf8").split("\n").forEach((line, i) => {
+            assert.ok(!/\.(?:innerHTML|outerHTML)\s*=|insertAdjacentHTML|document\.write/.test(line),
+                `${f}:${i + 1} builds HTML from a string: ${line.trim()}`);
+        });
     }
 });
 
 test("nothing hides the translation function t()", () => {
     // A local named t (let t = ..., (t) => ...) silently replaces the
     // translator: the automatic scan broke that way once.
-    const files = ["background.js", "popup/popup.js"]
+    const files = ["background.js"]
+        .concat(fs.readdirSync(path.join(EXT, "popup")).filter((f) => f.endsWith(".js")).map((f) => `popup/${f}`))
         .concat(fs.readdirSync(path.join(EXT, "content_scripts")).filter((f) => f.endsWith(".js")).map((f) => `content_scripts/${f}`));
     const shadow = /\b(?:let|const|var)\s+t\b(?!\s*,)|\(\s*t\s*[,)]\s*=>|\bfor\s*\(\s*(?:const|let)\s+t\s+of\b|function\s*\w*\s*\(\s*t\s*[,)]/;
     for (const f of files) {

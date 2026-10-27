@@ -1,91 +1,78 @@
-// =====================================================================
-// PhishLens content script: Outlook on the web.
-// =====================================================================
-// Loaded after core.js and banner.js, whose helpers and verdict banner it
-// reuses.
-//
-// Outlook page structure (Outlook on the web, 2026):
+// Outlook on the web: the scan button and the verdict banner (banner.js).
+// What this file assumes about Outlook's page (2026):
 //   reading pane   [data-app-section="MailReadCompose"]
-//   subject        [role="heading"][id$="_SUBJECT"]   (CONV_… for the thread)
-//   one message    body [id^="UniqueMessageBody"], sender [id$="_FROM"]
-// Outlook shows only the sender's NAME for people in the same
-// organisation; the address is read from the "From" line when present.
-// =====================================================================
+//   subject        [role="heading"][id^="CONV_"][id$="_SUBJECT"]
+//   one message    body [id^="UniqueMessageBody"], sender [id^="MSG_"][id$="_FROM"]
+// Outlook shows only the NAME of senders in the user's organisation; the
+// address is read from the "From" line when there is one.
+(function () {
+"use strict";
 
-const OL_PANE_SEL = '[data-app-section="MailReadCompose"]';
-const OL_SUBJECT_SEL = '[role="heading"][id^="CONV_"][id$="_SUBJECT"]';
-const OL_BODY_SEL = '[id^="UniqueMessageBody"]';
-const OL_EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
+const PL = globalThis.PhishLensPage;
+const { t } = PhishLensI18n;
 
-let _olQueued = false;
-const _olObs = new MutationObserver(() => {
-    if (pllShutdownIfDead() || _olQueued) return;
-    _olQueued = true;
-    setTimeout(() => { _olQueued = false; pllRefreshTheme(); olInject(); }, 300);
+const SEL = Object.freeze({
+    pane: '[data-app-section="MailReadCompose"]',
+    subject: '[role="heading"][id^="CONV_"][id$="_SUBJECT"]',
+    body: '[id^="UniqueMessageBody"]',
+    from: '[id^="MSG_"][id$="_FROM"]',
 });
-PLL_OBSERVERS.push(_olObs);
-_olObs.observe(document.body, { childList: true, subtree: true });
+const EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
+// Drafts sit in the conversation too, with an editor; never scanned.
+const DRAFT_RE = /\[(Draft|Brouillon|Borrador|Rascunho|Entwurf|Bozza)\]/i;
 
-function olInject() {
-    if (!pllAlive()) return;
-    const pane = document.querySelector(OL_PANE_SEL);
-    const subject = pane?.querySelector(OL_SUBJECT_SEL);
-    if (!subject || subject.dataset.pllHooked === PLL_INSTANCE) return;
-    if (!pane.querySelector(OL_BODY_SEL)) return;
-    // Replace a button left by an older copy of the script (see gmail.js).
+PL.olInject = function olInject() {
+    if (!PL.alive()) return;
+    const pane = document.querySelector(SEL.pane);
+    const subject = pane?.querySelector(SEL.subject);
+    if (!subject || subject.dataset.pllHooked === PL.instance || !pane.querySelector(SEL.body)) return;
+    // Replace a button left by an older copy of the scripts.
     subject.parentElement?.querySelectorAll(".pll-scan-btn--outlook").forEach((b) => b.remove());
-    subject.dataset.pllHooked = PLL_INSTANCE;
+    subject.dataset.pllHooked = PL.instance;
 
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "pll-scan-btn pll-scan-btn--outlook";
-    btn.innerHTML = `<span class="pll-scan-btn__icon">${PLL_ICON.shield}</span><span class="pll-scan-btn__label">${escapeHTML(t("scan_button"))}</span>`;
-    btn.title = t("scan_button_title");
-    subject.insertAdjacentElement("afterend", btn);
+    const btn = PL.scanButton({
+        extraClass: "pll-scan-btn--outlook",
+        label: t("scan_button"),
+        title: t("scan_button_title"),
+        onClick: (b) => olScan(pane, b),
+    });
     // Outlook listens to pointer events on the header: keep ours to us.
     for (const evt of ["pointerdown", "mousedown", "mouseup", "keydown"]) {
         btn.addEventListener(evt, (ev) => ev.stopPropagation());
     }
-    btn.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        olScan(pane, btn);
-    });
-}
+    subject.insertAdjacentElement("afterend", btn);
+};
 
-// Drafts sit in the conversation too ("[Draft]", "[Brouillon]"…, with
-// an editor); they are never the message to scan.
-const OL_DRAFT_RE = /\[(Draft|Brouillon|Borrador|Rascunho|Entwurf|Bozza)\]/i;
-function olIsDraft(body) {
+function isDraft(body) {
     let el = body;
     for (let i = 0; i < 8 && el && el !== document.body; i++) {
         el = el.parentElement;
         if (!el) break;
         if (el.querySelector('[contenteditable="true"]')) return true;
-        if (OL_DRAFT_RE.test((el.innerText || "").slice(0, 300))) return true;
-        if (el.querySelector('[id^="MSG_"][id$="_FROM"]')) return false;   // reached the message card
+        if (DRAFT_RE.test((el.innerText || "").slice(0, 300))) return true;
+        if (el.querySelector(SEL.from)) return false;   // reached the message card
     }
     return false;
 }
 
-// The last message of the conversation that is expanded (has a body),
-// drafts excluded.
-function olCurrentMessage(pane) {
-    const bodies = [...pane.querySelectorAll(OL_BODY_SEL)].filter((b) => !olIsDraft(b));
+// The last expanded message of the conversation, drafts excluded, and
+// its sender: the last "From" line placed before its body.
+function currentMessage(pane) {
+    const bodies = [...pane.querySelectorAll(SEL.body)].filter((b) => !isDraft(b));
     const body = bodies[bodies.length - 1] || null;
-    // Its sender: the last "_FROM" element placed before the body.
     let from = null;
-    for (const f of pane.querySelectorAll('[id^="MSG_"][id$="_FROM"]')) {
+    for (const f of pane.querySelectorAll(SEL.from)) {
         if (body && (f.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING)) from = f;
     }
     const fromText = (from?.querySelector("[aria-label]")?.getAttribute("aria-label") || from?.textContent || "")
         .replace(/^\s*(De|From)\s*:\s*/i, "").trim();
-    const email = (fromText.match(OL_EMAIL_RE) || [])[0] || "";
-    return { body, count: bodies.length, senderEmail: email.toLowerCase(), senderName: fromText.split("<")[0].trim() };   // "Name <addr>" -> "Name"
+    const email = (fromText.match(EMAIL_RE) || [])[0] || "";
+    // "Name <address>" -> "Name"
+    return { body, count: bodies.length, senderEmail: email.toLowerCase(), senderName: fromText.split("<")[0].trim() };
 }
 
 // Domain of the signed-in account, from the folder pane ("name@org").
-function olAccountDomain() {
+function accountDomain() {
     for (const el of document.querySelectorAll('[role="treeitem"][title*="@"], [role="tree"] [title*="@"]')) {
         const m = (el.getAttribute("title") || "").trim().match(/^[\w.+-]+@([\w-]+(?:\.[\w-]+)+)$/);
         if (m) return m[1].toLowerCase();
@@ -93,87 +80,13 @@ function olAccountDomain() {
     return null;
 }
 
-async function olScan(pane, btn) {
-    const { body: bodyEl, count, senderEmail, senderName } = olCurrentMessage(pane);
-    const subject = pane.querySelector(OL_SUBJECT_SEL)?.getAttribute("title")
-                 || pane.querySelector(OL_SUBJECT_SEL)?.textContent?.trim() || "";
-    const body = textOf(bodyEl);
-    const links = linkTargetsOf(bodyEl);
-    // The banner goes under the subject bar, not inside the message.
-    const anchor = olBannerSlot(pane);
-
-    if ((!body || body.length < 20) && !links.length) {
-        showBanner(pane, {
-            verdict: "error",
-            title: t("nothing_title"),
-            error: t("nothing_lead_outlook"),
-        }, anchor);
-        return;
-    }
-
-    setBtnLoading(btn, true);
-    try {
-        const payload = {
-            raw_text: ((!body || body.length < 20) ? [subject, body].filter(Boolean).join("\n") || "(no text)" : body).slice(0, 4000),
-            sender_email: senderEmail || null,
-            sender_name: senderName || null,
-            client_context: {
-                origin: "outlook",
-                subject,
-                // No address shown: Outlook hides it for senders of the
-                // user's own organisation (internal, authenticated mail).
-                ...(senderEmail ? {} : { outlook_internal: true, org_domain: olAccountDomain() }),
-                link_urls: links,
-                thread_messages: count,
-            },
-        };
-        const r = await chrome.runtime.sendMessage({ type: "phishlens.analyse", payload });
-        if (!r?.ok) throw new Error(r?.error || t("unknown_error"));
-        showBanner(pane, { ...r.data, _threadMessages: count }, anchor);
-
-        const saved = await chrome.runtime.sendMessage({
-            type: "phishlens.history.save",
-            entry: {
-                source: "outlook", subject, sender: senderEmail || senderName,
-                verdict: r.data.verdict, score: Number(r.data.fused_score) || 0,
-                agents: {
-                    text: Number(r.data.agents?.text?.phishing_probability) || 0,
-                    url: Number(r.data.agents?.url?.phishing_probability) || 0,
-                    metadata: Number(r.data.agents?.metadata?.phishing_probability) || 0,
-                },
-                trusted: !!r.data.trusted_sender,
-                lang: r.data.language?.code,
-            },
-        }).catch(() => null);
-        pllAttachFeedback(pane, r.data, { historyId: saved?.id, source: "outlook", subject, body, links });
-
-        // Word-level explanation, as in Gmail (cached by payload). Runs in
-        // the background so the button is free again right away.
-        olExplain(pane, payload, r.data, saved?.id);
-    } catch (e) {
-        const msg = String(e?.message || e);
-        showBanner(pane, {
-            verdict: "error",
-            error: /context invalidated|message port closed/i.test(msg)
-                ? t("reloaded")
-                : msg,
-        }, anchor);
-    } finally {
-        setBtnLoading(btn, false);
-    }
-}
-
-// An empty holder right after the subject bar; showBanner inserts the
-// banner before it.
-function olBannerSlot(pane) {
+// An empty holder right after the subject bar; the banner goes before it.
+function bannerSlot(pane) {
     let slot = pane.querySelector(".pll-ol-slot-anchor");
     if (slot) return slot;
-    const subject = pane.querySelector(OL_SUBJECT_SEL);
-    // The bar: the highest ancestor of the subject that does not contain
-    // the messages (its parent holds the bar and the conversation).
-    let bar = subject;
-    while (bar?.parentElement && bar.parentElement !== pane &&
-           !bar.parentElement.querySelector(OL_BODY_SEL)) {
+    // The bar: the highest ancestor of the subject without the messages.
+    let bar = pane.querySelector(SEL.subject);
+    while (bar?.parentElement && bar.parentElement !== pane && !bar.parentElement.querySelector(SEL.body)) {
         bar = bar.parentElement;
     }
     const holder = document.createElement("div");
@@ -185,32 +98,50 @@ function olBannerSlot(pane) {
     return slot;
 }
 
-async function olExplain(pane, payload, data, savedId) {
+async function olScan(pane, btn) {
+    const { body: bodyEl, count, senderEmail, senderName } = currentMessage(pane);
+    const subjectEl = pane.querySelector(SEL.subject);
+    const subject = subjectEl?.getAttribute("title") || subjectEl?.textContent?.trim() || "";
+    const body = PL.textOf(bodyEl);
+    const links = PL.linkTargetsOf(bodyEl);
+    const anchor = bannerSlot(pane);
+
+    if ((!body || body.length < PL.MIN_BODY) && !links.length) {
+        PL.showBanner(pane, { verdict: "error", title: t("nothing_title"), error: t("nothing_lead_outlook") }, anchor);
+        return;
+    }
+
+    PL.setBtnLoading(btn, true);
     try {
-        if (data.text_agent_used === false) {
-            const slot = pane.querySelector(".pll-banner .pll-banner__tokens");
-            if (slot) slot.textContent = t("almost_no_text");
-            return;
-        }
-        let features = null, cached = false;
-        try {
-            const hit = await window.PhishLensLimeCache?.get(await PhishLensShared.getBackendBase(), payload);
-            if (hit) { features = hit.features; cached = true; }
-        } catch {}
-        if (!features) {
-            const rr = await chrome.runtime.sendMessage({ type: "phishlens.explain", payload }).catch(() => null);
-            if (!rr?.ok) return;
-            features = rr.data.features || [];
-            try { window.PhishLensLimeCache?.put(await PhishLensShared.getBackendBase(), payload, features); } catch {}
-        }
-        attachExplanation(pane, features, cached);
-        if (savedId) {
-            chrome.runtime.sendMessage({
-                type: "phishlens.history.attachTokens", id: savedId,
-                tokens: features.slice(0, 5).map((f) => ({ token: f.token || "", weight: f.weight || 0 })),
-            }).catch(() => {});
-        }
-    } catch {
-        // explanation is best-effort
+        const payload = {
+            raw_text: PL.rawText(subject, body),
+            sender_email: senderEmail || null,
+            sender_name: senderName || null,
+            client_context: {
+                origin: "outlook",
+                subject,
+                // No address shown: a sender of the user's own organisation.
+                ...(senderEmail ? {} : { outlook_internal: true, org_domain: accountDomain() }),
+                link_urls: links,
+                thread_messages: count,
+            },
+        };
+        const data = await PhishLensApi.analyse(payload);
+        PL.showBanner(pane, { ...data, _threadMessages: count }, anchor);
+        const historyId = await PL.saveScan(data, { source: "outlook", subject, sender: senderEmail || senderName });
+        PL.attachFeedback(pane, data, { historyId, source: "outlook", subject, body, links });
+        PL.explainInBackground(pane, payload, data, historyId);
+    } catch (e) {
+        PL.showError(pane, e, anchor);
+    } finally {
+        PL.setBtnLoading(btn, false);
     }
 }
+
+let queued = false;
+PL.observe(() => {
+    if (PL.shutdownIfDead() || queued) return;
+    queued = true;
+    setTimeout(() => { queued = false; PL.refreshTheme(); PL.olInject(); }, 300);
+});
+})();

@@ -1,18 +1,9 @@
-// =====================================================================
-// PhishLens: interface translations.
-// =====================================================================
-// The texts live in lib/locales/<lang>.js (one dictionary per language,
-// loaded before this file is used). t("key", {name: value}) returns the
-// text in the chosen language, falling back to English, then to the key.
-// tn("key", count, vars) picks "key_one" or "key_other".
-//
-// The language is the one chosen in Settings (chrome.storage "ui_lang"),
-// or the browser's when it is "auto" or unset. A language Chrome itself
-// does not support (Hausa) works the same way, which is why PhishLens
-// does not use chrome.i18n for its interface.
-//
-// Exported as globalThis.PhishLensI18n (classic scripts, no bundler).
-// =====================================================================
+// Interface translations. The texts live in lib/locales/<lang>.js.
+// t("key", {name: value}) returns the text in the chosen language, then
+// English, then the key; tn("key", count) picks "key_one" or "key_other".
+// The language is the one chosen in Settings ("ui_lang"), or the
+// browser's. PhishLens does not use chrome.i18n for this because Chrome
+// does not support every language PhishLens has (Hausa).
 (function () {
 "use strict";
 
@@ -40,7 +31,13 @@ function setLanguage(choice) {
     const next = resolve(choice);
     if (next === current) return;
     current = next;
-    listeners.forEach((fn) => { try { fn(current); } catch {} });
+    listeners.forEach((fn) => {
+        try {
+            fn(current);
+        } catch (e) {
+            console.warn("[PhishLens] language change listener failed:", e);
+        }
+    });
 }
 
 function t(key, vars) {
@@ -68,12 +65,13 @@ function tn(key, count, vars) {
     return t(`${key}_${count === 1 ? "one" : "other"}`, { count, ...vars });
 }
 
-// Static HTML: data-i18n (text), data-i18n-html (trusted markup from the
-// dictionaries), data-i18n-title, data-i18n-placeholder, data-i18n-aria-label.
+// Static HTML: data-i18n (text), data-i18n-html (markup from the
+// dictionaries, rebuilt by lib/dom.js from an allowlist of tags),
+// data-i18n-title, data-i18n-placeholder, data-i18n-aria-label.
 function applyTo(root) {
     if (!root?.querySelectorAll) return;
     root.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
-    root.querySelectorAll("[data-i18n-html]").forEach((el) => { el.innerHTML = t(el.dataset.i18nHtml); });
+    root.querySelectorAll("[data-i18n-html]").forEach((el) => globalThis.PhishLensDom.setMarkup(el, t(el.dataset.i18nHtml)));
     for (const attr of ["title", "placeholder", "aria-label"]) {
         const data = "i18n" + attr.replace(/(^|-)(\w)/g, (m, d, c) => c.toUpperCase());
         root.querySelectorAll(`[data-i18n-${attr}]`).forEach((el) => {

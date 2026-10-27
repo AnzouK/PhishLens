@@ -47,6 +47,12 @@ backend/                  FastAPI app (one module per concern)
   feedback.py               reports users send, redacted again (redaction.py)
   tests/                    offline pytest suite
 extension/                Chrome MV3 extension (plain JS, no build step)
+  background.js             service worker: every request to the server
+  lib/                      shared libraries, one globalThis name each
+                            (api.js, dom.js, constants.js, gmail_page.js...)
+  content_scripts/          Gmail and Outlook pages: core.js creates the
+                            PhishLensPage namespace the other files add to
+  popup/                    the popup, as ES modules (one per view)
 site/                     website in 8 languages, generated from site-src/
 tests/                    extension unit tests (node:test), popup and website UI tests (Playwright)
 docs/                     architecture, threat model, operations, languages, model
@@ -108,6 +114,13 @@ CI runs all of the above, plus CodeQL. A pull request needs a green CI.
 - **Feature engineering** in `feature_extraction.py` is shared with the
   trained Random Forests. Changing feature names or semantics requires
   retraining in [PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector).
+- **Extension code.** No HTML from strings: build elements with `h()`
+  (`extension/lib/dom.js`), so text from an email is never parsed as
+  markup (a test fails on `innerHTML`). Server requests go through
+  `PhishLensApi` (`lib/api.js`). Anything that depends on Gmail's page
+  goes in `lib/gmail_page.js`, with a sample page in
+  `tests/fixtures/gmail/`. An empty `catch` says in a comment why the
+  error is ignored, or calls `PhishLensShared.debug()`.
 - **Regular expressions** on email or URL input must use bounded
   quantifiers (CodeQL checks for ReDoS).
 - **No secrets and no personal data** in code, commits, fixtures or

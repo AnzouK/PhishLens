@@ -1,37 +1,32 @@
-// =====================================================================
-// PhishLens: scan history & analytics module.
-// =====================================================================
-// Single source of truth for the local scan history. Used by:
-//   • popup.js        : saves file / paste scans
-//   • gmail.js        : saves Gmail-injected scans (via background message)
-//   • background.js   : bridges gmail.js -> chrome.storage
-//   • popup views     : read the history for the History & Analytics tabs
+// The local scan history and its statistics, in chrome.storage.local.
+// Nothing here leaves the browser unless the user shares it (statsRows)
+// or reports one scan.
 //
-// Storage design
-//   Key:   "scanHistory"  in chrome.storage.local
-//   Value: Array of entries, newest first. Capped at MAX_ENTRIES.
-//   Entry: {
-//     id:        string       // uuid-ish
-//     ts:        number       // Date.now()
-//     source:    "gmail" | "gmail-attachment" | "gmail-auto" | "file" | "attachment" | "paste"
-//     subject:   string       // truncated to 120 chars
-//     sender:    string       // sender email/domain when available
-//     verdict:   "phishing" | "safe"
-//     score:     number       // fused probability 0..1
-//     agents:    { text: number, url: number, metadata: number }
-//     trusted:   boolean      // trusted_sender flag from backend
-//     tokens:    [{token, weight}]   // top 5 LIME features (populated later)
-//     label:     "correct" | "wrong" | undefined   // User review
-//     lang:      string        // language detected by the server ("und" if unclear)
-//     lang_user: string        // the user's answer: the same code, another one or "other"
-//     reported:  string        // reference of a report the user sent, if any
-//   }
-//
-//   Key:   "reportDrafts": { [id]: { text, ts } }, the redacted text of
-//   recent Gmail and Outlook scans, so a wrong verdict can still be
-//   reported from Insights. Kept 7 days, 50 at most, never sent unless
-//   the user reports that scan.
-// =====================================================================
+// "scanHistory": ScanEntry[], newest first, at most MAX_ENTRIES.
+// "reportDrafts": { [scan id]: { text, ts } }, the redacted text of recent
+//   Gmail and Outlook scans, so a wrong verdict can still be reported
+//   from Insights. Kept DRAFT_DAYS days, DRAFT_MAX at most.
+
+/**
+ * @typedef {Object} ScanEntry
+ * @property {string} id
+ * @property {number} ts          Date.now() of the scan
+ * @property {string} source      "gmail" | "gmail-attachment" | "gmail-auto" | "outlook" | "file" | "attachment" | "paste"
+ * @property {string} subject     at most 120 characters (the file name for a file)
+ * @property {string} sender      address or domain, when known
+ * @property {"phishing"|"safe"} verdict
+ * @property {number} score       fused probability, 0 to 1
+ * @property {{text: number, url: number, metadata: number}} agents
+ * @property {boolean} trusted    the server's trusted_sender flag
+ * @property {{token: string, weight: number}[]} tokens   top 5 words of the explanation
+ * @property {"correct"|"wrong"} [label]   the user's review
+ * @property {string} [lang]      language detected by the server ("und" when unclear)
+ * @property {string} [lang_user] the user's answer: the same code, another one, or "other"
+ * @property {string} [reported]  reference of a report the user sent
+ */
+
+(function () {
+"use strict";
 
 const STORAGE_KEY = "scanHistory";
 // Function words carry no meaning in "Top phishing tokens" even when
@@ -47,9 +42,6 @@ const DRAFT_MAX = 50;
 const DRAFT_DAYS = 7;
 const LANG_RE = /^(?:[a-z]{2,3}|und|other)$/;
 
-// ---------------------------------------------------------------------
-// Chrome storage helpers: Promise-based wrappers so we can await them.
-// ---------------------------------------------------------------------
 function _get(key) {
     return new Promise((resolve) => {
         chrome.storage.local.get([key], (s) => resolve(s[key]));
@@ -61,9 +53,19 @@ function _set(key, value) {
     });
 }
 
-// ---------------------------------------------------------------------
-// Core CRUD
-// ---------------------------------------------------------------------
+// The history entry for an /analyse or /analyse_attachment answer.
+function entryFrom(data, { source, subject = "", sender = "" }) {
+    const p = (agent) => Number(data?.agents?.[agent]?.phishing_probability) || 0;
+    return {
+        source, subject, sender,
+        verdict: data?.verdict,
+        score: Number(data?.fused_score) || 0,
+        agents: { text: p("text"), url: p("url"), metadata: data?.attachment ? 0 : p("metadata") },
+        trusted: !!(data?.trusted_sender || data?.parent_trusted),
+        lang: data?.language?.code,
+    };
+}
+
 async function saveScan(entry) {
     if (!entry || typeof entry !== "object") return;
     const list = (await _get(STORAGE_KEY)) || [];
@@ -87,7 +89,7 @@ async function saveScan(entry) {
     return clean.id;
 }
 
-// Attach LIME tokens to an already-saved scan (called when /explain returns).
+// The top words of the explanation, once /explain has answered.
 async function attachTokens(id, tokens) {
     if (!id || !Array.isArray(tokens)) return;
     const list = (await _get(STORAGE_KEY)) || [];
@@ -204,9 +206,7 @@ async function deleteScan(id) {
     await _set(DRAFTS_KEY, drafts);
 }
 
-// ---------------------------------------------------------------------
-// Analytics: aggregated stats for the dashboard view.
-// ---------------------------------------------------------------------
+// Aggregates for the Insights view.
 async function getStats() {
     const list = await getHistory();
     const total = list.length;
@@ -274,9 +274,6 @@ async function getStats() {
     };
 }
 
-// ---------------------------------------------------------------------
-// Export
-// ---------------------------------------------------------------------
 async function exportJSON() {
     const list = await getHistory();
     return JSON.stringify(list, null, 2);
@@ -318,20 +315,13 @@ async function exportCSV() {
     return rows.join("\n");
 }
 
-// ---------------------------------------------------------------------
-// Global export: works in popup, content scripts, service worker.
-// ---------------------------------------------------------------------
 const PhishLensHistory = {
-    saveScan, attachTokens, setLabel, updateScan, saveDraft, getDraft, statsRows,
+    saveScan, entryFrom, attachTokens, setLabel, updateScan, saveDraft, getDraft, statsRows,
     liveEvaluation, getHistory, getStats, clearHistory, deleteScan, exportJSON, exportCSV,
     STORAGE_KEY, DRAFTS_KEY, MAX_ENTRIES,
 };
-
-// Support both non-module (popup <script>, content script, service worker) and
-// ES-module (popup.js has type="module") consumers.
-if (typeof globalThis !== "undefined") globalThis.PhishLensHistory = PhishLensHistory;
-if (typeof window     !== "undefined") window.PhishLensHistory     = PhishLensHistory;
-if (typeof self       !== "undefined") self.PhishLensHistory       = PhishLensHistory;
+globalThis.PhishLensHistory = PhishLensHistory;
 
 // eslint-disable-next-line no-undef
 if (typeof module !== "undefined" && module.exports) module.exports = PhishLensHistory;
+})();

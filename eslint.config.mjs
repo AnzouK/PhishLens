@@ -5,24 +5,7 @@
 //   bug-class rules: dead code, duplicate keys, assigning to a const,
 //                    broken typeof checks...
 //   hygiene rules:   undefined names, unused variables, loose equality.
-import fs from "node:fs";
-import path from "node:path";
 import globals from "globals";
-
-// The content scripts of one manifest entry run in one shared scope: a
-// top-level name declared in core.js is visible in banner.js, gmail.js...
-// Those names are read from the files, so the list never goes stale.
-const CONTENT_DIR = "extension/content_scripts";
-const contentGlobals = {};
-for (const file of fs.readdirSync(CONTENT_DIR).filter((f) => f.endsWith(".js"))) {
-  const src = fs.readFileSync(path.join(CONTENT_DIR, file), "utf8");
-  for (const m of src.matchAll(/^(?:async\s+)?(?:function|const|let|class)\s+([A-Za-z_$][\w$]*)/gm)) {
-    contentGlobals[m[1]] = "writable";
-  }
-  for (const m of src.matchAll(/^const\s*\{([^}]+)\}\s*=/gm)) {
-    for (const name of m[1].split(",")) contentGlobals[name.trim()] = "writable";
-  }
-}
 
 const bugRules = {
   "no-const-assign": "error",
@@ -47,7 +30,8 @@ const bugRules = {
 const hygieneRules = {
   "no-undef": "error",
   "no-unused-vars": ["error", { args: "none", caughtErrors: "none" }],
-  "no-empty": ["error", { allowEmptyCatch: true }],
+  // An empty catch must say in a comment why the error is ignored.
+  "no-empty": ["error", { allowEmptyCatch: false }],
   eqeqeq: ["error", "smart"],
 };
 
@@ -58,13 +42,19 @@ export default [
     files: ["extension/**/*.js"],
     languageOptions: {
       ecmaVersion: "latest",
-      // Classic scripts: the extension has no bundler and no ES modules.
+      // Classic scripts (no bundler), each wrapped in a function; the
+      // popup is ES modules (below).
       sourceType: "script",
       globals: {
         ...globals.browser,
         ...globals.webextensions,
         ...globals.serviceworker,
-        // Shared between files through globalThis (see lib/*.js).
+        // The libraries of lib/, one globalThis name each, and the
+        // namespace of the mail-page scripts (content_scripts/core.js).
+        PhishLensApi: "readonly",
+        PhishLensConstants: "readonly",
+        PhishLensDom: "readonly",
+        PhishLensGmail: "readonly",
         PhishLensHistory: "readonly",
         PhishLensI18n: "readonly",
         PhishLensRedact: "readonly",
@@ -72,6 +62,7 @@ export default [
         PhishLensLocales: "writable",
         PhishLensLimeCache: "readonly",
         PhishLensShared: "readonly",
+        PhishLensPage: "readonly",
       },
     },
     rules: { ...bugRules, ...hygieneRules },
@@ -87,11 +78,7 @@ export default [
     rules: { ...bugRules, ...hygieneRules },
   },
   {
-    files: [`${CONTENT_DIR}/*.js`],
-    languageOptions: { globals: contentGlobals },
-    rules: {
-      // A top-level function of one content script is used by the others.
-      "no-unused-vars": ["error", { vars: "local", args: "none", caughtErrors: "none" }],
-    },
+    files: ["extension/popup/*.js"],
+    languageOptions: { sourceType: "module" },
   },
 ];

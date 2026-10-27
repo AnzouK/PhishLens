@@ -1,65 +1,67 @@
-// =====================================================================
-// PhishLens content script: shared core (Gmail and Outlook).
-// =====================================================================
-// Loaded first, after lib/: names, icons, theme, Gmail selectors and
-// small helpers used by every other content script. Content scripts of
-// one entry share a scope, so these top-level names are visible to the
-// files loaded after this one (see the manifest).
-// =====================================================================
+// First content script on Gmail and Outlook (after lib/). It creates the
+// PhishLensPage namespace: each later file wraps its code in a function
+// and adds what it offers to that namespace, so no name leaks between
+// files. Only two places depend on the manifest order: this file runs
+// first, and gmail.js / outlook.js run last and start the page watchers.
+(function () {
+"use strict";
 
-const TAG = "[PhishLens]";
-const { escapeHTML } = PhishLensShared;      // lib/shared.js, loaded first
-const { t, tn, flagLabel, reasonLabel } = PhishLensI18n;   // lib/i18n.js and lib/locales/
+const { t } = PhishLensI18n;
+const { h, icon } = PhishLensDom;
 PhishLensI18n.init();
-// This file is also loaded on Outlook for its banner code; the
-// Gmail-specific watchers only run on Gmail.
-const PLL_IS_GMAIL = location.hostname === "mail.google.com";
-// After an extension update or reload, the previous copy of this script
-// stays in open tabs, cut off from the extension ("context invalidated").
-// Each copy tags the buttons it creates; a newer copy replaces older ones,
-// so users do not have to refresh Gmail after an update.
-const PLL_INSTANCE = Math.random().toString(36).slice(2, 10);
-// False once this copy has been cut off from the extension; it then
-// stops touching the page and leaves it to the new copy.
-function pllAlive() {
-    try { return !!chrome.runtime?.id; } catch { return false; }
-}
-// Every observer of this copy, so a disconnected copy can stop them all.
-const PLL_OBSERVERS = [];
-function pllShutdownIfDead() {
-    if (pllAlive()) return false;
-    PLL_OBSERVERS.forEach((o) => o.disconnect());
-    PLL_OBSERVERS.length = 0;
+
+// A fresh object for each copy of the scripts (see `instance`).
+const PL = {};
+globalThis.PhishLensPage = PL;
+
+PL.TAG = "[PhishLens]";
+PL.isGmail = location.hostname === "mail.google.com";
+
+// After an extension update or reload, the previous copy of the scripts
+// stays in open tabs, cut off from the extension. Each copy tags the
+// buttons it creates; a newer copy replaces older ones, so the user does
+// not have to reload Gmail.
+PL.instance = Math.random().toString(36).slice(2, 10);
+
+PL.alive = function alive() {
+    try {
+        return !!chrome.runtime?.id;
+    } catch {
+        return false;           // reading chrome.runtime throws once cut off
+    }
+};
+
+// Every page watcher of this copy, stopped together once it is cut off.
+const observers = [];
+PL.observe = function observe(callback) {
+    const obs = new MutationObserver(callback);
+    observers.push(obs);
+    obs.observe(document.body, { childList: true, subtree: true });
+    return obs;
+};
+PL.shutdownIfDead = function shutdownIfDead() {
+    if (PL.alive()) return false;
+    observers.forEach((o) => o.disconnect());
+    observers.length = 0;
     return true;
-}
-// A call to chrome.* from a disconnected copy throws "Extension context
-// invalidated"; those are expected after an update and not worth a red
-// entry on the extensions page.
+};
+// A cut-off copy's chrome.* calls reject with "Extension context
+// invalidated": expected after an update, not worth an error entry.
 window.addEventListener("unhandledrejection", (ev) => {
     if (/Extension context invalidated/i.test(String(ev.reason?.message || ev.reason))) ev.preventDefault();
 });
 
-// Inline SVG icons (no emoji: they render differently on every OS).
-const PLL_ICON = {
-    shield: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z"/></svg>',
-    shieldCheck: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>',
-    alert: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
-    clip: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11l-8.6 8.6a5 5 0 01-7-7L14 4a3.5 3.5 0 015 5l-8.6 8.6a2 2 0 01-2.8-2.8L15 7.5"/></svg>',
-    close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
-    spinner: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 109 9"/></svg>',
-};
+// Options set in the popup. Full headers on by default; automatic
+// scanning off by default (it sends emails without a click).
+PL.opts = { fullHeaders: true, autoScan: false };
 
-// ---------------------------------------------------------------------
-// Theme: the popup's saved choice (chrome.storage.local "theme"). In
-// "auto", the colours follow the mail page itself, not the system: Gmail
-// can be light on a dark system and the reverse, and translucent hover
-// colours over the wrong page made the button labels unreadable.
-// ---------------------------------------------------------------------
-let _pllThemeChoice = "auto";
-let _pllThemeCheckedAt = 0;
+// Theme: the popup's choice ("theme" in storage). In "auto", the colours
+// follow the mail page, not the system: Gmail can be light on a dark
+// system and the reverse.
+let themeChoice = "auto";
+let themeCheckedAt = 0;
 
-// Dark when the first opaque background behind the mail view is dark.
-function pllPageIsDark() {
+PL.pageIsDark = function pageIsDark() {
     let el = document.querySelector('div[role="main"]') || document.body;
     while (el) {
         const bg = getComputedStyle(el).backgroundColor;
@@ -71,69 +73,64 @@ function pllPageIsDark() {
         el = el.parentElement;
     }
     return window.matchMedia?.("(prefers-color-scheme: dark)").matches || false;
-}
+};
 
-function applyTheme(theme) {
-    _pllThemeChoice = theme === "light" || theme === "dark" ? theme : "auto";
-    const resolved = _pllThemeChoice === "auto" ? (pllPageIsDark() ? "dark" : "light") : _pllThemeChoice;
+PL.applyTheme = function applyTheme(theme) {
+    themeChoice = theme === "light" || theme === "dark" ? theme : "auto";
+    const resolved = themeChoice === "auto" ? (PL.pageIsDark() ? "dark" : "light") : themeChoice;
     document.documentElement.setAttribute("data-phishlens-theme", resolved);
-    _pllThemeCheckedAt = Date.now();
-}
+    themeCheckedAt = Date.now();
+};
 
-// Called as the page changes (gmail.js, outlook.js): the user may switch
-// the mail theme while the tab is open. At most every two seconds.
-function pllRefreshTheme() {
-    if (_pllThemeChoice === "auto" && Date.now() - _pllThemeCheckedAt > 2000) applyTheme("auto");
-}
+// Called as the page changes: the user may switch the mail theme while
+// the tab is open. At most every two seconds.
+PL.refreshTheme = function refreshTheme() {
+    if (themeChoice === "auto" && Date.now() - themeCheckedAt > 2000) PL.applyTheme("auto");
+};
 
-chrome.storage?.local?.get(["theme"], (s) => applyTheme(s.theme));
+chrome.storage?.local?.get(["theme"], (s) => PL.applyTheme(s.theme));
 chrome.storage?.onChanged?.addListener((changes, area) => {
-    if (area === "local" && changes.theme) applyTheme(changes.theme.newValue);
+    if (area === "local" && changes.theme) PL.applyTheme(changes.theme.newValue);
 });
-window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener?.("change", () => applyTheme(_pllThemeChoice));
+window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener?.("change", () => PL.applyTheme(themeChoice));
 
-// ---------------------------------------------------------------------
-// Detection: which DOM nodes mean "an email view is open"?
-// ---------------------------------------------------------------------
-// Gmail wraps each open email view in <h2 class="hP">Subject text</h2>.
-// We watch for those.
-const SUBJECT_SEL  = "h2.hP";
-const BODY_SEL     = ".a3s.aiL";          // the message body container
-const SENDER_SEL   = ".gD[email]";        // <span class="gD" email="...">Name</span>
-const HEADER_BAR   = ".aeF";              // bar at the top of the email view
+// The "Scan with PhishLens" button, next to the subject.
+PL.scanButton = function scanButton({ extraClass = "", iconName = "shield", label, title, onClick }) {
+    const btn = h("button", { type: "button", class: "pll-scan-btn " + extraClass, title },
+        h("span.pll-scan-btn__icon", null, icon(iconName)),
+        h("span.pll-scan-btn__label", null, label));
+    btn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        onClick(btn);
+    });
+    return btn;
+};
 
-const PROCESSED = new WeakSet();
-
-// Options set in the popup (Settings): full headers on by default,
-// automatic scanning of new emails off by default (it sends emails to
-// the backend without a click, so it is opt-in). Kept up to date by gmail.js.
-const PLL_OPTS = { fullHeaders: true, autoScan: false };
-
-function setBtnLoading(btn, on) {
+PL.setBtnLoading = function setBtnLoading(btn, on) {
     btn.disabled = on;
     btn.classList.toggle("pll-scan-btn--loading", on);
-    btn.querySelector(".pll-scan-btn__icon").innerHTML = on ? PLL_ICON.spinner : PLL_ICON.shield;
+    btn.querySelector(".pll-scan-btn__icon").replaceChildren(icon(on ? "spinner" : "shield"));
     btn.querySelector(".pll-scan-btn__label").textContent = on ? t("scanning") : t("scan_again");
-}
+};
 
-// ---------------------------------------------------------------------
-// utils
-// ---------------------------------------------------------------------
-function textOf(el) {
-    if (!el) return "";
-    return el.innerText.replace(/\s+\n/g, "\n").trim();
-}
-function utf8ToB64(text) {
-    const bytes = new TextEncoder().encode(text);
+PL.textOf = function textOf(el) {
+    return el ? el.innerText.replace(/\s+\n/g, "\n").trim() : "";
+};
+
+// Base64 of bytes, in chunks so large files do not overflow the stack.
+PL.bytesToBase64 = function bytesToBase64(bytes) {
     let bin = "";
     for (let i = 0; i < bytes.length; i += 0x8000) {
         bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
     }
     return btoa(bin);
-}
+};
+PL.utf8ToB64 = (text) => PL.bytesToBase64(new TextEncoder().encode(text));
 
-// http(s) targets of the links in the message body, deduplicated, max 50.
-function linkTargetsOf(el) {
+// http(s) targets of the links in a message body, deduplicated, max 50:
+// the visible text only says "Click here", not where the link goes.
+PL.linkTargetsOf = function linkTargetsOf(el) {
     if (!el) return [];
     const out = new Set();
     for (const a of el.querySelectorAll("a[href]")) {
@@ -142,23 +139,15 @@ function linkTargetsOf(el) {
         if (out.size >= 50) break;
     }
     return [...out];
-}
-function pct(p) { return p == null ? "n/a" : Math.round(p * 100); }
+};
 
-// Deterministic short id from the filename so the same attachment
-// updates its own banner instead of appending duplicates on re-scan.
-function _fileKey(name) {
-    return String(name || "").replace(/[^a-z0-9]+/gi, "-").slice(0, 60).toLowerCase();
-}
+PL.pct = (p) => (p == null ? null : Math.round(p * 100));
 
-// Fast base64 encoding of a raw ArrayBuffer without blowing the stack
-// on large files.
-function arrayBufferToBase64(buffer) {
-    const bytes = new Uint8Array(buffer);
-    const chunk = 0x8000;
-    let binary = "";
-    for (let i = 0; i < bytes.length; i += chunk) {
-        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-    }
-    return btoa(binary);
-}
+// The text sent as raw_text: the body, or the subject and whatever text
+// there is when the body is almost empty (image-only emails).
+PL.MIN_BODY = 20;
+PL.rawText = function rawText(subject, body) {
+    const short = !body || body.length < PL.MIN_BODY;
+    return (short ? [subject, body].filter(Boolean).join("\n") || "(no text)" : body).slice(0, 4000);
+};
+})();

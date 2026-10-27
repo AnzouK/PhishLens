@@ -27,7 +27,7 @@
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
   </svg>
 
-  <!-- ============ HEADER ============ -->
+  <!-- Header -->
   <header class="app-header">
     <div class="brand">
       <img src="../icons/48.png" alt="PhishLens" class="brand__logo" />
@@ -49,10 +49,10 @@
     </div>
   </header>
 
-  <!-- ============ MAIN ============ -->
+  <!-- Main -->
   <main class="app-main">
 
-    <!-- ===== upload view ===== -->
+    <!-- Upload view -->
     <section id="view-upload" class="view view--active">
 
       <!-- Shown until dismissed, while PhishLens Cloud is the server -->
@@ -78,7 +78,7 @@
         </button>
       </div>
 
-      <!-- ===== File tab ===== -->
+      <!-- File tab -->
       <div class="tab-panel tab-panel--active" data-panel="file">
         <div class="hint">
           <svg class="i hint__icon" aria-hidden="true"><use href="#i-info"/></svg>
@@ -86,14 +86,21 @@
         </div>
 
         <label id="drop-zone" class="drop-zone" for="file-input">
-          <input id="file-input" type="file" accept=".eml,.pdf,.html,.htm,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff,.docx,.docm,.doc,.xlsx,.xlsm,.xls,.pptx,.pptm,.ppt,.zip,.rar,.7z,.ics,.txt" hidden />
-          <div class="drop-zone__icon"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg></div>
-          <div class="drop-zone__label" data-i18n-html="drop_label_html">Drag &amp; drop an email (<code>.eml</code>) or an attachment (PDF, image, Word, Excel, PowerPoint, HTML, ZIP, RAR, 7z, .ics)</div>
-          <div class="drop-zone__hint" data-i18n="drop_hint">or click to browse · 10 MB max</div>
+          <input id="file-input" type="file" hidden />
+          <div class="drop-zone__state" id="drop-empty">
+            <div class="drop-zone__icon"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg></div>
+            <div class="drop-zone__label" data-i18n-html="drop_label_html">Drag &amp; drop an email (<code>.eml</code>) or an attachment (PDF, image, Word, Excel, PowerPoint, HTML, ZIP, RAR, 7z, .ics)</div>
+            <div class="drop-zone__hint" data-i18n="drop_hint">or click to browse · 10 MB max</div>
+          </div>
+          <div class="drop-zone__state" id="drop-filled" hidden>
+            <div class="drop-zone__icon"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg></div>
+            <div class="drop-zone__filename" id="drop-filename"></div>
+            <div class="drop-zone__hint" data-i18n="click_to_change">Click to change file</div>
+          </div>
         </label>
       </div>
 
-      <!-- ===== Paste tab ===== -->
+      <!-- Paste tab -->
       <div class="tab-panel" data-panel="paste">
         <div class="hint">
           <svg class="i hint__icon" aria-hidden="true"><use href="#i-info"/></svg>
@@ -120,14 +127,14 @@
       <p id="status" class="status" hidden></p>
     </section>
 
-    <!-- ===== loading view ===== -->
+    <!-- Loading view -->
     <section id="view-loading" class="view">
       <div class="spinner"></div>
       <p class="loading-text" data-i18n="analyzing">Analyzing email…</p>
       <p class="loading-sub" data-i18n="analyzing_sub">This can take up to 30 seconds on a busy server.</p>
     </section>
 
-    <!-- ===== result view ===== -->
+    <!-- Result view -->
     <section id="view-result" class="view">
       <!-- big verdict card -->
       <div id="verdict-card" class="verdict-card">
@@ -196,7 +203,7 @@
       <button id="back-btn" class="btn btn--secondary" data-i18n="analyze_another">Analyze another email</button>
     </section>
 
-    <!-- ===== insights view (scan history + analytics) ===== -->
+    <!-- Insights view (scan history + analytics) -->
     <section id="view-insights" class="view">
       <div class="settings-header">
         <button id="insights-back" class="btn--icon" title="Back" aria-label="Back" data-i18n-title="back" data-i18n-aria-label="back"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></button>
@@ -271,7 +278,7 @@
       </div>
     </section>
 
-    <!-- ===== settings view ===== -->
+    <!-- Settings view -->
     <section id="view-settings" class="view">
       <div class="settings-header">
         <button id="settings-back" class="btn--icon" title="Back" aria-label="Back" data-i18n-title="back" data-i18n-aria-label="back"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></button>
@@ -379,10 +386,12 @@
   <script src="../lib/locales/ha.js"></script>
   <script src="../lib/i18n.js"></script>
   <script src="../lib/shared.js"></script>
+  <script src="../lib/constants.js"></script>
+  <script src="../lib/dom.js"></script>
+  <script src="../lib/api.js"></script>
   <script src="../lib/redact.js"></script>
   <script src="../lib/report_ui.js"></script>
   <script src="../lib/history.js"></script>
-  <script src="../lib/lime_cache.js"></script>
   <script type="module" src="popup.js"></script>
 </body>
 </html>

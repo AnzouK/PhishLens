@@ -3,14 +3,6 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { installFakeChrome, loadLib } = require("./helpers");
 
-test("escapeHTML escapes every HTML-significant character", () => {
-    const S = loadLib("shared.js");
-    assert.equal(S.escapeHTML(`<a href="x" onclick='y'>&</a>`),
-        "&lt;a href=&quot;x&quot; onclick=&#39;y&#39;&gt;&amp;&lt;/a&gt;");
-    assert.equal(S.escapeHTML(null), "");
-    assert.equal(S.escapeHTML(0), "0");
-});
-
 test("backend choice resolves to a URL without a trailing slash", async () => {
     const store = installFakeChrome();
     const S = loadLib("shared.js");

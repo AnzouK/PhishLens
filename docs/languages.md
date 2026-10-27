@@ -47,11 +47,13 @@ offers the languages it supports itself, and Hausa is not one of them.
 ### Security
 
 Some texts carry data from the email (`{sender}`, `{services}`,
-`{organizer}`). Translated text is therefore treated like any other
-untrusted string: it goes through `escapeHTML` or `textContent`. Only
-keys ending in `_html` are inserted as HTML, and they are static strings
-shipped with the extension. `tests/extension/locales.test.js` fails if a
-`${t(...)}` inside a template literal is not escaped.
+`{organizer}`). The extension never builds HTML from strings: translated
+texts become text nodes through `h()` or `textContent`. Keys ending in
+`_html` carry a little markup (`<strong>`, `<em>`, `<code>`, `<br>`,
+`<span id>`); `PhishLensDom.setMarkup` rebuilds them from that allowlist
+of tags, and they are static strings shipped with the extension.
+`tests/extension/locales.test.js` fails on any `innerHTML` in the
+extension.
 
 ### Checks
 

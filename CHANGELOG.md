@@ -19,6 +19,27 @@ backend share one version number.
   caught, and 1 of 414 legitimate emails flagged (0.2%), instead of the
   text model's offline score alone; "How it works" no longer mentions
   the header model, off since 2.0.8.
+- Extension code reorganised, same behaviour:
+  - the popup is split into ES modules, one per view;
+  - every request to the server, from the popup as from the mail
+    pages, goes through the service worker (`lib/api.js`), which also
+    keeps the explanation cache;
+  - no HTML is built from strings any more: elements come from `h()`
+    (`lib/dom.js`) and the translated texts with markup are rebuilt from
+    an allowlist of tags; a test fails on `innerHTML`;
+  - each content script is wrapped in a function and shares what it
+    offers through one `PhishLensPage` namespace, instead of top-level
+    names visible to every file;
+  - the attachment types, the "could not look inside" flags and the
+    threat-intelligence names are defined once (`lib/constants.js`), as
+    are the history entry and the report body;
+  - what PhishLens assumes about Gmail's page (class names, the account
+    token, the "Show original" view) is in `lib/gmail_page.js`, tested
+    on sample pages;
+  - errors that used to be swallowed silently are logged at the
+    console's Verbose level, and an empty `catch` now fails the lint.
+- A failed word-level explanation in Gmail and Outlook now says so,
+  instead of "Computing the explanation…" forever.
 
 ### Documentation
 - The privacy policy and the terms, in the 8 languages, say who runs

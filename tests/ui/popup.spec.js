@@ -1,6 +1,6 @@
 // Popup UI smoke tests. The popup is served over HTTP (ES modules do not
 // load from file://), the chrome.* extension APIs are replaced by an
-// in-memory stub, and every backend call is intercepted, so the tests
+// in-memory stub, and every server call is intercepted, so the tests
 // check the real popup code end to end without a backend or a browser
 // profile with the extension installed.
 "use strict";
@@ -55,9 +55,19 @@ function fakeChrome() {
             },
         },
         runtime: {
-            sendMessage: (msg) => {
+            // Stands in for background.js: the server calls become requests
+            // to PhishLens Cloud, which the tests intercept.
+            sendMessage: async (msg) => {
                 window.__sent = (window.__sent || []).concat([msg]);
-                return Promise.resolve(msg?.type === "phishlens.feedback" ? { ok: true, reference: "a1b2c3d4e5f6" } : {});
+                if (msg?.type === "phishlens.feedback") return { ok: true, data: { reference: "a1b2c3d4e5f6" } };
+                const endpoint = { "phishlens.analyse": "/analyse", "phishlens.analyse_attachment": "/analyse_attachment",
+                    "phishlens.explain": "/explain" }[msg?.type];
+                if (!endpoint) return { ok: true, data: null };
+                const resp = await fetch(`https://phishlens.dev${endpoint}`, {
+                    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(msg.payload),
+                });
+                const data = await resp.json().catch(() => null);
+                return resp.ok ? { ok: true, data } : { ok: false, error: data?.detail || `HTTP ${resp.status}` };
             },
             getManifest: () => ({ version: "test" }),
         },

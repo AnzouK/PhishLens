@@ -1,13 +1,15 @@
-// =====================================================================
-// PhishLens content script: language and report controls under a verdict
-// (Gmail and Outlook). The controls themselves are lib/report_ui.js, the
-// redaction lib/redact.js; this file connects them to the banner and to
-// the history.
-// =====================================================================
+// Language and report controls under a verdict (Gmail and Outlook). The
+// controls are lib/report_ui.js and the redaction lib/redact.js; this file
+// connects them to the banner and to the history.
+(function () {
+"use strict";
 
-// The user's own address and name on this page, so they are removed from
-// anything they report.
-function pllAccountTerms() {
+const PL = globalThis.PhishLensPage;
+const { debug } = PhishLensShared;
+
+// The user's own address and name on this page, removed from anything
+// they report.
+function accountTerms() {
     const found = [];
     const title = document.title.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/);
     if (title) found.push(title[0]);
@@ -19,43 +21,21 @@ function pllAccountTerms() {
 }
 
 // The redacted text kept for a later report: subject, body and links.
-function pllDraftText(subject, body, links) {
+function draftText(subject, body, links) {
     const text = [subject, body, ...(links || []).slice(0, 20)].filter(Boolean).join("\n");
-    return PhishLensRedact.redact(text.slice(0, 20000), pllAccountTerms());
+    return PhishLensRedact.redact(text.slice(0, 20000), accountTerms());
 }
 
-function pllReportPayload(kind, text, data, extra) {
-    return {
-        kind,
-        text,
-        verdict: data.verdict,
-        fused_score: Number(data.fused_score) || 0,
-        agents: {
-            text: Number(data.agents?.text?.phishing_probability) || 0,
-            url: Number(data.agents?.url?.phishing_probability) || 0,
-            metadata: Number(data.agents?.metadata?.phishing_probability) || 0,
-        },
-        trust_path: data.trust_path || null,
-        source: extra.source,
-        lang: data.language?.code || null,
-        lang_user: extra.langUser || null,
-        ui_lang: PhishLensI18n.language(),
-        version: chrome.runtime.getManifest?.().version || null,
-    };
-}
-
-// Adds the controls to the banner of `root` once the scan is in the
-// history (historyId), and keeps the redacted text for a later report.
-function pllAttachFeedback(root, data, { historyId, source, subject, body, links }) {
+// Adds the controls to the banner in `root` and keeps the redacted text
+// with the history entry `historyId`, for a report from Insights later.
+PL.attachFeedback = function attachFeedback(root, data, { historyId, source, subject, body, links }) {
     const main = root.querySelector(".pll-banner .pll-banner__main");
     if (!main || data.verdict === "error") return;
-    const draft = pllDraftText(subject, body, links);
-    if (historyId && draft) {
-        chrome.runtime.sendMessage({ type: "phishlens.history.draft", id: historyId, text: draft }).catch(() => {});
-    }
+    const draft = draftText(subject, body, links);
+    const history = PhishLensApi.history;
+    if (historyId && draft) history.draft(historyId, draft).catch((e) => debug("report draft", e));
     const state = { langUser: null };
-    const update = (patch) => historyId &&
-        chrome.runtime.sendMessage({ type: "phishlens.history.update", id: historyId, patch }).catch(() => {});
+    const update = (patch) => historyId && history.update(historyId, patch).catch((e) => debug("history update", e));
 
     const box = document.createElement("div");
     box.className = "plr-box";
@@ -66,12 +46,19 @@ function pllAttachFeedback(root, data, { historyId, source, subject, body, links
     box.append(PhishLensReport.reportButton({
         verdict: data.verdict,
         getText: async () => draft,
-        redact: (text) => PhishLensRedact.redact(text, pllAccountTerms()),
-        send: (kind, text) => chrome.runtime.sendMessage({
-            type: "phishlens.feedback",
-            payload: pllReportPayload(kind, text, data, { source, langUser: state.langUser }),
-        }),
+        redact: (text) => PhishLensRedact.redact(text, accountTerms()),
+        send: PhishLensReport.sendWith(PhishLensApi.feedback,
+            (kind, text) => PhishLensReport.payload(kind, text, data, { source, langUser: state.langUser })),
         onSent: (_kind, reference) => update({ label: "wrong", reported: reference }),
     }));
     main.append(box);
-}
+};
+
+// Saves a scan in the history; resolves to its id, or null.
+PL.saveScan = function saveScan(data, extra) {
+    return PhishLensApi.history.save(PhishLensHistory.entryFrom(data, extra)).catch((e) => {
+        debug("history save", e);
+        return null;
+    });
+};
+})();
