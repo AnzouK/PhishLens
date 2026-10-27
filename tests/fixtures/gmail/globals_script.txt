@@ -1,0 +1,2 @@
+_GM_setData({"a":1});
+var GLOBALS=[null,null,1761000000,"example.org",null,"en","",0,"/mail/u/0/","1a2b3c4d5e",null,0,"reader@example.org"];GLOBALS[17]=[];

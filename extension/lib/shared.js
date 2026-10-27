@@ -1,9 +1,4 @@
-// =====================================================================
-// PhishLens: helpers shared by the popup, the content scripts and the
-// service worker (one implementation of each, instead of a copy per file).
-// =====================================================================
-// Exported as globalThis.PhishLensShared (classic scripts, no bundler).
-// =====================================================================
+// Helpers shared by the popup, the content scripts and the service worker.
 (function () {
 "use strict";
 
@@ -26,15 +21,16 @@ async function getBackendBase() {
         const s = await new Promise((resolve) =>
             chrome.storage.local.get(["backend", "backend_custom_url"], resolve));
         return resolveBackend(s.backend || DEFAULT_BACKEND, s.backend_custom_url);
-    } catch {
+    } catch (e) {
+        debug("settings not readable, using the default server", e);
         return BACKEND_PRESETS[DEFAULT_BACKEND];
     }
 }
 
-// Text for innerHTML: every character with a meaning in HTML escaped.
-const HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-function escapeHTML(s) {
-    return String(s ?? "").replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+// For failures that change nothing for the user (a cache miss, a page
+// element that is gone): visible with the console's "Verbose" level.
+function debug(where, err) {
+    console.debug(`[PhishLens] ${where}:`, err?.message || err);
 }
 
 // The message of a failed API call: FastAPI returns {"detail": "..."},
@@ -49,7 +45,7 @@ function apiErrorMessage(data, status) {
 }
 
 const PhishLensShared = Object.freeze({
-    BACKEND_PRESETS, DEFAULT_BACKEND, resolveBackend, getBackendBase, escapeHTML, apiErrorMessage,
+    BACKEND_PRESETS, DEFAULT_BACKEND, resolveBackend, getBackendBase, apiErrorMessage, debug,
 });
 globalThis.PhishLensShared = PhishLensShared;
 

@@ -1,12 +1,9 @@
-// =====================================================================
-// PhishLens: "is this right?" controls under a verdict.
-// =====================================================================
-// Shared by the Gmail and Outlook banners and the popup:
+// "Is this right?" controls under a verdict, in the Gmail and Outlook
+// banners and in the popup:
 //   languageLine()  "Language detected: French. Correct / Not this language"
-//   reportButton()  "Wrong verdict? Report it", which opens a panel with
-//                   the redacted text, editable, sent only on request.
+//   reportButton()  "Wrong verdict? Report it": a panel with the redacted
+//                   text, editable, sent only when the user confirms.
 // Classes are prefixed plr- (styled in banner.css and popup.css).
-// =====================================================================
 (function () {
 "use strict";
 
@@ -176,7 +173,34 @@ function reportButton({ verdict, getText, redact, send, onSent }) {
     return wrap;
 }
 
-const api = Object.freeze({ LANGS, languageName, languageLine, reportPanel, reportButton, sentMessage });
+// The body of a report (POST /feedback): the verdict and scores, never
+// the sender or the subject; `text` was redacted and shown to the user.
+function payload(kind, text, data, { source, lang, langUser } = {}) {
+    const p = (agent) => Number(data?.agents?.[agent]?.phishing_probability) || 0;
+    return {
+        kind, text,
+        verdict: data?.verdict,
+        fused_score: Number(data?.fused_score) || 0,
+        agents: { text: p("text"), url: p("url"), metadata: p("metadata") },
+        trust_path: data?.trust_path || null,
+        source: source || "paste",
+        lang: data?.language?.code || lang || null,
+        lang_user: langUser || null,
+        ui_lang: i18n().language(),
+        version: chrome.runtime.getManifest?.().version || null,
+    };
+}
+
+// What reportPanel expects from send(): { ok, reference } or { ok, error }.
+function sendWith(feedback, buildPayload) {
+    return (kind, text) => feedback(buildPayload(kind, text))
+        .then((reference) => ({ ok: true, reference }))
+        .catch((e) => ({ ok: false, error: String(e?.message || e) }));
+}
+
+const api = Object.freeze({
+    LANGS, languageName, languageLine, reportPanel, reportButton, sentMessage, payload, sendWith,
+});
 // eslint-disable-next-line no-undef
 if (typeof module !== "undefined" && module.exports) module.exports = api;
 globalThis.PhishLensReport = api;
