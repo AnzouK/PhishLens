@@ -55,6 +55,8 @@ jobs:
           ## Install
 
           Download `PhishLens-extension-VERSION.zip` below, unzip it, open `chrome://extensions`, turn on Developer mode and choose **Load unpacked** on the unzipped folder. Step by step: [user guide](https://github.com/AnzouK/PhishLens/wiki/Installation).
+
+          The zip holds only what Chrome loads; the tests and the lint configuration are in the repository ([Source and tests](https://github.com/AnzouK/PhishLens#source-and-tests)).
           TXT
           sed -i "s/VERSION\.zip/$VERSION.zip/; s/^          //" notes.md
 

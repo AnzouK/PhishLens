@@ -138,6 +138,21 @@ the English text model by default; the multilingual model is private
 because part of its training mail is. Configuration, deployment and
 monitoring: [operations guide](docs/operations.md).
 
+### Source and tests
+
+The release zip holds only what Chrome loads. The extension is plain
+JavaScript with no build step, so `extension/` in this repository is the
+same code, with its tests and lint configuration next to it:
+
+```bash
+node --test tests/extension/*.test.js                      # unit tests, no dependency
+npx eslint . --max-warnings 0                              # eslint.config.mjs
+npx playwright test --config tests/ui/playwright.config.js # popup and website
+```
+
+CI runs all three on every pull request. Setup and project layout:
+[contributing guide](CONTRIBUTING.md).
+
 ## Documentation
 
 | Document | Contents |

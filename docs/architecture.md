@@ -46,17 +46,22 @@ flowchart LR
 
 | Module | Responsibility |
 | --- | --- |
-| `extension/content_scripts/core.js` | Shared state of the content scripts: options, observers, text and link extraction, message passing to the service worker |
+| `extension/content_scripts/core.js` | Loaded first in mail pages: creates the `PhishLensPage` namespace the other content scripts add to; options, page watchers, text and link extraction |
 | `extension/content_scripts/banner.js` | The verdict banner, its chips and the "Why?" panel (Gmail and Outlook) |
 | `extension/content_scripts/gmail_scan.js` | Gmail: scan buttons, reading the open email, "Show original" headers, `mailed-by` / `signed-by` |
 | `extension/content_scripts/attachments.js` | Gmail: attachment buttons, download and scan, attachment results |
 | `extension/content_scripts/autoscan.js` | Gmail: optional automatic scan of unread mail, list badges, notifications |
-| `extension/content_scripts/gmail.js` | Gmail: starts the observers (loaded last) |
+| `extension/content_scripts/gmail.js` | Gmail: starts the page watchers (loaded last) |
 | `extension/content_scripts/outlook.js` | Outlook on the web: scan button and reading the open email |
-| `extension/background.js` | Proxies requests to the backend (the mail pages' CSP blocks direct fetches), saves scans to the history, notifications |
-| `extension/lib/shared.js` | Backend choice, HTML escaping and API error messages, shared by every view |
+| `extension/popup/` | The popup as ES modules: `popup.js` (entry), one module per view (`upload`, `result`, `insights`, `settings`), `report.js` |
+| `extension/background.js` | Every request to the server (the mail pages' CSP blocks direct ones) and the explanation cache; the history for the content scripts; notifications |
+| `extension/lib/api.js` | `PhishLensApi`: the one way the popup and the content scripts reach the server, through the service worker |
+| `extension/lib/dom.js` | `h()` builds elements without HTML strings; icons; translated markup rebuilt from an allowlist of tags |
+| `extension/lib/gmail_page.js` | Everything assumed about Gmail's page (selectors, account token, "Show original"), tested on sample pages |
+| `extension/lib/constants.js` | Attachment types, "could not look inside" flags, threat-intelligence names |
+| `extension/lib/shared.js` | Server choice, API error messages, `debug()` logging |
 | `extension/lib/i18n.js`, `locales/` | Interface texts in 8 languages (see [languages.md](languages.md)) |
-| `extension/lib/history.js`, `lime_cache.js` | Local scan history and analytics; SHA-256 keyed LIME cache |
+| `extension/lib/history.js`, `lime_cache.js` | Local scan history and analytics; SHA-256 keyed explanation cache |
 | `backend/extension_backend.py` | HTTP API only: endpoints, request limits, rate limiting, metrics, result cache, error references |
 | `backend/settings.py` | Version, environment variables, every scoring constant (weights, thresholds, trust paths) |
 | `backend/email_parsing.py` | Visible text, links and headers of an email; forwarded emails; links to file-sharing services |
