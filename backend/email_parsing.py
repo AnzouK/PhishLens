@@ -33,7 +33,7 @@ def html_to_text(html_src: str) -> str:
     it as words. BeautifulSoup when installed (it is in requirements.txt),
     a linear find-based fallback otherwise.
     """
-    html_src = html_src[:1_000_000]
+    html_src = without_inline_data(html_src)[:1_000_000]
     try:
         from bs4 import BeautifulSoup  # type: ignore
 
@@ -77,6 +77,39 @@ def html_to_text(html_src: str) -> str:
 
 # href="https://..." in an HTML part. Bounded class, no nested
 # quantifiers: linear on any input.
+# Source code shown as text: when a mail page cannot render an email
+# (Gmail gives up on very large HTML), its visible text is the HTML
+# itself, inline images included. The text model reads that as phishing.
+_DATA_URI_RE = re.compile(r"data:[\w/+.-]{1,100};base64,[A-Za-z0-9+/=\s]{1,8000000}")
+_BASE64_RUN_RE = re.compile(r"[A-Za-z0-9+/=]{200,}")
+# A tag, or one cut off at the end of a truncated page text.
+_TAG_RE = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]{0,20}(?:\s[^<>]{0,2000})?(?:/?>|\Z)")
+
+
+def without_inline_data(html_src: str) -> str:
+    """HTML without its inline images (data: URIs). A large one before the
+    links pushed them past the size the scan reads: a newsletter with a
+    600 KB inline banner showed no link at all."""
+    return _DATA_URI_RE.sub("", html_src[:10_000_000])
+
+
+def strip_markup_noise(text: str) -> str:
+    """Text without inline data (data: URIs, long base64 runs) and HTML
+    tags, for a page text that is really the email's source."""
+    text = _DATA_URI_RE.sub(" ", text)
+    text = _BASE64_RUN_RE.sub(" ", text)
+    text = _TAG_RE.sub(" ", text)
+    return "\n".join(" ".join(line.split()) for line in text.splitlines() if line.strip())
+
+
+def looks_like_source(text: str) -> bool:
+    """True when most of a page text is markup or inline data rather
+    than words."""
+    if not text:
+        return False
+    return len(strip_markup_noise(text)) < 0.5 * len(text.strip())
+
+
 _HREF_RE = re.compile(r"""href=["'](https?://[^"'\s<>]{1,2048})""", re.IGNORECASE)
 
 
@@ -116,7 +149,7 @@ def _link_targets(msg, body: str) -> list[str]:
             html_src = part.get_content()
         except Exception:
             continue
-        for m in _HREF_RE.finditer(html_src[:500_000]):
+        for m in _HREF_RE.finditer(without_inline_data(html_src)[:500_000]):
             if m.group(1) not in urls:
                 urls.append(m.group(1))
             if len(urls) >= 200:
@@ -163,7 +196,7 @@ def _parse_lenient(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
         html = html_to_text(texts["text/html"]) if texts["text/html"] else ""
         body = (html if html.strip() else texts["text/plain"]).strip()
         urls = urls_in_text(body)
-        for m in _HREF_RE.finditer(texts["text/html"][:500_000]):
+        for m in _HREF_RE.finditer(without_inline_data(texts["text/html"])[:500_000]):
             if m.group(1) not in urls and len(urls) < 200:
                 urls.append(m.group(1))
         if body or urls:

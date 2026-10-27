@@ -39,6 +39,7 @@ TRACKING = frozenset(
         "cmail19.com",
         "cmail20.com",
         "rs6.net",
+        "email-messaging.com",
     ]
 )
 ASSET_HOSTS = frozenset({"fonts.googleapis.com", "fonts.gstatic.com"})

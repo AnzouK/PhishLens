@@ -7,6 +7,24 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Fixed
+- A large inline image (a `data:` URI) before an email's links pushed
+  them past the part of the HTML the scan reads: a bank's welcome email
+  with a 600 KB banner showed no link at all. Inline images are now left
+  out before the links and the text are read.
+- In Gmail, an email too large to display shows its HTML source as
+  text; that text was scored as the email's wording (99%, a false
+  alarm on a DKIM-signed bank email). When the page text is mostly
+  markup or inline data, the text of the original message is used
+  instead, and links to Gmail itself ("View entire message") are no
+  longer counted as the sender's links.
+- Transaction alerts sent through `email-messaging.com` click tracking
+  were taken for links "elsewhere" and flagged by the link rule; that
+  domain is now known click tracking.
+- A sender showing "E.Leclerc" or "Stanbic IBTC" from another domain is
+  now flagged as impersonation (a fake Leclerc prize email was rated
+  safe).
+
 ### Added
 - The home page in each language describes PhishLens to search engines
   with a schema.org `SoftwareApplication` block (JSON-LD): a free,

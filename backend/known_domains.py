@@ -84,6 +84,9 @@ BRANDS: dict[str, frozenset[str]] = {
         "boursorama": "boursorama boursobank",
         "vinted": "vinted",
         "leboncoin": "leboncoin",
+        # E.Leclerc also sends from its own top-level domain (e.leclerc),
+        # whose organisational domain starts with "e".
+        "leclerc": "e-leclerc leclerc mouvement-leclerc e",
         # Elsewhere in Europe
         "correos": "correos",
         "ctt": "ctt",
@@ -94,6 +97,7 @@ BRANDS: dict[str, frozenset[str]] = {
         "royal mail": "royalmail",
         # Nigeria
         "gtbank": "gtbank gtco",
+        "stanbic": "stanbicibtc stanbicibtcbank stanbic standardbank",
         "zenith bank": "zenithbank",
         "access bank": "accessbankplc",
         "first bank": "firstbanknigeria fbnholdings",

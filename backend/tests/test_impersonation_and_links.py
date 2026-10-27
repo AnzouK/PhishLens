@@ -30,6 +30,11 @@ def client(monkeypatch):
         ("La Poste Colis <x@evil.example>", "la poste"),
         ("impots.gouv <x@dgfip-impots.com>", "impots"),
         ("UPS Delivery <x@evil.example>", "ups"),
+        ('"E.Leclerc Fidelite" <nepasrepondre@628pycvj.example>', "leclerc"),
+        ("Stanbic IBTC <alerts@stanbic-alerts.example>", "stanbic"),
+        ("E.Leclerc <news@info.e-leclerc.com>", None),
+        ("E.Leclerc <news@e.leclerc>", None),
+        ("Notification <E-Alert@stanbicibtc.com>", None),
         ("Chronopost <no-reply@chronopost.fr>", None),
         ("Coinbase <no-reply@info.coinbase.com>", None),
         ("Impots.gouv.fr <ne-pas-repondre@dgfip.finances.gouv.fr>", None),
@@ -236,6 +241,8 @@ SIGNED_ELSEWHERE = (
         (["https://secure-verify.example/x"], True),
         (["https://u1.ct.sendgrid.net/ls/click?x", "https://fonts.googleapis.com/css"], False),
         (["https://github.com/x"], False),
+        # A bank's transaction alerts, through its mailer's click tracking.
+        (["http://emailtracking.email-messaging.com/tracking/1/click/abc"], False),
         ([], False),
     ],
 )
@@ -264,3 +271,57 @@ def test_crypto_link_rule_can_be_turned_off(client, monkeypatch):
     j = client.post("/analyse", json=body).json()
     assert j["trust_path"] == "crypto_verified" and j["verdict"] == "phishing"
     assert j["links_elsewhere"] is True
+
+
+# A large email Gmail could not render: the page shows its HTML source,
+# inline image included, as text.
+SOURCE_AS_TEXT = (
+    '<div style="width: 100%"><img style="max-width: 100%" src="data:image/jpeg;base64,'
+    + "QUJD" * 600
+    + '"></div>'
+)
+WELCOME = (
+    b"From: Customer Care <care@bank.example>\r\n"
+    b"Subject: Welcome to the bank\r\n"
+    b"Content-Type: text/html\r\n\r\n"
+    b"<p>Dear customer, we are delighted to welcome you. Your current account is open.</p>\r\n"
+)
+
+
+def test_markup_noise_is_stripped():
+    from email_parsing import looks_like_source, strip_markup_noise
+
+    assert looks_like_source(SOURCE_AS_TEXT)
+    assert strip_markup_noise(SOURCE_AS_TEXT) == ""
+    assert strip_markup_noise(SOURCE_AS_TEXT[:900]) == ""  # cut inside the tag
+    assert not looks_like_source("Hello, the meeting moved to 3pm. Thanks")
+    assert strip_markup_noise("<p>Hi <b>there</b>, 2 < 3.</p>") == "Hi there , 2 < 3."
+
+
+def test_page_text_that_is_source_gives_way_to_the_original(client, monkeypatch):
+    import base64
+
+    seen = []
+    monkeypatch.setattr(tm, "text_agent", lambda t: seen.append(t) or 0.1)
+    client.post(
+        "/analyse",
+        json={
+            "raw_email_b64": base64.b64encode(WELCOME).decode(),
+            "raw_text": SOURCE_AS_TEXT,
+        },
+    )
+    assert "delighted to welcome you" in seen[0]
+    assert "base64" not in seen[0]
+
+
+def test_a_large_inline_image_does_not_hide_the_links():
+    from email_parsing import parse_eml
+
+    raw = (
+        b"From: Shop <news@shop.example>\r\nSubject: Offer\r\nContent-Type: text/html\r\n\r\n"
+        b'<img src="data:image/png;base64,' + b"QUJD" * 200_000 + b'">'
+        b'<p>Claim it <a href="https://claim-gift.example/x">here</a>.</p>\r\n'
+    )
+    body, urls, _ = parse_eml(raw)
+    assert urls == ["https://claim-gift.example/x"]
+    assert "Claim it" in body
