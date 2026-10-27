@@ -1,6 +1,6 @@
 # Política de privacidade do PhishLens
 
-Última atualização: 16 de outubro de 2026.
+Última atualização: 27 de outubro de 2026.
 
 O PhishLens é uma extensão do Chrome que verifica se os e-mails são
 phishing. Esta página explica que dados trata, para onde vão e o que é
@@ -77,16 +77,17 @@ depois de ler o que vai ser enviado.
 | Estatísticas | Para cada análise do seu histórico: o dia, onde foi feita (Gmail, Outlook, janela da extensão), o veredito, as pontuações, se o remetente era de confiança, a sua avaliação Certo / Errado, o idioma detetado e a sua resposta | Assuntos, remetentes, textos, links |
 
 As comunicações vão para o PhishLens Cloud, seja qual for o servidor que
-usa para as análises. O servidor anonimiza o texto uma segunda vez com as
-mesmas regras, guarda a comunicação sem o seu endereço IP nem outros
+usa para as análises. O servidor anonimiza o texto uma segunda vez com
+as mesmas regras, guarda a comunicação sem o seu endereço IP nem outros
 dados do pedido (o registo do servidor web descrito abaixo continua a
 registar o pedido durante 30 dias) e devolve uma referência. As
 comunicações servem apenas para medir e melhorar o PhishLens (por
-exemplo, para treinar o modelo de texto com e-mails legítimos que avaliou
-mal); nunca são publicadas nem partilhadas. São guardadas no máximo dois
-anos. Para apagar uma comunicação, abra um pedido em
-https://github.com/AnzouK/PhishLens/issues com a respetiva referência (a
-referência por si só não revela nada da comunicação).
+exemplo, para treinar o modelo de texto com e-mails legítimos que
+avaliou mal); nunca são publicadas nem partilhadas. São guardadas no
+máximo dois anos. Para apagar uma comunicação, escreva para
+privacy@phishlens.dev com a respetiva referência, ou abra um pedido em
+https://github.com/AnzouK/PhishLens/issues (a referência por si só não
+revela nada da comunicação).
 
 Para permitir comunicar a partir da vista Estatísticas, o texto
 anonimizado das suas últimas análises no Gmail e no Outlook fica no seu
@@ -149,10 +150,31 @@ um pedido normal do seu navegador.
 O PhishLens não se destina a crianças e não recolhe conscientemente
 dados sobre elas.
 
+## Quem é responsável
+
+O PhishLens é um projeto pessoal e não comercial, mantido por um
+particular, responsável pelo PhishLens Cloud e por este site. O
+PhishLens Cloud funciona na Oracle Cloud Infrastructure (Oracle
+Corporation, Austin, Texas, Estados Unidos), no seu centro de dados de
+Frankfurt, na Alemanha. O DNS do domínio passa pela Cloudflare
+(Cloudflare, Inc., São Francisco, Califórnia, Estados Unidos). Contacto:
+privacy@phishlens.dev.
+
+## Os seus direitos
+
+Pode pedir o que o PhishLens Cloud guarda sobre si e pedir que seja
+apagado: uma comunicação que enviou (indique a referência), ou as
+entradas do registo do servidor web relativas aos seus pedidos,
+guardadas 30 dias (indique a data e o seu endereço IP). Escreva para
+privacy@phishlens.dev; recebe uma resposta no prazo de 30 dias. O
+PhishLens não guarda e-mails, contas nem perfis, por isso normalmente
+não há mais nada a devolver ou apagar.
+
 ## Alterações e contacto
 
-As alterações a esta política estão listadas no
-[registo de alterações](CHANGELOG.md) do projeto. Para questões, abra
-um pedido em https://github.com/AnzouK/PhishLens/issues, ou comunique um
-problema de segurança de forma confidencial como descrito em
+As alterações a esta política estão listadas no [registo de
+alterações](CHANGELOG.md) do projeto. Questões e pedidos sobre os seus
+dados: privacy@phishlens.dev. Erros e sugestões: abra um pedido em
+https://github.com/AnzouK/PhishLens/issues. Problemas de segurança:
+comunique-os de forma confidencial como descrito em
 [SECURITY.md](SECURITY.md).

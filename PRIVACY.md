@@ -1,6 +1,6 @@
 # PhishLens privacy policy
 
-Last updated: October 16, 2026.
+Last updated: October 27, 2026.
 
 PhishLens is a Chrome extension that checks emails for phishing. This
 page explains what data it handles, where that data goes and what is
@@ -78,12 +78,13 @@ Reports go to PhishLens Cloud whatever server you use for scanning. The
 server redacts the text again with the same rules, stores the report
 without your IP address or any other request data (the web server's
 access log described below still records the request for 30 days), and
-returns a reference. Reports are used only to measure and improve PhishLens (for
-example to train the text model on legitimate mail it got wrong); they
-are never published or shared. They are kept for at most two years.
-To have a report deleted, open an issue at
-https://github.com/AnzouK/PhishLens/issues with its reference (the
-reference alone says nothing about the report).
+returns a reference. Reports are used only to measure and improve
+PhishLens (for example to train the text model on legitimate mail it got
+wrong); they are never published or shared. They are kept for at most
+two years. To have a report deleted, write to privacy@phishlens.dev with
+its reference, or open an issue at
+https://github.com/AnzouK/PhishLens/issues (the reference alone says
+nothing about the report).
 
 To make reporting possible from Insights, the redacted text of your last
 Gmail and Outlook scans is kept in your browser for 7 days (50 emails at
@@ -142,9 +143,28 @@ sees as a normal request from your browser.
 PhishLens is not directed at children and does not knowingly collect
 data about them.
 
+## Who is responsible
+
+PhishLens is a personal, non-commercial project maintained by an
+individual, who is responsible for PhishLens Cloud and this website.
+PhishLens Cloud runs on Oracle Cloud Infrastructure (Oracle Corporation,
+Austin, Texas, United States), in its Frankfurt data centre in Germany.
+The domain's DNS goes through Cloudflare (Cloudflare, Inc., San
+Francisco, California, United States). Contact: privacy@phishlens.dev.
+
+## Your rights
+
+You can ask what PhishLens Cloud keeps that relates to you, and have it
+deleted: a report you sent (give its reference), or the web-server log
+entries of your requests, kept 30 days (give the date and your IP
+address). Write to privacy@phishlens.dev; you get an answer within 30
+days. PhishLens keeps no email, no account and no profile, so there is
+usually nothing else to return or delete.
+
 ## Changes and contact
 
 Changes to this policy are listed in the project's
-[changelog](CHANGELOG.md). Questions: open an issue at
-https://github.com/AnzouK/PhishLens/issues, or report a security problem
-privately as described in [SECURITY.md](SECURITY.md).
+[changelog](CHANGELOG.md). Questions and requests about your data:
+privacy@phishlens.dev. Bugs and suggestions: open an issue at
+https://github.com/AnzouK/PhishLens/issues. Security problems: report
+them privately as described in [SECURITY.md](SECURITY.md).

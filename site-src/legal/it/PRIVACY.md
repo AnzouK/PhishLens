@@ -1,6 +1,6 @@
 # Informativa sulla privacy di PhishLens
 
-Ultimo aggiornamento: 16 ottobre 2026.
+Ultimo aggiornamento: 27 ottobre 2026.
 
 PhishLens è un'estensione di Chrome che controlla se le email sono
 phishing. Questa pagina spiega quali dati tratta, dove vanno e cosa
@@ -88,8 +88,9 @@ comunque la richiesta per 30 giorni) e restituisce un riferimento. Le
 segnalazioni servono solo a misurare e migliorare PhishLens (per esempio
 ad addestrare il modello del testo su email legittime giudicate male);
 non vengono mai pubblicate né condivise. Sono conservate al massimo due
-anni. Per far cancellare una segnalazione, apri una segnalazione su
-https://github.com/AnzouK/PhishLens/issues con il suo riferimento (il
+anni. Per far cancellare una segnalazione, scrivi a
+privacy@phishlens.dev indicando il suo riferimento, oppure apri una
+segnalazione su https://github.com/AnzouK/PhishLens/issues (il
 riferimento da solo non rivela nulla della segnalazione).
 
 Per permettere di segnalare dalla vista Statistiche, il testo
@@ -153,10 +154,30 @@ una normale richiesta del tuo browser.
 PhishLens non è rivolto ai minori e non raccoglie consapevolmente dati
 che li riguardano.
 
+## Chi è responsabile
+
+PhishLens è un progetto personale e non commerciale, gestito da un
+privato, responsabile di PhishLens Cloud e di questo sito. PhishLens
+Cloud funziona su Oracle Cloud Infrastructure (Oracle Corporation,
+Austin, Texas, Stati Uniti), nel suo data center di Francoforte, in
+Germania. Il DNS del dominio passa da Cloudflare (Cloudflare, Inc., San
+Francisco, California, Stati Uniti). Contatto: privacy@phishlens.dev.
+
+## I tuoi diritti
+
+Puoi chiedere che cosa PhishLens Cloud conserva su di te e farlo
+cancellare: una segnalazione che hai inviato (indica il suo
+riferimento), oppure le righe del registro del server web relative alle
+tue richieste, conservate 30 giorni (indica la data e il tuo indirizzo
+IP). Scrivi a privacy@phishlens.dev; riceverai una risposta entro 30
+giorni. PhishLens non conserva email, account né profili, quindi di
+solito non c'è altro da restituire o cancellare.
+
 ## Modifiche e contatti
 
-Le modifiche a questa informativa sono elencate nel
-[registro delle modifiche](CHANGELOG.md) del progetto. Per domande,
-apri una segnalazione su https://github.com/AnzouK/PhishLens/issues,
-oppure segnala un problema di sicurezza in modo riservato come descritto
-in [SECURITY.md](SECURITY.md).
+Le modifiche a questa informativa sono elencate nel [registro delle
+modifiche](CHANGELOG.md) del progetto. Domande e richieste sui tuoi
+dati: privacy@phishlens.dev. Errori e suggerimenti: apri una
+segnalazione su https://github.com/AnzouK/PhishLens/issues. Problemi di
+sicurezza: segnalali in modo riservato come descritto in
+[SECURITY.md](SECURITY.md).

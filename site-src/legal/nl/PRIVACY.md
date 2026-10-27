@@ -1,6 +1,6 @@
 # Privacybeleid van PhishLens
 
-Laatst bijgewerkt: 16 oktober 2026.
+Laatst bijgewerkt: 27 oktober 2026.
 
 PhishLens is een Chrome-extensie die e-mails op phishing controleert.
 Deze pagina legt uit welke gegevens ze verwerkt, waar die naartoe gaan
@@ -84,10 +84,11 @@ verzoekgegevens (het hieronder beschreven logboek van de webserver legt
 het verzoek wel 30 dagen vast) en geeft een referentie terug. Meldingen
 dienen alleen om PhishLens te meten en te verbeteren (bijvoorbeeld om
 het tekstmodel te trainen op legitieme e-mails die het verkeerd
-beoordeelde); ze worden nooit gepubliceerd of gedeeld. Ze worden
-hooguit twee jaar bewaard. Om een melding te laten verwijderen, opent u
-een issue op https://github.com/AnzouK/PhishLens/issues met de
-referentie (de referentie alleen zegt niets over de melding).
+beoordeelde); ze worden nooit gepubliceerd of gedeeld. Ze worden hooguit
+twee jaar bewaard. Om een melding te laten verwijderen, schrijft u naar
+privacy@phishlens.dev met de referentie, of opent u een issue op
+https://github.com/AnzouK/PhishLens/issues (de referentie alleen zegt
+niets over de melding).
 
 Om melden vanuit de weergave Statistieken mogelijk te maken, blijft de
 geanonimiseerde tekst van uw laatste Gmail- en Outlook-controles 7 dagen
@@ -148,10 +149,30 @@ ziet als een gewoon verzoek van uw browser.
 PhishLens is niet gericht op kinderen en verzamelt niet bewust gegevens
 over hen.
 
+## Wie verantwoordelijk is
+
+PhishLens is een persoonlijk, niet-commercieel project, onderhouden door
+een particulier, die verantwoordelijk is voor PhishLens Cloud en deze
+website. PhishLens Cloud draait op Oracle Cloud Infrastructure (Oracle
+Corporation, Austin, Texas, Verenigde Staten), in het datacenter in
+Frankfurt, Duitsland. De DNS van het domein loopt via Cloudflare
+(Cloudflare, Inc., San Francisco, Californië, Verenigde Staten).
+Contact: privacy@phishlens.dev.
+
+## Uw rechten
+
+U kunt vragen wat PhishLens Cloud over u bewaart en het laten
+verwijderen: een melding die u stuurde (vermeld de referentie), of de
+regels van uw verzoeken in het webserverlogboek, 30 dagen bewaard
+(vermeld de datum en uw IP-adres). Schrijf naar privacy@phishlens.dev; u
+krijgt binnen 30 dagen antwoord. PhishLens bewaart geen e-mails,
+accounts of profielen, dus er is meestal niets anders te geven of te
+verwijderen.
+
 ## Wijzigingen en contact
 
 Wijzigingen in dit beleid staan in het [wijzigingslogboek](CHANGELOG.md)
-van het project. Voor vragen opent u een issue op
-https://github.com/AnzouK/PhishLens/issues, of meldt u een
-beveiligingsprobleem vertrouwelijk zoals beschreven in
-[SECURITY.md](SECURITY.md).
+van het project. Vragen en verzoeken over uw gegevens:
+privacy@phishlens.dev. Fouten en suggesties: open een issue op
+https://github.com/AnzouK/PhishLens/issues. Beveiligingsproblemen: meld
+ze vertrouwelijk zoals beschreven in [SECURITY.md](SECURITY.md).

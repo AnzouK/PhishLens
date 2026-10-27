@@ -1,6 +1,6 @@
 # Nutzungsbedingungen von PhishLens
 
-Zuletzt aktualisiert: 16. Oktober 2026.
+Zuletzt aktualisiert: 27. Oktober 2026.
 
 Diese Bedingungen gelten für die Chrome-Erweiterung PhishLens, die
 Website `phishlens.dev` und PhishLens Cloud, den gehosteten
@@ -65,9 +65,20 @@ zulässig, haften die Autoren nicht für Verluste oder Schäden aus der
 Nutzung, einschließlich einer übersehenen Phishing-E-Mail oder einer
 irrtümlich gemeldeten legitimen E-Mail.
 
+## Wer PhishLens betreibt
+
+PhishLens ist ein persönliches, nicht kommerzielles Projekt, betrieben
+von einer Privatperson, die für PhishLens Cloud und diese Website
+verantwortlich ist. PhishLens Cloud läuft auf Oracle Cloud
+Infrastructure (Oracle Corporation, Austin, Texas, USA) in deren
+Rechenzentrum in Frankfurt, Deutschland. Das DNS der Domain läuft über
+Cloudflare (Cloudflare, Inc., San Francisco, Kalifornien, USA). Kontakt:
+privacy@phishlens.dev.
+
 ## Änderungen und Kontakt
 
 Diese Bedingungen können sich ändern; das Datum oben zeigt die letzte
 Aktualisierung, und Änderungen sind im
-[Änderungsprotokoll](CHANGELOG.md) aufgeführt. Bei Fragen eröffnen Sie
-ein Issue unter https://github.com/AnzouK/PhishLens/issues.
+[Änderungsprotokoll](CHANGELOG.md) aufgeführt. Bei Fragen:
+privacy@phishlens.dev, oder eröffnen Sie ein Issue unter
+https://github.com/AnzouK/PhishLens/issues.

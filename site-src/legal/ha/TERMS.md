@@ -1,6 +1,6 @@
 # Sharuɗɗan amfani da PhishLens
 
-An sabunta ta ƙarshe: 16 ga Oktoba, 2026.
+An sabunta ta ƙarshe: 27 ga Oktoba, 2026.
 
 Waɗannan sharuɗɗan sun shafi ƙarin Chrome na PhishLens, shafin yanar
 gizo `phishlens.dev` da PhishLens Cloud, sabar bincike da aka
@@ -62,9 +62,18 @@ yarda, marubutan ba su da alhakin kowace asara ko lahani da ya samo
 asali daga amfani da shi, har da imel na phishing da aka rasa ko imel na
 gaskiya da aka yi wa alama bisa kuskure.
 
+## Wanda ke gudanar da PhishLens
+
+PhishLens aiki ne na kai, ba na kasuwanci ba, wanda wani mutum ke kula
+da shi, kuma shi ke da alhakin PhishLens Cloud da wannan shafi.
+PhishLens Cloud yana aiki a kan Oracle Cloud Infrastructure (Oracle
+Corporation, Austin, Texas, Amurka), a cibiyar bayanansa da ke
+Frankfurt, Jamus. DNS na yankin yana bi ta Cloudflare (Cloudflare, Inc.,
+San Francisco, California, Amurka). Tuntuɓa: privacy@phishlens.dev.
+
 ## Canje-canje da tuntuɓa
 
 Waɗannan sharuɗɗan na iya canzawa; kwanan wata a sama yana nuna
-sabuntawa ta ƙarshe, kuma ana jera canje-canje a
-[tarihin canje-canje](CHANGELOG.md). Don tambayoyi, buɗe batu a
-https://github.com/AnzouK/PhishLens/issues.
+sabuntawa ta ƙarshe, kuma ana jera canje-canje a [tarihin
+canje-canje](CHANGELOG.md). Don tambayoyi: privacy@phishlens.dev, ko
+buɗe batu a https://github.com/AnzouK/PhishLens/issues.
