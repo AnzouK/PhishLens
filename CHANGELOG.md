@@ -7,6 +7,14 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Fixed
+- The website's live counters wait at most 6 seconds and are left out
+  when the server does not answer, instead of showing an error code.
+
+### Added
+- A test fails when a translation of the website carries other figures
+  than the English page.
+
 ## [2.0.11] - 2026-10-28
 
 ### Added
