@@ -85,6 +85,20 @@ Report the legitimate side source by source.
   run, the sources with their dates, the table, and the emails that could
   not be scored.
 
+## Published runs
+
+The runs behind the figures on public data are in [`docs/benchmark/`](benchmark/):
+one line per email with its id, label, verdict and scores, nothing of
+the email itself. The id is the first 16 hex digits of the SHA-256 of
+the raw message, so anyone with the same public dataset finds the same
+emails, runs the benchmark against their own server and compares:
+
+```bash
+python3 scripts/export_benchmark.py --compare docs/benchmark/fresh-phishing.jsonl my-run.jsonl
+```
+
+The 117 inbox emails are not published: they are personal mail.
+
 ## Results
 
 Sources of every run below: phishing from phishing_pot and Nazario 2025,

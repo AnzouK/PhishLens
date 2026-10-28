@@ -10,7 +10,7 @@
 [![Release](https://img.shields.io/github/v/release/AnzouK/PhishLens?color=blueviolet)](https://github.com/AnzouK/PhishLens/releases/latest)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-green.svg)](LICENSE)
 [![Website](https://img.shields.io/badge/Website-phishlens.dev-F80000)](https://phishlens.dev)
-[![Text model](https://img.shields.io/badge/text%20model-22%20languages-yellow)](docs/multilingual-model.md)
+[![Text model](https://img.shields.io/badge/checked%20on%20real%20phishing-6%20languages-yellow)](docs/multilingual-model.md)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/gmail-verdicts-dark.svg">
@@ -99,7 +99,8 @@ phishing sent from the attacker's own DKIM-signed domain still gets
 through; the runs, their causes and what was rejected are in
 [evaluation.md](docs/evaluation.md#results).
 
-A scan takes about 65 ms on the server (median, CPU only), plus the
+A scan of a typical email (about 250 tokens) takes about 190 ms on the
+server (median, CPU only), a short one about 65 ms, plus the
 threat-intelligence lookups.
 
 ## Install
@@ -180,6 +181,11 @@ CI runs all three on every pull request. Setup and project layout:
 - **Chrome Web Store release.**
 
 ## Origin and credits
+
+PhishLens is written with the help of an AI coding assistant. Every
+change is reviewed and tested, and every claim about detection is
+measured on the public benchmark before it ships
+([evaluation.md](docs/evaluation.md)).
 
 PhishLens started as a final-year project for a B.Sc. in Cybersecurity at
 [Nile University of Nigeria](https://nileuniversity.edu.ng/) (2025/2026)

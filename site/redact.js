@@ -1,6 +1,4 @@
-// =====================================================================
-// PhishLens: removing personal data from an email before it is shared.
-// =====================================================================
+// Removing personal data from an email before it is shared.
 // Used before a report leaves the browser (the server runs the same
 // rules again, backend/redaction.py). What is removed:
 //   email addresses, phone numbers, long numbers (accounts, cards, codes,
@@ -9,7 +7,6 @@
 //   names after a greeting or a title, and the words given in `terms`
 //   (the user's own name and address, read from the mail page).
 // The person always sees the result before sending it.
-// =====================================================================
 (function () {
 "use strict";
 

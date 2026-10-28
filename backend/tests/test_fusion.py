@@ -210,3 +210,31 @@ class TestCryptoLinkRule:
 
     def test_off_or_aligned_links_keep_the_discount(self):
         assert not self.decide(0.99, False).is_phishing
+
+
+def test_every_trust_path_forces_with_known_signs():
+    from settings import (
+        PATH_CRYPTO,
+        PATH_DEFAULT,
+        PATH_INBOX_SOFT,
+        PATH_OUTLOOK_INTERNAL,
+        PATH_TRUSTED,
+    )
+
+    for path in (PATH_TRUSTED, PATH_CRYPTO, PATH_INBOX_SOFT, PATH_OUTLOOK_INTERNAL, PATH_DEFAULT):
+        assert set(path.forcing) <= set(fusion.FORCING_SIGNS), path.name
+        assert "safe_browsing" in path.forcing or "confirmed_link" in path.forcing, path.name
+
+
+def test_the_verdict_says_which_sign_forced_it():
+    from settings import PATH_CRYPTO, PATH_DEFAULT
+
+    rep = fusion.Reputation()
+    v = fusion.decide_email(0.95, 0.1, 0.1, text_used=True, path=PATH_DEFAULT, rep=rep)
+    assert v.is_phishing and v.forced_by == ("confident_text",)
+    v = fusion.decide_email(
+        0.6, 0.1, 0.0, text_used=True, path=PATH_CRYPTO, rep=rep, links_elsewhere=True
+    )
+    assert v.is_phishing and v.forced_by == ("links_elsewhere",)
+    v = fusion.decide_email(0.95, 0.1, 0.0, text_used=True, path=PATH_CRYPTO, rep=rep)
+    assert not v.is_phishing and v.forced_by == ()

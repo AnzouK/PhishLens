@@ -24,6 +24,10 @@ VERSION = "2.0.10"
 # is downloaded from HF_MODEL_REPO on startup.
 MODEL_DIR = Path(os.environ.get("MODEL_DIR", Path(__file__).parent / "model"))
 HF_MODEL_REPO = os.environ.get("HF_MODEL_REPO", "AnzouKiona/phishlens-distilbert")
+# Commit of the model repository to download (a full sha from the
+# repository's history). Unset, the latest commit is used: whoever can
+# push to the repository can then change the model the server runs.
+HF_MODEL_REVISION = os.environ.get("HF_MODEL_REVISION") or None
 # float32 by default: faster than float16 on most CPUs.
 MODEL_DTYPE = os.environ.get("MODEL_DTYPE", "float32")
 MAX_LEN = 256  # tokens; the value used in training
@@ -37,6 +41,7 @@ LIME_MAX_CHARS = 800  # LIME explains the start of the body
 # URL and metadata agents (trained Random Forests, optional)
 # ---------------------------------------------------------------------
 HF_AGENTS_REPO = os.environ.get("HF_AGENTS_REPO", "AnzouKiona/phishlens-agents")
+HF_AGENTS_REVISION = os.environ.get("HF_AGENTS_REVISION") or None  # as HF_MODEL_REVISION
 # skops files are loaded with a type allowlist; pickle (joblib) is only a
 # fallback and AGENTS_ALLOW_PICKLE=0 refuses it (production setting).
 AGENTS_ALLOW_PICKLE = os.environ.get("AGENTS_ALLOW_PICKLE", "1") != "0"
@@ -97,11 +102,14 @@ class TrustPath:
 
     text_factor   multiplies the text agent's weight (1 = full weight)
     threshold     fused score from which the verdict is phishing
+    forcing       the signs that make the verdict phishing on their own,
+                  whatever the fused score (fusion.FORCING_SIGNS)
     """
 
     name: str
     text_factor: float
     threshold: float
+    forcing: tuple[str, ...] = ("safe_browsing",)
 
 
 # Base weights of the three agents on an email.
@@ -120,10 +128,19 @@ URL_OVERRIDE_RULE_MIN = 0.25
 # account") for phishing, so its weight is lowered when the sender is
 # proven. Only a Safe Browsing hit can then force the verdict.
 PATH_TRUSTED = TrustPath("trusted_sender", text_factor=0.5, threshold=0.65)
-PATH_CRYPTO = TrustPath("crypto_verified", text_factor=0.5, threshold=0.65)
+# A signature proves the domain, not the sender's honesty: with all its
+# links leading elsewhere and phishing-like wording, it does not protect.
+PATH_CRYPTO = TrustPath(
+    "crypto_verified", text_factor=0.5, threshold=0.65, forcing=("safe_browsing", "links_elsewhere")
+)
 PATH_INBOX_SOFT = TrustPath("gmail_inbox_soft", text_factor=0.6, threshold=0.62)
 PATH_OUTLOOK_INTERNAL = TrustPath("outlook_internal", text_factor=0.6, threshold=0.62)
-PATH_DEFAULT = TrustPath("default", text_factor=1.0, threshold=0.5)
+PATH_DEFAULT = TrustPath(
+    "default",
+    text_factor=1.0,
+    threshold=0.5,
+    forcing=("confident_text", "confident_sender", "confirmed_link"),
+)
 # Sender score floor when the From: shows a brand's name over another
 # domain's address (sender_trust.impersonated_brand): at or above
 # HIGH_CONF_OVERRIDE, so it decides the verdict on the default path.

@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=89d31dd2ec">
-<script src="../i18n/es.js?v=7bf0a76a40" defer></script>
+<script src="../i18n/es.js?v=bf0cf5ddb1" defer></script>
 <script src="../lang.js?v=0eb2be978d" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -69,7 +69,7 @@
  ]
 }
 </script>
-<script src="../redact.js?v=72aa662a52" defer></script>
+<script src="../redact.js?v=643a763373" defer></script>
 <script src="../app.js?v=b1c46d4034" defer></script>
 </head>
 <body>
@@ -139,12 +139,12 @@
     <div class="wrap">
       <h2><span class="n">01</span>Resultados</h2>
       <div class="strip">
-        <div class="cell"><div class="big">22</div><div class="lbl">idiomas que lee el modelo de texto</div></div>
+        <div class="cell"><div class="big">6</div><div class="lbl">idiomas comprobados con phishing real (el modelo de texto lee 22)</div></div>
         <div class="cell"><div class="big">90.6%</div><div class="lbl">del phishing detectado por el sistema completo, en correos recientes que nadie había examinado</div></div>
-        <div class="cell"><div class="big">65 ms</div><div class="lbl">análisis mediano en un servidor sin GPU</div></div>
-        <div class="cell"><div class="big">0.2%</div><div class="lbl">de los correos legítimos marcados como phishing</div></div>
+        <div class="cell"><div class="big">190 ms</div><div class="lbl">análisis mediano de un correo habitual en un servidor sin GPU</div></div>
+        <div class="cell"><div class="big">0.2%</div><div class="lbl">de los correos legítimos marcados como phishing (1 de 414)</div></div>
       </div>
-      <p class="note">Medido en PhishLens Cloud el 24 de octubre de 2026 con el benchmark público: 1812 de 2000 correos de phishing recientes, en varios idiomas, elegidos entre los que nadie examinó durante los ajustes (intervalo de confianza del 95 %: 89,2 % a 91,8 %), y 1 de 414 correos legítimos (297 de listas de correo públicas, 117 de buzones reales; 0,0 % a 1,4 %). El tiempo de análisis viene de una prueba de carga. Un orden de magnitud, no una garantía: vea <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">cómo se midió</a> y las <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limitaciones conocidas</a>.</p>
+      <p class="note">Medido en PhishLens Cloud el 24 de octubre de 2026 con el benchmark público: 1812 de 2000 correos de phishing recientes, en varios idiomas, elegidos entre los que nadie examinó durante los ajustes (intervalo de confianza del 95 %: 89,2 % a 91,8 %), y 1 de 414 correos legítimos (297 de listas de correo públicas, 117 de buzones reales; 0,0 % a 1,4 %). El tiempo de análisis es la mediana para un correo habitual (unos 250 tokens); uno corto tarda unos 65 ms. Un orden de magnitud, no una garantía: vea <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">cómo se midió</a> y las <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limitaciones conocidas</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, ahora mismo</h3>
       <div class="strip" id="live" aria-live="polite">

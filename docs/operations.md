@@ -88,7 +88,18 @@ scores are read comes from `phishlens_text_agent.json` in the repository
 ```bash
 # in ~/.phishlens.env
 HF_MODEL_REPO=<owner>/<model>
+HF_MODEL_REVISION=<commit sha>      # pin the exact model (see below)
+HF_AGENTS_REVISION=<commit sha>     # pin the URL and metadata agents
 HF_TOKEN=hf_...                     # private repositories only
+```
+
+Pin both revisions: without them the server downloads whatever the
+repository holds at that moment, and the log says so at start-up. The
+full sha of the latest commit (run where `HF_TOKEN` is set for a private
+repository):
+
+```bash
+python3 -c "from huggingface_hub import HfApi; print(HfApi().model_info('<owner>/<model>').sha)"
 ```
 
 Re-create the container, then check what answers:
@@ -100,8 +111,8 @@ curl -s https://phishlens.dev/health | python3 -m json.tool
 `text_model` shows the repository, the display name, `normalize`,
 `temperature` and `override_threshold`. To go back, restore the previous
 `HF_MODEL_REPO` and re-create the container: the old model is still in
-its folder. To pick up a new revision of the same repository, delete its
-folder only.
+its folder. A new revision is a new `HF_MODEL_REVISION`: each pinned
+revision gets its own folder (`<owner>--<name>@<sha>`).
 
 ### OCR languages
 
@@ -194,6 +205,7 @@ The most useful:
 | `OCR_MAX_PAGES` / `OCR_TIMEOUT_S` | `3` / `10` | Pages of a scanned PDF sent to OCR, and the time limit per page |
 | `AGENTS_ALLOW_PICKLE` | `1` | `0` refuses pickle files and loads only the `.skops` agents (PhishLens Cloud runs with `0`) |
 | `MODEL_DIR` / `HF_MODEL_REPO` | `./model` / `AnzouKiona/phishlens-distilbert` | Where the text model is stored, and which Hugging Face repository it comes from ([switching models](docs/operations.md#switch-the-text-model)) |
+| `HF_MODEL_REVISION` / `HF_AGENTS_REVISION` | empty | Commit of the model / agents repository to download; empty takes the latest (a warning is logged) |
 | `HF_TOKEN` | empty | Read-only token, only for a private model repository |
 | `OCR_LANG` | `auto` | Tesseract languages; `auto` picks them from the script of each image |
 | `FEEDBACK_DIR` / `RATE_LIMIT_FEEDBACK` | empty / `20/hour` | Where reports sent from the extension are stored (empty: not collected) |

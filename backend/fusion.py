@@ -34,6 +34,14 @@ from settings import (
 )
 
 GSB = "google_safe_browsing"
+# The signs a trust path may list in TrustPath.forcing (see decide_email).
+FORCING_SIGNS = (
+    "confident_text",
+    "confident_sender",
+    "confirmed_link",
+    "safe_browsing",
+    "links_elsewhere",
+)
 
 
 # ---------------------------------------------------------------------
@@ -96,6 +104,7 @@ class Verdict:
     threshold: float
     high_conf: bool
     trust_path: str
+    forced_by: tuple[str, ...] = ()
 
 
 def choose_trust_path(
@@ -141,35 +150,36 @@ def decide_email(
     text_override: float = HIGH_CONF_OVERRIDE,
     links_elsewhere: bool = False,
 ) -> Verdict:
-    """Verdict for an email. On the softer paths only a Safe Browsing hit
-    can force phishing; on the default path a confident text or sender
-    score can, and the link score only with a threat-intelligence hit or
-    a strong link sign (structured_agents.strong_link_sign): the trained
+    """Verdict for an email: phishing when the fused score reaches the
+    trust path's threshold, or when one of the path's forcing signs holds
+    (settings.TrustPath.forcing). On the softer paths only a Safe Browsing
+    hit forces phishing (and on crypto_verified, links that all lead
+    elsewhere with phishing-like wording); on the default path a confident
+    text or sender score does, and the link score only with a
+    threat-intelligence hit or a strong link sign (structured_agents.strong_link_sign): the trained
     URL model scores the written-out links of legitimate mailing-list
     mail near 1.0, and plain http was enough to confirm it (14 of 14
     false alarms of the public benchmark). text_override is the text model's own
     threshold (lower for a calibrated model, see
     text_model.override_threshold)."""
     fused = fuse(p_text, p_url, p_meta, text_used=text_used, text_factor=path.text_factor)
-    if path is PATH_DEFAULT:
-        high_conf = (
-            (text_used and p_text >= text_override)
-            or p_meta >= HIGH_CONF_OVERRIDE
-            or (p_url >= HIGH_CONF_OVERRIDE and (rep.any_hit or strong_link))
-        )
-    elif path is PATH_CRYPTO:
-        # A signature proves the domain, not the sender's honesty: with all
-        # its links leading elsewhere and phishing-like wording, it does not
-        # protect (links_elsewhere is set only when CRYPTO_LINK_RULE is on).
-        high_conf = rep.gsb_hit or (links_elsewhere and p_text >= CRYPTO_LINK_TEXT_MIN)
-    else:
-        high_conf = rep.gsb_hit
+    signs = {
+        "confident_text": text_used and p_text >= text_override,
+        "confident_sender": p_meta >= HIGH_CONF_OVERRIDE,
+        "confirmed_link": p_url >= HIGH_CONF_OVERRIDE and (rep.any_hit or strong_link),
+        "safe_browsing": rep.gsb_hit,
+        # links_elsewhere is set only when CRYPTO_LINK_RULE is on.
+        "links_elsewhere": links_elsewhere and p_text >= CRYPTO_LINK_TEXT_MIN,
+    }
+    forced_by = tuple(sign for sign in path.forcing if signs[sign])
+    high_conf = bool(forced_by)
     return Verdict(
         is_phishing=fused >= path.threshold or high_conf,
         fused=fused,
         threshold=path.threshold,
         high_conf=high_conf,
         trust_path=path.name,
+        forced_by=forced_by,
     )
 
 

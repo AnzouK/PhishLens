@@ -243,3 +243,27 @@ def test_link_profile_counts_where_links_go(tmp_path):
     assert bm.add_link_profiles(args, results) == 1
     row = json.loads((tmp_path / "cache.jsonl").read_text())
     assert row["link_profile"]["aligned"] == 1 and "evil" not in json.dumps(row)
+
+
+def test_export_keeps_scores_not_content(tmp_path):
+    import importlib.util
+    import json
+
+    spec = importlib.util.spec_from_file_location(
+        "export_benchmark", Path(__file__).resolve().parents[2] / "scripts" / "export_benchmark.py"
+    )
+    exp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(exp)
+    cache = tmp_path / "run.jsonl"
+    cache.write_text(
+        json.dumps(
+            {"id": "a1", "label": "phishing", "verdict": "phishing", "score": 0.9, "subject": "x"}
+        )
+        + "\n"
+        + json.dumps({"id": "b2", "label": "legit", "verdict": "safe", "score": 0.1})
+        + "\n"
+        + json.dumps({"id": "c3", "label": "phishing", "error": "HTTPError"})
+        + "\n"
+    )
+    rows = exp.read([str(cache)], "phishing")
+    assert rows == {"a1": {"id": "a1", "label": "phishing", "verdict": "phishing", "score": 0.9}}

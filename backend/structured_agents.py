@@ -17,7 +17,7 @@ from email.utils import parseaddr
 from pathlib import Path
 
 from known_domains import CLOUD_FILE_HOSTS, WELL_KNOWN
-from settings import AGENTS_ALLOW_PICKLE, HF_AGENTS_REPO
+from settings import AGENTS_ALLOW_PICKLE, HF_AGENTS_REPO, HF_AGENTS_REVISION
 
 try:
     from auth_headers import org_domain
@@ -58,6 +58,7 @@ def _hf_fetch(filename: str) -> Path | None:
         return Path(
             hf_hub_download(
                 repo_id=HF_AGENTS_REPO,
+                revision=HF_AGENTS_REVISION,
                 filename=filename,
                 repo_type="model",
                 local_dir="./agents",
