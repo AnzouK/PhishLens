@@ -34,6 +34,7 @@ import asyncio
 import base64
 import logging
 import os
+import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -402,16 +403,28 @@ def health():
     }
 
 
+_STATS_TTL_S = 30.0
+_stats_cache: dict[str, Any] = {}
+
+
 @app.get("/reputation/stats")
 def reputation_stats():
-    """Cache hit rate, Safe Browsing quota, PhishTank feed size."""
+    """Cache hit rate, Safe Browsing quota, PhishTank feed size. Counting
+    the cache table takes seconds once it is large, and the website asks
+    on every visit: the answer is kept _STATS_TTL_S seconds."""
+    now = time.monotonic()
+    if _stats_cache and now - _stats_cache["at"] < _STATS_TTL_S:
+        return _stats_cache["body"]
     if not _REPUTATION_AVAILABLE:
-        return {
+        body = {
             "enabled": False,
             "reason": "reputation module not loaded",
             "result_cache": _RESULT_CACHE.stats(),
         }
-    return {"enabled": True, **_reputation.stats(), "result_cache": _RESULT_CACHE.stats()}
+    else:
+        body = {"enabled": True, **_reputation.stats(), "result_cache": _RESULT_CACHE.stats()}
+    _stats_cache.update(at=now, body=body)
+    return body
 
 
 @app.post("/feedback")

@@ -891,10 +891,15 @@ class TestResultCache:
         assert client.post("/analyse", json={"raw_text": self.BODY}).json()["cached"] is False
 
     def test_stats_report_the_cache(self, client):
+        eb._stats_cache.clear()
         client.post("/analyse", json={"raw_text": self.BODY})
         client.post("/analyse", json={"raw_text": self.BODY})
         stats = client.get("/reputation/stats").json()["result_cache"]
         assert stats["hits"] == 1 and stats["entries"] == 1 and stats["ttl_hours"] == 24
+        # kept for a while: the website asks on every visit
+        client.post("/analyse", json={"raw_text": self.BODY})
+        assert client.get("/reputation/stats").json()["result_cache"]["hits"] == 1
+        eb._stats_cache.clear()
 
 
 # ---------------------------------------------------------------------

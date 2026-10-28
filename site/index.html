@@ -30,8 +30,8 @@
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" href="icon.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=89d31dd2ec">
-<script src="i18n/en.js?v=680499e70c" defer></script>
+<link rel="stylesheet" href="style.css?v=876364fc54">
+<script src="i18n/en.js?v=8b296a72b5" defer></script>
 <script src="lang.js?v=0eb2be978d" defer></script>
 <script src="nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -137,13 +137,12 @@
 
   <section class="sec" id="results">
     <div class="wrap">
-      <h2><span class="n">01</span>Results</h2>
-      <div class="strip">
-        <div class="cell"><div class="big">6</div><div class="lbl">languages checked on real phishing (the text model reads 22)</div></div>
-        <div class="cell"><div class="big">90.6%</div><div class="lbl">phishing caught by the whole system, in recent emails nobody had looked at</div></div>
-        <div class="cell"><div class="big">190 ms</div><div class="lbl">median scan of a typical email on a CPU-only server</div></div>
-        <div class="cell"><div class="big">0.2%</div><div class="lbl">of legitimate emails flagged as phishing (1 of 414)</div></div>
+      <h2>Results</h2>
+      <div class="headline">
+        <div class="big">90.6%</div>
+        <p class="lbl">phishing caught by the whole system, in recent emails nobody had looked at<span class="ci">95% confidence interval: 89.2% to 91.8%</span></p>
       </div>
+      <p class="facts">1 legitimate email of 414 flagged (0.2%) · about 190 ms per email on the server · checked on real phishing in 6 of the 22 languages the text model reads</p>
       <p class="note">Measured on PhishLens Cloud on October 24, 2026 with the public benchmark: 1,812 of 2,000 recent phishing emails in several languages, drawn from those nobody looked at while tuning (95% confidence interval 89.2% to 91.8%), and 1 of 414 legitimate emails (297 from public mailing lists, 117 from real inboxes; 0.0% to 1.4%). The scan time is the median for a typical email (about 250 tokens); a short one takes about 65 ms. An order of magnitude, not a guarantee: see <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">how it was measured</a> and the <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">known limitations</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, right now</h3>
@@ -156,7 +155,7 @@
 
   <section class="sec" id="checks">
     <div class="wrap">
-      <h2><span class="n">02</span>What it checks</h2>
+      <h2>What it checks</h2>
       <p class="intro">Real bank and university emails use the same words as phishing, so a text model on its own flags them. PhishLens checks the evidence before it decides.</p>
       <div class="pair">
         <ul class="rows">
@@ -182,7 +181,7 @@
 
   <section class="sec" id="features">
     <div class="wrap">
-      <h2><span class="n">03</span>Features</h2>
+      <h2>Features</h2>
       <ul class="feats">
         <li><svg class="ic"><use href="#i-eye"/></svg><div><b>Explainable verdicts</b><span>A score per check, the signals found, and the words that pushed the text model, so you can judge for yourself.</span></div></li>
         <li><svg class="ic"><use href="#i-mail"/></svg><div><b>Gmail and Outlook</b><span>A Scan button next to the subject in Gmail and Outlook on the web; files and pasted text in the popup.</span></div></li>
@@ -196,7 +195,7 @@
 
   <section class="sec" id="how">
     <div class="wrap">
-      <h2><span class="n">04</span>How it works</h2>
+      <h2>How it works</h2>
       <ol class="rows">
         <li><b>Read</b><span>The text, the real link targets, the sender and, in Gmail, the full original headers.</span></li>
         <li><b>Score</b><span>A multilingual model for the wording, a model and rules for the links, rules for the sender and where the links lead.</span></li>
@@ -208,7 +207,7 @@
 
   <section class="sec" id="try">
     <div class="wrap">
-      <h2><span class="n">05</span>Try it</h2>
+      <h2>Try it</h2>
       <p class="intro">This box uses the same server as the extension. Nothing is stored, but please use test emails, not private ones.</p>
       <div class="demo">
         <form class="panel" id="demo-form" novalidate>
@@ -261,9 +260,17 @@
     </div>
   </section>
 
+  <section class="sec" id="why">
+    <div class="wrap">
+      <h2>Why it exists</h2>
+      <p class="intro">PhishLens is a personal project, built and run by one person. I wanted a phishing check that shows its reasons instead of a bare score, so you can decide for yourself. In mid-October it still flagged 130 of the 297 legitimate mailing-list emails of its own benchmark; the fixes that brought that down to 1 are <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">described step by step</a>, and every run is published, good or bad.</p>
+      <p class="sign">AnzouK</p>
+    </div>
+  </section>
+
   <section class="sec" id="install">
     <div class="wrap">
-      <h2><span class="n">06</span>Install</h2>
+      <h2>Install</h2>
       <p class="intro">PhishLens is not on the Chrome Web Store yet: load it by hand, it takes about two minutes.</p>
       <div class="install">
         <div>

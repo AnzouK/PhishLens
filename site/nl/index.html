@@ -30,8 +30,8 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../style.css?v=89d31dd2ec">
-<script src="../i18n/nl.js?v=680499e70c" defer></script>
+<link rel="stylesheet" href="../style.css?v=876364fc54">
+<script src="../i18n/nl.js?v=8b296a72b5" defer></script>
 <script src="../lang.js?v=0eb2be978d" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -137,13 +137,12 @@
 
   <section class="sec" id="results">
     <div class="wrap">
-      <h2><span class="n">01</span>Resultaten</h2>
-      <div class="strip">
-        <div class="cell"><div class="big">6</div><div class="lbl">talen gecontroleerd op echte phishing (het tekstmodel leest er 22)</div></div>
-        <div class="cell"><div class="big">90.6%</div><div class="lbl">van de phishing herkend door het hele systeem, in recente mails die niemand eerder had bekeken</div></div>
-        <div class="cell"><div class="big">190 ms</div><div class="lbl">mediane controle van een gewone mail op een server zonder GPU</div></div>
-        <div class="cell"><div class="big">0.2%</div><div class="lbl">van de legitieme mails als phishing gemarkeerd (1 van 414)</div></div>
+      <h2>Resultaten</h2>
+      <div class="headline">
+        <div class="big">90.6%</div>
+        <p class="lbl">van de phishing herkend door het hele systeem, in recente mails die niemand eerder had bekeken<span class="ci">95%-betrouwbaarheidsinterval: 89,2% tot 91,8%</span></p>
       </div>
+      <p class="facts">1 van 414 legitieme mails gemarkeerd (0,2%) · ongeveer 190 ms per mail op de server · gecontroleerd op echte phishing in 6 van de 22 talen die het tekstmodel leest</p>
       <p class="note">Gemeten op PhishLens Cloud op 24 oktober 2026 met de openbare benchmark: 1.812 van 2.000 recente phishingmails in meerdere talen, gekozen uit de mails die tijdens het afstemmen niemand had bekeken (95%-betrouwbaarheidsinterval 89,2% tot 91,8%), en 1 van 414 legitieme mails (297 uit openbare mailinglijsten, 117 uit echte mailboxen; 0,0% tot 1,4%). De controletijd is de mediaan voor een gewone mail (ongeveer 250 tokens); een korte mail duurt ongeveer 65 ms. Een ordegrootte, geen garantie: zie <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">hoe het gemeten is</a> en de <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">bekende beperkingen</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, op dit moment</h3>
@@ -156,7 +155,7 @@
 
   <section class="sec" id="checks">
     <div class="wrap">
-      <h2><span class="n">02</span>Wat het controleert</h2>
+      <h2>Wat het controleert</h2>
       <p class="intro">Echte e-mails van banken en universiteiten gebruiken dezelfde woorden als phishing, dus een tekstmodel alleen markeert ze. PhishLens controleert het bewijs voordat het beslist.</p>
       <div class="pair">
         <ul class="rows">
@@ -182,7 +181,7 @@
 
   <section class="sec" id="features">
     <div class="wrap">
-      <h2><span class="n">03</span>Functies</h2>
+      <h2>Functies</h2>
       <ul class="feats">
         <li><svg class="ic"><use href="#i-eye"/></svg><div><b>Uitgelegde oordelen</b><span>Een score per controle, de gevonden signalen en de woorden die het tekstmodel stuurden, zodat u zelf kunt oordelen.</span></div></li>
         <li><svg class="ic"><use href="#i-mail"/></svg><div><b>Gmail en Outlook</b><span>Een knop Controleren naast het onderwerp in Gmail en Outlook op het web; bestanden en geplakte tekst in het venster van de extensie.</span></div></li>
@@ -196,7 +195,7 @@
 
   <section class="sec" id="how">
     <div class="wrap">
-      <h2><span class="n">04</span>Hoe het werkt</h2>
+      <h2>Hoe het werkt</h2>
       <ol class="rows">
         <li><b>Lezen</b><span>De tekst, de echte linkbestemmingen, de afzender en, in Gmail, de volledige originele headers.</span></li>
         <li><b>Scoren</b><span>Een meertalig model voor de tekst, een model en regels voor de links, regels voor de afzender en waar de links naartoe gaan.</span></li>
@@ -208,7 +207,7 @@
 
   <section class="sec" id="try">
     <div class="wrap">
-      <h2><span class="n">05</span>Uitproberen</h2>
+      <h2>Uitproberen</h2>
       <p class="intro">Dit formulier gebruikt dezelfde server als de extensie. Er wordt niets opgeslagen, maar gebruik test-e-mails, geen privé-e-mails.</p>
       <div class="demo">
         <form class="panel" id="demo-form" novalidate>
@@ -261,9 +260,17 @@
     </div>
   </section>
 
+  <section class="sec" id="why">
+    <div class="wrap">
+      <h2>Waarom het bestaat</h2>
+      <p class="intro">PhishLens is een persoonlijk project, gebouwd en onderhouden door één persoon. Ik wilde een phishingcontrole die haar redenen toont in plaats van alleen een score, zodat u zelf kunt oordelen. Half oktober markeerde het nog 130 van de 297 legitieme mailinglijstmails van zijn eigen benchmark; de verbeteringen die dat tot 1 terugbrachten zijn <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">stap voor stap beschreven</a>, en elke meting wordt gepubliceerd, goed of slecht.</p>
+      <p class="sign">AnzouK</p>
+    </div>
+  </section>
+
   <section class="sec" id="install">
     <div class="wrap">
-      <h2><span class="n">06</span>Installeren</h2>
+      <h2>Installeren</h2>
       <p class="intro">PhishLens staat nog niet in de Chrome Web Store: laad het zelf, dat duurt ongeveer twee minuten.</p>
       <div class="install">
         <div>
