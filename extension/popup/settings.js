@@ -60,9 +60,10 @@ async function testConnection() {
     try {
         const data = await window.PhishLensApi.health();
         // Servers before 1.15.5 report neither their version nor the model.
-        setConnStatus("ok", data?.version
-            ? t("connected", { version: data.version, model: data.text_model?.name || data.text_model?.source || t("unknown") })
-            : t("connected_old"));
+        const vars = { version: data?.version, model: data?.text_model?.name || data?.text_model?.source || t("unknown") };
+        if (!data?.version) setConnStatus("ok", t("connected_old"));
+        else if (data.text_model?.legacy) setConnStatus("warn", t("connected_legacy", vars));
+        else setConnStatus("ok", t("connected", vars));
     } catch (e) {
         setConnStatus("err", e.message);
     }

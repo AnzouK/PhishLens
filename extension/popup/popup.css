@@ -321,6 +321,8 @@ body {
 }
 .conn-status--ok    { background: var(--success-soft); color: var(--success); }
 .conn-status--err   { background: var(--danger-soft);  color: var(--danger);  }
+.conn-status--warn  { background: var(--warn-soft); color: var(--warn); }
+.backend-option__warn { color: var(--warn); margin-top: 2px; }
 .conn-status--info  { background: var(--bg-elev); color: var(--text-mute); }
 
 /* hint */

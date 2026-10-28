@@ -135,7 +135,7 @@ def test_load_uses_a_local_checkpoint(tmp_path, fake_torch, monkeypatch):
     monkeypatch.setattr(text_model, "MODEL_DIR", tmp_path)
     monkeypatch.setattr(text_model, "STATE", {})
     monkeypatch.setattr(
-        text_model.ensure_model_available, "__defaults__", (tmp_path, text_model.LEGACY_REPO)
+        text_model.ensure_model_available, "__defaults__", (tmp_path, text_model.LEGACY_REPO, None)
     )
 
     text_model.load()
@@ -214,10 +214,20 @@ def test_each_repository_has_its_own_folder(tmp_path, monkeypatch):
     # a new repository never falls back to the old checkpoint
     calls = []
     hub = types.ModuleType("huggingface_hub")
-    hub.snapshot_download = lambda repo_id, local_dir: calls.append((repo_id, local_dir))
+    hub.snapshot_download = lambda repo_id, revision, local_dir: calls.append(
+        (repo_id, revision, local_dir)
+    )
     monkeypatch.setitem(sys.modules, "huggingface_hub", hub)
-    out = text_model.ensure_model_available(tmp_path, "AnzouKiona/other")
-    assert out == tmp_path / "AnzouKiona--other" and calls == [("AnzouKiona/other", str(out))]
+    out = text_model.ensure_model_available(tmp_path, "AnzouKiona/other", None)
+    assert out == tmp_path / "AnzouKiona--other" and calls == [("AnzouKiona/other", None, str(out))]
+    # a pinned revision is downloaded as such, into its own folder
+    sha = "0123456789abcdef0123456789abcdef01234567"
+    out = text_model.ensure_model_available(tmp_path, "AnzouKiona/other", sha)
+    assert out == tmp_path / "AnzouKiona--other@0123456789ab" and calls[-1] == (
+        "AnzouKiona/other",
+        sha,
+        str(out),
+    )
 
 
 def test_fast_tokenizer_kwargs_from_a_transformers_5_config():

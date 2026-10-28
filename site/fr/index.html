@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=89d31dd2ec">
-<script src="../i18n/fr.js?v=7bf0a76a40" defer></script>
+<script src="../i18n/fr.js?v=bf0cf5ddb1" defer></script>
 <script src="../lang.js?v=0eb2be978d" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -69,7 +69,7 @@
  ]
 }
 </script>
-<script src="../redact.js?v=72aa662a52" defer></script>
+<script src="../redact.js?v=643a763373" defer></script>
 <script src="../app.js?v=b1c46d4034" defer></script>
 </head>
 <body>
@@ -139,12 +139,12 @@
     <div class="wrap">
       <h2><span class="n">01</span>Résultats</h2>
       <div class="strip">
-        <div class="cell"><div class="big">22</div><div class="lbl">langues lues par le modèle de texte</div></div>
+        <div class="cell"><div class="big">6</div><div class="lbl">langues vérifiées sur du vrai phishing (le modèle de texte en lit 22)</div></div>
         <div class="cell"><div class="big">90.6%</div><div class="lbl">des phishings détectés par le système complet, dans des e-mails récents que personne n'avait examinés</div></div>
-        <div class="cell"><div class="big">65 ms</div><div class="lbl">analyse médiane sur un serveur sans GPU</div></div>
-        <div class="cell"><div class="big">0.2%</div><div class="lbl">des e-mails légitimes signalés comme phishing</div></div>
+        <div class="cell"><div class="big">190 ms</div><div class="lbl">analyse médiane d'un e-mail ordinaire sur un serveur sans GPU</div></div>
+        <div class="cell"><div class="big">0.2%</div><div class="lbl">des e-mails légitimes signalés comme phishing (1 sur 414)</div></div>
       </div>
-      <p class="note">Mesuré sur PhishLens Cloud le 24 octobre 2026 avec le benchmark public : 1 812 phishings récents sur 2 000, en plusieurs langues, tirés parmi ceux que personne n'avait examinés pendant les réglages (intervalle de confiance à 95 % : 89,2 % à 91,8 %), et 1 e-mail légitime sur 414 (297 de listes de diffusion publiques, 117 de vraies boîtes de réception ; 0,0 % à 1,4 %). Le temps d'analyse vient d'un test de charge. Un ordre de grandeur, pas une garantie : voir <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">comment c'est mesuré</a> et les <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limites connues</a>.</p>
+      <p class="note">Mesuré sur PhishLens Cloud le 24 octobre 2026 avec le benchmark public : 1 812 phishings récents sur 2 000, en plusieurs langues, tirés parmi ceux que personne n'avait examinés pendant les réglages (intervalle de confiance à 95 % : 89,2 % à 91,8 %), et 1 e-mail légitime sur 414 (297 de listes de diffusion publiques, 117 de vraies boîtes de réception ; 0,0 % à 1,4 %). La durée d'analyse est la médiane pour un e-mail ordinaire (environ 250 tokens) ; un e-mail court prend environ 65 ms. Un ordre de grandeur, pas une garantie : voir <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">comment c'est mesuré</a> et les <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limites connues</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, en ce moment</h3>
       <div class="strip" id="live" aria-live="polite">

@@ -34,6 +34,7 @@ from language import FUNCTION_WORDS
 from settings import (
     CLASS_NAMES,
     HF_MODEL_REPO,
+    HF_MODEL_REVISION,
     HIGH_CONF_OVERRIDE,
     LIME_MAX_CHARS,
     LIME_NUM_SAMPLES,
@@ -67,16 +68,21 @@ def _complete(path: Path) -> bool:
     return path.is_dir() and must_have.issubset({p.name for p in path.iterdir()})
 
 
-def ensure_model_available(model_dir: Path = MODEL_DIR, repo: str = HF_MODEL_REPO) -> Path:
+def ensure_model_available(
+    model_dir: Path = MODEL_DIR, repo: str = HF_MODEL_REPO, revision: str | None = HF_MODEL_REVISION
+) -> Path:
     """Directory of the text model to load.
 
     Each Hugging Face repository gets its own subfolder of model_dir
     (model_dir/<owner>--<name>), so switching HF_MODEL_REPO never loads the
-    previous model by mistake. A checkpoint placed directly in model_dir
+    previous model by mistake; a pinned revision gets its own subfolder too
+    (<owner>--<name>@<sha>). A checkpoint placed directly in model_dir
     (the layout of earlier versions, and of a local Docker setup) is used
     for the original v1 repository only.
     """
-    target = model_dir / repo.replace("/", "--")
+    target = model_dir / (repo.replace("/", "--") + (f"@{revision[:12]}" if revision else ""))
+    if not revision:
+        logger.warning("HF_MODEL_REVISION is not set: the latest commit of %s is used.", repo)
     if _complete(target):
         return target
     if repo == LEGACY_REPO and _complete(model_dir):
@@ -91,7 +97,7 @@ def ensure_model_available(model_dir: Path = MODEL_DIR, repo: str = HF_MODEL_REP
         ) from e
     target.mkdir(parents=True, exist_ok=True)
     # A private repository needs HF_TOKEN in the environment (read-only token).
-    snapshot_download(repo_id=repo, local_dir=str(target))
+    snapshot_download(repo_id=repo, revision=revision, local_dir=str(target))
     return target
 
 
@@ -183,6 +189,7 @@ def load() -> None:
         device=device,
         meta=meta,
         source=HF_MODEL_REPO,
+        revision=HF_MODEL_REVISION,
         name=display_name(meta),
         lime=LimeTextExplainer(class_names=CLASS_NAMES, bow=False),
     )

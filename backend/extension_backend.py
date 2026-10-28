@@ -390,7 +390,12 @@ def health():
         "text_model": {
             **text_model.STATE.get("meta", {}),
             "source": text_model.STATE.get("source"),
+            "revision": text_model.STATE.get("revision"),
             "name": text_model.STATE.get("name"),
+            # The English v1 model: much weaker on real mail than the
+            # multilingual one (docs/multilingual-model.md); the extension
+            # warns about it.
+            "legacy": text_model.STATE.get("source") == text_model.LEGACY_REPO,
         }
         if text_model.STATE
         else None,
@@ -736,6 +741,7 @@ async def analyse(request: Request, req: AnalyseRequest):
         "verdict": "phishing" if verdict.is_phishing else "safe",
         "fused_score": float(verdict.fused),
         "high_confidence_override": bool(verdict.high_conf),
+        "forced_by": list(verdict.forced_by),
         # trusted_sender > crypto_verified > gmail_inbox_soft / outlook_internal > default
         "trust_path": verdict.trust_path,
         "trusted_sender": bool(who.trusted_sender),
