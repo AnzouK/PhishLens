@@ -7,6 +7,8 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.11] - 2026-10-28
+
 ### Added
 - `HF_MODEL_REVISION` and `HF_AGENTS_REVISION` pin the exact commit of
   the models the server downloads; a warning is logged when they are
@@ -853,7 +855,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.10...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.11...HEAD
+[2.0.11]: https://github.com/AnzouK/PhishLens/compare/v2.0.10...v2.0.11
 [2.0.10]: https://github.com/AnzouK/PhishLens/compare/v2.0.9...v2.0.10
 [2.0.9]: https://github.com/AnzouK/PhishLens/compare/v2.0.8...v2.0.9
 [2.0.8]: https://github.com/AnzouK/PhishLens/compare/v2.0.7...v2.0.8
