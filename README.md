@@ -183,11 +183,13 @@ CI runs all three on every pull request. Setup and project layout:
 ## Who makes it
 
 PhishLens is built and run by one person, [AnzouK](https://github.com/AnzouK).
-It started at [Nile University of Nigeria](https://nileuniversity.edu.ng/),
-where the project team trained the first three models in
-[PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector)
-(maintained by [dodi-ctrl](https://github.com/dodi-ctrl)), and I have
-developed it independently since.
+It began as our group's final-year project at
+[Nile University of Nigeria](https://nileuniversity.edu.ng/): of the
+topics we considered, we chose a phishing detector that explains its
+verdict instead of only flagging an email. The team trained the first
+three models in [PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector)
+(maintained by [dodi-ctrl](https://github.com/dodi-ctrl)). Since the
+last presentation I have maintained and developed it on my own.
 
 I write it with the help of an AI coding assistant. I review and test
 every change, and no claim about detection ships before it is measured
