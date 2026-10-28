@@ -188,8 +188,9 @@ It began as our group's final-year project at
 topics we considered, we chose a phishing detector that explains its
 verdict instead of only flagging an email. The team trained the first
 three models in [PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector)
-(maintained by [dodi-ctrl](https://github.com/dodi-ctrl)). Since the
-last presentation I have maintained and developed it on my own.
+(maintained by [dodi-ctrl](https://github.com/dodi-ctrl)). When the
+course ended I kept it going on my own: it is now an independent
+project, with no link to the university.
 
 I write it with the help of an AI coding assistant. I review and test
 every change, and no claim about detection ships before it is measured
