@@ -1,49 +1,40 @@
-# PhishLens project overview
+# Project overview
 
-Where each part of PhishLens lives, and where to find answers.
+## Where things live
 
-## The artefacts
-
-| Artefact | What lives there |
+| Artefact | What |
 | --- | --- |
-| [AnzouK/PhishLens](https://github.com/AnzouK/PhishLens) (this repo) | The runtime system: Chrome MV3 extension, FastAPI backend, landing page, CI, security policy. What you clone to install and run PhishLens. |
-| [dodi-ctrl/PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector) | The research side: the three Colab training notebooks, dataset loaders, augmentation cell, per-agent metrics and known model limitations. What you clone to retrain or reproduce the models. |
-| AnzouKiona/phishlens-text-v2 (private) | The multilingual text agent PhishLens Cloud runs (mmBERT-small, distilled and calibrated). Private because part of its training mail is; how it was built: [multilingual-model.md](multilingual-model.md). |
-| [AnzouKiona/phishlens-distilbert](https://huggingface.co/AnzouKiona/phishlens-distilbert) | The fine-tuned English DistilBERT text agent (model card, weights, tokenizer). The default of a self-hosted backend. |
-| [AnzouKiona/phishlens-agents](https://huggingface.co/AnzouKiona/phishlens-agents) | The trained URL and metadata Random Forest agents (skops files, with the original joblib ones). Pulled by the backend at startup. |
-| [phishlens.dev](https://phishlens.dev) | Website in 8 languages: landing page, try-it widget, privacy policy and terms, and the PhishLens Cloud backend used by the extension's "PhishLens Cloud" setting. |
-| [Wiki](https://github.com/AnzouK/PhishLens/wiki) | The user guide: installing, using PhishLens in Gmail and Outlook, reading a verdict, settings, troubleshooting. |
-| Project report | B.Sc. final-year report (Department of Cybersecurity, Nile University of Nigeria, 2025/2026): literature review, methodology, evaluation. Not published here; available on request through the university. |
+| [AnzouK/PhishLens](https://github.com/AnzouK/PhishLens) | This repository: extension, server, website, tests |
+| [dodi-ctrl/PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector) | Training notebooks of the original three models |
+| AnzouKiona/phishlens-text-v2 (private) | The multilingual text model PhishLens Cloud runs; private because part of its training mail is ([how it was built](multilingual-model.md)) |
+| [AnzouKiona/phishlens-distilbert](https://huggingface.co/AnzouKiona/phishlens-distilbert) | The English v1 text model, default of a self-hosted server |
+| [AnzouKiona/phishlens-agents](https://huggingface.co/AnzouKiona/phishlens-agents) | The URL and header Random Forests (skops) |
+| [phishlens.dev](https://phishlens.dev) | Website in 8 languages and PhishLens Cloud |
+| [Wiki](https://github.com/AnzouK/PhishLens/wiki) | User guide |
 
-## Documentation map
+A report on the first version was written at Nile University of
+Nigeria (2025/2026); it is not published here.
 
-| Question | Where to look |
+## Where to look
+
+| Question | Page |
 | --- | --- |
-| How do I install it? | [README](../README.md#install) |
-| How do I use it day to day? | The [wiki](https://github.com/AnzouK/PhishLens/wiki) |
-| How is the system built, and why that way? | [architecture.md](architecture.md) |
-| Which languages are supported, and how are translations made and checked? | [languages.md](languages.md) |
-| How was the multilingual text model built, and how good is it? | [multilingual-model.md](multilingual-model.md) |
-| Which text model is running, and how is it switched? | [architecture.md, text model](architecture.md#text-model) and [operations.md](operations.md#switch-the-text-model) |
-| What can go wrong security-wise, and what stops it? | [threat-model.md](threat-model.md) |
-| How do I run, monitor and load-test a deployment? | [operations.md](operations.md) |
-| How were the models trained and how good are they? | [PhishingDetector README](https://github.com/dodi-ctrl/PhishingDetector#results) and the Hugging Face model cards |
-| What are the known limitations? | [threat-model.md, residual risks](threat-model.md#residual-risks-and-known-limitations) and [PhishingDetector, Limitations](https://github.com/dodi-ctrl/PhishingDetector#limitations) |
-| What changed between versions? | [CHANGELOG.md](../CHANGELOG.md) and [GitHub Releases](https://github.com/AnzouK/PhishLens/releases) |
-| How do I report a vulnerability? | [SECURITY.md](../SECURITY.md) |
-| How do I contribute? | [CONTRIBUTING.md](../CONTRIBUTING.md) |
+| Install | [README](../README.md#install) |
+| Use it day to day | [wiki](https://github.com/AnzouK/PhishLens/wiki) |
+| How it decides, and why | [architecture.md](architecture.md) |
+| How good it is, and how it was measured | [evaluation.md](evaluation.md) |
+| How the text model was built | [multilingual-model.md](multilingual-model.md) |
+| Languages and translations | [languages.md](languages.md) |
+| What can go wrong | [threat-model.md](threat-model.md) |
+| Running a server | [operations.md](operations.md) |
+| Reporting a vulnerability, contributing | [SECURITY.md](../SECURITY.md), [CONTRIBUTING.md](../CONTRIBUTING.md) |
 
-## Numbers, and how much to trust them
+## Which figures to trust
 
-| Measure | Figure | Read it as |
-| --- | --- | --- |
-| Multilingual text model, real mail it never saw, threshold 0.7 | English: 1/255 false alarms (95% CI 0.1% to 2.2%), 1,805/1,952 caught (91.2% to 93.6%); French: 1/63 (0.3% to 8.5%), 202/231 (82.6% to 91.1%) | The closest to real use, but the 318 legitimate emails come from one mailbox ([details](multilingual-model.md#confidence-intervals)) |
-| Whole system, public benchmark (2026-10-24) | 1,812/2,000 fresh phishing caught (95% CI 89.2% to 91.8%); 1/297 mailing-list emails flagged (0.1% to 1.9%); 0/117 real inbox emails flagged (0.0% to 3.2%) | Real 2026 mail through the running server; the inbox side is small ([evaluation](evaluation.md#results)) |
-| English DistilBERT, held-out split | Accuracy 97.34%, F1 0.967 | Offline, on public corpora |
-| URL and metadata Random Forests, held-out splits | F1 0.991 and 0.999 | Upper bounds: phishing and legitimate samples come from different corpora and years, which makes them easy to tell apart. The metadata one flagged most modern legitimate headers and is off by default since 2.0.8 ([evaluation](evaluation.md#results)) |
+| Figure | Read it as |
+| --- | --- |
+| Whole system, public benchmark: 1,812 of 2,000 recent phishing caught (89.2% to 91.8%), 1 of 414 legitimate flagged (0.0% to 1.4%) | Real 2026 mail through the running server; the legitimate side is small ([evaluation](evaluation.md#results)) |
+| Text model alone, unseen real mail at 0.7: English 92.5% caught, 1 of 255 flagged; French 87.4%, 1 of 63 | One mailbox as the legitimate reference ([details](multilingual-model.md#confidence-intervals)) |
+| Original Random Forests, F1 0.991 and 0.999 | Upper bounds: phishing and legitimate samples came from different corpora and years. The header one flagged most modern legitimate mail and is off |
 
-Every figure should come with its count and a confidence interval, and
-the public benchmark lets anyone measure the running system
-([evaluation.md](evaluation.md)). None of these is a live-traffic measurement. The reports users send
-will give one; until then, see the
-[known limitations](threat-model.md#residual-risks-and-known-limitations).
+None of these is live traffic. User reports will give that.

@@ -30,8 +30,8 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../style.css?v=89d31dd2ec">
-<script src="../i18n/de.js?v=bf0cf5ddb1" defer></script>
+<link rel="stylesheet" href="../style.css?v=876364fc54">
+<script src="../i18n/de.js?v=4225bf455e" defer></script>
 <script src="../lang.js?v=0eb2be978d" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -70,7 +70,7 @@
 }
 </script>
 <script src="../redact.js?v=643a763373" defer></script>
-<script src="../app.js?v=b1c46d4034" defer></script>
+<script src="../app.js?v=1ca3b08526" defer></script>
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false">
@@ -137,13 +137,12 @@
 
   <section class="sec" id="results">
     <div class="wrap">
-      <h2><span class="n">01</span>Ergebnisse</h2>
-      <div class="strip">
-        <div class="cell"><div class="big">6</div><div class="lbl">Sprachen, an echtem Phishing geprüft (das Textmodell liest 22)</div></div>
-        <div class="cell"><div class="big">90.6%</div><div class="lbl">erkanntes Phishing durch das ganze System, in neuen E-Mails, die vorher niemand angesehen hatte</div></div>
-        <div class="cell"><div class="big">190 ms</div><div class="lbl">mittlere Prüfdauer einer gewöhnlichen E-Mail auf einem Server ohne GPU</div></div>
-        <div class="cell"><div class="big">0.2%</div><div class="lbl">der legitimen E-Mails als Phishing gemeldet (1 von 414)</div></div>
+      <h2>Ergebnisse</h2>
+      <div class="headline">
+        <div class="big">90.6%</div>
+        <p class="lbl">erkanntes Phishing durch das ganze System, in neuen E-Mails, die vorher niemand angesehen hatte<span class="ci">95-%-Konfidenzintervall: 89,2 % bis 91,8 %</span></p>
       </div>
+      <p class="facts">1 von 414 legitimen E-Mails gemeldet (0,2 %) · etwa 190 ms pro E-Mail auf dem Server · an echtem Phishing geprüft in 6 der 22 Sprachen, die das Textmodell liest</p>
       <p class="note">Gemessen auf PhishLens Cloud am 24. Oktober 2026 mit dem öffentlichen Benchmark: 1.812 von 2.000 neuen Phishing-Mails in mehreren Sprachen, ausgewählt aus denen, die bei der Abstimmung niemand angesehen hatte (95-%-Konfidenzintervall 89,2 % bis 91,8 %), und 1 von 414 legitimen E-Mails (297 aus öffentlichen Mailinglisten, 117 aus echten Postfächern; 0,0 % bis 1,4 %). Die Prüfdauer ist der Median für eine gewöhnliche E-Mail (etwa 250 Tokens); eine kurze dauert etwa 65 ms. Eine Größenordnung, keine Garantie: siehe <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">wie gemessen wurde</a> und die <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">bekannten Grenzen</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, gerade jetzt</h3>
@@ -156,7 +155,7 @@
 
   <section class="sec" id="checks">
     <div class="wrap">
-      <h2><span class="n">02</span>Was es prüft</h2>
+      <h2>Was es prüft</h2>
       <p class="intro">Echte E-Mails von Banken und Hochschulen verwenden dieselben Wörter wie Phishing, deshalb meldet ein Textmodell allein sie. PhishLens prüft die Belege, bevor es entscheidet.</p>
       <div class="pair">
         <ul class="rows">
@@ -182,7 +181,7 @@
 
   <section class="sec" id="features">
     <div class="wrap">
-      <h2><span class="n">03</span>Funktionen</h2>
+      <h2>Funktionen</h2>
       <ul class="feats">
         <li><svg class="ic"><use href="#i-eye"/></svg><div><b>Erklärte Urteile</b><span>Ein Wert pro Prüfung, die gefundenen Signale und die Wörter, die das Textmodell beeinflusst haben, damit Sie selbst urteilen können.</span></div></li>
         <li><svg class="ic"><use href="#i-mail"/></svg><div><b>Gmail und Outlook</b><span>Eine Schaltfläche „Prüfen“ neben dem Betreff in Gmail und Outlook im Web; Dateien und eingefügter Text im Fenster der Erweiterung.</span></div></li>
@@ -196,7 +195,7 @@
 
   <section class="sec" id="how">
     <div class="wrap">
-      <h2><span class="n">04</span>So funktioniert es</h2>
+      <h2>So funktioniert es</h2>
       <ol class="rows">
         <li><b>Lesen</b><span>Den Text, die echten Linkziele, den Absender und in Gmail die vollständigen Original-Header.</span></li>
         <li><b>Bewerten</b><span>Ein mehrsprachiges Modell für den Wortlaut, ein Modell und Regeln für die Links, Regeln für den Absender und das Ziel der Links.</span></li>
@@ -208,7 +207,7 @@
 
   <section class="sec" id="try">
     <div class="wrap">
-      <h2><span class="n">05</span>Ausprobieren</h2>
+      <h2>Ausprobieren</h2>
       <p class="intro">Dieses Formular nutzt denselben Server wie die Erweiterung. Nichts wird gespeichert, aber verwenden Sie bitte Test-E-Mails, keine privaten.</p>
       <div class="demo">
         <form class="panel" id="demo-form" novalidate>
@@ -261,9 +260,17 @@
     </div>
   </section>
 
+  <section class="sec" id="why">
+    <div class="wrap">
+      <h2>Warum es das gibt</h2>
+      <p class="intro">PhishLens begann als Abschlussprojekt unserer Gruppe an der Nile University of Nigeria. Unter den erwogenen Themen wählten wir einen Phishing-Detektor, der sein Urteil erklärt, statt eine E-Mail nur zu markieren. Nach dem Ende des Studiengangs habe ich ihn allein weitergeführt: Heute ist er ein unabhängiges Projekt ohne Verbindung zur Universität. Mitte Oktober meldete er noch 130 der 297 legitimen Mailinglisten-E-Mails seines eigenen Benchmarks; die Korrekturen, die das auf 1 gesenkt haben, sind <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">Schritt für Schritt beschrieben</a>, und jede Messung wird veröffentlicht, ob gut oder schlecht.</p>
+      <p class="sign">AnzouK</p>
+    </div>
+  </section>
+
   <section class="sec" id="install">
     <div class="wrap">
-      <h2><span class="n">06</span>Installieren</h2>
+      <h2>Installieren</h2>
       <p class="intro">PhishLens ist noch nicht im Chrome Web Store: Laden Sie es von Hand, das dauert etwa zwei Minuten.</p>
       <div class="install">
         <div>

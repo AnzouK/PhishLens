@@ -30,8 +30,8 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../style.css?v=89d31dd2ec">
-<script src="../i18n/it.js?v=bf0cf5ddb1" defer></script>
+<link rel="stylesheet" href="../style.css?v=876364fc54">
+<script src="../i18n/it.js?v=4225bf455e" defer></script>
 <script src="../lang.js?v=0eb2be978d" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -70,7 +70,7 @@
 }
 </script>
 <script src="../redact.js?v=643a763373" defer></script>
-<script src="../app.js?v=b1c46d4034" defer></script>
+<script src="../app.js?v=1ca3b08526" defer></script>
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false">
@@ -137,13 +137,12 @@
 
   <section class="sec" id="results">
     <div class="wrap">
-      <h2><span class="n">01</span>Risultati</h2>
-      <div class="strip">
-        <div class="cell"><div class="big">6</div><div class="lbl">lingue verificate su phishing reale (il modello del testo ne legge 22)</div></div>
-        <div class="cell"><div class="big">90.6%</div><div class="lbl">del phishing rilevato dal sistema completo, in email recenti che nessuno aveva esaminato</div></div>
-        <div class="cell"><div class="big">190 ms</div><div class="lbl">analisi mediana di una email tipica su un server senza GPU</div></div>
-        <div class="cell"><div class="big">0.2%</div><div class="lbl">delle email legittime segnalate come phishing (1 su 414)</div></div>
+      <h2>Risultati</h2>
+      <div class="headline">
+        <div class="big">90.6%</div>
+        <p class="lbl">del phishing rilevato dal sistema completo, in email recenti che nessuno aveva esaminato<span class="ci">intervallo di confidenza al 95%: dall'89,2% al 91,8%</span></p>
       </div>
+      <p class="facts">1 email legittima su 414 segnalata (0,2%) · circa 190 ms per email sul server · verificato su phishing reale in 6 delle 22 lingue che legge il modello del testo</p>
       <p class="note">Misurato su PhishLens Cloud il 24 ottobre 2026 con il benchmark pubblico: 1.812 su 2.000 email di phishing recenti, in più lingue, scelte tra quelle che nessuno aveva esaminato durante le regolazioni (intervallo di confidenza al 95%: 89,2% - 91,8%), e 1 su 414 email legittime (297 da mailing list pubbliche, 117 da caselle reali; 0,0% - 1,4%). Il tempo di analisi è la mediana per una email tipica (circa 250 token); una breve richiede circa 65 ms. Un ordine di grandezza, non una garanzia: vedi <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">come è stato misurato</a> e i <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limiti noti</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, in questo momento</h3>
@@ -156,7 +155,7 @@
 
   <section class="sec" id="checks">
     <div class="wrap">
-      <h2><span class="n">02</span>Cosa controlla</h2>
+      <h2>Cosa controlla</h2>
       <p class="intro">Le vere email di banche e università usano le stesse parole del phishing, quindi un modello del testo da solo le segnala. PhishLens verifica le prove prima di decidere.</p>
       <div class="pair">
         <ul class="rows">
@@ -182,7 +181,7 @@
 
   <section class="sec" id="features">
     <div class="wrap">
-      <h2><span class="n">03</span>Funzionalità</h2>
+      <h2>Funzionalità</h2>
       <ul class="feats">
         <li><svg class="ic"><use href="#i-eye"/></svg><div><b>Verdetti spiegati</b><span>Un punteggio per controllo, i segnali trovati e le parole che hanno orientato il modello del testo, così puoi giudicare da solo.</span></div></li>
         <li><svg class="ic"><use href="#i-mail"/></svg><div><b>Gmail e Outlook</b><span>Un pulsante Analizza accanto all'oggetto in Gmail e Outlook sul web; file e testo incollato nella finestra dell'estensione.</span></div></li>
@@ -196,7 +195,7 @@
 
   <section class="sec" id="how">
     <div class="wrap">
-      <h2><span class="n">04</span>Come funziona</h2>
+      <h2>Come funziona</h2>
       <ol class="rows">
         <li><b>Leggere</b><span>Il testo, le vere destinazioni dei link, il mittente e, in Gmail, le intestazioni originali complete.</span></li>
         <li><b>Valutare</b><span>Un modello multilingue per il testo, un modello e regole per i link, regole per il mittente e la destinazione dei link.</span></li>
@@ -208,7 +207,7 @@
 
   <section class="sec" id="try">
     <div class="wrap">
-      <h2><span class="n">05</span>Provalo</h2>
+      <h2>Provalo</h2>
       <p class="intro">Questo modulo usa lo stesso server dell'estensione. Non viene salvato nulla, ma usa email di prova, non private.</p>
       <div class="demo">
         <form class="panel" id="demo-form" novalidate>
@@ -261,9 +260,17 @@
     </div>
   </section>
 
+  <section class="sec" id="why">
+    <div class="wrap">
+      <h2>Perché esiste</h2>
+      <p class="intro">PhishLens è nato come progetto di fine corso del nostro gruppo alla Nile University of Nigeria. Tra gli argomenti considerati, abbiamo scelto un rilevatore di phishing che spiega il suo verdetto invece di limitarsi a segnalare un'email. Finito il corso, l'ho portato avanti da solo: oggi è un progetto indipendente, senza legami con l'università. A metà ottobre segnalava ancora 130 delle 297 email legittime di mailing list del suo stesso benchmark; le correzioni che hanno portato quel numero a 1 sono <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">descritte passo per passo</a>, e ogni misura viene pubblicata, buona o cattiva.</p>
+      <p class="sign">AnzouK</p>
+    </div>
+  </section>
+
   <section class="sec" id="install">
     <div class="wrap">
-      <h2><span class="n">06</span>Installa</h2>
+      <h2>Installa</h2>
       <p class="intro">PhishLens non è ancora sul Chrome Web Store: caricalo a mano, servono circa due minuti.</p>
       <div class="install">
         <div>

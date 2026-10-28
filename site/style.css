@@ -31,7 +31,6 @@ pre { background: var(--bg-2); border: 1px solid var(--line); border-radius: var
 h1, h2, h3 { line-height: 1.15; letter-spacing: -0.01em; }
 h1 { font-size: clamp(2.4rem, 6.4vw, 3.6rem); letter-spacing: -0.025em; line-height: 1.04; margin: 0 0 20px; max-width: 16ch; }
 h2 { font-size: clamp(1.4rem, 2.6vw, 1.7rem); margin: 0 0 22px; display: flex; gap: 14px; align-items: baseline; }
-h2 .n { font: 0.9rem var(--mono); color: var(--accent); }
 h3 { font-size: 1.1rem; margin: 28px 0 10px; }
 p { margin: 0 0 1em; }
 .skip { position: absolute; left: -9999px; }
@@ -161,6 +160,12 @@ td.num { font-family: var(--mono); white-space: nowrap; color: var(--ink); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 /* stat strips */
+.headline { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
+.headline .big { font-size: 3rem; color: var(--accent); }
+.headline .lbl { margin: 0; max-width: 34rem; }
+.headline .ci { display: block; color: var(--ink-3); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.facts { color: var(--ink-2); margin: 14px 0 0; }
+.sign { color: var(--ink-3); font-family: var(--mono); margin-top: 8px; }
 .strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-2); }
 .strip .cell { padding: 22px 22px 20px; border-left: 1px solid var(--line); }
 .strip .cell:first-child { border-left: 0; }

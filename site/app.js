@@ -19,7 +19,9 @@
   // ---------- server status ----------
   const status = $("status");
   const setDot = (up) => { $("live-dot").className = `dot ${up ? "dot--up" : "dot--down"}`; };
-  fetch(API + "/health", { cache: "no-store" })
+  // A slow answer counts as no answer: the page must not wait on it.
+  const timed = (url) => fetch(url, { cache: "no-store", signal: AbortSignal.timeout(6000) });
+  timed(API + "/health")
     .then((r) => { if (!r.ok) throw new Error(); })
     .then(() => { status.innerHTML = `<span class="dot dot--up"></span> ${esc(t("js_online"))}`; setDot(true); })
     .catch(() => { status.innerHTML = `<span class="dot dot--down"></span> ${esc(t("js_offline"))}`; setDot(false); });
@@ -31,7 +33,7 @@
 
   // ---------- live counters, as big numbers ----------
   const cell = (big, lbl, off) => `<div class="cell"><div class="big${off ? " off" : ""}">${esc(big)}</div><div class="lbl">${esc(lbl)}</div></div>`;
-  fetch(API + "/reputation/stats", { cache: "no-store" })
+  timed(API + "/reputation/stats")
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
     .then((d) => {
       if (d.enabled === false) throw new Error(t("js_intel_off"));
@@ -44,7 +46,12 @@
                                                        : cell(num(p.phishtank_entries), t("js_phishtank_known")))
         + (u.enabled ? cell(t("js_on"), t("js_urlhaus_on")) : cell(t("js_off"), t("js_urlhaus"), true));
     })
-    .catch((e) => { $("live").innerHTML = cell(t("js_unavailable"), e.message || t("js_unreachable"), true); });
+    // Counters that cannot be read are left out (heading, numbers and
+    // note) rather than shown as an error code.
+    .catch(() => {
+      const live = $("live");
+      [live.previousElementSibling, live, live.nextElementSibling].forEach((n) => { if (n) n.hidden = true; });
+    });
 
   // ---------- try-it form ----------
   const form = $("demo-form");

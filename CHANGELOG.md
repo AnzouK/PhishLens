@@ -7,6 +7,24 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Fixed
+- The website's live counters wait at most 6 seconds and are left out
+  when the server does not answer, instead of showing an error code;
+  `/reputation/stats` keeps its answer 30 seconds (counting the cache
+  took 2.5 seconds per visit).
+
+### Added
+- A test fails when a translation of the website carries other figures
+  than the English page.
+
+### Changed
+- The website leads with one figure and its confidence interval instead
+  of four, drops the numbered sections, and says who runs PhishLens and
+  why, in the 8 languages.
+- The documentation is shorter: each page keeps the reasons (decisions,
+  thresholds, what was measured and rejected) and drops descriptions of
+  the code; the README says who makes PhishLens.
+
 ## [2.0.11] - 2026-10-28
 
 ### Added

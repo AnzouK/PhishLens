@@ -30,8 +30,8 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../style.css?v=89d31dd2ec">
-<script src="../i18n/es.js?v=bf0cf5ddb1" defer></script>
+<link rel="stylesheet" href="../style.css?v=876364fc54">
+<script src="../i18n/es.js?v=4225bf455e" defer></script>
 <script src="../lang.js?v=0eb2be978d" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -70,7 +70,7 @@
 }
 </script>
 <script src="../redact.js?v=643a763373" defer></script>
-<script src="../app.js?v=b1c46d4034" defer></script>
+<script src="../app.js?v=1ca3b08526" defer></script>
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false">
@@ -137,13 +137,12 @@
 
   <section class="sec" id="results">
     <div class="wrap">
-      <h2><span class="n">01</span>Resultados</h2>
-      <div class="strip">
-        <div class="cell"><div class="big">6</div><div class="lbl">idiomas comprobados con phishing real (el modelo de texto lee 22)</div></div>
-        <div class="cell"><div class="big">90.6%</div><div class="lbl">del phishing detectado por el sistema completo, en correos recientes que nadie había examinado</div></div>
-        <div class="cell"><div class="big">190 ms</div><div class="lbl">análisis mediano de un correo habitual en un servidor sin GPU</div></div>
-        <div class="cell"><div class="big">0.2%</div><div class="lbl">de los correos legítimos marcados como phishing (1 de 414)</div></div>
+      <h2>Resultados</h2>
+      <div class="headline">
+        <div class="big">90.6%</div>
+        <p class="lbl">del phishing detectado por el sistema completo, en correos recientes que nadie había examinado<span class="ci">intervalo de confianza del 95 %: 89,2 % a 91,8 %</span></p>
       </div>
+      <p class="facts">1 correo legítimo de 414 marcado (0,2 %) · unos 190 ms por correo en el servidor · comprobado con phishing real en 6 de los 22 idiomas que lee el modelo de texto</p>
       <p class="note">Medido en PhishLens Cloud el 24 de octubre de 2026 con el benchmark público: 1812 de 2000 correos de phishing recientes, en varios idiomas, elegidos entre los que nadie examinó durante los ajustes (intervalo de confianza del 95 %: 89,2 % a 91,8 %), y 1 de 414 correos legítimos (297 de listas de correo públicas, 117 de buzones reales; 0,0 % a 1,4 %). El tiempo de análisis es la mediana para un correo habitual (unos 250 tokens); uno corto tarda unos 65 ms. Un orden de magnitud, no una garantía: vea <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">cómo se midió</a> y las <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limitaciones conocidas</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, ahora mismo</h3>
@@ -156,7 +155,7 @@
 
   <section class="sec" id="checks">
     <div class="wrap">
-      <h2><span class="n">02</span>Qué comprueba</h2>
+      <h2>Qué comprueba</h2>
       <p class="intro">Los correos reales de bancos y universidades usan las mismas palabras que el phishing, así que un modelo de texto por sí solo los marca. PhishLens comprueba las pruebas antes de decidir.</p>
       <div class="pair">
         <ul class="rows">
@@ -182,7 +181,7 @@
 
   <section class="sec" id="features">
     <div class="wrap">
-      <h2><span class="n">03</span>Funciones</h2>
+      <h2>Funciones</h2>
       <ul class="feats">
         <li><svg class="ic"><use href="#i-eye"/></svg><div><b>Veredictos explicados</b><span>Una puntuación por comprobación, las señales encontradas y las palabras que orientaron el modelo de texto, para que juzgue usted mismo.</span></div></li>
         <li><svg class="ic"><use href="#i-mail"/></svg><div><b>Gmail y Outlook</b><span>Un botón Analizar junto al asunto en Gmail y Outlook en la web; archivos y texto pegado en la ventana de la extensión.</span></div></li>
@@ -196,7 +195,7 @@
 
   <section class="sec" id="how">
     <div class="wrap">
-      <h2><span class="n">04</span>Cómo funciona</h2>
+      <h2>Cómo funciona</h2>
       <ol class="rows">
         <li><b>Leer</b><span>El texto, los destinos reales de los enlaces, el remitente y, en Gmail, los encabezados originales completos.</span></li>
         <li><b>Puntuar</b><span>Un modelo multilingüe para la redacción, un modelo y reglas para los enlaces, reglas para el remitente y el destino de los enlaces.</span></li>
@@ -208,7 +207,7 @@
 
   <section class="sec" id="try">
     <div class="wrap">
-      <h2><span class="n">05</span>Probar</h2>
+      <h2>Probar</h2>
       <p class="intro">Este formulario usa el mismo servidor que la extensión. No se guarda nada, pero use correos de prueba, no privados.</p>
       <div class="demo">
         <form class="panel" id="demo-form" novalidate>
@@ -261,9 +260,17 @@
     </div>
   </section>
 
+  <section class="sec" id="why">
+    <div class="wrap">
+      <h2>Por qué existe</h2>
+      <p class="intro">PhishLens nació como el proyecto de fin de carrera de nuestro grupo en Nile University of Nigeria. Entre los temas que consideramos, elegimos un detector de phishing que explica su veredicto en lugar de solo marcar un correo. Al terminar el curso lo continué solo: hoy es un proyecto independiente, sin relación con la universidad. A mediados de octubre todavía marcaba 130 de los 297 correos legítimos de listas de correo de su propio benchmark; las correcciones que bajaron esa cifra a 1 están <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">descritas paso a paso</a>, y cada medición se publica, buena o mala.</p>
+      <p class="sign">AnzouK</p>
+    </div>
+  </section>
+
   <section class="sec" id="install">
     <div class="wrap">
-      <h2><span class="n">06</span>Instalar</h2>
+      <h2>Instalar</h2>
       <p class="intro">PhishLens aún no está en Chrome Web Store: cárguelo a mano, son unos dos minutos.</p>
       <div class="install">
         <div>

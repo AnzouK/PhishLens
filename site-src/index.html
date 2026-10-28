@@ -36,13 +36,12 @@
 
   <section class="sec" id="results">
     <div class="wrap">
-      <h2><span class="n">01</span>{{results_h}}</h2>
-      <div class="strip">
-        <div class="cell"><div class="big">6</div><div class="lbl">{{r_langs}}</div></div>
-        <div class="cell"><div class="big">90.6%</div><div class="lbl">{{r_caught}}</div></div>
-        <div class="cell"><div class="big">190 ms</div><div class="lbl">{{r_latency}}</div></div>
-        <div class="cell"><div class="big">0.2%</div><div class="lbl">{{r_false}}</div></div>
+      <h2>{{results_h}}</h2>
+      <div class="headline">
+        <div class="big">90.6%</div>
+        <p class="lbl">{{r_caught}}<span class="ci">{{r_caught_ci}}</span></p>
       </div>
+      <p class="facts">{{r_facts}}</p>
       <p class="note">{{results_note_html}}</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> {{live_h}}</h3>
@@ -55,7 +54,7 @@
 
   <section class="sec" id="checks">
     <div class="wrap">
-      <h2><span class="n">02</span>{{checks_h}}</h2>
+      <h2>{{checks_h}}</h2>
       <p class="intro">{{checks_intro}}</p>
       <div class="pair">
         <ul class="rows">
@@ -81,7 +80,7 @@
 
   <section class="sec" id="features">
     <div class="wrap">
-      <h2><span class="n">03</span>{{features_h}}</h2>
+      <h2>{{features_h}}</h2>
       <ul class="feats">
         <li><svg class="ic"><use href="#i-eye"/></svg><div><b>{{f_explain_b}}</b><span>{{f_explain}}</span></div></li>
         <li><svg class="ic"><use href="#i-mail"/></svg><div><b>{{f_mail_b}}</b><span>{{f_mail}}</span></div></li>
@@ -95,7 +94,7 @@
 
   <section class="sec" id="how">
     <div class="wrap">
-      <h2><span class="n">04</span>{{how_h}}</h2>
+      <h2>{{how_h}}</h2>
       <ol class="rows">
         <li><b>{{how_read_b}}</b><span>{{how_read}}</span></li>
         <li><b>{{how_score_b}}</b><span>{{how_score}}</span></li>
@@ -107,7 +106,7 @@
 
   <section class="sec" id="try">
     <div class="wrap">
-      <h2><span class="n">05</span>{{try_h}}</h2>
+      <h2>{{try_h}}</h2>
       <p class="intro">{{try_intro}}</p>
       <div class="demo">
         <form class="panel" id="demo-form" novalidate>
@@ -160,9 +159,17 @@
     </div>
   </section>
 
+  <section class="sec" id="why">
+    <div class="wrap">
+      <h2>{{why_h}}</h2>
+      <p class="intro">{{why_html}}</p>
+      <p class="sign">AnzouK</p>
+    </div>
+  </section>
+
   <section class="sec" id="install">
     <div class="wrap">
-      <h2><span class="n">06</span>{{install_h}}</h2>
+      <h2>{{install_h}}</h2>
       <p class="intro">{{install_intro}}</p>
       <div class="install">
         <div>

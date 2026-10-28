@@ -180,19 +180,25 @@ CI runs all three on every pull request. Setup and project layout:
   published; a native review of the Hausa translation is under way.
 - **Chrome Web Store release.**
 
-## Origin and credits
+## Who makes it
 
-PhishLens is written with the help of an AI coding assistant. Every
-change is reviewed and tested, and every claim about detection is
-measured on the public benchmark before it ships
-([evaluation.md](docs/evaluation.md)).
+PhishLens is built and run by one person, [AnzouK](https://github.com/AnzouK).
+It began as our group's final-year project at
+[Nile University of Nigeria](https://nileuniversity.edu.ng/): of the
+topics we considered, we chose a phishing detector that explains its
+verdict instead of only flagging an email. The team trained the first
+three models in [PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector)
+(maintained by [dodi-ctrl](https://github.com/dodi-ctrl)). When the
+course ended I kept it going on my own: it is now an independent
+project, with no link to the university.
 
-PhishLens started as a final-year project for a B.Sc. in Cybersecurity at
-[Nile University of Nigeria](https://nileuniversity.edu.ng/) (2025/2026)
-and is now maintained independently. The original three models were
-trained by the project team in
-[PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector),
-maintained by [dodi-ctrl](https://github.com/dodi-ctrl).
+I write it with the help of an AI coding assistant. I review and test
+every change, and no claim about detection ships before it is measured
+on the public benchmark. The worst run so far, 130 of 297 legitimate
+emails flagged in mid-October, and what fixed it are in
+[evaluation.md](docs/evaluation.md#results).
+
+## Credits
 
 It builds on [Google Safe Browsing](https://safebrowsing.google.com/)
 (its warnings are advisories provided by Google),
