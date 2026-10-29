@@ -130,6 +130,7 @@ everything step by step.
 
 ```bash
 mkdir -p backend/model
+# the public English text model; PhishLens Cloud runs the multilingual one
 huggingface-cli download AnzouKiona/phishlens-distilbert --local-dir backend/model
 cd backend && docker compose up --build
 ```

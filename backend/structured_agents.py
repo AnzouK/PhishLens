@@ -81,8 +81,8 @@ def _resolve_agent_file(stem: str, env_var: str) -> Path | None:
         path = _hf_fetch(f"{stem}.joblib")
         if path:
             logger.warning(
-                "Loading %s with pickle: publish %s.skops "
-                "(convert_agents_to_skops.py) and set AGENTS_ALLOW_PICKLE=0.",
+                "Loading %s with pickle (AGENTS_ALLOW_PICKLE=1): convert it to "
+                "%s.skops with convert_agents_to_skops.py.",
                 path.name,
                 stem,
             )
@@ -96,7 +96,7 @@ def _load_agent(agent, path: Path):
 
         return agent_io.apply_state(agent, agent_io.load_skops_state(path))
     if not AGENTS_ALLOW_PICKLE:
-        raise RuntimeError(f"{path.name} is a pickle file and AGENTS_ALLOW_PICKLE=0")
+        raise RuntimeError(f"{path.name} is a pickle file; set AGENTS_ALLOW_PICKLE=1 to load it")
     agent.load_model(str(path))
     return agent
 

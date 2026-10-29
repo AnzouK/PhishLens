@@ -48,7 +48,7 @@ B6: anyone can post a report to `/feedback`, not only the extension.
 | S1 | **Spoofing** the sender: `From: paypal.com` sent from attacker infrastructure to borrow trust | B1 | Trust comes from DKIM alignment with the From: organisational domain, not from the header text. Misaligned `signed-by` stays on the strict path. A brand's name over another domain's address ("Chronopost <x@random.us>") cancels the softer paths and raises the sender score (`test_impersonation_and_links.py`). Tested in `test_auth_headers.py` and `test_extension_backend.py` | Mitigated |
 | S2 | Spoofing the client context: a caller claims `gmail_in_inbox` or `gmail_delivered` to soften its own scan | B2 | The flags only soften the caller's own result, never shared state; a Safe Browsing hit still forces phishing; documented as a SECURITY NOTE in code | Accepted (limited impact) |
 | S3 | Trusted-domain abuse: a compromised account at an allowlisted bank sends phishing | B1 | A Safe Browsing hit forces phishing on every path, the allowlist included; allowlist is small and documented as a regional fallback | Partially mitigated |
-| T1 | **Tampering** with the model: a malicious joblib on Hugging Face (pickle executes code on load) | B4 | The agents load from skops files with a type allowlist (scikit-learn, NumPy, SciPy, builtins only); pickle is a fallback that `AGENTS_ALLOW_PICKLE=0` turns off | Mitigated (skops files published and pickle disabled in production since 2026-09-30) |
+| T1 | **Tampering** with the model: a malicious joblib on Hugging Face (pickle executes code on load) | B4 | The agents load from skops files with a type allowlist (scikit-learn, NumPy, SciPy, builtins only); pickle is refused unless `AGENTS_ALLOW_PICKLE=1` | Mitigated |
 | T2 | Cache poisoning: a wrong verdict stored in the reputation cache | B3 | Cache key is the normalised URL, values only come from the cascade itself, 24 h TTL | Mitigated |
 | T4 | A tampered PhishTank feed, or a PhishTank entry on a shared host (`bit.ly`, `storage.googleapis.com`) flagging every link of that host | B3 | Feed downloaded over HTTPS only; on hosts that serve many unrelated users, only the exact URL matches, never the whole domain (`SHARED_PATH_HOSTS`) | Mitigated |
 | T5 | A replaced or wrong text model: `HF_MODEL_REPO` changed, a new revision pushed to the repository | B4 | Weights loaded through `transformers`, which prefers safetensors files (data only) when the repository provides them; one folder per repository so a switch never mixes models; `/health` reports the repository, revision, name and settings in use; `HF_MODEL_REVISION` and `HF_AGENTS_REVISION` pin the exact commits (a warning is logged when they are not set); only the maintainer can push to the repository | Mitigated when the revisions are pinned |
@@ -115,10 +115,6 @@ score a little.
 
 **R9. The Hausa interface is a draft translation**, marked for review by
 a native speaker; English stays available in Settings.
-
-**R10. A self-hosted server may still load pickle files.** The default
-`AGENTS_ALLOW_PICKLE=1` falls back to joblib when no skops file is found;
-PhishLens Cloud runs with `0`.
 
 ## Review triggers
 

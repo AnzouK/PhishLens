@@ -288,7 +288,8 @@
             <li><b>PhishLens Cloud</b> (predefinido): nada a fazer.</li>
             <li><b>O seu, privado:</b> execute-o com o Docker e escolha <b>Local</b> nas definições da extensão.</li>
           </ol>
-<pre>huggingface-cli download AnzouKiona/phishlens-distilbert \
+<pre># the public English text model; PhishLens Cloud runs the multilingual one
+huggingface-cli download AnzouKiona/phishlens-distilbert \
   --local-dir backend/model
 cd backend &amp;&amp; docker compose up --build</pre>
           <p class="small muted">Python sem Docker, configuração e implementação: veja o <a href="https://github.com/AnzouK/PhishLens#run-your-own-server">guia de início rápido</a> (em inglês).</p>
