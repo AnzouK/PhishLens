@@ -7,6 +7,12 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Added
+- A Firefox build of the extension (Firefox 140 or later), attached to
+  each release next to the Chrome zip: the same files, with the
+  background run as an event page and the add-on id and data-collection
+  declaration Firefox requires (`scripts/build_extension.py`).
+
 ### Security
 - The server refuses pickle (joblib) model files by default: they run
   code when loaded. `AGENTS_ALLOW_PICKLE=1` still allows them, for an old

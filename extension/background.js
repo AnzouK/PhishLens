@@ -4,15 +4,20 @@
 // content scripts of open mail tabs after an install or an update.
 // The server is only contacted when a scan or a report is requested.
 
-try {
-    importScripts(
-        "lib/locales/en.js", "lib/locales/fr.js", "lib/locales/pt.js", "lib/locales/es.js",
-        "lib/locales/de.js", "lib/locales/it.js", "lib/locales/nl.js", "lib/locales/ha.js",
-        "lib/i18n.js", "lib/shared.js", "lib/history.js", "lib/lime_cache.js");
-    self.PhishLensI18n.init();
-} catch (e) {
-    console.warn("[PhishLens] shared modules not loaded:", e);
+// Chrome runs this file as a service worker, which loads the libraries
+// here. Firefox runs it as an event page whose manifest lists the same
+// files before it (scripts/build_extension.py reads this list).
+if (typeof importScripts === "function") {
+    try {
+        importScripts(
+            "lib/locales/en.js", "lib/locales/fr.js", "lib/locales/pt.js", "lib/locales/es.js",
+            "lib/locales/de.js", "lib/locales/it.js", "lib/locales/nl.js", "lib/locales/ha.js",
+            "lib/i18n.js", "lib/shared.js", "lib/history.js", "lib/lime_cache.js");
+    } catch (e) {
+        console.warn("[PhishLens] shared modules not loaded:", e);
+    }
 }
+self.PhishLensI18n?.init();
 
 const text = (key, vars) => self.PhishLensI18n?.t(key, vars) ?? key;
 const { debug } = self.PhishLensShared;
