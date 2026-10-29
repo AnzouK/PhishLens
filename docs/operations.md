@@ -76,7 +76,7 @@ training mail is. The extension warns about it.
 | `REPUTATION_CACHE_DB` | `~/.cache/phishlens/reputation.db` | URL verdicts, kept 24 h; put it in the data volume |
 | `CRYPTO_LINK_RULE` | `1` | Flag a DKIM-signed sender whose links all lead elsewhere and whose wording looks like phishing |
 | `METADATA_MODEL_ENABLED` | `0` | The trained header model; off because it flags most modern legitimate headers |
-| `AGENTS_ALLOW_PICKLE` | `1` | `0` loads only the `.skops` agents (recommended) |
+| `AGENTS_ALLOW_PICKLE` | `0` | `1` also loads pickle (joblib) agents, which run code when loaded; only for an old local copy never converted to skops |
 | `RATE_LIMIT_ANALYSE` | `30/minute` | Per IP; also `RATE_LIMIT_ATTACHMENT`, `RATE_LIMIT_EXPLAIN`, `RATE_LIMIT_FEEDBACK` |
 | `RESULT_CACHE_TTL` / `RESULT_CACHE_MAX` | `86400` / `2000` | Results kept in memory by request hash; `0` turns it off |
 | `LIME_NUM_SAMPLES` | `100` | Model runs per explanation |

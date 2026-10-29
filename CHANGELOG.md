@@ -7,6 +7,15 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Security
+- The server refuses pickle (joblib) model files by default: they run
+  code when loaded. `AGENTS_ALLOW_PICKLE=1` still allows them, for an old
+  local copy of the agents never converted to skops.
+
+### Documentation
+- The self-hosting commands say that the downloaded model is the public
+  English one, while PhishLens Cloud runs the multilingual model.
+
 ### Fixed
 - The website's live counters wait at most 6 seconds and are left out
   when the server does not answer, instead of showing an error code;

@@ -288,7 +288,8 @@
             <li><b>PhishLens Cloud</b> (na asali): babu abin yi.</li>
             <li><b>Taka ta kanka, ta sirri:</b> kunna ta da Docker, sannan ka zaɓi <b>Local</b> a saitunan ƙarin.</li>
           </ol>
-<pre>huggingface-cli download AnzouKiona/phishlens-distilbert \
+<pre># the public English text model; PhishLens Cloud runs the multilingual one
+huggingface-cli download AnzouKiona/phishlens-distilbert \
   --local-dir backend/model
 cd backend &amp;&amp; docker compose up --build</pre>
           <p class="small muted">Python ba tare da Docker ba, saituna da girkawa: duba <a href="https://github.com/AnzouK/PhishLens#run-your-own-server">jagorar farawa</a> (da Turanci).</p>

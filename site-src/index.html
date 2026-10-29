@@ -187,7 +187,8 @@
             <li>{{backend_cloud_html}}</li>
             <li>{{backend_own_html}}</li>
           </ol>
-<pre>huggingface-cli download AnzouKiona/phishlens-distilbert \
+<pre># the public English text model; PhishLens Cloud runs the multilingual one
+huggingface-cli download AnzouKiona/phishlens-distilbert \
   --local-dir backend/model
 cd backend &amp;&amp; docker compose up --build</pre>
           <p class="small muted">{{install_more_html}}</p>

@@ -42,9 +42,10 @@ LIME_MAX_CHARS = 800  # LIME explains the start of the body
 # ---------------------------------------------------------------------
 HF_AGENTS_REPO = os.environ.get("HF_AGENTS_REPO", "AnzouKiona/phishlens-agents")
 HF_AGENTS_REVISION = os.environ.get("HF_AGENTS_REVISION") or None  # as HF_MODEL_REVISION
-# skops files are loaded with a type allowlist; pickle (joblib) is only a
-# fallback and AGENTS_ALLOW_PICKLE=0 refuses it (production setting).
-AGENTS_ALLOW_PICKLE = os.environ.get("AGENTS_ALLOW_PICKLE", "1") != "0"
+# skops files are loaded with a type allowlist. Pickle (joblib) runs code
+# when loaded, so it is refused unless AGENTS_ALLOW_PICKLE=1 (only for an
+# old local copy of the agents that was never converted).
+AGENTS_ALLOW_PICKLE = os.environ.get("AGENTS_ALLOW_PICKLE", "0") == "1"
 
 # ---------------------------------------------------------------------
 # Server
