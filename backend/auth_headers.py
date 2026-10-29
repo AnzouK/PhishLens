@@ -29,6 +29,7 @@ import logging
 import re
 import socket
 from dataclasses import asdict, dataclass
+from email.utils import parseaddr
 from typing import Any
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
@@ -55,6 +56,16 @@ _METHOD_RE = re.compile(
 _SPF_ID_RE = re.compile(r"smtp\.mailfrom=([^\s;]+)", re.IGNORECASE)
 _DKIM_ID_RE = re.compile(r"header\.(?:i|d)=@?([^\s;]+)", re.IGNORECASE)
 _DMARC_ID_RE = re.compile(r"header\.from=([^\s;]+)", re.IGNORECASE)
+_ID_RE = {"spf": _SPF_ID_RE, "dkim": _DKIM_ID_RE, "dmarc": _DMARC_ID_RE}
+
+
+def _clauses(ar: str):
+    """(method, result, text up to the next method result) for each
+    method result in an Authentication-Results value."""
+    found = list(_METHOD_RE.finditer(ar))
+    for i, m in enumerate(found):
+        end = found[i + 1].start() if i + 1 < len(found) else len(ar)
+        yield m.group("method").lower(), m.group("result").lower(), ar[m.end() : end]
 
 
 @dataclass
@@ -191,10 +202,14 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     """
     verdict = AuthVerdict()
 
-    # Pull out From: domain first: needed for the alignment check.
+    # From: domain first, needed for the alignment check. The address
+    # itself, not the first "@" of the line: a display name can carry
+    # another address ('"support@paypal.com" <scam@attacker.example>').
     from_raw = headers.get("from", "")
-    m = re.search(r"@([^>\s,]+)", from_raw)
-    if m:
+    addr = parseaddr(from_raw[:2000])[1]
+    if "@" in addr:
+        verdict.from_domain = _domain_of(addr.rsplit("@", 1)[1])
+    elif m := re.search(r"@([^>\s,]+)", from_raw[:2000]):
         verdict.from_domain = _domain_of(m.group(1))
 
     ar = headers.get("authentication-results", "") or ""
@@ -207,19 +222,24 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     verdict.header_present = True
     verdict.raw = ar[:500]  # cap for logging
 
-    # Extract per-method verdicts
-    for m in _METHOD_RE.finditer(ar):
-        method = m.group("method").lower()
-        result = m.group("result").lower()
+    # One result per method, each with the identity written in its own
+    # clause. An email can carry several DKIM signatures: a failing one in
+    # the brand's name next to a passing one for the sender's own domain
+    # must not combine into "pass for the brand". Per method, the result
+    # kept is an aligned pass, else any pass, else the first one listed.
+    fod = _org_domain(verdict.from_domain)
+    chosen: dict[str, tuple[int, str, str]] = {}
+    for method, result, clause in _clauses(ar):
+        idm = _ID_RE[method].search(clause)
+        domain = _domain_of(idm.group(1)) if idm else ""
+        rank = 0
+        if result == "pass":
+            rank = 2 if domain and _org_domain(domain) == fod else 1
+        if method not in chosen or rank > chosen[method][0]:
+            chosen[method] = (rank, result, domain)
+    for method, (_rank, result, domain) in chosen.items():
         setattr(verdict, method, result)
-
-    # Extract authenticated identifiers
-    if m := _SPF_ID_RE.search(ar):
-        verdict.spf_domain = _domain_of(m.group(1))
-    if m := _DKIM_ID_RE.search(ar):
-        verdict.dkim_domain = _domain_of(m.group(1))
-    if m := _DMARC_ID_RE.search(ar):
-        verdict.dmarc_domain = _domain_of(m.group(1))
+        setattr(verdict, f"{method}_domain", domain)
 
     # Compute derived signals
     verdict.all_pass = verdict.spf == "pass" and verdict.dkim == "pass" and verdict.dmarc == "pass"
@@ -230,7 +250,6 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     # this check just because their spoofed header.from=paypal.com happens
     # to appear in the DMARC identifier field (which is copied from From:,
     # not authenticated). Only "pass" verdicts count.
-    fod = _org_domain(verdict.from_domain)
     aligned_domains = []
     if verdict.spf == "pass" and verdict.spf_domain:
         aligned_domains.append(verdict.spf_domain)

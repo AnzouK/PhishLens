@@ -125,6 +125,7 @@ async function runScan(emailView, btn) {
         nothingToScan(emailView, hasAttachments, attBtn);
         return;
     }
+    if (!(await PL.confirmCloudUse(emailView))) return;
     // Almost no text but some links (image-only emails): the links and the
     // sender are scored, and the attachments scanned too.
     if (shortBody && hasAttachments && attBtn && !attBtn.disabled) attBtn.click();

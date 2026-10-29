@@ -211,6 +211,35 @@ PL.explainInBackground = async function explainInBackground(view, payload, data,
     }
 };
 
+// Before the first scan with PhishLens Cloud, the same notice as the
+// popup's: where the email goes. Resolves to true once the user has seen
+// it (now or earlier, in the page or in the popup), false if dismissed.
+const NOTICE_KEY = "privacy_notice_seen";
+PL.confirmCloudUse = async function confirmCloudUse(view, anchor = null) {
+    const s = await new Promise((resolve) => chrome.storage.local.get([NOTICE_KEY, "backend"], (v) => resolve(v || {})));
+    if (s[NOTICE_KEY] || (s.backend && s.backend !== "cloud")) return true;
+    return new Promise((resolve) => {
+        const banner = PL.showBanner(view, {
+            verdict: "error", title: t("privacy_notice_title"), error: t("privacy_notice_text"),
+        }, anchor);
+        const lang = PhishLensI18n.language();
+        const ok = h("button.pll-att-btn", {
+            type: "button",
+            onclick: () => {
+                chrome.storage.local.set({ [NOTICE_KEY]: true });
+                banner.remove();
+                resolve(true);
+            },
+        }, t("privacy_notice_ok"));
+        const policy = h("a.pll-notice-link", {
+            href: `https://phishlens.dev/${lang && lang !== "en" ? lang + "/" : ""}privacy.html`,
+            target: "_blank", rel: "noopener",
+        }, t("privacy_notice_link"));
+        banner.querySelector(".pll-banner__main").append(h("div.pll-notice-actions", null, ok, " ", policy));
+        banner.querySelector(".pll-banner__close").addEventListener("click", () => resolve(false));
+    });
+};
+
 // The error banner for a failed scan.
 PL.showError = function showError(view, error, anchor = null) {
     PL.showBanner(view, { verdict: "error", error: String(error?.message || error) }, anchor);

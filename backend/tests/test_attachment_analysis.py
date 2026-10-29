@@ -168,3 +168,15 @@ class TestAnalyseAttachment:
         r = analyse_attachment(self._b64(raw), filename="notes.txt", mime_type="text/plain")
         assert r["kind"] == "text"
         assert "https://legit.tld/verify" in r["extracted_urls"]
+
+
+def test_the_file_signature_wins_over_its_name():
+    from attachment_analysis import sniff_type
+
+    assert sniff_type("invoice.txt", b"%PDF-1.7\n...", None) == "application/pdf"
+    page = b"<html><body><form><input type=password></form></body></html>"
+    assert sniff_type("invoice.txt", page, None) == "text/html"
+    assert sniff_type("notes.txt", b"Meeting at 3pm, room 2.", None) == "text/plain"
+    # Office files are ZIP or OLE2 containers: the name says which kind.
+    assert sniff_type("report.docx", b"PK\x03\x04rest", None).endswith("wordprocessingml.document")
+    assert sniff_type("photo.png", b"PK\x03\x04rest", None) == "application/zip"

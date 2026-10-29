@@ -105,23 +105,10 @@ _MIME_BY_EXT = {
 IMAGE_MIMES = {m for m in _MIME_BY_EXT.values() if m.startswith("image/")}
 
 
-def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> str:
-    """
-    Return a canonical MIME type. Extension-first, then magic-byte sniff.
-    Client hint is used only as a last resort.
-    """
-    ext = ""
-    if filename and "." in filename:
-        ext = "." + filename.rsplit(".", 1)[1].lower()
-    if ext in _MIME_BY_EXT:
-        return _MIME_BY_EXT[ext]
-
-    # magic bytes
-    head = content_head[:16]
+def _magic_type(head: bytes) -> str | None:
+    """The type a file's first bytes prove, whatever its name says."""
     if head.startswith(b"%PDF-"):
         return "application/pdf"
-    if head.lstrip().lower().startswith((b"<!doctype html", b"<html", b"<!--", b"<head")):
-        return "text/html"
     if head[:2] == b"PK":
         # ZIP-based: Office documents are resolved by the dispatcher,
         # which opens the archive to see what is inside.
@@ -136,10 +123,40 @@ def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> s
         return "image/gif"
     if head.startswith(b"RIFF") and head[8:12] == b"WEBP":
         return "image/webp"
-    if head.startswith(b"BM"):
-        return "image/bmp"
     if head.startswith((b"II*\x00", b"MM\x00*")):
         return "image/tiff"
+    return None
+
+
+_HTML_MARKS = (b"<!doctype html", b"<html", b"<head", b"<form", b"<body", b"<script")
+
+
+def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> str:
+    """
+    Return a canonical MIME type: the file's signature first (a PDF or an
+    HTML login page renamed "invoice.txt" is still read as what it is),
+    then the extension, then the client's hint.
+    """
+    ext = ""
+    if filename and "." in filename:
+        ext = "." + filename.rsplit(".", 1)[1].lower()
+    magic = _magic_type(content_head[:16])
+    by_ext = _MIME_BY_EXT.get(ext)
+    office_container = ("application/zip", "application/x-ole-storage")
+    if magic in office_container and by_ext in (office.OOXML_MIMES | office.LEGACY_MIMES):
+        return by_ext  # an Office file is a ZIP or OLE2 container; its name says which
+    if magic:
+        return magic
+    text_like = by_ext is None or by_ext.startswith("text/")
+    if text_like and any(m in content_head[:1024].lower() for m in _HTML_MARKS):
+        return "text/html"
+    if by_ext:
+        return by_ext
+    head = content_head[:16]
+    if head.lstrip().lower().startswith(b"<!--"):
+        return "text/html"
+    if head.startswith(b"BM"):
+        return "image/bmp"
 
     # Fall back to whatever the client claimed, sanitized.
     if client_hint and "/" in client_hint:
@@ -484,7 +501,7 @@ def dispatch_raw(
     if danger:
         return danger
 
-    mime = sniff_type(filename, raw[:16], mime_type)
+    mime = sniff_type(filename, raw[:1024], mime_type)
 
     # Archives that are not Office documents, and calendar invites.
     fmt = archives.is_rar_or_7z(raw)

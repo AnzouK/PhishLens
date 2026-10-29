@@ -128,6 +128,8 @@ function installScanAllButton(emailView, targets) {
 
 async function scanAll(btn) {
     const targets = btn._pllTargets || [];
+    const view = targets[0]?.emailView;
+    if (view && !(await PL.confirmCloudUse(view))) return;
     if (targets.length >= 5 && !confirm(t("att_confirm_many", { count: targets.length }))) return;
     if (targets.length > MAX_PER_EMAIL) {
         alert(t("att_too_many", { count: targets.length, max: MAX_PER_EMAIL }));
@@ -204,6 +206,9 @@ async function downloadUrl(anchor, tile) {
 async function download(anchor, tile) {
     const url = await downloadUrl(anchor, tile);
     if (!url) throw new Error(t("att_err_no_url"));
+    // The session cookie goes only to Gmail's own download links, never to
+    // an address found elsewhere in the tile.
+    if (new URL(url, location.href).origin !== location.origin) throw new Error(t("att_err_no_url"));
     const resp = await fetch(url, { credentials: "include" });
     if (!resp.ok) throw new Error(t("att_err_download", { status: resp.status }));
     const buf = await resp.arrayBuffer();

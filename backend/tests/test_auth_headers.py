@@ -151,3 +151,43 @@ class TestOrgDomainPublicSuffixes:
             }
         )
         assert v.aligned is False and v.cryptographically_verified is False
+
+
+def test_a_failing_brand_signature_does_not_lend_its_domain_to_a_passing_one():
+    from auth_headers import parse_authentication_results
+
+    v = parse_authentication_results(
+        {
+            "from": "PayPal <service@paypal.com>",
+            "authentication-results": "mx.google.com; dkim=fail header.i=@paypal.com header.s=s1; "
+            "dkim=pass header.i=@attacker.example header.s=s2; spf=pass smtp.mailfrom=attacker.example; "
+            "dmarc=fail (p=REJECT) header.from=paypal.com",
+        }
+    )
+    assert v.dkim == "pass" and v.dkim_domain == "attacker.example"
+    assert not v.cryptographically_verified and not v.aligned
+
+
+def test_the_aligned_signature_is_kept_whatever_its_place():
+    from auth_headers import parse_authentication_results
+
+    v = parse_authentication_results(
+        {
+            "from": "Bank <alerts@bank.example>",
+            "authentication-results": "mx.google.com; dkim=pass header.i=@esp.example header.s=a; "
+            "dkim=pass header.i=@bank.example header.s=b; spf=pass smtp.mailfrom=esp.example",
+        }
+    )
+    assert v.dkim_domain == "bank.example" and v.cryptographically_verified
+
+
+def test_an_address_in_the_display_name_is_not_the_sender():
+    from auth_headers import parse_authentication_results
+
+    v = parse_authentication_results(
+        {
+            "from": '"support@paypal.com" <scam@attacker.example>',
+            "authentication-results": "mx.google.com; dkim=pass header.i=@attacker.example",
+        }
+    )
+    assert v.from_domain == "attacker.example"

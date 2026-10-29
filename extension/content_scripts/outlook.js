@@ -19,7 +19,7 @@ const SEL = Object.freeze({
 });
 const EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
 // Drafts sit in the conversation too, with an editor; never scanned.
-const DRAFT_RE = /\[(Draft|Brouillon|Borrador|Rascunho|Entwurf|Bozza)\]/i;
+const DRAFT_RE = /\[(Draft|Brouillon|Borrador|Rascunho|Entwurf|Bozza|Concept)\]/i;
 
 PL.olInject = function olInject() {
     if (!PL.alive()) return;
@@ -65,7 +65,7 @@ function currentMessage(pane) {
         if (body && (f.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING)) from = f;
     }
     const fromText = (from?.querySelector("[aria-label]")?.getAttribute("aria-label") || from?.textContent || "")
-        .replace(/^\s*(De|From)\s*:\s*/i, "").trim();
+        .replace(/^\s*(From|De|Von|Da|Van)\s*:\s*/i, "").trim();
     const email = (fromText.match(EMAIL_RE) || [])[0] || "";
     // "Name <address>" -> "Name"
     return { body, count: bodies.length, senderEmail: email.toLowerCase(), senderName: fromText.split("<")[0].trim() };
@@ -110,6 +110,7 @@ async function olScan(pane, btn) {
         PL.showBanner(pane, { verdict: "error", title: t("nothing_title"), error: t("nothing_lead_outlook") }, anchor);
         return;
     }
+    if (!(await PL.confirmCloudUse(pane, anchor))) return;
 
     PL.setBtnLoading(btn, true);
     try {

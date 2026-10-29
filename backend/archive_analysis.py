@@ -202,7 +202,12 @@ def _choose_inner(raw: bytes, entries: list[_Entry], add: Callable[[str], None])
             break
         if e.is_dir or _ext(e.name) not in DOCUMENT_EXTS:
             continue
-        size = e.size or 0
+        if e.size is None:
+            # No size in the listing: it cannot be checked before
+            # extraction, so the file is not extracted.
+            add("inner_files_not_extracted")
+            continue
+        size = e.size
         if size > MAX_INNER_BYTES or total + size > MAX_TOTAL_INNER:
             add("oversized_inner_file")
             continue
@@ -340,7 +345,10 @@ def analyse_zip(
         out: dict[str, bytes] = {}
         for n in names:
             try:
-                out[n] = zf.read(n)[:MAX_INNER_BYTES]
+                # Bounded read: never more than the limit is decompressed,
+                # whatever size the archive declares.
+                with zf.open(n) as fh:
+                    out[n] = fh.read(MAX_INNER_BYTES)
             except (zipfile.BadZipFile, NotImplementedError, RuntimeError, KeyError):
                 continue
         return out
@@ -441,7 +449,8 @@ def analyse_rar(
             missing_tool = False
             for n in names:
                 try:
-                    out[n] = rf.read(n)[:MAX_INNER_BYTES]
+                    with rf.open(n) as fh:
+                        out[n] = fh.read(MAX_INNER_BYTES)
                 except Exception as e:
                     if type(e).__name__ in ("RarCannotExec", "RarExecError"):
                         missing_tool = True

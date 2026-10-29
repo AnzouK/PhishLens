@@ -7,6 +7,33 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Security
+- An email carrying two DKIM signatures, a failing one in a brand's name
+  and a passing one for the sender's own domain, could be read as "DKIM
+  pass for the brand" and get the softer trust path: each DKIM, SPF and
+  DMARC result is now read with the identity of its own clause, and an
+  aligned pass is preferred.
+- The sender's domain is read from the address of the From: header, not
+  from the first "@" of the line (a display name such as
+  "support@paypal.com" no longer counts).
+- An attachment's file signature now wins over its name: a PDF or an
+  HTML login page renamed "invoice.txt" is analysed as what it is.
+- Files inside ZIP and RAR archives are read in bounded chunks whatever
+  size the archive declares, and 7z members without a size are not
+  extracted.
+- The extension downloads attachments only from Gmail's own address,
+  gives up on a server that does not answer within 60 seconds, and
+  refuses a server address that is not http(s).
+
+### Changed
+- Before the first scan with PhishLens Cloud, Gmail and Outlook show the
+  same privacy notice as the popup (where the email goes); the
+  automatic scan waits until it has been seen.
+- Scans saved at the same moment no longer overwrite each other in the
+  local history.
+- Outlook: Dutch drafts and the German, Italian and Dutch "From:"
+  prefixes are recognised.
+
 ### Added
 - A Firefox build of the extension (Firefox 140 or later), attached to
   each release next to the Chrome zip: the same files, with the

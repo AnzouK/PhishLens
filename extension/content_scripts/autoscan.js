@@ -129,6 +129,11 @@ async function runAutoScan() {
     if (running || !PL.opts.autoScan || !PL.alive()) return;
     running = true;
     try {
+        // No automatic scan before the privacy notice was seen (it is shown
+        // in the popup, where the option is turned on, and before the
+        // first manual scan).
+        const notice = await new Promise((r) => chrome.storage.local.get(["privacy_notice_seen", "backend"], (v) => r(v || {})));
+        if (!notice.privacy_notice_seen && (!notice.backend || notice.backend === "cloud")) return;
         const cache = await cacheGet();
         cacheMem = cache;
         const todo = inboxRows().filter((r) => r.unread && !cache[r.id]).slice(0, MAX_PER_PASS);

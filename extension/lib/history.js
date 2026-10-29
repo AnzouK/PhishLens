@@ -53,6 +53,18 @@ function _set(key, value) {
     });
 }
 
+// Every change reads the list, edits it and writes it back: two changes
+// at once (two scans finishing together) would lose one. They run one
+// after the other instead.
+let _queue = Promise.resolve();
+function serial(fn) {
+    return (...args) => {
+        const run = _queue.then(() => fn(...args));
+        _queue = run.catch(() => {});
+        return run;
+    };
+}
+
 // The history entry for an /analyse or /analyse_attachment answer.
 function entryFrom(data, { source, subject = "", sender = "" }) {
     const p = (agent) => Number(data?.agents?.[agent]?.phishing_probability) || 0;
@@ -66,7 +78,7 @@ function entryFrom(data, { source, subject = "", sender = "" }) {
     };
 }
 
-async function saveScan(entry) {
+const saveScan = serial(async function saveScan(entry) {
     if (!entry || typeof entry !== "object") return;
     const list = (await _get(STORAGE_KEY)) || [];
     const clean = {
@@ -87,30 +99,30 @@ async function saveScan(entry) {
     if (list.length > MAX_ENTRIES) list.length = MAX_ENTRIES;
     await _set(STORAGE_KEY, list);
     return clean.id;
-}
+});
 
 // The top words of the explanation, once /explain has answered.
-async function attachTokens(id, tokens) {
+const attachTokens = serial(async function attachTokens(id, tokens) {
     if (!id || !Array.isArray(tokens)) return;
     const list = (await _get(STORAGE_KEY)) || [];
     const idx = list.findIndex((e) => e.id === id);
     if (idx < 0) return;
     list[idx].tokens = tokens.slice(0, 5);
     await _set(STORAGE_KEY, list);
-}
+});
 
 // The user says whether a verdict was right. Unknown labels clear it.
-async function setLabel(id, label) {
+const setLabel = serial(async function setLabel(id, label) {
     const list = (await _get(STORAGE_KEY)) || [];
     const e = list.find((x) => x.id === id);
     if (!e) return;
     if (label === "correct" || label === "wrong") e.label = label;
     else delete e.label;
     await _set(STORAGE_KEY, list);
-}
+});
 
 // The user's answers about a scan: the language, a report sent.
-async function updateScan(id, patch = {}) {
+const updateScan = serial(async function updateScan(id, patch = {}) {
     const list = (await _get(STORAGE_KEY)) || [];
     const e = list.find((x) => x.id === id);
     if (!e) return false;
@@ -119,7 +131,7 @@ async function updateScan(id, patch = {}) {
     if (patch.label === "correct" || patch.label === "wrong") e.label = patch.label;
     await _set(STORAGE_KEY, list);
     return true;
-}
+});
 
 async function _drafts() {
     const all = (await _get(DRAFTS_KEY)) || {};
@@ -130,12 +142,12 @@ async function _drafts() {
 }
 
 // Text already redacted by the caller (lib/redact.js).
-async function saveDraft(id, text) {
+const saveDraft = serial(async function saveDraft(id, text) {
     if (!id || !text) return;
     const drafts = await _drafts();
     drafts[id] = { text: String(text).slice(0, 20000), ts: Date.now() };
     await _set(DRAFTS_KEY, await _trimDrafts(drafts));
-}
+});
 
 async function _trimDrafts(drafts) {
     const kept = Object.entries(drafts).sort((a, b) => b[1].ts - a[1].ts).slice(0, DRAFT_MAX);
@@ -192,19 +204,19 @@ async function getHistory() {
     return (await _get(STORAGE_KEY)) || [];
 }
 
-async function clearHistory() {
+const clearHistory = serial(async function clearHistory() {
     await _set(STORAGE_KEY, []);
     await _set(DRAFTS_KEY, {});
-}
+});
 
-async function deleteScan(id) {
+const deleteScan = serial(async function deleteScan(id) {
     const list = (await _get(STORAGE_KEY)) || [];
     const next = list.filter((e) => e.id !== id);
     await _set(STORAGE_KEY, next);
     const drafts = await _drafts();
     delete drafts[id];
     await _set(DRAFTS_KEY, drafts);
-}
+});
 
 // Aggregates for the Insights view.
 async function getStats() {

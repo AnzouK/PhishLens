@@ -212,7 +212,7 @@ class TestRar:
         def no_tool(self, name, pwd=None):
             raise rarfile.RarCannotExec("no unrar / bsdtar")
 
-        monkeypatch.setattr(rarfile.RarFile, "read", no_tool)
+        monkeypatch.setattr(rarfile.RarFile, "open", no_tool)
         r = analyse_attachment(b64(make_rar5_stored({"notes.txt": b"hello"})), filename="c.rar")
         assert r["entry_count"] == 1
         assert "inner_files_not_extracted" in r["notable_features"]

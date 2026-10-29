@@ -131,3 +131,26 @@ test("in automatic theme, the banner colours follow the mail page, not the syste
     PL.applyTheme("dark");
     assert.equal(theme(), "dark");
 });
+
+test("before the first PhishLens Cloud scan, the page shows where the email goes", async () => {
+    const { PL, ctx } = load(manifest.content_scripts[0]);
+    const store = {};
+    ctx.chrome.storage.local = {
+        get: (keys, cb) => cb(Object.fromEntries(keys.filter((k) => k in store).map((k) => [k, store[k]]))),
+        set: (obj) => Object.assign(store, obj),
+    };
+    const view = mailView(ctx.document);
+    const answer = PL.confirmCloudUse(view);
+    await new Promise((r) => setTimeout(r, 0));
+    const banner = view.querySelector(".pll-banner");
+    assert.match(banner.textContent, /PhishLens Cloud/);
+    banner.querySelector(".pll-att-btn").dispatch("click");
+    assert.equal(await answer, true);
+    assert.equal(store.privacy_notice_seen, true);
+    assert.equal(view.querySelectorAll(".pll-banner").length, 0);
+    // Seen once: no notice any more, and none with a local server.
+    assert.equal(await PL.confirmCloudUse(view), true);
+    delete store.privacy_notice_seen;
+    store.backend = "local";
+    assert.equal(await PL.confirmCloudUse(view), true);
+});
