@@ -78,7 +78,7 @@ function nothingToScan(emailView, hasAttachments, attBtn) {
     }
 }
 
-async function buildPayload(emailView, msg, { body, subject, links, count, sender }) {
+async function buildPayload(emailView, msg, { body, subject, linkGroups, count, sender }) {
     const shortBody = !body || body.length < PL.MIN_BODY;
     // Gmail ran SPF/DKIM/DMARC before delivery; its results on the page
     // let the server trust a verified sender even without the headers.
@@ -103,7 +103,8 @@ async function buildPayload(emailView, msg, { body, subject, links, count, sende
             gmail_mailed_by: gmailAuth.mailedBy,
             gmail_via: gmailAuth.via,
             gmail_in_inbox: gmailAuth.inInbox,
-            link_urls: links,
+            link_urls: linkGroups.visible,
+            hidden_link_urls: linkGroups.hidden,
             thread_messages: count,
         },
     };
@@ -117,7 +118,8 @@ async function runScan(emailView, btn) {
     const body = PL.textOf(bodyEl, hidden);
     const sender = msg.querySelector(SEL.sender) || emailView.querySelector(SEL.sender) || {};
     const subject = emailView.querySelector(SEL.subject)?.textContent?.trim() || "";
-    const links = PL.linkTargetsOf(bodyEl, hidden);
+    const linkGroups = PL.linkGroupsOf(bodyEl, hidden);
+    const links = [...linkGroups.visible, ...linkGroups.hidden];
     const hasAttachments = !!(msg.querySelector(SEL.attachmentStrip) || emailView.querySelector(SEL.attachmentStrip));
     const attBtn = emailView.querySelector(".pll-scan-btn--all");
     const shortBody = !body || body.length < PL.MIN_BODY;
@@ -133,7 +135,7 @@ async function runScan(emailView, btn) {
 
     PL.setBtnLoading(btn, true);
     try {
-        const { payload, fullHeaders } = await buildPayload(emailView, msg, { body, subject, links, count, sender });
+        const { payload, fullHeaders } = await buildPayload(emailView, msg, { body, subject, linkGroups, count, sender });
         const data = await PhishLensApi.analyse(payload);
         PL.showBanner(emailView, { ...data, _threadMessages: count, _fullHeaders: fullHeaders });
         const senderText = payload.sender_email || payload.sender_name || "";

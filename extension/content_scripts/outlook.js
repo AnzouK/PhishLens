@@ -124,7 +124,8 @@ async function olScan(pane, btn) {
     const subject = subjectEl?.getAttribute("title") || subjectEl?.textContent?.trim() || "";
     const hidden = PL.hiddenParts(bodyEl);       // one walk for the text and the links
     const body = PL.textOf(bodyEl, hidden);
-    const links = PL.linkTargetsOf(bodyEl, hidden);
+    const linkGroups = PL.linkGroupsOf(bodyEl, hidden);
+    const links = [...linkGroups.visible, ...linkGroups.hidden];
     const anchor = bannerSlot(pane);
 
     if ((!body || body.length < PL.MIN_BODY) && !links.length) {
@@ -145,7 +146,8 @@ async function olScan(pane, btn) {
                 // A From line without an address: a sender of the user's own
                 // organisation (soft path only, see docs/architecture.md).
                 ...(foundFrom && !senderEmail ? { outlook_internal: true, org_domain: accountDomain() } : {}),
-                link_urls: links,
+                link_urls: linkGroups.visible,
+                hidden_link_urls: linkGroups.hidden,
                 thread_messages: count,
             },
         };

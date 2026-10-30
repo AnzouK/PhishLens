@@ -4,6 +4,8 @@ attacker would write it, with what the checks must now conclude."""
 from __future__ import annotations
 
 import base64
+import json
+from pathlib import Path
 
 import pytest
 
@@ -79,8 +81,8 @@ def test_two_from_headers_keep_the_first_and_prove_nothing():
 
 
 def test_the_message_cannot_name_the_duplicate_marker_itself():
-    headers = ep.header_dict([("From", "a@b.example"), (ep.DUPLICATE_FROM, "0")])
-    assert ep.DUPLICATE_FROM not in headers
+    headers = ep.header_dict([("From", "a@b.example"), (ep.FROM_UNPROVEN, "0")])
+    assert ep.FROM_UNPROVEN not in headers
 
 
 def test_encoded_words_are_decoded_in_the_lenient_parser_too():
@@ -485,3 +487,137 @@ def test_spamhaus_answers(monkeypatch, answer, listed):
     monkeypatch.setattr(ah.socket, "gethostbyname", lambda _q: answer)
     out = asyncio.run(ah.spamhaus_dbl("evil.example"))
     assert (out or {}).get("category") == listed
+
+
+# ---------------------------------------------------------------------
+# Shared with the extension: tests/fixtures/hidden_cases.json
+# ---------------------------------------------------------------------
+_HIDDEN_CASES = json.loads(
+    (Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "hidden_cases.json").read_text()
+)["cases"]
+
+
+@pytest.mark.parametrize("case", _HIDDEN_CASES, ids=[c["name"] for c in _HIDDEN_CASES])
+def test_hidden_cases_shared_with_the_extension(case):
+    assert ep.is_hidden_style(case["style"]) is case["hidden"]
+
+
+# ---------------------------------------------------------------------
+# Round 7
+# ---------------------------------------------------------------------
+def test_hidden_links_never_pass_a_second_visible_link_to_the_same_site():
+    html = (
+        '<a href="https://docs.google.com/document/d/1">Rules</a>'
+        '<a href="https://docs.google.com/forms/d/e/phish">Verify</a>'
+        '<div style="display:none">'
+        + "".join(f'<a href="https://d{i}.example/">x</a>' for i in range(150))
+        + "</div>"
+    )
+    raw = b"From: a@b.example\r\nContent-Type: text/html\r\n\r\n" + html.encode()
+    _body, urls, _h = ep.parse_eml(raw)
+    assert urls[:2] == [
+        "https://docs.google.com/document/d/1",
+        "https://docs.google.com/forms/d/e/phish",
+    ]
+    # and a later ranking keeps that order (Safe Browsing gets the first 30)
+    again = ep.rank_links([], urls, [])
+    assert again[:2] == urls[:2]
+
+
+def test_the_pages_hidden_links_come_after_its_visible_ones():
+    from extension_backend import AnalyseRequest, _resolve_email
+
+    req = AnalyseRequest(
+        raw_text="Please verify your account today",
+        client_context={
+            "link_urls": ["https://docs.google.com/a", "https://docs.google.com/phish"],
+            "hidden_link_urls": [f"https://d{i}.example/" for i in range(50)],
+        },
+    )
+    _body, urls, _h, _raw = _resolve_email(req)
+    assert urls[:2] == ["https://docs.google.com/a", "https://docs.google.com/phish"]
+
+
+def test_words_after_an_unclosed_angle_bracket_stay_words():
+    text = "Hi <a Urgent: your bank account is suspended, verify your password at our portal"
+    assert ep.strip_markup_noise(text) == text
+    assert not ep.looks_like_source(text)
+    assert ep.strip_markup_noise('<div class="x"><p>Hello</p></div>') == "Hello"
+
+
+def test_a_long_base64_run_does_not_make_the_server_drop_the_page_text():
+    from extension_backend import AnalyseRequest, _resolve_email
+
+    eml = (
+        b"From: a@b.example\r\nContent-Type: text/html\r\n\r\n<p>" + b"benign words " * 50 + b"</p>"
+    )
+    page = "Verify your bank account now please " + "A" * 3000
+    req = AnalyseRequest(raw_email_b64=base64.b64encode(eml).decode(), raw_text=page)
+    body, _u, _h, _raw = _resolve_email(req)
+    assert body.startswith("Verify your bank account")
+
+
+def test_html_source_shown_as_text_still_gives_way_to_the_original():
+    source = (
+        "<html><body>"
+        + "".join(f'<div class="c{i}"><p>x</p></div>' for i in range(10))
+        + "</body></html>"
+    )
+    assert ep.is_page_source(source)
+
+
+def test_spaces_cannot_push_the_address_past_what_the_checks_read():
+    headers = ep.header_dict([("From", '"PayPal' + " " * 3000 + '" <scam@evil.example>')])
+    assert st.impersonated_brand(headers["from"]) == "paypal"
+    headers = ep.header_dict(
+        [
+            ("From", '"PayPal" <service@paypal.com>' + " " * 3000 + ", <scam@evil.example>"),
+            ("Authentication-Results", "mx.google.com; dkim=pass header.d=paypal.com"),
+        ]
+    )
+    assert not ah.parse_authentication_results(headers).cryptographically_verified
+    long_from = ep.header_dict([("From", "x" * 9000 + "@a.example")])
+    assert ep.FROM_UNPROVEN in long_from
+
+
+def test_an_attached_email_proves_nothing_about_its_sender():
+    from extension_backend import AnalyseRequest, _resolve_email
+
+    eml = (
+        b"From: GTBank <alerts@gtbank.com>\r\n"
+        b"Authentication-Results: mx.google.com; dkim=pass header.i=@gtbank.com; "
+        b"dmarc=pass header.from=gtbank.com\r\n\r\nYour account statement is ready."
+    )
+    req = AnalyseRequest(
+        raw_email_b64=base64.b64encode(eml).decode(),
+        client_context={"headers_source": "attachment"},
+    )
+    _body, _u, headers, _raw = _resolve_email(req)
+    assert "authentication-results" not in headers
+
+
+def test_text_directly_inside_a_closed_details_is_hidden():
+    text = ep.html_to_text(
+        "<details><summary>Info</summary>benign words here</details><p>Verify your account</p>"
+    )
+    assert text.startswith("Info Verify your account")
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        '<form><button formaction="https://evil.example/login">Sign in</button></form>',
+        '<iframe src="data:text/html;base64,'
+        + base64.b64encode(b'<form action="https://evil.example/login"></form>').decode()
+        + '"></iframe>',
+        '<meta http-equiv="refresh" content="0;url=data:text/html,'
+        '%3Cform%20action%3D%22https%3A%2F%2Fevil.example%2Flogin%22%3E%3C%2Fform%3E">',
+        '<object data="data:text/html,%3Ca%20href%3D%22https%3A%2F%2Fevil.example%2Flogin%22%3Ex%3C%2Fa%3E"></object>',
+    ],
+)
+def test_html_attachments_reveal_targets_in_formaction_and_data_pages(html):
+    import attachment_analysis as aa
+
+    assert (
+        "https://evil.example/login" in aa.analyse_html(html.encode(), "a.html")["extracted_urls"]
+    )

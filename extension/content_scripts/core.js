@@ -131,6 +131,9 @@ PL.isHidden = function isHidden(el) {
     const st = getComputedStyle(el);
     if (st.visibility === "hidden" || Number(st.opacity) <= 0.05 || parseFloat(st.fontSize) < 2) return true;
     if (transparent(st.color)) return true;
+    // Text the colour of its own background.
+    if (st.color && st.color === st.backgroundColor && !transparent(st.backgroundColor)) return true;
+    if (/^rect\(0(?:px)?,? 0(?:px)?,? 0(?:px)?,? 0(?:px)?\)$/.test(st.clip || "")) return true;
     if (/^inset\((?:[5-9]\d|\d{3,})(?:\.\d+)?%|^circle\(0(?:px)?[ )]/.test(st.clipPath || "")) return true;
     if (/hidden|clip/.test(`${st.overflow} ${st.overflowX} ${st.overflowY}`)) {
         const r = el.getBoundingClientRect();
@@ -139,9 +142,17 @@ PL.isHidden = function isHidden(el) {
     if (/absolute|fixed/.test(st.position || "") &&
         ["left", "top", "right", "bottom"].some((k) => parseFloat(st[k]) <= -500)) return true;
     if (parseFloat(st.textIndent) <= -500) return true;
-    // A scale of 0 gives "matrix(0, 0, 0, 0, x, y)".
-    return /^matrix\(0, 0, 0, 0,/.test(st.transform || "");
+    return flattened(st.transform);
 };
+
+// A transform that flattens the element to a line or a point (a scale of
+// 0 on any axis): its 2D matrix has a determinant of 0.
+function flattened(transform) {
+    const m = /^matrix\(([^)]*)\)$/.exec(transform || "");
+    if (!m) return false;
+    const [a, b, c, d] = m[1].split(",").map(Number);
+    return Math.abs(a * d - b * c) < 1e-4;
+}
 
 // "rgba(0, 0, 0, 0)" or "transparent": the computed colour of text drawn
 // with no ink.
@@ -210,12 +221,6 @@ PL.bytesToBase64 = function bytesToBase64(bytes) {
 };
 PL.utf8ToB64 = (text) => PL.bytesToBase64(new TextEncoder().encode(text));
 
-// http(s) targets of the links in a message body, deduplicated, max 50:
-// the visible text only says "Click here", not where the link goes.
-// Visible links first, one per host before any second one of the same
-// host: fifty hidden links to a large site placed first left the real
-// one out. Links to the mail page itself are the mail service's own
-// ("View entire message" under a long Gmail email), not the sender's.
 // A link no one can see to click: neither it nor what it holds is 2 px
 // wide and high (a 1 px image, an empty anchor). An inline link around a
 // block (a button table) has a flat box of its own: its content counts.
@@ -226,12 +231,19 @@ function tinyLink(a) {
     return ![...(a.children || [])].some((c) => c.getBoundingClientRect && big(c.getBoundingClientRect()));
 }
 
-PL.linkTargetsOf = function linkTargetsOf(el, hidden = PL.hiddenParts(el)) {
-    if (!el) return [];
-    const ranked = [[], [], [], []];   // visible new host, visible, hidden new host, hidden
-    const hosts = new Set();
+// http(s) targets of the links in a message body, deduplicated, 50 at
+// most, as { visible, hidden }: the visible text only says "Click here",
+// not where the link goes. Visible links fill the 50 first, and each
+// list has the first link of each host before any second one: fifty
+// hidden links placed first left the real one out. The server keeps the
+// two lists apart too (link_urls, hidden_link_urls). Links to the mail
+// page itself are the mail service's own ("View entire message" under a
+// long Gmail email), not the sender's.
+PL.linkGroupsOf = function linkGroupsOf(el, hidden = PL.hiddenParts(el)) {
+    const groups = { visible: [[], []], hidden: [[], []] };    // [new host, repeated host]
+    const hosts = { visible: new Set(), hidden: new Set() };
     const seen = new Set();
-    const anchors = el.querySelectorAll("a[href], area[href]");
+    const anchors = el ? el.querySelectorAll("a[href], area[href]") : [];
     for (let i = 0; i < anchors.length && i < 2000; i++) {
         const href = anchors[i].href || "";
         if (!/^https?:\/\//i.test(href) || href.length > 2048 || seen.has(href)) continue;
@@ -243,11 +255,18 @@ PL.linkTargetsOf = function linkTargetsOf(el, hidden = PL.hiddenParts(el)) {
         }
         if (host === location.hostname) continue;
         seen.add(href);
-        const isHidden = hidden.some((part) => part.contains(anchors[i])) || tinyLink(anchors[i]);
-        ranked[(isHidden ? 2 : 0) + (hosts.has(host) ? 1 : 0)].push(href);
-        hosts.add(host);
+        const kind = hidden.some((part) => part.contains(anchors[i])) || tinyLink(anchors[i]) ? "hidden" : "visible";
+        groups[kind][hosts[kind].has(host) ? 1 : 0].push(href);
+        hosts[kind].add(host);
     }
-    return ranked.flat().slice(0, 50);
+    const visible = groups.visible.flat().slice(0, 50);
+    return { visible, hidden: groups.hidden.flat().slice(0, 50 - visible.length) };
+};
+
+// Every link target, visible ones first (see linkGroupsOf).
+PL.linkTargetsOf = function linkTargetsOf(el, hidden = PL.hiddenParts(el)) {
+    const { visible, hidden: unseen } = PL.linkGroupsOf(el, hidden);
+    return [...visible, ...unseen];
 };
 
 // A sender's display name as sent to the server: invisible characters

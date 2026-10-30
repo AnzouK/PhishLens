@@ -114,7 +114,9 @@ def impersonated_brand(from_header: str) -> str | None:
     letters or fewer only in capitals, "UPS" but not "ups"); the address
     passes when its organisational domain is the brand's (_brand_owns).
     """
-    header = (from_header or "")[:2000]
+    # The header as email_parsing.header_dict keeps it (spaces collapsed,
+    # 8,000 characters): the whole value, not a first part of it.
+    header = " ".join((from_header or "")[:32_000].split())[:8000]
     name = _display_names(header)
     if not name.strip(' <>"\\'):
         return None

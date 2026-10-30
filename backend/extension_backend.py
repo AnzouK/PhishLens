@@ -56,6 +56,7 @@ from email_parsing import (
     client_links,
     detect_forwarded,
     detect_shared_links,
+    is_page_source,
     looks_like_source,
     parse_eml,
     rank_links,
@@ -261,8 +262,10 @@ class AnalyseRequest(BaseModel):
     sender_name the name the mail client shows for it.
     client_context carries hints from the mail client page, loosely typed
     so new hints need no API change. Gmail: origin, gmail_signed_by,
-    gmail_mailed_by, gmail_via, gmail_in_inbox, headers_source,
-    link_urls, subject. Outlook: origin, outlook_internal, org_domain.
+    gmail_mailed_by, gmail_via, gmail_in_inbox, headers_source
+    ("gmail_show_original", or "attachment" for an attached .eml),
+    link_urls, hidden_link_urls, subject. Outlook: origin,
+    outlook_internal, org_domain.
     These hints only affect the caller's own result.
     """
 
@@ -301,6 +304,13 @@ class AttachmentRequest(BaseModel):
     parent_email: dict[str, Any] | None = None
 
 
+def _client_link_groups(ctx: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """Visible and hidden link targets the page sent, apart: no hidden one
+    is ranked before a visible one (older extensions send them all in
+    link_urls, visible first)."""
+    return client_links(ctx.get("link_urls")), client_links(ctx.get("hidden_link_urls"))
+
+
 def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str], bytes | None]:
     """(body, urls, headers, raw_bytes) of the request.
 
@@ -315,7 +325,7 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         body = req.raw_text.strip()
         if looks_like_source(body):
             body = strip_markup_noise(body)
-        urls = rank_links(client_links(ctx.get("link_urls")), urls_in_text(body))
+        urls = rank_links(*_client_link_groups(ctx), urls_in_text(body))
         headers: dict[str, str] = {}
         if req.sender_email:
             headers["from"] = _from_value(req.sender_email, req.sender_name)
@@ -334,15 +344,26 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     except Exception as e:
         logger.info("EML parse error: %s", e)
         raise HTTPException(400, "Could not parse this email.") from e
+    if ctx.get("headers_source") == "attachment":
+        # An email attached to another one: its authentication results were
+        # written by whoever attached it, so they are not read at all.
+        for key in ("authentication-results", "arc-authentication-results"):
+            headers.pop(key, None)
     if req.sender_email:
         headers["from"] = _from_value(req.sender_email, req.sender_name, headers.get("from", ""))
     # The page text, unless it is the email's source shown as text: then
-    # the text parsed from the original message is better.
+    # the text parsed from the original message is better. The page text
+    # reflects the styles the browser applied (hidden parts last), which
+    # the parsed message cannot.
     text_urls: list[str] = []
-    if req.raw_text and req.raw_text.strip() and not looks_like_source(req.raw_text):
-        body = req.raw_text.strip()
-        text_urls = urls_in_text(body)
-    return body, rank_links(client_links(ctx.get("link_urls")), urls, text_urls), headers, raw_bytes
+    page = (req.raw_text or "").strip()
+    if page and not is_page_source(page):
+        page = strip_markup_noise(page) if looks_like_source(page) else page
+        if len(page.split()) >= MIN_TEXT_WORDS:
+            body = page
+            text_urls = urls_in_text(body)
+    urls = rank_links(*_client_link_groups(ctx), urls, text_urls)
+    return body, urls, headers, raw_bytes
 
 
 def _model_text(body: str, headers: dict[str, str], ctx: dict[str, Any]) -> str:

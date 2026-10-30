@@ -141,7 +141,9 @@ writes one per check (Postfix with OpenDKIM and OpenDMARC) loses the
 extra results: such mail misses a softer path, never gets a harsher one.
 Joining them is not safe, since on Gmail the sender's own headers come
 right after Gmail's. An uploaded .eml from a server that adds no
-Authentication-Results at all shows the sender's own, if it wrote one.
+Authentication-Results at all shows the sender's own, if it wrote one;
+an .eml attached to another email and scanned from Gmail is read
+without them.
 
 ## Review triggers
 

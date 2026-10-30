@@ -8,6 +8,28 @@ backend share one version number.
 ## [Unreleased]
 
 ### Security
+- Hidden links can no longer pass a second visible link to the same
+  site: visible and hidden link targets are ranked as separate groups,
+  in the server and in the extension (which now sends them apart), and
+  Safe Browsing gets the first 30 in that order instead of ranking them
+  again.
+- A long base64 run in the page text no longer makes the server drop
+  it for the parsed message (which ignores style sheets); the page text
+  gives way only to real HTML source. Words after an unclosed "<a" stay
+  words: only tags without text or with attributes are markup.
+- The extension also treats text the colour of its own background, a
+  clip to nothing and a scale of 0 on one axis as hidden; the server and
+  the extension are checked against the same cases
+  (tests/fixtures/hidden_cases.json). Text written directly inside a
+  closed <details> is hidden too.
+- Header values are kept with their spaces collapsed, so 2,000 spaces no
+  longer push the real address of a From: past what the checks read; a
+  From: still longer than 8,000 characters proves nothing.
+- An email attached to another one (scanned from Gmail) is checked
+  without its Authentication-Results, which whoever attached it wrote.
+- HTML attachments: a button's formaction, and pages carried in
+  data:text/html addresses (frames, objects, embeds, meta refresh), are
+  read like the rest.
 - Addresses written in an email's text, hidden or not, can no longer
   push its real links out: every link target comes before any address
   written in the text, and within each, the first link of each host

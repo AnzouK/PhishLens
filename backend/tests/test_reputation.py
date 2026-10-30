@@ -246,7 +246,7 @@ class TestGsbUnavailable:
             "https://c.example/",
         ]
         out = asyncio.run(eng.check_urls(urls))
-        assert gsb.sent == ["https://a.example/0", "https://b.example/", "https://c.example/"]
+        assert gsb.sent == urls[:3]  # the caller ranks them (rank_links)
         # the URLs Safe Browsing did not see are not stored as clean
         assert asyncio.run(eng.cache.get("https://a.example/4")) is None
         assert "gsb_clean" not in out[4]["tiers_run"]

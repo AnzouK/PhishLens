@@ -21,10 +21,12 @@ and landing widgets can share their rendering code.
 from __future__ import annotations
 
 import base64
+import binascii
 import io
 import logging
 import re
 from typing import Any
+from urllib.parse import unquote
 
 from bs4 import BeautifulSoup
 
@@ -371,18 +373,62 @@ def analyse_image(raw: bytes, filename: str) -> dict[str, Any]:
 # =====================================================================
 # HTML analysis
 # =====================================================================
-def _inline_srcdoc(soup, depth: int = 3) -> None:
-    """The page an <iframe srcdoc="..."> carries in an attribute, parsed
-    into the iframe, so its form, scripts and links are read like the
-    rest (nested ones too, three levels, 500 KB each)."""
+def _data_html(value: str) -> str | None:
+    """The page in a "data:text/html[;base64],..." address, or None."""
+    value = "".join(str(value).split())
+    head, sep, payload = value.partition(",")
+    if not sep or not head.lower().startswith("data:text/html"):
+        return None
+    try:
+        if head.lower().endswith(";base64"):
+            return base64.b64decode(payload[:700_000] + "===")[:500_000].decode("utf-8", "replace")
+        return unquote(payload[:500_000])
+    except (ValueError, binascii.Error):
+        return None
+
+
+def _refresh_target(meta) -> str:
+    """The address of a <meta http-equiv="refresh" content="0; url=...">."""
+    content = str(meta.get("content") or "")
+    if "url" not in content.lower():
+        return ""
+    return content.partition("=")[2].strip(" '\"")
+
+
+# Where a page can carry another page: an attribute holding its HTML
+# (srcdoc) or a data:text/html address.
+_EMBEDDED_PAGES = (
+    ("iframe", "srcdoc"),
+    ("iframe", "src"),
+    ("frame", "src"),
+    ("object", "data"),
+    ("embed", "src"),
+)
+
+
+def _inline_embedded(soup, depth: int = 3) -> None:
+    """Pages an HTML attachment carries inside itself, parsed into it so
+    their forms, scripts and links are read like the rest: an <iframe
+    srcdoc="...">, a frame, object or embed whose address is
+    data:text/html, and a meta refresh to one (three levels, 500 KB each)."""
     for _ in range(depth):
-        frames = soup.find_all("iframe", srcdoc=True, limit=100)
-        if not frames:
+        found = False
+        for name, attr in _EMBEDDED_PAGES:
+            for tag in soup.find_all(name, attrs={attr: True}, limit=100):
+                html = str(tag[attr]) if attr == "srcdoc" else _data_html(tag[attr])
+                if html is None:
+                    continue
+                del tag[attr]
+                tag.append(BeautifulSoup(html[:500_000], "html.parser"))
+                found = True
+        for meta in soup.find_all("meta", attrs={"http-equiv": re.compile("^refresh$", re.I)}):
+            html = _data_html(_refresh_target(meta))
+            if html is not None:
+                meta["content"] = "0"
+                meta.insert_after(BeautifulSoup(html[:500_000], "html.parser"))
+                found = True
+        if not found:
             return
-        for frame in frames:
-            inner = BeautifulSoup(str(frame["srcdoc"])[:500_000], "html.parser")
-            del frame["srcdoc"]
-            frame.append(inner)
 
 
 def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
@@ -394,7 +440,7 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     """
     try:
         soup = BeautifulSoup(raw, "html.parser")
-        _inline_srcdoc(soup)
+        _inline_embedded(soup)
     except Exception as e:
         raise RuntimeError(f"HTML parse failed: {e}") from e
 
@@ -406,12 +452,13 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     # once pushed the form's target past the limit.
     hidden = {id(t) for tag in hidden_tags(soup) for t in (tag, *tag.find_all(True))}
     sends, visible, unseen, assets = [], [], [], []
-    for tag in soup.find_all(["form", "iframe", "frame"], limit=20_000):
-        sends.append(absolute_http(tag.get("action") or tag.get("src") or ""))
+    for tag in soup.find_all(["form", "iframe", "frame", "object", "embed"], limit=20_000):
+        sends.append(absolute_http(tag.get("action") or tag.get("src") or tag.get("data") or ""))
+    # A submit button can send the form elsewhere (formaction).
+    for tag in soup.find_all(["button", "input"], formaction=True, limit=20_000):
+        sends.append(absolute_http(tag["formaction"]))
     for meta in soup.find_all("meta", attrs={"http-equiv": re.compile("^refresh$", re.I)}):
-        content = str(meta.get("content") or "")
-        _, sep, target = content.partition("=") if "url" in content.lower() else ("", "", "")
-        sends.append(absolute_http(target.strip(" '\"")) if sep else "")
+        sends.append(absolute_http(_refresh_target(meta)))
     for script in soup.find_all("script"):
         sends += urls_in_text(script.get_text()[:200_000])
     for tag in soup.find_all(["a", "area"], href=True, limit=20_000):

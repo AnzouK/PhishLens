@@ -145,9 +145,15 @@ def hidden_tags(soup) -> list:
 
     for tag in soup.find_all(True, limit=20_000):
         if tag.name == "details" and not tag.has_attr("open"):
-            for child in tag.find_all(True, recursive=False):
-                if child.name != "summary":
-                    add(child)
+            # Everything but the <summary>, its bare text included.
+            for child in list(tag.children):
+                if getattr(child, "name", None) == "summary":
+                    continue
+                if child.name is None:
+                    if not str(child).strip():
+                        continue
+                    child = child.wrap(soup.new_tag("span"))
+                add(child)
         if (
             tag.name == "template"
             or tag.has_attr("hidden")
@@ -188,14 +194,21 @@ def html_links(html_src: str, limit: int = 200) -> list[str]:
     them (entities decoded, spaces around "=" allowed, protocol-relative
     "//host" as https), visible links before hidden ones. A regex on
     'href="https://' missed 'href = "...' and '&#104;ttps://'."""
+    visible, hidden = html_link_groups(html_src)
+    return rank_links(visible, hidden, limit=limit)
+
+
+def html_link_groups(html_src: str) -> tuple[list[str], list[str]]:
+    """(visible, hidden) link targets of an HTML document, kept apart so
+    that no hidden link can be ranked before a visible one."""
     soup = BeautifulSoup(without_inline_data(html_src)[:1_000_000], "html.parser")
-    hidden = {id(t) for tag in hidden_tags(soup) for t in (tag, *tag.find_all(True))}
-    visible, later = [], []
+    hidden_ids = {id(t) for tag in hidden_tags(soup) for t in (tag, *tag.find_all(True))}
+    visible, hidden = [], []
     for tag in soup.find_all(["a", "area"], href=True, limit=20_000):
         url = absolute_http(tag["href"])
         if url:
-            (later if id(tag) in hidden else visible).append(url)
-    return list(dict.fromkeys(visible + later))[:limit]
+            (hidden if id(tag) in hidden_ids else visible).append(url)
+    return visible, hidden
 
 
 def absolute_http(href: str) -> str:
@@ -218,8 +231,15 @@ _DATA_URI_RE = re.compile(
     r"data:[\w/+.-]{1,100};base64,[A-Za-z0-9+/=]{40,8000000}(?:\r?\n[A-Za-z0-9+/=]{40,8000000})*"
 )
 _BASE64_RUN_RE = re.compile(r"[A-Za-z0-9+/=]{200,}")
-# A tag, or one cut off at the end of a truncated page text.
-_TAG_RE = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]{0,20}(?:\s[^<>]{0,2000})?(?:/?>|\Z)")
+# A tag, or one cut off at the end of a truncated page text. Only a tag
+# with nothing after its name or with attributes ("=") is markup (see
+# _markup): '<a Urgent: verify your account...' is words.
+_TAG_RE = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]{0,20}(?P<inner>\s[^<>]{0,2000})?(?:/?>|\Z)")
+
+
+def _markup(m: re.Match) -> str:
+    inner = m.group("inner") or ""
+    return " " if not inner.strip() or "=" in inner else m.group(0)
 
 
 def without_inline_data(html_src: str) -> str:
@@ -234,7 +254,7 @@ def strip_markup_noise(text: str) -> str:
     tags, for a page text that is really the email's source."""
     text = _DATA_URI_RE.sub(" ", text)
     text = _BASE64_RUN_RE.sub(" ", text)
-    text = _TAG_RE.sub(" ", text)
+    text = _TAG_RE.sub(_markup, text)
     return "\n".join(" ".join(line.split()) for line in text.splitlines() if line.strip())
 
 
@@ -244,6 +264,18 @@ def looks_like_source(text: str) -> bool:
     if not text:
         return False
     return len(strip_markup_noise(text)) < 0.5 * len(text.strip())
+
+
+def is_page_source(text: str) -> bool:
+    """True when a page text is the email's HTML source shown as text
+    (Gmail gives up on very large HTML): mostly markup, with tags in it.
+    Mostly inline data without tags is a text with noise, not source: an
+    email cannot make the server drop the page text with a long base64
+    run of its own."""
+    if not looks_like_source(text):
+        return False
+    tags = sum(1 for m in _TAG_RE.finditer(text[:200_000]) if _markup(m) == " ")
+    return tags >= 5
 
 
 def _body_text(msg, raw_bytes: bytes) -> str:
@@ -275,15 +307,18 @@ def _link_targets(msg, body: str) -> list[str]:
     """The real targets of the HTML part's links (an HTML email shows
     "Click here", the address is in the href), then the URLs written in
     the text."""
-    targets: list[str] = []
+    visible: list[str] = []
+    hidden: list[str] = []
     for part in msg.walk() if msg.is_multipart() else [msg]:
         if part.get_content_type() != "text/html":
             continue
         try:
-            targets += html_links(part.get_content())
+            shown, unseen = html_link_groups(part.get_content())
         except Exception:
             continue
-    return rank_links(targets, urls_in_text(body))
+        visible += shown
+        hidden += unseen
+    return rank_links(visible, hidden, urls_in_text(body))
 
 
 def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
@@ -324,7 +359,7 @@ def _parse_lenient(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
                 texts[kind] = _decoded(part)
         html = html_to_text(texts["text/html"]) if texts["text/html"] else ""
         body = (html if html.strip() else texts["text/plain"]).strip()
-        urls = rank_links(html_links(texts["text/html"]), urls_in_text(body))
+        urls = rank_links(*html_link_groups(texts["text/html"]), urls_in_text(body))
         if body or urls:
             return body, urls, headers
     except Exception:
@@ -351,14 +386,21 @@ _TOPMOST_WINS = frozenset(
         "subject",
     }
 )
-# Same name as auth_headers.DUPLICATE_FROM (not imported: no cycle).
-DUPLICATE_FROM = "x-phishlens-duplicate-from"
+# Set when the From: cannot prove a sender: repeated, or longer than
+# MAX_HEADER_CHARS once its spaces are collapsed. Same name as
+# auth_headers.FROM_UNPROVEN (not imported: no cycle).
+FROM_UNPROVEN = "x-phishlens-from-unproven"
+# Every header value is kept with its runs of spaces collapsed, cut here:
+# 2,000 spaces in a From: used to push the real address past what the
+# checks read.
+MAX_HEADER_CHARS = 8000
 
 
 def header_dict(items) -> dict[str, str]:
     """Header name (lowercased) -> value. A repeated header keeps its last
     value, except the ones in _TOPMOST_WINS, which keep the first. A
-    repeated From: is recorded under DUPLICATE_FROM.
+    repeated From:, or one cut at MAX_HEADER_CHARS, is recorded under
+    FROM_UNPROVEN. Values have their runs of spaces collapsed.
 
     Only the topmost Authentication-Results is read, even from a server
     that writes one per check (Postfix with OpenDKIM and OpenDMARC): the
@@ -369,13 +411,18 @@ def header_dict(items) -> dict[str, str]:
     headers: dict[str, str] = {}
     for k, v in items:
         key = k.lower()
-        if key == DUPLICATE_FROM:
+        if key == FROM_UNPROVEN:
             continue
         if key in _TOPMOST_WINS and key in headers:
             if key == "from":
-                headers[DUPLICATE_FROM] = "1"
+                headers[FROM_UNPROVEN] = "1"
             continue
-        headers[key] = _decoded_header(str(v))
+        value = " ".join(_decoded_header(str(v)[: 4 * MAX_HEADER_CHARS]).split())
+        if len(value) > MAX_HEADER_CHARS:
+            value = value[:MAX_HEADER_CHARS]
+            if key == "from":
+                headers[FROM_UNPROVEN] = "1"
+        headers[key] = value
     return headers
 
 
@@ -388,7 +435,7 @@ def _decoded_header(value: str) -> str:
     try:
         from email.header import decode_header, make_header
 
-        return str(make_header(decode_header(value[:4000])))
+        return str(make_header(decode_header(value)))
     except Exception:
         return value
 
@@ -507,7 +554,13 @@ def client_links(extra: Any) -> list[str]:
     return out
 
 
-def rank_links(*groups: list[str], limit: int = MAX_EMAIL_URLS) -> list[str]:
+class Ranked(list):
+    """A list of links already in rank order (rank_links' output): a later
+    rank_links keeps its order instead of ranking it again as one group,
+    which would put its hidden links before its second visible ones."""
+
+
+def rank_links(*groups: list[str], limit: int = MAX_EMAIL_URLS) -> Ranked:
     """The links of an email, at most `limit`, group by group in the order
     given (link targets before addresses written in the text): no link of
     a later group can push out one of an earlier group. Within a group,
@@ -516,6 +569,13 @@ def rank_links(*groups: list[str], limit: int = MAX_EMAIL_URLS) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
     for group in groups:
+        if isinstance(group, Ranked):
+            fresh = [u for u in group if u not in seen]
+            seen.update(fresh)
+            out += fresh
+            if len(out) >= limit:
+                break
+            continue
         hosts: set[str] = set()
         first, rest = [], []
         for u in group:
@@ -531,4 +591,4 @@ def rank_links(*groups: list[str], limit: int = MAX_EMAIL_URLS) -> list[str]:
         out += first + rest
         if len(out) >= limit:
             break
-    return out[:limit]
+    return Ranked(out[:limit])

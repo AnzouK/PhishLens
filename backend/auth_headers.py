@@ -33,7 +33,7 @@ from email.utils import getaddresses, parseaddr
 from typing import Any
 
 # Set by email_parsing.header_dict when a message has several From: headers.
-DUPLICATE_FROM = "x-phishlens-duplicate-from"
+FROM_UNPROVEN = "x-phishlens-from-unproven"
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
@@ -138,8 +138,9 @@ def sender_domain(value: str) -> str | None:
     Every check of the sender reads it from here."""
     if not value:
         return None
-    addr = parseaddr(value[:2000])[1]
-    m = re.search(r"@([A-Za-z0-9.\-_]+)", addr if "@" in addr else value[:2000])
+    value = value[:8000]
+    addr = parseaddr(value)[1]
+    m = re.search(r"@([A-Za-z0-9.\-_]+)", addr if "@" in addr else value)
     if not m:
         return None
     return m.group(1).lower().rstrip(".") or None
@@ -307,8 +308,8 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     # Two From: headers: a mail program shows one, the checks read the
     # other. DMARC treats such a message as failing; so does PhishLens.
     # A From: with several addresses is the same trick in one header.
-    from_addresses = {a.lower() for _n, a in getaddresses([headers.get("from", "")[:2000]]) if a}
-    proven = not arc_only and not headers.get(DUPLICATE_FROM) and len(from_addresses) <= 1
+    from_addresses = {a.lower() for _n, a in getaddresses([headers.get("from", "")[:8000]]) if a}
+    proven = not arc_only and not headers.get(FROM_UNPROVEN) and len(from_addresses) <= 1
     verdict.aligned = proven and bool(fod) and any(_org_domain(d) == fod for d in aligned_domains)
 
     # Cryptographic verification requires DKIM (the only crypto method: SPF

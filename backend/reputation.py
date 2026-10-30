@@ -807,9 +807,9 @@ class ReputationEngine:
             return [verdicts[u].to_dict() for u in norm]
 
         # ---- 2. Google Safe Browsing (batch) ----
-        # At most GSB_MAX_PER_SCAN URLs per scan, one per host first: the
-        # daily quota is shared by every user, and one request with
-        # hundreds of links must not spend it.
+        # At most GSB_MAX_PER_SCAN URLs per scan, the first ones in the
+        # caller's rank order: the daily quota is shared by every user, and
+        # one request with hundreds of links must not spend it.
         gsb_hits: dict[str, dict[str, Any]] = {}
         gsb_checked: set[str] = set()
         if self.gsb:
@@ -916,18 +916,11 @@ def _apply_gsb(
 
 
 def _gsb_batch(urls: list[str], limit: int) -> list[str]:
-    """At most `limit` URLs, the first one of each host before any second
-    one of the same host (order kept otherwise)."""
-    seen: set[str] = set()
-    first, rest = [], []
-    for u in urls:
-        try:
-            host = urlparse(u).hostname or ""
-        except ValueError:
-            host = ""
-        (rest if host in seen else first).append(u)
-        seen.add(host)
-    return (first + rest)[:limit]
+    """The first `limit` URLs, in the order given: the caller ranks them
+    (extension_backend.rank_links: visible links first, one per host
+    first). Ranking them again here put hidden links on new hosts before
+    a second visible one."""
+    return list(urls)[:limit]
 
 
 def _safe_error(e: Exception) -> str:

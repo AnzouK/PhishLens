@@ -230,7 +230,9 @@ async function scanAttachment(target) {
         const b64 = await download(anchor, tile);
         const senderEl = emailView.querySelector(SEL.sender);
         const data = ext === "eml"
-            ? await PhishLensApi.analyse({ raw_email_b64: b64 })
+            // An attached email's headers were written by whoever attached
+            // it, its Authentication-Results included: they prove nothing.
+            ? await PhishLensApi.analyse({ raw_email_b64: b64, client_context: { headers_source: "attachment" } })
             : await PhishLensApi.analyseAttachment({
                 content_b64: b64,
                 filename,
