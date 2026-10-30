@@ -25,8 +25,8 @@ Fixes from several rounds of outside review; each bypass has a test in
   backslashes, encoded hosts, `www.` in plain text), and hidden or
   written-out links can no longer push the real ones out of the check.
 - A huge `<style>` sheet can no longer stall the server.
-- Invisible characters inside words ("V​eri​fy") no longer cut
-  them in pieces for the text model.
+- Zero-width spaces or soft hyphens inside a word no longer cut it in
+  pieces for the text model.
 - Safe Browsing: a link it did not check is never cached as clean, a
   scan sends it at most 30 links, and its key stays out of the logs.
 - Attachments: forms, frames and pages inside `data:` addresses are
