@@ -35,6 +35,7 @@ import base64
 import logging
 import os
 import time
+import unicodedata
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -52,11 +53,12 @@ import fusion
 import structured_agents
 import text_model
 from email_parsing import (
+    client_links,
     detect_forwarded,
     detect_shared_links,
     looks_like_source,
-    merge_link_urls,
     parse_eml,
+    rank_links,
     strip_markup_noise,
     urls_in_text,
 )
@@ -267,7 +269,9 @@ class AnalyseRequest(BaseModel):
     raw_email_b64: str | None = Field(None, max_length=MAX_EMAIL_B64_CHARS)
     raw_text: str | None = Field(None, max_length=MAX_TEXT_CHARS)
     sender_email: str | None = Field(None, max_length=512)
-    sender_name: str | None = Field(None, max_length=200)
+    # Display names come from the email: a long one must not fail the scan
+    # (older extensions send it uncut); _from_value keeps 200 characters.
+    sender_name: str | None = Field(None, max_length=2000)
     client_context: dict[str, Any] | None = None
 
 
@@ -275,7 +279,11 @@ def _from_value(email: str, name: str | None, original: str = "") -> str:
     """From: built from the address the client sent and the name it shows
     (or the name of the original header), so that the name can be checked
     against the address (impersonation)."""
-    display = " ".join((name or parseaddr(original)[0] or "").split())[:200]
+    display = name or parseaddr(original)[0] or ""
+    # Invisible characters out before the cut: 200 zero-width spaces used
+    # to push the brand name past it.
+    display = "".join(c for c in display if unicodedata.category(c) != "Cf")
+    display = " ".join(display.split())[:200]
     # Quoted as RFC 5322 says: a name ending in a backslash escaped the
     # closing quote, and the name was lost (with the impersonation check).
     display = display.replace("\\", "\\\\").replace('"', '\\"')
@@ -307,7 +315,7 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         body = req.raw_text.strip()
         if looks_like_source(body):
             body = strip_markup_noise(body)
-        urls = merge_link_urls(urls_in_text(body), ctx.get("link_urls"))
+        urls = rank_links(client_links(ctx.get("link_urls")), urls_in_text(body))
         headers: dict[str, str] = {}
         if req.sender_email:
             headers["from"] = _from_value(req.sender_email, req.sender_name)
@@ -330,10 +338,11 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         headers["from"] = _from_value(req.sender_email, req.sender_name, headers.get("from", ""))
     # The page text, unless it is the email's source shown as text: then
     # the text parsed from the original message is better.
+    text_urls: list[str] = []
     if req.raw_text and req.raw_text.strip() and not looks_like_source(req.raw_text):
         body = req.raw_text.strip()
-        urls = merge_link_urls(urls_in_text(body), urls)
-    return body, merge_link_urls(urls, ctx.get("link_urls")), headers, raw_bytes
+        text_urls = urls_in_text(body)
+    return body, rank_links(client_links(ctx.get("link_urls")), urls, text_urls), headers, raw_bytes
 
 
 def _model_text(body: str, headers: dict[str, str], ctx: dict[str, Any]) -> str:

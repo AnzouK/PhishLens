@@ -8,6 +8,27 @@ backend share one version number.
 ## [Unreleased]
 
 ### Security
+- Addresses written in an email's text, hidden or not, can no longer
+  push its real links out: link targets come first, then the first link
+  of each host before any second one (100 links per email at most).
+- Impersonation is also caught under free or open country codes
+  (paypal.tk, paypal.co), with generic names (gouv.com for the French tax
+  office), in every name of a multi-address From:, and behind long
+  invisible padding; brands are listed with their full domains where a
+  single label would match anyone.
+- Hidden text: a font size in em or percent, overflow on one axis, an
+  element placed far off the page, a negative text indent or a zero
+  scale now count as hidden; the extension walks the whole message and
+  no longer skips one-letter parts. Words after "data:...;base64," on
+  separate lines stay text.
+- Outlook: the From line is taken from the same message as the body,
+  never from inside a body.
+- A known site's redirect to a protocol-relative address ("?q=//evil")
+  is not counted as a known link. HTML attachments list where they send
+  their reader first (form targets, frames, meta refresh, scripts), and
+  count event-handler attributes and javascript: addresses as scripts.
+- The link domain checked against Spamhaus no longer includes a port or
+  a "user@" part.
 - Authentication-Results is read clause by clause, without its comments
   and quoted strings: a "dkim=pass header.i=@bank" written inside the
   envelope address or a comment no longer counts as a result. Results
@@ -94,6 +115,19 @@ backend share one version number.
   local copy of the agents never converted to skops.
 
 ### Changed
+- A display name longer than 200 characters no longer fails the scan:
+  the extension cuts it after removing invisible characters, the server
+  accepts longer ones, and an automatic scan skips an email the server
+  refuses instead of stopping.
+- A receiving server that writes one Authentication-Results header per
+  check (Postfix with OpenDKIM and OpenDMARC) is read as one result; only
+  headers above its Received line are joined, never the sender's.
+- One Spamhaus DBL lookup, one sender-domain function and one
+  impersonation check serve every part of the server; the rule-based
+  sender score uses the full brand list.
+- `feature_extraction.py` keeps only what the trained agents read, with
+  the same outputs; the BeautifulSoup fallbacks are gone (it is a
+  required dependency).
 - Before the first scan with PhishLens Cloud, Gmail and Outlook show the
   same privacy notice as the popup (where the email goes); the
   automatic scan waits until it has been seen.

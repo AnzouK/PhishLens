@@ -15,7 +15,9 @@ from email.utils import parseaddr
 from typing import Any
 from urllib.parse import urlsplit
 
-from settings import MAX_LINK_URLS
+from bs4 import BeautifulSoup
+
+from settings import MAX_EMAIL_URLS, MAX_LINK_URLS
 
 # http(s) URL written out in a text.
 URL_IN_TEXT_RE = re.compile(r"https?://[^\s\"'<>)]+")
@@ -37,18 +39,25 @@ _HIDING_STYLES = {
 }
 
 
-def _number(value: str) -> float | None:
-    num = value.strip().split(" ")[0].rstrip("%").rstrip("abcdefghijklmnopqrstuvwxyz")
+def _length(value: str) -> tuple[float, str] | None:
+    """(number, unit) of a CSS length ("0.01em" -> (0.01, "em")), or None."""
+    value = value.strip().split(" ")[0]
+    num = value.rstrip("%abcdefghijklmnopqrstuvwxyz")
     try:
-        return float(num)
+        return float(num), value[len(num) :]
     except ValueError:
         return None
 
 
+# Smallest readable font size per unit: 2 px, 2 pt, 0.2 em or rem, 20 %.
+_MIN_FONT = {"px": 2.0, "pt": 2.0, "em": 0.2, "rem": 0.2, "%": 20.0, "": 2.0}
+
+
 def is_hidden_style(style: str) -> bool:
     """True when an inline style hides its element: display:none,
-    visibility:hidden, opacity near 0, a font smaller than 2 px, or no
-    height or width with the overflow hidden."""
+    visibility:hidden, opacity near 0, an unreadably small font, no height
+    or width with the overflow hidden, placed far off the page, or scaled
+    to nothing."""
     decl: dict[str, str] = {}
     for item in (style or "")[:2000].lower().split(";"):
         key, sep, value = item.partition(":")
@@ -57,25 +66,31 @@ def is_hidden_style(style: str) -> bool:
     for key, hiding in _HIDING_STYLES.items():
         if decl.get(key) in hiding:
             return True
-    opacity = _number(decl.get("opacity", "1"))
-    if opacity is not None and opacity <= 0.05:
+    opacity = _length(decl.get("opacity", "1"))
+    if opacity and opacity[0] <= 0.05:
         return True
-    size = decl.get("font-size", "")
-    if (
-        size
-        and (n := _number(size)) is not None
-        and (n == 0 or (n < 2 and size.endswith(("px", "pt"))))
-    ):
+    size = _length(decl.get("font-size", ""))
+    if size and size[0] < _MIN_FONT.get(size[1], 0):
         return True
-    if decl.get("overflow") == "hidden":
+    clipped = {decl.get(k) for k in ("overflow", "overflow-x", "overflow-y")} & {"hidden", "clip"}
+    if clipped:
         for key in ("max-height", "height", "max-width", "width"):
-            n = _number(decl.get(key, "1"))
-            if n is not None and n < 1:
+            n = _length(decl.get(key, "1"))
+            if n and n[0] < 1:
                 return True
-    return False
+    if decl.get("position") in ("absolute", "fixed"):
+        for key in ("left", "top", "right", "bottom"):
+            n = _length(decl.get(key, "0"))
+            if n and n[0] <= -500:
+                return True
+    indent = _length(decl.get("text-indent", "0"))
+    if indent and indent[0] <= -500:
+        return True
+    transform = decl.get("transform", "").replace(" ", "")
+    return "scale(0)" in transform or "scale(0," in transform or "scalex(0)" in transform
 
 
-def _hidden_tags(soup) -> list:
+def hidden_tags(soup) -> list:
     """The outermost elements hidden by the hidden attribute or an inline
     style (the first 20,000 elements are examined)."""
     hidden, ids = [], set()
@@ -90,7 +105,7 @@ def _hidden_tags(soup) -> list:
 def visible_text_first(soup) -> str:
     """Text of a parsed HTML document: the visible text, then the text of
     hidden elements (see _HIDING_STYLES)."""
-    hidden = [tag.extract() for tag in _hidden_tags(soup)]
+    hidden = [tag.extract() for tag in hidden_tags(soup)]
     text = soup.get_text(separator=" ")
     tail = " ".join(tag.get_text(separator=" ") for tag in hidden)
     return f"{text}\n{tail}" if tail.strip() else text
@@ -102,46 +117,12 @@ def html_to_text(html_src: str) -> str:
 
     <style>, <script> and <head> contents are dropped: a plain tag strip
     kept the CSS ("25px", "roboto", "heading"...) and the text model read
-    it as words. BeautifulSoup when installed (it is in requirements.txt),
-    a linear find-based fallback otherwise.
+    it as words.
     """
-    html_src = without_inline_data(html_src)[:1_000_000]
-    try:
-        from bs4 import BeautifulSoup  # type: ignore
-
-        soup = BeautifulSoup(html_src, "html.parser")
-        for tag in soup(["style", "script", "head", "noscript", "title"]):
-            tag.decompose()
-        text = visible_text_first(soup)
-    except Exception:
-        low = html_src.lower()
-        out, i = [], 0
-        while True:
-            j = min(
-                [k for k in (low.find("<style", i), low.find("<script", i)) if k >= 0], default=-1
-            )
-            if j < 0:
-                out.append(html_src[i:])
-                break
-            out.append(html_src[i:j])
-            end_tag = "</style>" if low.startswith("<style", j) else "</script>"
-            k = low.find(end_tag, j)
-            if k < 0:
-                break
-            i = k + len(end_tag)
-        stripped, depth = [], 0
-        for ch in "".join(out):
-            if ch == "<":
-                depth = 1
-                stripped.append(" ")
-            elif ch == ">" and depth:
-                depth = 0
-            elif not depth:
-                stripped.append(ch)
-        text = "".join(stripped)
-        import html as _html
-
-        text = _html.unescape(text)
+    soup = BeautifulSoup(without_inline_data(html_src)[:1_000_000], "html.parser")
+    for tag in soup(["style", "script", "head", "noscript", "title"]):
+        tag.decompose()
+    text = visible_text_first(soup)
     # Collapse whitespace line by line (no regex: linear on any input).
     lines = (" ".join(line.split()) for line in text.splitlines())
     return "\n".join(line for line in lines if line)
@@ -152,23 +133,17 @@ def html_links(html_src: str, limit: int = 200) -> list[str]:
     them (entities decoded, spaces around "=" allowed, protocol-relative
     "//host" as https), visible links before hidden ones. A regex on
     'href="https://' missed 'href = "...' and '&#104;ttps://'."""
-    html_src = without_inline_data(html_src)[:1_000_000]
-    try:
-        from bs4 import BeautifulSoup  # type: ignore
-
-        soup = BeautifulSoup(html_src, "html.parser")
-    except Exception:
-        return list(dict.fromkeys(m.group(1) for m in _HREF_RE.finditer(html_src)))[:limit]
-    hidden = {id(t) for tag in _hidden_tags(soup) for t in (tag, *tag.find_all(True))}
+    soup = BeautifulSoup(without_inline_data(html_src)[:1_000_000], "html.parser")
+    hidden = {id(t) for tag in hidden_tags(soup) for t in (tag, *tag.find_all(True))}
     visible, later = [], []
     for tag in soup.find_all(["a", "area"], href=True, limit=20_000):
-        url = _absolute_http(tag["href"])
+        url = absolute_http(tag["href"])
         if url:
             (later if id(tag) in hidden else visible).append(url)
     return list(dict.fromkeys(visible + later))[:limit]
 
 
-def _absolute_http(href: str) -> str:
+def absolute_http(href: str) -> str:
     """An http(s) URL from an href, or "": control characters and spaces
     removed as browsers do, "//host/..." read as https."""
     href = "".join(c for c in str(href)[:2048] if c > " " and c != "\x7f")
@@ -177,14 +152,15 @@ def _absolute_http(href: str) -> str:
     return href if href[:8].lower().startswith(("http://", "https://")) else ""
 
 
-# href="https://..." in an HTML part. Bounded class, no nested
-# quantifiers: linear on any input.
 # Source code shown as text: when a mail page cannot render an email
 # (Gmail gives up on very large HTML), its visible text is the HTML
 # itself, inline images included. The text model reads that as phishing.
-# Base64 characters and line breaks only: with any whitespace, the words
-# after "data:text/plain;base64," were taken for inline data too.
-_DATA_URI_RE = re.compile(r"data:[\w/+.-]{1,100};base64,[A-Za-z0-9+/=\r\n]{1,8000000}")
+# Base64 only, starting with a run of 40 characters at least, then
+# possibly more lines of it: with any whitespace allowed, the words after
+# "data:text/plain;base64," were taken for inline data too.
+_DATA_URI_RE = re.compile(
+    r"data:[\w/+.-]{1,100};base64,[A-Za-z0-9+/=]{40,8000000}(?:\r?\n[A-Za-z0-9+/=]{1,8000000})*"
+)
 _BASE64_RUN_RE = re.compile(r"[A-Za-z0-9+/=]{200,}")
 # A tag, or one cut off at the end of a truncated page text.
 _TAG_RE = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]{0,20}(?:\s[^<>]{0,2000})?(?:/?>|\Z)")
@@ -214,9 +190,6 @@ def looks_like_source(text: str) -> bool:
     return len(strip_markup_noise(text)) < 0.5 * len(text.strip())
 
 
-_HREF_RE = re.compile(r"""href=["'](https?://[^"'\s<>]{1,2048})""", re.IGNORECASE)
-
-
 def _body_text(msg, raw_bytes: bytes) -> str:
     """Visible text of the email: the rendered HTML part first, the plain
     text part otherwise."""
@@ -243,22 +216,18 @@ def _body_text(msg, raw_bytes: bytes) -> str:
 
 
 def _link_targets(msg, body: str) -> list[str]:
-    """URLs written in the text, then the real targets of the HTML part's
-    links (an HTML email shows "Click here", the address is in the href)."""
-    urls = urls_in_text(body)
+    """The real targets of the HTML part's links (an HTML email shows
+    "Click here", the address is in the href), then the URLs written in
+    the text."""
+    targets: list[str] = []
     for part in msg.walk() if msg.is_multipart() else [msg]:
         if part.get_content_type() != "text/html":
             continue
         try:
-            html_src = part.get_content()
+            targets += html_links(part.get_content())
         except Exception:
             continue
-        for url in html_links(html_src):
-            if url not in urls:
-                urls.append(url)
-            if len(urls) >= 200:
-                break
-    return urls
+    return rank_links(targets, urls_in_text(body))
 
 
 def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
@@ -299,10 +268,7 @@ def _parse_lenient(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
                 texts[kind] = _decoded(part)
         html = html_to_text(texts["text/html"]) if texts["text/html"] else ""
         body = (html if html.strip() else texts["text/plain"]).strip()
-        urls = urls_in_text(body)
-        for url in html_links(texts["text/html"]):
-            if url not in urls and len(urls) < 200:
-                urls.append(url)
+        urls = rank_links(html_links(texts["text/html"]), urls_in_text(body))
         if body or urls:
             return body, urls, headers
     except Exception:
@@ -335,19 +301,39 @@ DUPLICATE_FROM = "x-phishlens-duplicate-from"
 
 def header_dict(items) -> dict[str, str]:
     """Header name (lowercased) -> value. A repeated header keeps its last
-    value, except the ones in _TOPMOST_WINS, which keep the first. A
+    value, except the ones in _TOPMOST_WINS, which keep the first; the
+    receiving server's own Authentication-Results headers are joined. A
     repeated From: is recorded under DUPLICATE_FROM."""
     headers: dict[str, str] = {}
+    received = merge_ar = False
     for k, v in items:
         key = k.lower()
+        value = _decoded_header(str(v))
+        if key == "received":
+            received = True
         if key == DUPLICATE_FROM:
+            continue
+        if key == "authentication-results" and key in headers:
+            # Some servers write one Authentication-Results per check
+            # (Postfix with OpenDKIM and OpenDMARC). Above the first
+            # Received line, every header is the receiving server's own;
+            # below it, the sender's, which never join.
+            if merge_ar and not received and _authserv_id(value) == _authserv_id(headers[key]):
+                headers[key] += "; " + value.partition(";")[2]
             continue
         if key in _TOPMOST_WINS and key in headers:
             if key == "from":
                 headers[DUPLICATE_FROM] = "1"
             continue
-        headers[key] = _decoded_header(str(v))
+        if key == "authentication-results":
+            merge_ar = not received
+        headers[key] = value
     return headers
+
+
+def _authserv_id(value: str) -> str:
+    """The receiving server's name, first in an Authentication-Results."""
+    return value.partition(";")[0].strip().lower()
 
 
 def _decoded_header(value: str) -> str:
@@ -458,24 +444,44 @@ def detect_shared_links(urls: list[str]) -> dict[str, Any]:
     return {"count": len(hits), "services": services, "urls": hits[:10]}
 
 
-def merge_link_urls(urls: list[str], extra: Any) -> list[str]:
-    """Add client-supplied link targets to the URLs found in the text.
+def client_links(extra: Any) -> list[str]:
+    """Link targets sent by the client (client_context.link_urls).
 
     Untrusted input: only http(s) strings under 2048 characters are kept,
-    at most MAX_LINK_URLS of them, and duplicates are dropped (order kept).
+    at most MAX_LINK_URLS of them, duplicates dropped (order kept).
     """
-    out = list(dict.fromkeys(urls))
     if not isinstance(extra, list):
-        return out
-    seen = set(out)
+        return []
+    out: list[str] = []
     for u in extra:
         if len(out) >= MAX_LINK_URLS:
             break
         if not isinstance(u, str) or len(u) > 2048:
             continue
         u = u.strip()
-        if not re.match(r"https?://", u, re.I) or u in seen:
-            continue
-        seen.add(u)
-        out.append(u)
+        if re.match(r"https?://", u, re.I) and u not in out:
+            out.append(u)
     return out
+
+
+def rank_links(*groups: list[str], limit: int = MAX_EMAIL_URLS) -> list[str]:
+    """The links of an email, at most `limit`: the groups in the order
+    given (link targets before addresses written in the text), and the
+    first link of each host before any second one. Addresses written in
+    hidden text once pushed every real link past the limit; fifty links
+    to one site no longer can."""
+    seen: set[str] = set()
+    hosts: set[str] = set()
+    first, rest = [], []
+    for group in groups:
+        for u in group:
+            if u in seen:
+                continue
+            seen.add(u)
+            try:
+                host = urlsplit(u).hostname or ""
+            except ValueError:
+                host = ""
+            (rest if host in hosts else first).append(u)
+            hosts.add(host)
+    return (first + rest)[:limit]

@@ -89,9 +89,12 @@ def on_cloud_file_host(url: str) -> bool:
     return any(host == h or host.endswith("." + h) for h in CLOUD_FILE_HOSTS)
 
 
-# "://" after the host, also percent-encoded once or twice or with
-# backslashes: an address carried inside the link.
-_EMBEDDED_URL_RE = re.compile(r"(?::|%3a|%253a)(?:/|\\|%2f|%252f|%5c){2}", re.IGNORECASE)
+# "://" or "=//" after the host, also percent-encoded once or twice or
+# with backslashes: an address carried inside the link ("?q=//evil.example"
+# is a protocol-relative one).
+_EMBEDDED_URL_RE = re.compile(
+    r"(?::|=|%3a|%253a|%3d|%253d)(?:/|\\|%2f|%252f|%5c|%255c){2}", re.IGNORECASE
+)
 
 
 def well_known_link(url: str) -> bool:

@@ -93,8 +93,8 @@ async function buildPayload(emailView, msg, { body, subject, links, count, sende
         ...(original
             ? { raw_email_b64: PL.utf8ToB64(original), ...(shortBody ? {} : { raw_text: body.slice(0, 4000) }) }
             : { raw_text: PL.rawText(subject, body) }),
-        sender_email: sender.getAttribute?.("email") || null,
-        sender_name: sender.textContent?.trim() || null,
+        sender_email: sender.getAttribute?.("email")?.slice(0, 512) || null,
+        sender_name: PL.senderName(sender.textContent),
         client_context: {
             origin: "gmail",
             subject,

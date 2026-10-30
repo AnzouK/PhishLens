@@ -58,11 +58,18 @@ function isDraft(body) {
 // The last expanded message of the conversation, drafts excluded, and
 // its sender: the last "From" line placed before its body.
 function currentMessage(pane) {
-    const bodies = [...pane.querySelectorAll(SEL.body)].filter((b) => !isDraft(b));
+    const all = [...pane.querySelectorAll(SEL.body)];
+    const bodies = all.filter((b) => !isDraft(b));
     const body = bodies[bodies.length - 1] || null;
+    // The From line of this message: before its body, after every other
+    // body (else it is an earlier message's), and not inside a body (an
+    // email can contain an element with that id).
+    const before = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     let from = null;
     for (const f of pane.querySelectorAll(SEL.from)) {
-        if (body && (f.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING)) from = f;
+        if (!body || PL.inMessageBody(f) || !before(f, body)) continue;
+        if (all.some((other) => other !== body && before(f, other) && before(other, body))) continue;
+        from = f;
     }
     // The address may be in the text or in a label or title of any part
     // of the line (the first labelled part is often the avatar, with the
@@ -129,8 +136,8 @@ async function olScan(pane, btn) {
     try {
         const payload = {
             raw_text: PL.rawText(subject, body),
-            sender_email: senderEmail || null,
-            sender_name: senderName || null,
+            sender_email: senderEmail.slice(0, 512) || null,
+            sender_name: PL.senderName(senderName),
             client_context: {
                 origin: "outlook",
                 subject,

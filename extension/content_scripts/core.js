@@ -121,49 +121,58 @@ PL.MESSAGE_BODY = '.a3s, [id^="UniqueMessageBody"]';
 PL.inMessageBody = (el) => !!el?.closest?.(PL.MESSAGE_BODY);
 
 // True when the element takes no room on the page, or its text cannot be
-// seen: transparent, a font under 2 px, or clipped to nothing.
-// innerText already leaves out display:none; these others it keeps.
+// seen: transparent, an unreadably small font, clipped to nothing, placed
+// far off the page or scaled to nothing. innerText already leaves out
+// display:none; these others it keeps.
 PL.isHidden = function isHidden(el) {
     if (typeof getComputedStyle !== "function" || !el?.getClientRects) return false;
     if (!el.getClientRects().length) return true;
     const st = getComputedStyle(el);
     if (st.visibility === "hidden" || Number(st.opacity) <= 0.05 || parseFloat(st.fontSize) < 2) return true;
-    if (st.overflow === "hidden" || st.overflowY === "hidden" || st.overflowX === "hidden") {
+    if (/hidden|clip/.test(`${st.overflow} ${st.overflowX} ${st.overflowY}`)) {
         const r = el.getBoundingClientRect();
         if (r.height < 1 || r.width < 1) return true;
     }
-    return false;
+    if (/absolute|fixed/.test(st.position || "") &&
+        ["left", "top", "right", "bottom"].some((k) => parseFloat(st[k]) <= -500)) return true;
+    if (parseFloat(st.textIndent) <= -500) return true;
+    // A scale of 0 gives "matrix(0, 0, 0, 0, x, y)".
+    return /^matrix\(0, 0, 0, 0,/.test(st.transform || "");
 };
 
-// The outermost hidden elements under `el` (at most 3000 examined).
+// The outermost hidden elements under `el`. Hidden subtrees are not
+// walked; at most MAX_WALK elements are examined (Gmail cuts messages
+// above 102 KB, far fewer elements than that).
+const MAX_WALK = 20000;
 function hiddenParts(el) {
-    if (typeof getComputedStyle !== "function" || !el?.querySelectorAll) return [];
+    if (typeof getComputedStyle !== "function" || !el?.children) return [];
     const out = [];
-    const all = el.querySelectorAll("*");
-    for (let i = 0; i < all.length && i < 3000; i++) {
-        const n = all[i];
-        if (out.some((part) => part.contains(n))) continue;
+    const stack = [...el.children].reverse();       // popped in page order
+    for (let seen = 0; stack.length && seen < MAX_WALK; seen++) {
+        const n = stack.pop();
         if (PL.isHidden(n)) out.push(n);
+        else stack.push(...[...n.children].reverse());
     }
     return out;
 }
 
-// The text of an email as the reader sees it. Text hidden by its style
-// (see isHidden) is moved to the end: placed before the message, it
-// filled what the text model reads with words nobody sees.
+// The text of an email as the reader sees it, with the text hidden by its
+// style (see isHidden) after it: placed before the message, it filled
+// what the text model reads with words nobody sees. The hidden parts are
+// marked for an instant (banner.css hides them) so innerText leaves them
+// out, then read on their own.
 PL.textOf = function textOf(el) {
     if (!el) return "";
-    let text = el.innerText;
-    const hidden = [];
-    for (const part of hiddenParts(el)) {
-        const words = (part.innerText || "").trim();
-        if (words.length < 2) continue;
-        const at = text.indexOf(words);
-        if (at < 0) continue;
-        text = text.slice(0, at) + " " + text.slice(at + words.length);
-        hidden.push(words);
+    const hidden = hiddenParts(el);
+    hidden.forEach((n) => n.setAttribute("data-pll-hidden", ""));
+    let text;
+    try {
+        text = el.innerText;
+    } finally {
+        hidden.forEach((n) => n.removeAttribute("data-pll-hidden"));
     }
-    return [text, ...hidden].join("\n").replace(/\s+\n/g, "\n").trim();
+    const tail = hidden.map((n) => (n.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean);
+    return [text, ...tail].join("\n").replace(/\s+\n/g, "\n").trim();
 };
 
 // Base64 of bytes, in chunks so large files do not overflow the stack.
@@ -205,6 +214,14 @@ PL.linkTargetsOf = function linkTargetsOf(el) {
         hosts.add(host);
     }
     return ranked.flat().slice(0, 50);
+};
+
+// A sender's display name as sent to the server: invisible characters
+// out, spaces collapsed, 200 characters at most (the name comes from the
+// email and can be any length).
+PL.senderName = function senderName(text) {
+    const name = String(text || "").replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").trim().slice(0, 200);
+    return name || null;
 };
 
 PL.pct = (p) => (p == null ? null : Math.round(p * 100));

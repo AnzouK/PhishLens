@@ -197,3 +197,30 @@ test("hidden text and hidden links come after what the reader sees", () => {
     assert.equal(links[0], "https://evil.example/login");
     assert.equal(links.length, 50);
 });
+
+test("hidden parts of one letter each are moved too", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    for (const letter of "abc") {
+        const span = doc.createElement("span");
+        span.getClientRects = () => [];
+        span.append(letter);
+        body.append(span);
+    }
+    const p = doc.createElement("p");
+    p.append("Verify your account");
+    body.append(p);
+    assert.equal(PL.textOf(body), "Verify your account\na\nb\nc");
+    // the marks are removed once the text is read
+    assert.equal(body.dump().includes("data-pll-hidden"), false);
+});
+
+test("a display name is sent without invisible characters and cut at 200", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { PL } = load(entry);
+    assert.equal(PL.senderName("​".repeat(300) + "PayPal"), "PayPal");
+    assert.equal(PL.senderName("x".repeat(500)).length, 200);
+    assert.equal(PL.senderName("  "), null);
+});

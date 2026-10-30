@@ -8,6 +8,8 @@ BRANDS            a name a sender may display ("Chronopost", "La Poste"),
 WELL_KNOWN        organisational domains of large sites; links that only
                   go there are not scored by the trained URL model, which
                   mistakes their long tracking links for phishing.
+SUSPICIOUS_TLDS   top-level domains mostly seen in abuse (free or
+                  near-free registration).
 CLOUD_FILE_HOSTS  hosts where anyone can publish a file or a page: a link
                   to them is a sign (phishing pages are often hosted
                   there), not a proof.
@@ -71,8 +73,8 @@ BRANDS: dict[str, frozenset[str]] = {
         "mondial relay": "mondialrelay",
         "ameli": "ameli assurance-maladie",
         "assurance maladie": "ameli assurance-maladie",
-        "impots": "gouv impots finances dgfip",
-        "antai": "gouv antai interieur",
+        "impots": "impots.gouv.fr finances.gouv.fr",
+        "antai": "antai.gouv.fr interieur.gouv.fr",
         "caf": "caf",
         "france travail": "francetravail",
         "edf": "edf",
@@ -81,7 +83,7 @@ BRANDS: dict[str, frozenset[str]] = {
         "bouygues": "bouyguestelecom bouygues",
         "credit agricole": "credit-agricole ca-paris ca-cib",
         "bnp paribas": "bnpparibas mabanque.bnpparibas",
-        "societe generale": "societegenerale sg",
+        "societe generale": "societegenerale sg.fr",
         "la banque postale": "labanquepostale",
         "boursorama": "boursorama boursobank",
         "vinted": "vinted",
@@ -92,7 +94,7 @@ BRANDS: dict[str, frozenset[str]] = {
         "correos": "correos",
         "ctt": "ctt",
         "deutsche post": "deutschepost dhl",
-        "poste italiane": "posteitaliane poste",
+        "poste italiane": "posteitaliane poste.it",
         "postnl": "postnl",
         "bpost": "bpost",
         "royal mail": "royalmail",
@@ -112,8 +114,8 @@ BRANDS: dict[str, frozenset[str]] = {
         "kuda": "kuda kudabank",
         "flutterwave": "flutterwave",
         "paystack": "paystack",
-        "firs": "gov firs",
-        "nimc": "gov nimc",
+        "firs": "firs.gov.ng",
+        "nimc": "nimc.gov.ng",
     }.items()
 }
 
@@ -142,3 +144,22 @@ _CLOUD_FILE_HOSTS_TEXT = """
     s3.amazonaws.com netlify.app vercel.app glitch.me github.io
 """
 CLOUD_FILE_HOSTS = frozenset(_CLOUD_FILE_HOSTS_TEXT.split())
+
+SUSPICIOUS_TLDS = frozenset(
+    {
+        "zip",
+        "review",
+        "click",
+        "country",
+        "kim",
+        "cricket",
+        "science",
+        "work",
+        "party",
+        "gq",
+        "tk",
+        "ml",
+        "ga",
+        "cf",
+    }
+)

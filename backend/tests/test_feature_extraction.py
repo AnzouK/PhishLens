@@ -14,6 +14,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import feature_extraction as fe
 from feature_extraction import FeatureExtractor
 
 
@@ -37,7 +38,7 @@ class TestUrlFeatures:
         # The RF was trained on this exact key set: a rename here breaks
         # inference silently, so pin it.
         f = fx.extract_url_features("see https://example.com/a")
-        assert set(f) == set(fx._get_default_url_features())
+        assert set(f) == set(fe.URL_FEATURES)
 
     def test_ip_host_detected(self, fx):
         f = fx.extract_url_features("go to http://192.168.10.5/login now")
@@ -119,7 +120,7 @@ class TestMetadataFeatures:
 
     def test_feature_names_match_defaults(self, fx):
         f = fx.extract_metadata_features(CLEAN_EML)
-        assert set(f) == set(fx._get_default_metadata_features())
+        assert set(f) == set(fe.METADATA_FEATURES)
 
     def test_phishy_headers(self, fx):
         f = fx.extract_metadata_features(PHISHY_EML)
@@ -145,30 +146,19 @@ class TestMetadataFeatures:
 
 
 # ---------------------------------------------------------------------
-# Helpers + combined extraction
+# Helpers
 # ---------------------------------------------------------------------
 class TestHelpers:
-    def test_extract_domain(self, fx):
-        assert fx._extract_domain('"Bob" <bob@mail.example.org>') == "mail.example.org"
-        assert fx._extract_domain("") == ""
-        assert fx._extract_domain("no address here") == ""
+    def test_address_domain(self):
+        assert fe.address_domain('"Bob" <bob@mail.example.org>') == "mail.example.org"
+        assert fe.address_domain("") == ""
+        assert fe.address_domain("no address here") == ""
 
-    def test_similarity_bounds(self, fx):
-        assert fx._calculate_similarity("paypal.com", "paypal.com") == 1.0
-        assert fx._calculate_similarity("", "x") == 0.0
-        assert fx._calculate_similarity("paypa1.com", "paypal.com") > 0.8
+    def test_similarity_bounds(self):
+        assert fe.similarity("paypal.com", "paypal.com") == 1.0
+        assert fe.similarity("", "x") == 0.0
+        assert fe.similarity("paypa1.com", "paypal.com") > 0.8
 
-    def test_html_body_fallback(self, fx):
-        from email import policy
-        from email.parser import BytesParser
-
-        raw = b"From: a@b.com\r\nContent-Type: text/html\r\n\r\n<p>Hello <b>there</b></p>"
-        msg = BytesParser(policy=policy.default).parsebytes(raw)
-        body = fx._get_email_body(msg)
-        assert "Hello" in body and "<b>" not in body
-
-    def test_features_from_eml_is_flat(self, fx):
-        f = fx.extract_features_from_eml(PHISHY_EML)
-        # url + metadata keys all present in one flat dict
-        assert "url_count" in f and "spf_fail" in f
-        assert f["url_count"] == 1
+    def test_unreadable_input_gives_zeros(self):
+        assert fe.url_features(None) == dict.fromkeys(fe.URL_FEATURES, 0)
+        assert set(fe.metadata_features(12345)) == set(fe.METADATA_FEATURES)

@@ -517,26 +517,26 @@ class TestMetrics:
 # Link targets sent by the Gmail extension (client_context.link_urls)
 # ---------------------------------------------------------------------
 class TestLinkUrls:
-    def test_merge_filters_and_dedupes(self):
-        out = ep.merge_link_urls(
+    def test_client_links_are_filtered_and_deduped(self):
+        out = ep.rank_links(
+            ep.client_links(
+                [
+                    "https://a.example/x",
+                    "javascript:alert(1)",
+                    "mailto:x@y.z",
+                    42,
+                    "http://b.example/" + "p" * 3000,
+                    " https://c.example/login ",
+                ]
+            ),
             ["https://a.example/x"],
-            [
-                "https://a.example/x",
-                "javascript:alert(1)",
-                "mailto:x@y.z",
-                42,
-                "http://b.example/" + "p" * 3000,
-                " https://c.example/login ",
-            ],
         )
         assert out == ["https://a.example/x", "https://c.example/login"]
 
-    def test_merge_caps_and_ignores_non_lists(self):
+    def test_client_links_are_capped_and_must_be_a_list(self):
         many = [f"https://h{i}.example/" for i in range(200)]
-        assert len(ep.merge_link_urls([], many)) == eb.MAX_LINK_URLS
-        assert ep.merge_link_urls(["https://a.example/"], "https://b.example/") == [
-            "https://a.example/"
-        ]
+        assert len(ep.client_links(many)) == eb.MAX_LINK_URLS
+        assert ep.client_links("https://b.example/") == []
 
     def test_hidden_link_reaches_url_agent(self, client, monkeypatch):
         seen = {}

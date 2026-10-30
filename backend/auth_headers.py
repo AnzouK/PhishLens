@@ -18,7 +18,7 @@ record there, it's a known spam / malware / phish source.
 
 Public API:
     parse_authentication_results(headers) -> AuthVerdict
-    check_spamhaus_dbl(domain)            -> Awaitable[bool]
+    spamhaus_dbl(domain)                  -> Awaitable[dict | None]
     build_metadata_auth_signal(headers)   -> dict   (ready for JSON output)
 """
 
@@ -131,6 +131,20 @@ class AuthVerdict:
         return asdict(self)
 
 
+def sender_domain(value: str) -> str | None:
+    """Domain of a bare address or a 'Name <addr@domain>' header: the
+    address itself, not the first "@" of the line, since a display name
+    can carry another one ('"support@gtbank.com" <scam@attacker.example>').
+    Every check of the sender reads it from here."""
+    if not value:
+        return None
+    addr = parseaddr(value[:2000])[1]
+    m = re.search(r"@([A-Za-z0-9.\-_]+)", addr if "@" in addr else value[:2000])
+    if not m:
+        return None
+    return m.group(1).lower().rstrip(".") or None
+
+
 def _domain_of(addr: str) -> str:
     """Extract the domain part from either 'foo@bar.tld' or a bare 'bar.tld'."""
     if not addr:
@@ -240,12 +254,7 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     # From: domain first, needed for the alignment check. The address
     # itself, not the first "@" of the line: a display name can carry
     # another address ('"support@paypal.com" <scam@attacker.example>').
-    from_raw = headers.get("from", "")
-    addr = parseaddr(from_raw[:2000])[1]
-    if "@" in addr:
-        verdict.from_domain = _domain_of(addr.rsplit("@", 1)[1])
-    elif m := re.search(r"@([^>\s,]+)", from_raw[:2000]):
-        verdict.from_domain = _domain_of(m.group(1))
+    verdict.from_domain = sender_domain(headers.get("from", "")) or ""
 
     ar = headers.get("authentication-results", "") or ""
     # Without Authentication-Results, the ARC copy is shown, but it proves
@@ -317,68 +326,58 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
 
 DBL_ZONE = "dbl.spamhaus.org"
 
-# Spamhaus DBL return codes.
-# See https://www.spamhaus.org/faq/section/Spamhaus%20DBL#291
+# Listing codes: (threat type, category).
+# https://www.spamhaus.org/faq/section/Spamhaus%20DBL#291
 _DBL_CODES = {
-    "127.0.1.2": "spam",
-    "127.0.1.4": "phish",
-    "127.0.1.5": "malware",
-    "127.0.1.6": "botnet_cc",
-    "127.0.1.102": "abused_legit_spam",
-    "127.0.1.103": "abused_legit_redirector",
-    "127.0.1.104": "abused_legit_phish",
-    "127.0.1.105": "abused_legit_malware",
-    "127.0.1.106": "abused_legit_botnet_cc",
-    "127.0.1.255": "test",  # used to verify the resolver actually queries the zone
+    "127.0.1.2": ("SPAM", "spam"),
+    "127.0.1.4": ("SOCIAL_ENGINEERING", "phish"),
+    "127.0.1.5": ("MALWARE", "malware"),
+    "127.0.1.6": ("BOTNET_CC", "botnet_cc"),
+    "127.0.1.102": ("SPAM", "abused_legit_spam"),
+    "127.0.1.103": ("SUSPICIOUS", "abused_legit_redirector"),
+    "127.0.1.104": ("SOCIAL_ENGINEERING", "abused_legit_phish"),
+    "127.0.1.105": ("MALWARE", "abused_legit_malware"),
+    "127.0.1.106": ("BOTNET_CC", "abused_legit_botnet_cc"),
 }
+_policy_logged = False
 
 
-async def check_spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any]:
+async def spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any] | None:
+    """The Spamhaus DBL listing of a domain: {"threat_type", "category",
+    "code"}, or None when it is not listed or the lookup gave no answer.
+    Used for the sender's domain here and for link domains in reputation.
+
+    127.255.255.x answers are not listings: Spamhaus refuses queries from
+    public or anonymous resolvers that way. Counting them would flag every
+    domain; they are logged once and treated as no answer.
     """
-    Look up a domain in the Spamhaus DBL zone.
-
-    Returns:
-      {"listed": bool, "category": str | None, "response": str | None}
-
-    A domain resolving to a 127.0.1.x code in dbl.spamhaus.org means
-    Spamhaus has flagged it. NXDOMAIN means clean.
-
-    IMPORTANT: 127.255.255.x codes are Spamhaus *policy errors*: the
-    query was rejected because the DNS resolver used by this host is
-    public/open, anonymous, or rate-limited. Those are NOT listings;
-    treating them as such would false-positive every domain we ever
-    query. We report them with error="policy_error" and listed=False.
-    """
-    result: dict[str, Any] = {"listed": False, "category": None, "response": None}
+    global _policy_logged
     domain = _domain_of(domain)
     if not domain or "." not in domain:
-        return result
-
-    query = f"{domain}.{DBL_ZONE}"
-
-    loop = asyncio.get_event_loop()
+        return None
     try:
-        # gethostbyname is blocking; push it to the default executor.
-        response = await asyncio.wait_for(
-            loop.run_in_executor(None, socket.gethostbyname, query),
+        code = await asyncio.wait_for(
+            asyncio.get_running_loop().run_in_executor(
+                None, socket.gethostbyname, f"{domain}.{DBL_ZONE}"
+            ),
             timeout=timeout,
         )
-        result["response"] = response
-        if response.startswith("127.255.255."):
-            # Policy response: DBL didn't answer. Treat as unavailable.
-            result["error"] = "policy_error"
-            result["category"] = "spamhaus_refused_query"
-        elif response.startswith("127.0.1."):
-            result["listed"] = True
-            result["category"] = _DBL_CODES.get(response, "listed_unknown_code")
-        # Any other response shape → not a documented DBL result, ignore
-    except (socket.gaierror, socket.herror):
-        pass  # NXDOMAIN -> clean
-    except asyncio.TimeoutError:
-        result["error"] = "dns_timeout"
-    except Exception as e:
-        result["error"] = f"dns_error:{type(e).__name__}"
-    return result
+    except Exception:  # NXDOMAIN (not listed), timeout, resolver error
+        return None
+    if code.startswith("127.255.255."):
+        if not _policy_logged:
+            logger.warning(
+                "Spamhaus DBL refused the query (%s): this host's DNS resolver is "
+                "public or blocked; DBL lookups count as unavailable. A private "
+                "recursive resolver or Spamhaus DQS enables them.",
+                code,
+            )
+            _policy_logged = True
+        return None
+    if not code.startswith("127.0.1."):
+        return None  # not a documented DBL answer
+    threat_type, category = _DBL_CODES.get(code, ("SUSPICIOUS", "listed_unknown_code"))
+    return {"threat_type": threat_type, "category": category, "code": code}
 
 
 # =====================================================================
@@ -407,9 +406,8 @@ async def build_metadata_auth_signal(
     """
     av = parse_authentication_results(headers)
 
-    dbl = {"listed": False, "category": None}
-    if enable_dbl and av.from_domain:
-        dbl = await check_spamhaus_dbl(av.from_domain)
+    listing = await spamhaus_dbl(av.from_domain) if enable_dbl and av.from_domain else None
+    dbl = {"listed": bool(listing), "category": listing["category"] if listing else None}
 
     delta = 0.0
     reasons: list[str] = []

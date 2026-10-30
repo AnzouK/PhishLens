@@ -35,7 +35,6 @@ import json
 import logging
 import os
 import re
-import socket
 import sqlite3
 import time
 from collections.abc import Iterable
@@ -45,6 +44,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from auth_headers import spamhaus_dbl
+from link_alignment import link_host
 from settings import VERSION
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
@@ -625,93 +626,17 @@ class URLhaus:
         }
 
 
-# =====================================================================
-# Spamhaus DBL: domain-level DNS lookup.
-# =====================================================================
-async def _spamhaus_dbl(domain: str) -> dict[str, Any] | None:
-    """
-    Query domain.dbl.spamhaus.org. If it resolves to a 127.0.1.x code,
-    the domain is listed. NXDOMAIN = clean.
-
-    IMPORTANT: 127.255.255.x codes are NOT listings; they are Spamhaus
-    policy responses telling us the query was rejected (open/public
-    resolver, anonymous query, rate limit). If we see one of those, we
-    treat the check as "unavailable" and return None. Counting them as
-    listings would false-positive on every domain we ever query.
-
-    See https://www.spamhaus.org/faq/section/DNSBL%20Usage#365 for the
-    full code table.
-    """
-    # Real listings: dbl.spamhaus.org threat classifications.
-    _CODES = {
-        "127.0.1.2": ("SPAM", "spam"),
-        "127.0.1.4": ("SOCIAL_ENGINEERING", "phish"),
-        "127.0.1.5": ("MALWARE", "malware"),
-        "127.0.1.6": ("BOTNET_CC", "botnet_cc"),
-        "127.0.1.102": ("SPAM", "abused_legit_spam"),
-        "127.0.1.103": ("SUSPICIOUS", "abused_legit_redirector"),
-        "127.0.1.104": ("SOCIAL_ENGINEERING", "abused_legit_phish"),
-        "127.0.1.105": ("MALWARE", "abused_legit_malware"),
-        "127.0.1.106": ("BOTNET_CC", "abused_legit_botnet_cc"),
-    }
-    # Policy / error codes: the query was NOT answered. Treat as
-    # "check unavailable", NOT as "domain malicious".
-    _POLICY_ERROR_PREFIX = "127.255.255."
-
-    if not domain or "." not in domain:
+async def _spamhaus_dbl(host: str) -> dict[str, Any] | None:
+    """A link's domain in the Spamhaus DBL, as a reputation source."""
+    listing = await spamhaus_dbl(host)
+    if not listing:
         return None
-    query = f"{domain}.dbl.spamhaus.org"
-    loop = asyncio.get_event_loop()
-    try:
-        resp = await asyncio.wait_for(
-            loop.run_in_executor(None, socket.gethostbyname, query),
-            timeout=2.0,
-        )
-    except (socket.gaierror, socket.herror, asyncio.TimeoutError):
-        return None
-    except Exception:
-        return None
-
-    # Policy error: Spamhaus refused to answer (open resolver, rate
-    # limit, anonymous query). NOT a listing. Return None so the caller
-    # treats the tier as "no signal" rather than "malicious".
-    if resp.startswith(_POLICY_ERROR_PREFIX):
-        # Log once so we know DBL is effectively disabled on this host.
-        if not _spamhaus_policy_logged["done"]:
-            logger.warning(
-                f"Spamhaus DBL policy response ({resp}): the DNS resolver "
-                "used by this host is blocked by Spamhaus. DBL lookups will "
-                "be treated as unavailable. Use a private recursive resolver "
-                "or the Spamhaus DQS commercial feed to enable DBL."
-            )
-            _spamhaus_policy_logged["done"] = True
-        return None
-
-    # Real listing: 127.0.1.x range.
-    if resp not in _CODES:
-        # Unknown but 127.0.1.x-shaped response: probably a new threat
-        # code we don't map yet. Still treat as SUSPICIOUS.
-        if resp.startswith("127.0.1."):
-            return {
-                "source": "spamhaus_dbl",
-                "threat_types": ["SUSPICIOUS"],
-                "dbl_code": resp,
-                "category": "listed_unknown_code",
-            }
-        # Anything else is not a documented DBL response: ignore it.
-        return None
-
-    threat_type, category = _CODES[resp]
     return {
         "source": "spamhaus_dbl",
-        "threat_types": [threat_type],
-        "dbl_code": resp,
-        "category": category,
+        "threat_types": [listing["threat_type"]],
+        "dbl_code": listing["code"],
+        "category": listing["category"],
     }
-
-
-# Log the Spamhaus policy warning only once per process lifetime.
-_spamhaus_policy_logged = {"done": False}
 
 
 # =====================================================================
@@ -823,8 +748,8 @@ class ReputationEngine:
         u = v.url
         pt_result = self.phishtank.check(u) if self.phishtank else None
         uh_result_task = self.urlhaus.check(u) if self.urlhaus else None
-        netloc = urlparse(u).netloc
-        sh_task = _spamhaus_dbl(netloc) if netloc else None
+        host = link_host(u)
+        sh_task = _spamhaus_dbl(host) if host else None
 
         uh_result = await uh_result_task if uh_result_task else None
         sh_result = await sh_task if sh_task else None

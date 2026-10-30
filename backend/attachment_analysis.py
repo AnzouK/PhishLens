@@ -26,10 +26,12 @@ import logging
 import re
 from typing import Any
 
+from bs4 import BeautifulSoup
+
 import archive_analysis as archives
 import ocr
 import office_analysis as office
-from email_parsing import urls_in_text, visible_text_first
+from email_parsing import absolute_http, hidden_tags, rank_links, urls_in_text, visible_text_first
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
@@ -55,14 +57,6 @@ try:
 except Exception as _e:
     _PDFPLUMBER_OK = False
     logger.warning(f"pdfplumber not available ({_e}); PDF attachments will be rejected.")
-
-try:
-    from bs4 import BeautifulSoup  # type: ignore
-
-    _BS4_OK = True
-except Exception as _e:
-    _BS4_OK = False
-    logger.warning(f"beautifulsoup4 not available ({_e}); HTML attachments will be rejected.")
 
 
 # ---------------------------------------------------------------------
@@ -384,39 +378,47 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     a well-known brand, with a <form action="attacker.tld">. We grab
     all such URLs regardless of visible text.
     """
-    if not _BS4_OK:
-        raise RuntimeError("HTML support is not available (beautifulsoup4 missing).")
-
     try:
         soup = BeautifulSoup(raw, "html.parser")
     except Exception as e:
         raise RuntimeError(f"HTML parse failed: {e}") from e
 
-    # URLs from the DOM even when they're not in the visible text: links,
-    # form targets, frames, scripts, a meta refresh, and addresses written
-    # in a script ('window.location = "https://..."'), the usual way an
-    # HTML attachment sends its reader on.
-    found: list[str] = []
-    for tag in soup.find_all(
-        ["a", "area", "form", "iframe", "link", "img", "script"], limit=20_000
-    ):
-        for attr in ("href", "action", "src"):
-            u = (tag.get(attr) or "").strip()
-            if u.startswith("//"):
-                u = "https:" + u
-            if u.lower().startswith(("http://", "https://")):
-                found.append(u)
+    # URLs from the DOM even when they're not in the visible text, most
+    # telling first: where the page sends its reader (form targets,
+    # frames, a meta refresh, addresses written in a script such as
+    # 'window.location = "https://..."'), then visible links, hidden
+    # links, and images and style sheets last. Two hundred hidden images
+    # once pushed the form's target past the limit.
+    hidden = {id(t) for tag in hidden_tags(soup) for t in (tag, *tag.find_all(True))}
+    sends, visible, unseen, assets = [], [], [], []
+    for tag in soup.find_all(["form", "iframe", "frame"], limit=20_000):
+        sends.append(absolute_http(tag.get("action") or tag.get("src") or ""))
     for meta in soup.find_all("meta", attrs={"http-equiv": re.compile("^refresh$", re.I)}):
-        found.extend(urls_in_text(str(meta.get("content") or "")))
+        content = str(meta.get("content") or "")
+        _, sep, target = content.partition("=") if "url" in content.lower() else ("", "", "")
+        sends.append(absolute_http(target.strip(" '\"")) if sep else "")
     for script in soup.find_all("script"):
-        found.extend(urls_in_text(script.get_text()[:200_000]))
-    urls = list(dict.fromkeys(found))[:MAX_EXTRACTED_URLS]
+        sends += urls_in_text(script.get_text()[:200_000])
+    for tag in soup.find_all(["a", "area"], href=True, limit=20_000):
+        (unseen if id(tag) in hidden else visible).append(absolute_http(tag["href"]))
+    for tag in soup.find_all(["img", "link", "script"], limit=20_000):
+        assets.append(absolute_http(tag.get("src") or tag.get("href") or ""))
+    urls = rank_links(
+        *([u for u in group if u] for group in (sends, visible, unseen, assets)),
+        limit=MAX_EXTRACTED_URLS,
+    )
 
-    # Notable features are read before the scripts are removed.
-    has_script = bool(
-        soup.find(["script"])
-        or soup.find(attrs={"onclick": True})
-        or soup.find(attrs={"onload": True})
+    # Read before the scripts are removed: a script element, an event
+    # handler attribute (onclick, onerror, onfocus...) or a javascript:
+    # address.
+    has_script = bool(soup.find("script")) or any(
+        name.lower().startswith("on")
+        or (
+            name.lower() in ("href", "src", "action", "formaction")
+            and "".join(str(value).split()).lower().startswith("javascript:")
+        )
+        for tag in soup.find_all(True, limit=20_000)
+        for name, value in tag.attrs.items()
     )
 
     # Strip noisy tags before extracting the text; hidden text goes last.

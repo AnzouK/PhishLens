@@ -327,3 +327,9 @@ html[data-phishlens-theme="dark"] {
 /* Privacy notice before the first scan */
 .pll-notice-actions { margin-top: 8px; display: flex; gap: 10px; align-items: center; }
 .pll-notice-link { color: inherit; text-decoration: underline; font-size: 12px; }
+
+/* Parts of an email hidden by their style, marked for an instant while
+   the scan reads the visible text (core.js, textOf). */
+[data-pll-hidden] {
+    display: none !important;
+}

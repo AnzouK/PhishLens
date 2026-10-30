@@ -113,6 +113,13 @@ def test_gmail_values_that_are_not_host_names_are_dropped():
         '"DНL" <x@evil.example>',
         '"PayPal\\" <x@evil.example>',
         "PayPal <x@evil.example> <service@paypal.com>",
+        '"PayPal" <service@paypal.tk>',
+        '"PayPal" <service@paypal.co>',
+        '"Chronopost" <colis@chronopost.ml>',
+        '"Impots.gouv.fr" <avis@gouv.com>',
+        '"FIRS" <x@gov.com>',
+        '"' + "\u200b" * 300 + 'PayPal" <x@evil.example>',
+        '"Info" <x@evil.example>, "PayPal" <x@evil.example>',
     ],
 )
 def test_impersonation_variants_are_caught(from_):
@@ -128,11 +135,22 @@ def test_impersonation_variants_are_caught(from_):
         "E.Leclerc <info@e.leclerc>",
         "BNP Paribas <x@mabanque.bnpparibas>",
         "Impots <x@dgfip.finances.gouv.fr>",
+        "Amazon <x@amazon.co.jp>",
+        "Societe Generale <x@particuliers.sg.fr>",
         "service@paypal.com",
     ],
 )
 def test_the_brands_own_addresses_are_not_impersonation(from_):
     assert st.impersonated_brand(from_) is None
+
+
+def test_a_long_invisible_padding_is_removed_before_the_name_is_cut():
+    value = _from_value("x@evil.example", "\u200b" * 300 + "PayPal")
+    assert st.impersonated_brand(value) == "paypal"
+
+
+def test_the_rules_sender_score_uses_the_same_impersonation_check():
+    assert sa.metadata_agent({"from": "Chronopost <x@qdsodd.example>"}) == pytest.approx(0.5)
 
 
 def test_a_name_ending_in_a_backslash_keeps_its_quotes():
@@ -173,13 +191,22 @@ def test_hidden_text_comes_after_the_visible_text():
         "font-size:1px",
         "max-height:0;overflow:hidden",
         "DISPLAY: NONE !important",
+        "font-size:0.01em",
+        "font-size:0%",
+        "overflow-y:hidden;max-height:0",
+        "position:absolute;left:-9999px",
+        "text-indent:-9999px",
+        "transform:scale(0)",
     ],
 )
 def test_hiding_styles(style):
     assert ep.is_hidden_style(style)
 
 
-@pytest.mark.parametrize("style", ["", "color:#333", "font-size:14px", "opacity:0.9", "height:0"])
+@pytest.mark.parametrize(
+    "style",
+    ["", "color:#333", "font-size:14px", "font-size:1em", "opacity:0.9", "height:0", "left:-20px"],
+)
 def test_visible_styles(style):
     assert not ep.is_hidden_style(style)
 
@@ -194,6 +221,34 @@ def test_links_are_read_as_a_browser_reads_them_visible_first():
     assert "https://www.google.com/0" in links
 
 
+def test_addresses_in_hidden_text_do_not_push_the_real_link_out():
+    html = (
+        '<p>Verify your account</p><a href="https://evil.example/login">here</a>'
+        '<div style="display:none">'
+        + " ".join(f"https://x.example/{i}" for i in range(300))
+        + "</div>"
+    )
+    raw = b"From: a@b.example\r\nContent-Type: text/html\r\n\r\n" + html.encode()
+    _body, urls, _headers = ep.parse_eml(raw)
+    assert urls[0] == "https://evil.example/login"
+    links = ep.rank_links(
+        ["https://evil.example/login"], [f"https://x.example/{i}" for i in range(300)]
+    )
+    assert links[:2] == ["https://evil.example/login", "https://x.example/0"]
+    assert len(links) == 100
+
+
+def test_the_page_links_come_before_addresses_written_in_the_text():
+    from extension_backend import AnalyseRequest, _resolve_email
+
+    text = "Hello " + " ".join(f"https://x.example/{i}" for i in range(80))
+    req = AnalyseRequest(
+        raw_text=text, client_context={"link_urls": ["https://evil.example/login"]}
+    )
+    _body, urls, _h, _raw = _resolve_email(req)
+    assert urls[0] == "https://evil.example/login"
+
+
 def test_the_real_link_of_an_eml_is_found_behind_decoys():
     html = HIDDEN_FIRST
     raw = (
@@ -204,10 +259,19 @@ def test_the_real_link_of_an_eml_is_found_behind_decoys():
     assert "https://evil.example/login" in urls
 
 
-def test_words_after_a_data_uri_header_stay_words():
-    text = "data:text/plain;base64,Urgent action required Verify your bank account now. Hi"
-    assert "Verify your bank account" in ep.strip_markup_noise(text)
+@pytest.mark.parametrize(
+    "text",
+    [
+        "data:text/plain;base64,Urgent action required Verify your bank account now. Hi",
+        "data:text/plain;base64,\nUrgent\naction\nrequired\nVerify\nyour\nbank\naccount\nnow. Hi",
+    ],
+)
+def test_words_after_a_data_uri_header_stay_words(text):
+    assert "Verify" in ep.strip_markup_noise(text)
     assert not ep.looks_like_source(text)
+
+
+def test_inline_images_are_still_removed():
     # a real inline image is still removed
     assert ep.strip_markup_noise("a data:image/png;base64," + "A" * 300 + " b") == "a b"
 
@@ -237,6 +301,8 @@ def test_a_known_sites_redirect_is_not_a_known_link():
         "https://www.youtube.com/redirect?q=https://evil.example/login",
         "https://www.youtube.com/redirect?q=https%3A%2F%2Fevil.example",
         "https://www.youtube.com/redirect?q=https%253A%252F%252Fevil.example",
+        "https://www.youtube.com/redirect?q=//evil.example/login",
+        "https://www.youtube.com/redirect?q=%2f%2fevil.example",
     ):
         assert not la.well_known_link(url)
         counts = la.link_profile([url], "Bank <a@signed.example>")
@@ -274,3 +340,73 @@ def test_report_fields_other_than_the_text_are_identifiers():
     FeedbackRequest(kind="false_negative", text="a b c", source="gmail", version="2.0.11")
     with pytest.raises(ValidationError):
         FeedbackRequest(kind="false_negative", text="a b c", source="Call +234 800 000 0000")
+
+
+# ---------------------------------------------------------------------
+# Authentication-Results written by several checks of one server
+# ---------------------------------------------------------------------
+def test_one_result_header_per_check_of_the_receiving_server_are_joined():
+    headers = ep.header_dict(
+        [
+            ("Authentication-Results", "mx.bank.example; dmarc=pass header.from=bank.example"),
+            ("Authentication-Results", "mx.bank.example; dkim=pass header.d=bank.example"),
+            ("Received", "from out.bank.example by mx.bank.example"),
+            ("From", "Bank <alerts@bank.example>"),
+        ]
+    )
+    assert ah.parse_authentication_results(headers).cryptographically_verified
+
+
+def test_result_headers_below_the_received_line_are_the_senders():
+    headers = ep.header_dict(
+        [
+            ("Received", "from evil by mx.google.com"),
+            ("Authentication-Results", "mx.google.com; spf=pass smtp.mailfrom=evil.example"),
+            ("Authentication-Results", "mx.google.com; dkim=pass header.d=bank.example"),
+            ("From", "Bank <alerts@bank.example>"),
+        ]
+    )
+    assert "bank.example" not in headers["authentication-results"]
+    assert not ah.parse_authentication_results(headers).cryptographically_verified
+
+
+# ---------------------------------------------------------------------
+# HTML attachments
+# ---------------------------------------------------------------------
+def test_an_html_attachment_reports_where_it_sends_first():
+    import attachment_analysis as aa
+
+    html = (
+        "".join(f'<img src="https://cdn.example/{i}.png" hidden>' for i in range(300))
+        + '<meta http-equiv="refresh" content="0; url=//evil.example/a">'
+        + '<form action="https://evil.example/post"><input type="password"></form>'
+    )
+    out = aa.analyse_html(html.encode(), "invoice.html")
+    urls = out["extracted_urls"]
+    assert urls[0] == "https://evil.example/post"
+    assert "https://evil.example/a" in urls
+
+
+@pytest.mark.parametrize(
+    "html",
+    ['<img src=x onerror="go()">', '<a href=" javascript:go()">x</a>', "<body onfocus=go()>"],
+)
+def test_any_script_counts_as_javascript(html):
+    import attachment_analysis as aa
+
+    assert "contains_javascript" in aa.analyse_html(html.encode(), "a.html")["notable_features"]
+
+
+# ---------------------------------------------------------------------
+# Spamhaus
+# ---------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("answer", "listed"),
+    [("127.0.1.4", "phish"), ("127.0.1.99", "listed_unknown_code"), ("127.255.255.254", None)],
+)
+def test_spamhaus_answers(monkeypatch, answer, listed):
+    import asyncio
+
+    monkeypatch.setattr(ah.socket, "gethostbyname", lambda _q: answer)
+    out = asyncio.run(ah.spamhaus_dbl("evil.example"))
+    assert (out or {}).get("category") == listed

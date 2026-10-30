@@ -101,7 +101,11 @@ async function post(base, endpoint, payload) {
         throw networkError(e, "bg_unreachable");
     }
     const data = await resp.json().catch(() => null);
-    if (!resp.ok) throw new Error(self.PhishLensShared.apiErrorMessage(data, resp.status));
+    if (!resp.ok) {
+        const err = new Error(self.PhishLensShared.apiErrorMessage(data, resp.status));
+        err.status = resp.status;
+        throw err;
+    }
     return data;
 }
 
@@ -168,6 +172,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     Promise.resolve()
         .then(() => handler(msg))
         .then((data) => sendResponse({ ok: true, data }))
-        .catch((e) => sendResponse({ ok: false, error: String(e?.message || e) }));
+        .catch((e) => sendResponse({ ok: false, error: String(e?.message || e), status: e?.status || null }));
     return true;        // the reply is sent asynchronously
 });

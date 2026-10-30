@@ -13,12 +13,13 @@ from __future__ import annotations
 import logging
 import os
 import re
-from email.utils import parseaddr
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from known_domains import SUSPICIOUS_TLDS
 from link_alignment import ip_host, on_cloud_file_host, well_known_link
 from link_alignment import link_host as _host
+from sender_trust import impersonated_brand, sender_domain
 from settings import AGENTS_ALLOW_PICKLE, HF_AGENTS_REPO, HF_AGENTS_REVISION
 
 try:
@@ -31,22 +32,6 @@ except Exception:  # auth_headers missing: the host itself
 
 logger = logging.getLogger("phishlens.structured_agents")
 
-SUSPICIOUS_TLDS = {
-    "zip",
-    "review",
-    "click",
-    "country",
-    "kim",
-    "cricket",
-    "science",
-    "work",
-    "party",
-    "gq",
-    "tk",
-    "ml",
-    "ga",
-    "cf",
-}
 
 _URL_AGENT = None
 _METADATA_AGENT = None
@@ -231,15 +216,9 @@ def metadata_agent(headers: dict[str, str], raw_email: bytes | None = None) -> f
         except Exception as e:
             logger.warning("metadata_agent trained path failed (%s); rules used", e)
     score = 0.0
-    sender = headers.get("from", "").lower()
-    reply_to = headers.get("reply-to", "").lower()
-
-    # Reply-To differs from From
-    def domain(addr: str) -> str:
-        m = re.search(r"@([^>\s]+)", addr)
-        return m.group(1).lower() if m else ""
-
-    if reply_to and domain(reply_to) and domain(reply_to) != domain(sender):
+    sender = sender_domain(headers.get("from", "")) or ""
+    reply_to = sender_domain(headers.get("reply-to", "")) or ""
+    if reply_to and reply_to != sender:
         score += 0.45
     # No DKIM / SPF / Authentication-Results
     auth = headers.get("authentication-results", "")
@@ -247,17 +226,10 @@ def metadata_agent(headers: dict[str, str], raw_email: bytes | None = None) -> f
         score += 0.40
     if "authentication-results" not in headers:
         score += 0.15
-    # Display name impersonation: 'PayPal' from a non-paypal address.
-    # Use stdlib email.utils.parseaddr instead of a regex so we can't
-    # be hit by ReDoS on a crafted From: header. Header is sliced to
-    # 400 chars first as a belt-and-braces cap.
-    display_name, _addr = parseaddr(headers.get("from", "")[:400])
-    display = display_name.lower()[:200]
-    if display:
-        for brand in ("paypal", "apple", "google", "microsoft", "amazon", "facebook"):
-            if brand in display and brand not in domain(sender):
-                score += 0.35
-                break
+    # A brand's name over another domain's address (extension_backend
+    # also raises the sender score to IMPERSONATION_META for it).
+    if impersonated_brand(headers.get("from", "")):
+        score += 0.35
     return min(score, 1.0)
 
 

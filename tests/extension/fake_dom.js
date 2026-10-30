@@ -59,7 +59,12 @@ class Element extends Node {
         const siblings = this.parentNode?.children || [];
         return siblings[siblings.indexOf(this) + 1] || null;
     }
-    get innerText() { return this.textContent; }
+    // Leaves out what banner.css hides ([data-pll-hidden]).
+    get innerText() {
+        if ("data-pll-hidden" in this.attributes) return "";
+        return this.childNodes.map((c) => (c.nodeType === 3 ? c.data : c.innerText)).join("");
+    }
+    removeAttribute(k) { delete this.attributes[k]; }
     // Laid out by default; a test hides an element by replacing these.
     getClientRects() { return [{ width: 10, height: 10 }]; }
     getBoundingClientRect() { return { width: 10, height: 10 }; }

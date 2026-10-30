@@ -15,28 +15,15 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from email.utils import parseaddr
+from email.utils import getaddresses, parseaddr
 from typing import Any
 
-from auth_headers import SHARED_SUFFIXES, org_domain
-from known_domains import BRANDS
+from auth_headers import SHARED_SUFFIXES, org_domain, sender_domain
+from known_domains import BRANDS, SUSPICIOUS_TLDS
 from trusted_domains import TRUSTED_DOMAINS
 
 _ANGLE_ADDR_RE = re.compile(r"<\s*([^<>\s@]{1,200}@[^<>\s@]{1,253})\s*>")
 _HOST_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789-")
-
-
-def sender_domain(value: str) -> str | None:
-    """Domain of a bare address or a 'Name <addr@domain>' header."""
-    if not value:
-        return None
-    # The address itself: a display name can carry another one
-    # ('"support@gtbank.com" <scam@attacker.example>').
-    addr = parseaddr(value[:2000])[1]
-    m = re.search(r"@([A-Za-z0-9.\-_]+)", addr if "@" in addr else value[:2000])
-    if not m:
-        return None
-    return m.group(1).lower().rstrip(".") or None
 
 
 def is_trusted_domain(domain: str | None) -> bool:
@@ -73,10 +60,13 @@ def _plain_words(text: str, lower: bool = True) -> str:
 
 
 # Top-level domains a brand's own address may use with one of its names:
-# generic ones and every two-letter country code. "paypal.xyz" is not
-# PayPal; a brand's own top-level domain ("e.leclerc") is listed in full
-# in known_domains.BRANDS.
+# generic ones and country codes, except the ones sold for any use or
+# almost free ("paypal.tk", "paypal.co"). A brand's own top-level domain
+# ("e.leclerc") is listed in full in known_domains.BRANDS.
 _BRAND_TLDS = frozenset({"com", "net", "org", "edu", "gov", "int", "eu", "info", "group"})
+_OPEN_CCTLDS = frozenset(
+    {"co", "io", "me", "ly", "to", "cc", "ws", "su", "gg", "ai", "tv", "so", "sh", "la", "pw"}
+)
 
 
 def _brand_owns(brand_domains: frozenset[str], domain: str) -> bool:
@@ -92,32 +82,42 @@ def _brand_owns(brand_domains: frozenset[str], domain: str) -> bool:
     tld = org.rsplit(".", 1)[-1]
     if rest in SHARED_SUFFIXES or label not in brand_domains:
         return False
+    if tld in SUSPICIOUS_TLDS or tld in _OPEN_CCTLDS:
+        return False
     return tld in _BRAND_TLDS or (len(tld) == 2 and tld.isascii() and tld.isalpha())
+
+
+def _display_names(header: str) -> str:
+    """Every display name of a From: value. A header with several
+    addresses ('"Info" <x@evil.example>, "PayPal" <x@evil.example>') has
+    several names; a malformed one ('"PayPal\\" <x@evil.example>') parses
+    with none, while mail programs still show its text: then the text
+    before the last <address> is the name."""
+    names = [name for name, _addr in getaddresses([header]) if name]
+    _name, addr = parseaddr(header)
+    if not names or " " in addr or "<" in addr:
+        angles = list(_ANGLE_ADDR_RE.finditer(header))
+        if angles:
+            names.append(header[: angles[-1].start()])
+    return " ".join(names)
 
 
 def impersonated_brand(from_header: str) -> str | None:
     """The brand a From: claims when its address is not the brand's.
 
-    "Chronopost <info@qdsoddsmn.us>" -> "chronopost". The name is checked
-    as whole words against known_domains.BRANDS (brands of three letters
-    or fewer only in capitals, "UPS" but not "ups"); the address passes
-    when its organisational domain is the brand's (_brand_owns).
+    "Chronopost <info@qdsoddsmn.us>" -> "chronopost". The names are
+    checked as whole words against known_domains.BRANDS (brands of three
+    letters or fewer only in capitals, "UPS" but not "ups"); the address
+    passes when its organisational domain is the brand's (_brand_owns).
     """
     header = (from_header or "")[:2000]
-    name, addr = parseaddr(header)
-    if not name or " " in addr or "<" in addr:
-        # A malformed header ('"PayPal\\" <x@evil.example>') parses with no
-        # name, while mail programs still show its text: the text before
-        # the last <address> is the name.
-        angles = list(_ANGLE_ADDR_RE.finditer(header))
-        if angles:
-            name = header[: angles[-1].start()]
+    name = _display_names(header)
     if not name.strip(' <>"\\'):
         return None
     # The same domain every other check reads (sender_domain).
     domain = sender_domain(header) or ""
-    words = _plain_words(name[:200])
-    upper = _plain_words(name[:200], lower=False)
+    words = _plain_words(name)
+    upper = _plain_words(name, lower=False)
     for brand, domains in BRANDS.items():
         found = f" {brand.upper()} " in upper if len(brand) <= 3 else f" {brand} " in words
         if found and not _brand_owns(domains, domain):
@@ -158,8 +158,7 @@ def synthesize_auth_results(ctx: Any, sender_email: str | None) -> str:
     if not (signed_by or mailed_by or via):
         return ""
 
-    m = re.search(r"@([^>\s,]+)", (sender_email or "").strip())
-    from_domain = m.group(1).lower() if m else ""
+    from_domain = sender_domain(sender_email or "") or ""
 
     parts = ["gmail-client-context"]
     if signed_by:

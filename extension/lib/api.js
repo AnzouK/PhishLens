@@ -25,7 +25,13 @@ async function call(type, payload, fields) {
         const message = String(e?.message || e);
         throw new Error(isContextLost(message) ? t("reloaded") : message);
     }
-    if (!reply?.ok) throw new Error(reply?.error || t("unknown_error"));
+    if (!reply?.ok) {
+        const err = new Error(reply?.error || t("unknown_error"));
+        // The server's HTTP status, when it answered: a 4xx is about this
+        // request, not about the server.
+        err.status = reply?.status || null;
+        throw err;
+    }
     return reply.data;
 }
 
