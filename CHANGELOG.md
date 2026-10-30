@@ -20,6 +20,9 @@ backend share one version number.
 - A link such as `https://paypal.com:443@evil.example/` was read as a
   link to paypal.com: a large known site, so the link checks and the
   link rule skipped it. Links are now read with a URL parser.
+- On the DKIM-signed path, a link to a public file host now triggers
+  the link rule even next to a decoy link to the sender's own domain;
+  on the benchmark this changed no verdict.
 - A brand name over another domain's address is flagged even when the
   email looks forwarded: a "TR:" in the subject no longer hides it.
 - The server refuses a request body sent without a length (chunked),

@@ -35,7 +35,7 @@ function renderTrustPill(data) {
 
 function subline(data, isPhishing, caution, flags) {
     const flagText = flags.length ? t("found_flags", { flags: flags.map(I18N.flagLabel).join(", ") }) : "";
-    if (isPhishing) return t(data.links_elsewhere ? "lead_links_elsewhere" : "sub_phishing") + flagText;
+    if (isPhishing) return t(data.links_elsewhere && !(data.link_alignment?.aligned > 0) ? "lead_links_elsewhere" : "sub_phishing") + flagText;
     if (caution) return t("sub_caution") + flagText;
     if (data.forwarded?.detected) return t("sub_forwarded");
     if (data.shared_links?.count) return t("sub_shared", { services: (data.shared_links.services || []).join(", ") });

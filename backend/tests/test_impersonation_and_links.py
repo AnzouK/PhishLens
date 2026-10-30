@@ -367,3 +367,17 @@ def test_a_body_without_length_is_refused(client):
 
     r = client.post("/analyse", content=chunks(), headers={"Content-Type": "application/json"})
     assert r.status_code == 411
+
+
+def test_a_decoy_link_to_the_own_domain_does_not_hide_a_file_host():
+    from link_alignment import link_profile, links_elsewhere_only
+
+    counts = link_profile(
+        [
+            "https://news.attacker.example/unsubscribe",
+            "https://storage.googleapis.com/b/login.html",
+        ],
+        "News <hello@news.attacker.example>",
+    )
+    assert counts["aligned"] == 1 and counts["cloud"] == 1
+    assert links_elsewhere_only(counts)

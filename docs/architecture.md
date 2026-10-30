@@ -64,7 +64,7 @@ flowchart TD
 | Path | Text weight | Threshold | Decides on its own |
 | --- | --- | --- | --- |
 | `trusted_sender` | x0.5 | 0.65 | a Safe Browsing hit |
-| `crypto_verified` | x0.5 | 0.65 | a Safe Browsing hit; or every link leading away from the sender's domain with wording at 0.5 or more |
+| `crypto_verified` | x0.5 | 0.65 | a Safe Browsing hit; or, with wording at 0.5 or more, every link leading away from the sender's domain, or any link to a public file host |
 | `gmail_inbox_soft`, `outlook_internal` | x0.6 | 0.62 | a Safe Browsing hit |
 | `default` | x1.0 | 0.5 | text or sender at 0.85 or more; links at 0.85 only with a threat-intel hit or a strong link sign (raw IP, `@` before the host, suspicious TLD, file on a public cloud host) |
 

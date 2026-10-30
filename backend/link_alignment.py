@@ -83,5 +83,10 @@ def link_profile(urls: list[str], from_header: str) -> dict[str, int]:
 
 def links_elsewhere_only(counts: dict[str, int]) -> bool:
     """No link to the sender's own domain and at least one to an unknown
-    site or a public file host (click tracking and known sites aside)."""
-    return counts["aligned"] == 0 and counts["other"] + counts["cloud"] > 0
+    site (click tracking and known sites aside), or any link to a public
+    file host: one decoy link to the sender's own domain must not hide
+    it. On the benchmark the second part changed no verdict (L50EC in
+    simulate_fusion), so it closes the bypass at no measured cost."""
+    if counts["cloud"] > 0:
+        return True
+    return counts["aligned"] == 0 and counts["other"] > 0

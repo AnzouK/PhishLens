@@ -89,8 +89,10 @@ DKIM proves who sent the email, not that the sender is honest. Treating
 signed senders like unsigned ones catches about 7 points more phishing
 but doubles the false alarms on real inbox mail. The compromise: a
 signed sender whose links all lead elsewhere, with phishing-like
-wording, is flagged anyway. Signed phishing that links to its own
-domain, sends no link, or goes through known click tracking still gets
+wording, is flagged anyway. A link to a public file host counts
+even next to a decoy link to the sender's own domain. Signed phishing
+that also links to its own domain while its lure is on an ordinary
+site, sends no link, or goes through known click tracking still gets
 the discount ([evaluation](evaluation.md#results)).
 
 **R4. The false-alarm rate rests on 414 legitimate emails.** One

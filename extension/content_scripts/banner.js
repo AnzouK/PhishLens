@@ -9,11 +9,16 @@ const { t } = PhishLensI18n;
 const { h, icon } = PhishLensDom;
 const { SOURCE_LABELS } = PhishLensConstants;
 
+// "None of its links lead to that domain": only when that is literally
+// true (the rule also fires on a file-host link next to a decoy link to
+// the sender's own domain).
+const allLinksElsewhere = (data) => data.links_elsewhere && !(data.link_alignment?.aligned > 0);
+
 // The line under the title. On a safe verdict with a high agent score,
 // it says why that score did not count: red meters under "looks safe"
 // would read as a contradiction.
 function bannerLead(data, phishing) {
-    if (phishing) return t(data.links_elsewhere ? "lead_links_elsewhere" : "lead_phishing");
+    if (phishing) return t(allLinksElsewhere(data) ? "lead_links_elsewhere" : "lead_phishing");
     if (data.forwarded?.detected) return t("lead_forwarded");
     if (data.shared_links?.count) return t("lead_shared", { services: (data.shared_links.services || []).join(", ") });
     if (data.text_agent_used === false) return t("lead_no_text");
