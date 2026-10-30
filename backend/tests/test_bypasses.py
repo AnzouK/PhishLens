@@ -2204,3 +2204,206 @@ def test_pages_anyone_can_publish_on_known_sites_are_not_known_links(url):
 )
 def test_known_sites_stay_known(url):
     assert la.well_known_link(url)
+
+
+# ---------------------------------------------------------------------
+# Round 18
+# ---------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("raw", "domains", "brand"),
+    [
+        (
+            b"From: =?UTF-8?Q?Andr=C3=A9_=3Candre=40gmail=2Ecom=3E_=28via_Google_Docs=29?= "
+            b"<drive-shares-dm-noreply@google.com>\r\n\r\nHi",
+            ["google.com"],
+            None,
+        ),
+        (b"From: =?UTF-8?Q?Doe=2C_Jane?= <jane@corp.example>\r\n\r\nHi", ["corp.example"], None),
+        (
+            b"From: =?utf-8?b?UGF5?=\r\n =?utf-8?b?UGFs?= <a@evil.example>\r\n\r\nHi",
+            ["evil.example"],
+            "paypal",
+        ),
+    ],
+)
+def test_encoded_names_stay_names(raw, domains, brand):
+    _b, _u, headers = ep.parse_eml(raw)
+    assert ah.sender_domains(headers["from"]) == domains
+    assert st.impersonated_brand(headers["from"]) == brand
+
+
+@pytest.mark.parametrize(
+    ("header", "brand"),
+    [
+        ('"Security <security@gmail.com>" <scam@evil.example>', "gmail"),
+        ('"Support (support@outlook.com)" <scam@evil.example>', "outlook"),
+        ("PayPal <scam@evil.example", "paypal"),
+        ("scam@evil.example (PayPal)", "paypal"),
+        ("<scam@evil.example> (PayPal)", "paypal"),
+        ("Jane Doe (jane@gmail.com) <notifications@github.com>", None),
+    ],
+)
+def test_names_in_every_form(header, brand):
+    assert st.impersonated_brand(header) == brand
+
+
+def test_an_address_hidden_in_a_quoted_local_part_proves_nothing():
+    v = ah.parse_authentication_results(
+        {
+            "from": '<"ceo@victim.example"@evil.example>',
+            "authentication-results": "mx.google.com; dkim=pass header.d=evil.example",
+        }
+    )
+    assert not v.cryptographically_verified
+    assert ah.sender_domain('<"ceo@victim.example"@evil.example>') == "evil.example"
+
+
+def test_what_office_adds_is_read_not_listed():
+    svg = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>'
+    parts = {
+        "[Content_Types].xml": "",
+        "word/document.xml": _DOC,
+        "word/media/image1.svg": svg,
+        "word/embeddings/Microsoft_Excel_Worksheet1.xlsx": "not really a workbook",
+    }
+    out = _office_flags(parts, "report.docx")
+    assert out["notable_features"] == []
+    assert not out.get("entries")
+    inside = _office_flags({"report.docx": _docx(parts)}, "files.zip")
+    assert "inner_files_not_extracted" not in inside["notable_features"]
+
+
+@pytest.mark.parametrize(
+    "formulas",
+    [
+        ['A1&"|"', "Sheet2!B1"],
+        ["SUM(A1:A3)", 'CONCAT("a|b", "!")'],
+    ],
+)
+def test_ordinary_formulas_are_not_dde(formulas):
+    cells = "".join(f"<c><f>{f}</f></c>" for f in formulas)
+    sheet = f"<worksheet><sheetData><row>{cells}</row></sheetData></worksheet>"
+    xl = {
+        "[Content_Types].xml": "",
+        "xl/workbook.xml": "<workbook/>",
+        "xl/worksheets/sheet1.xml": sheet,
+    }
+    assert "dde_field" not in _office_flags(xl, "a.xlsx")["notable_features"]
+
+
+@pytest.mark.parametrize(
+    "formula", ["cmd|' /c calc'!A1", "IF(1,cmd|'/c calc'!A0)", "=MSEXCEL|'\\..\\cmd.exe'!A1"]
+)
+def test_dde_formulas_are_found(formula):
+    sheet = f"<worksheet><sheetData><row><c><f>{formula}</f></c></row></sheetData></worksheet>"
+    xl = {
+        "[Content_Types].xml": "",
+        "xl/workbook.xml": "<workbook/>",
+        "xl/worksheets/sheet1.xml": sheet,
+    }
+    assert "dde_field" in _office_flags(xl, "a.xlsx")["notable_features"]
+
+
+def test_binary_strings_end_at_nul():
+    import office_analysis as oa
+
+    raw = _cfb(["WordDocument"]) + "https://evil.tk\x00Click here\x00".encode("utf-16-le")
+    raw += b"http://evil2.tk/a\x00More"
+    urls = oa.analyse_ole(raw, "a.doc")["extracted_urls"]
+    assert {"https://evil.tk", "http://evil2.tk/a"} <= set(urls)
+    assert not any("click" in u.lower() or "more" in u.lower() for u in urls)
+
+
+def test_ole_names_end_at_nul_and_an_empty_directory_falls_back():
+    import struct
+
+    import office_analysis as oa
+
+    raw = bytearray(_cfb(["_VBA_PROJECT"]))
+    # The name length claims one more character, a NUL.
+    raw[1024 + 128 + 64 : 1024 + 128 + 66] = struct.pack("<H", 28)
+    assert "contains_macros" in oa.analyse_ole(bytes(raw), "a.doc")["notable_features"]
+    raw = bytearray(_cfb([]))
+    raw[48:52] = struct.pack("<I", 0xFFFFFFFE)
+    raw += "_VBA_PROJECT".encode("utf-16-le")
+    assert "contains_macros" in oa.analyse_ole(bytes(raw), "a.doc")["notable_features"]
+
+
+def test_an_ole_file_under_a_picture_name_is_read():
+    out = _office_flags(
+        {
+            "[Content_Types].xml": "",
+            "word/document.xml": _DOC,
+            "word/media/image9.png": _cfb(["_VBA_PROJECT"]),
+        },
+        "a.docx",
+    )
+    assert "contains_macros" in out["notable_features"]
+
+
+@pytest.mark.parametrize(
+    "padding",
+    [
+        '<img src="DATA:image/png;BASE64,' + "QUJD" * 300_000 + '">',
+        '<img src="data:image/png;charset=utf-8;base64,' + "QUJD" * 300_000 + '">',
+        "<!-- " + "x " * 600_000 + " -->",
+        '<div title="' + "x" * 1_100_000 + '"></div>',
+    ],
+)
+def test_padding_does_not_hide_links(padding):
+    visible, hidden = ep.html_link_groups(padding + '<a href="https://evil.tk/login">Verify</a>')
+    assert "https://evil.tk/login" in visible + hidden[:200]
+
+
+def test_a_flood_of_decoy_links_does_not_hide_the_last_one():
+    decoys = "".join(
+        f'<a href="https://d{i}.example/" style="display:none">d</a>' for i in range(25_000)
+    )
+    visible, hidden = ep.html_link_groups(decoys + '<a href="https://evil.tk/x">Go</a>')
+    assert "https://evil.tk/x" in ep.rank_links(visible, hidden, limit=200)
+
+
+def test_a_page_written_by_a_script_is_read():
+    import attachment_analysis as aa
+
+    page = base64.b64encode(
+        b'<form action="https://evil.tk/login"><input type="password"></form>'
+    ).decode()
+    out = aa.analyse_html(f'<script>document.write(atob("{page}"))</script>'.encode(), "a.html")
+    assert {"contains_form", "contains_password_field"} <= set(out["notable_features"])
+    plain = aa.analyse_html(b"<script>if (a < b) { go() }</script><p>Hello</p>", "a.html")
+    assert plain["extracted_text"] == "Hello"
+
+
+def test_web_archive_pictures_are_part_of_the_page_but_programs_are_named():
+    import attachment_analysis as aa
+
+    def mht(name, ctype):
+        return (
+            b'MIME-Version: 1.0\r\nContent-Type: multipart/related; boundary="b"\r\n\r\n--b\r\n'
+            b"Content-Type: text/html\r\n\r\n<p>Hello</p>\r\n--b\r\n"
+            + f'Content-Type: {ctype}\r\nContent-Disposition: attachment; filename="{name}"\r\n'.encode()
+            + b"Content-Transfer-Encoding: base64\r\n\r\nTVo=\r\n--b--\r\n"
+        )
+
+    pic = aa.analyse_attachment(
+        base64.b64encode(mht("logo.png", "image/png")).decode(), filename="p.mht"
+    )
+    assert pic["notable_features"] == []
+    exe = aa.analyse_attachment(
+        base64.b64encode(mht("invoice.pdf.exe", "application/octet-stream")).decode(),
+        filename="p.mht",
+    )
+    assert {"executable_in_archive", "double_extension"} <= set(exe["notable_features"])
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.youtube.com/redirect?q=evil.tk/login",
+        "https://l.facebook.com/l.php?u=x",
+        "https://www.icloud.com/iclouddrive/0123#Invoice",
+    ],
+)
+def test_redirect_and_share_paths_of_known_sites(url):
+    assert not la.well_known_link(url)

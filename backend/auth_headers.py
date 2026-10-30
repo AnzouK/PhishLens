@@ -158,7 +158,13 @@ def sender_domains(value: str) -> list[str]:
     bare = _without_comments(value)
     addrs = [a for _n, a in getaddresses([value]) if "@" in a]
     addrs += [a for a in _ANGLE_RE.findall(bare) if "@" in a]
-    found = [_address_domain(a) for a in addrs]
+    found = []
+    for a in addrs:
+        # A quoted local part holding an address ('"ceo@victim.example"@
+        # evil.example') names that domain too: such a From: names two.
+        local = a.rpartition("@")[0]
+        found += [d.lower().rstrip(".") for d in _AT_DOMAIN_RE.findall(local)]
+        found.append(_address_domain(a))
     if not any(found):
         found = [d.lower().rstrip(".") for d in _AT_DOMAIN_RE.findall(bare)]
     if not any(found):

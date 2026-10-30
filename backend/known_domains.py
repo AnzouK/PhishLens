@@ -14,7 +14,8 @@ CLOUD_FILE_HOSTS  hosts where anyone can publish a file or a page: a link
                   to them is a sign (phishing pages are often hosted
                   there), not a proof.
 USER_CONTENT_HOSTS  the parts of large known sites where anyone can
-                  publish a form or a document (forms.office.com...).
+                  publish a form or a document (forms.office.com...), or
+                  that only send the reader elsewhere (l.facebook.com).
 
 Names are matched as whole words, lower case, accents removed. A brand's
 domains are matched on the first label of the organisational domain
@@ -153,6 +154,13 @@ CLOUD_FILE_HOSTS = frozenset(_CLOUD_FILE_HOSTS_TEXT.split())
 USER_CONTENT_HOSTS = frozenset(
     [
         "forms.office.com",
+        "l.facebook.com",
+        "lm.facebook.com",
+        "l.instagram.com",
+        "l.messenger.com",
+        "safelinks.protection.outlook.com",
+        "t.co",
+        "lnkd.in",
         "forms.microsoft.com",
         "forms.cloud.microsoft",
         "sway.office.com",

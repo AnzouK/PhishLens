@@ -547,3 +547,30 @@ test("a link around a drawn shape is shown, as on the server", () => {
     ctx.getComputedStyle = () => visible;
     assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
 });
+
+test("an SVG link (SVGAnimatedString href) and a link after a flood of decoys are read", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const svgLink = doc.createElement("a");
+    svgLink.setAttribute("href", "https://evil.example/svg");
+    Object.defineProperty(svgLink, "href", { value: { baseVal: "https://evil.example/svg", animVal: "https://evil.example/svg" } });
+    svgLink.append("Open");
+    body.append(svgLink);
+    for (let i = 0; i < 300; i++) {
+        const d = doc.createElement("a");
+        d.href = "https://decoy.example/";
+        d.append("d");
+        body.append(d);
+    }
+    const real = doc.createElement("a");
+    real.href = "https://evil.example/login";
+    real.append("Verify");
+    body.append(real);
+    const visible = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = () => visible;
+    const links = [...PL.linkGroupsOf(body).visible];
+    assert.ok(links.includes("https://evil.example/svg"));
+    assert.ok(links.includes("https://evil.example/login"));
+});

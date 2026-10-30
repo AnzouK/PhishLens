@@ -9,6 +9,7 @@ attacker-controlled text) and caps what it reads.
 
 from __future__ import annotations
 
+import html as html_lib
 import re
 import warnings
 from email import message_from_bytes, policy
@@ -54,7 +55,7 @@ def html_to_text(html_src: str) -> str:
     kept the CSS ("25px", "roboto", "heading"...) and the text model read
     it as words.
     """
-    soup = BeautifulSoup(without_inline_data(html_src)[:1_000_000], "html.parser")
+    soup = BeautifulSoup(without_inline_data(html_src)[:_MAX_PARSED], "html.parser")
     hidden = hidden_tags(soup)  # before the <style> sheets go
     generated = generated_text(soup, hidden)
     for tag in soup(["style", "script", "head", "noscript", "title"]):
@@ -84,15 +85,46 @@ def html_links(html_src: str, limit: int = 200) -> list[str]:
 def html_link_groups(html_src: str) -> tuple[list[str], list[str]]:
     """(visible, hidden) link targets of an HTML document, kept apart so
     that no hidden link can be ranked before a visible one."""
-    soup = BeautifulSoup(without_inline_data(html_src)[:1_000_000], "html.parser")
+    cleaned = without_inline_data(html_src)
+    soup = BeautifulSoup(cleaned[:_MAX_PARSED], "html.parser")
     hidden_ids = {id(tag) for tag in hidden_tags(soup)}
     maps = shown_maps(soup, hidden_ids)
-    visible, hidden = [], []
-    for tag in soup.find_all(["a", "area"], href=True, limit=20_000):
-        url = absolute_http(tag["href"])
-        if url:
-            (visible if shown_link(tag, hidden_ids, maps) else hidden).append(url)
-    return visible, hidden
+    visible, hidden, unknown = [], [], []
+    shown, checked = set(), 0
+    # Every link is looked at; at most 20,000 get the visibility check (a
+    # cap on links once let 20,000 copies of a decoy hide the one after).
+    for tag in soup.find_all(["a", "area"]):
+        # SVG links use xlink:href.
+        href = tag.get("href") or tag.get("xlink:href")
+        url = absolute_http(href) if href else ""
+        if not url or url in shown:
+            continue
+        checked += 1
+        if checked > 20_000:
+            unknown.append(url)
+        elif shown_link(tag, hidden_ids, maps):
+            shown.add(url)
+            visible.append(url)
+        else:
+            hidden.append(url)
+    # Past the part that is parsed (padding, a huge comment or attribute
+    # placed first), links are still read. Whether they show cannot be
+    # told: they go first among the hidden ones, so that a flood of hidden
+    # decoys before the padding cannot push them out of the check.
+    # The last ones first (padding goes before the lure), at most the
+    # last and the first 1,000. See R13 in docs/threat-model.md.
+    tail = list(
+        dict.fromkeys(
+            u
+            for u in (
+                absolute_http(html_lib.unescape(m.group(1)))
+                for m in _LINK_ATTR_RE.finditer(cleaned, _MAX_PARSED)
+            )
+            if u and u not in shown
+        )
+    )
+    unknown += tail[::-1] if len(tail) <= 2000 else tail[:-1001:-1] + tail[:1000]
+    return visible, list(dict.fromkeys([*unknown, *hidden]))
 
 
 def absolute_http(href: str) -> str:
@@ -216,11 +248,25 @@ def _short_cut_tag(inner: str) -> bool:
     return len(inner.split()) <= 12 and "http" not in inner.lower()
 
 
+# Inline data in HTML, as browsers read it: any case ("DATA:...;BASE64,"),
+# parameters before base64 (";charset=utf-8"), white space inside.
+_INLINE_DATA_RE = re.compile(
+    r"data:[\w/+.-]{1,100}(?:;[\w.+-]{1,40}(?:=[\w.+\"-]{1,60})?){0,8};base64,[A-Za-z0-9+/=\s]{40,8000000}",
+    re.IGNORECASE,
+)
+# What is parsed of an HTML body; links past it are still read (_LINK_ATTR_RE).
+_MAX_PARSED = 1_000_000
+_LINK_ATTR_RE = re.compile(
+    r"""\b(?:href|xlink:href)\s*=\s*["']?([^"'\s>]{1,2048})""", re.IGNORECASE
+)
+
+
 def without_inline_data(html_src: str) -> str:
-    """HTML without its inline images (data: URIs). A large one before the
-    links pushed them past the size the scan reads: a newsletter with a
-    600 KB inline banner showed no link at all."""
-    return _DATA_URI_RE.sub("", html_src[:10_000_000])
+    """HTML without its inline images (data: URIs, in any case and with
+    any parameters). A large one before the links pushed them past the
+    size the scan reads: a newsletter with a 600 KB inline banner showed
+    no link at all."""
+    return _INLINE_DATA_RE.sub("", html_src[:10_000_000])
 
 
 def strip_markup_noise(text: str) -> str:
@@ -418,7 +464,7 @@ def header_dict(items) -> dict[str, str]:
         # From: padded with 32,000 spaces or zero-width characters must not
         # lose its second address to it. A header too long to read whole
         # proves nothing.
-        decoded = _decoded_header(raw[:_MAX_RAW_HEADER])
+        decoded = _decoded_header(raw[:_MAX_RAW_HEADER], address=key in _ADDRESS_HEADERS)
         decoded = without_invisible(decoded)
         value = " ".join(decoded.split())
         if len(value) > MAX_HEADER_CHARS or len(raw) > _MAX_RAW_HEADER:
@@ -430,25 +476,48 @@ def header_dict(items) -> dict[str, str]:
 
 
 _ENCODED_WORD_RE = re.compile(r"=\?[^?\s]{1,40}\?[qQbB]\?[^?\s]{0,2000}\?=")
-_BETWEEN_WORDS_RE = re.compile(r"(\?=)[ \t]+(?==\?)")
+# A run of encoded words, with the white space between them, and whether
+# it stands inside quotes.
+_ENCODED_RUN_RE = re.compile(
+    r'(?P<q>"?)(?P<run>=\?[^?\s]{1,40}\?[qQbB]\?[^?\s]{0,2000}\?='
+    r"(?:\s*=\?[^?\s]{1,40}\?[qQbB]\?[^?\s]{0,2000}\?=){0,50})(?P=q)"
+)
+_ADDRESS_HEADERS = frozenset({"from", "reply-to", "sender", "to", "cc", "return-path"})
+# Characters with a meaning in an address header (RFC 5322 specials).
+_SPECIALS = frozenset('()<>[]:;@\\,."')
 
 
-def _decoded_header(value: str) -> str:
+def _decoded_header(value: str, address: bool = False) -> str:
     """Encoded words ("=?utf-8?b?UGF5UGFs?=") decoded, as a mail program
     shows them: each one on its own, wherever it stands (inside quotes,
-    next to "<" or another word), the space between two of them dropped
-    (RFC 2047). An undecodable word stays as written."""
+    next to "<" or another word), lines unfolded first and the space
+    between two of them dropped (RFC 2047; "=?..?UGF5?=" + line break +
+    "=?..?UGFs?=" is "PayPal"). An undecodable word stays as written.
+
+    In an address header, an encoded name is a name, never an address: a
+    decoded name holding "<", "@" or "," ('André <andre@gmail.com> (via
+    Docs)', sent encoded by Google Docs) is put in quotes, so that what it
+    says is not read as a second sender."""
     if "=?" not in value:
         return value
     from email.header import decode_header, make_header
 
-    def one(m: re.Match) -> str:
+    value = " ".join(value.split())
+
+    def word(m: re.Match) -> str:
         try:
             return str(make_header(decode_header(m.group(0))))
         except Exception:
             return m.group(0)
 
-    return _ENCODED_WORD_RE.sub(one, _BETWEEN_WORDS_RE.sub(r"\1", value))
+    def run(m: re.Match) -> str:
+        quote = m.group("q")
+        text = _ENCODED_WORD_RE.sub(word, re.sub(r"(\?=)\s+(?==\?)", r"\1", m.group("run")))
+        if address and not quote and _SPECIALS.intersection(text):
+            return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+        return f"{quote}{text}{quote}"
+
+    return _ENCODED_RUN_RE.sub(run, value)
 
 
 # ---------------------------------------------------------------------

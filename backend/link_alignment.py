@@ -164,7 +164,12 @@ def on_cloud_file_host(url: str) -> bool:
 # starts with "www." ("?q=www.evil.tk", which redirectors complete).
 # Google's AMP viewer ("/amp/s/evil.tk/...") takes the address in its path.
 _EMBEDDED_URL_RE = re.compile(
-    r"https?:|[/\\]{2}|[=?&#]\s*www\.[\w-]+\.|^/amp/(?:s/)?[\w-]+(?:\.[\w-]+)+", re.IGNORECASE
+    r"https?:|[/\\]{2}|[=?&#]\s*www\.[\w-]+\."
+    r"|^/amp/(?:s/)?[\w-]+(?:\.[\w-]+)+"
+    # Paths that only ever send the reader elsewhere, whatever the target
+    # looks like ("/url?q=evil.tk", "/redirect?q=...", "/l.php?u=...").
+    r"|^/(?:url|redirect|l\.php|slink|linkredirect|iclouddrive|safe_redirect|away)(?:[/?#.]|$)",
+    re.IGNORECASE,
 )
 
 

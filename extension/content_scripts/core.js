@@ -431,17 +431,34 @@ function shownLink(a, hidden, boxes = new Set(hidden.boxes), unreadable = new Se
 // two lists apart too (link_urls, hidden_link_urls). Links to the mail
 // page itself are the mail service's own ("View entire message" under a
 // long Gmail email), not the sender's.
+// A link's address as a string. In a real page an <a> inside an <svg> is
+// an SVGAElement: its .href is an SVGAnimatedString ({ baseVal }), and the
+// address may be in xlink:href. Relative addresses are resolved.
+function linkHref(a) {
+    const raw = typeof a.href === "string"
+        ? a.href
+        : a.href?.baseVal || a.getAttribute?.("href") || a.getAttribute?.("xlink:href") || "";
+    if (!raw || /^https?:\/\//i.test(raw)) return raw || "";
+    try {
+        return new URL(raw, location.href).href;
+    } catch {
+        return "";
+    }
+}
+
 PL.linkGroupsOf = function linkGroupsOf(el, hidden = PL.hiddenParts(el)) {
     const groups = { visible: [[], []], hidden: [[], []] };    // [new host, repeated host]
     const hosts = { visible: new Set(), hidden: new Set() };
     const seen = new Set();
-    const anchors = el ? el.querySelectorAll("a[href], area[href]") : [];
+    const anchors = el ? el.querySelectorAll("a, area") : [];
     const boxes = new Set(hidden.boxes);
     const unreadable = new Set(hidden.texts);
-    // As many as the server reads (20,000): a cap on anchors of any kind
-    // let 2,000 hidden "#" links hide the ones after them.
-    for (let i = 0; i < anchors.length && i < MAX_WALK; i++) {
-        const href = anchors[i].href || "";
+    // Every anchor is looked at; at most MAX_WALK distinct addresses get
+    // the (costly) visibility check, the rest count as hidden. A cap on
+    // anchors once let 20,000 copies of a decoy hide the link after them.
+    let checked = 0;
+    for (let i = 0; i < anchors.length; i++) {
+        const href = linkHref(anchors[i]);
         if (!/^https?:\/\//i.test(href) || href.length > 2048 || seen.has(href)) continue;
         let host;
         try {
@@ -451,7 +468,8 @@ PL.linkGroupsOf = function linkGroupsOf(el, hidden = PL.hiddenParts(el)) {
         }
         if (host === location.hostname) continue;
         seen.add(href);
-        const kind = shownLink(anchors[i], hidden, boxes, unreadable) ? "visible" : "hidden";
+        const shown = checked++ < MAX_WALK && shownLink(anchors[i], hidden, boxes, unreadable);
+        const kind = shown ? "visible" : "hidden";
         groups[kind][hosts[kind].has(host) ? 1 : 0].push(href);
         hosts[kind].add(host);
     }

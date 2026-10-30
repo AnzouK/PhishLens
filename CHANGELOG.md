@@ -16,7 +16,8 @@ Fixes from several rounds of outside review; each bypass has a test in
   results alone no longer prove anything. The From: is read as written,
   not as Python's parser rebuilds it, encoded names are decoded wherever
   they stand, and an address inside a quoted display name no longer
-  counts as a second sender. Gmail's "signed-by" is only read
+  counts as a second sender (an encoded name stays a name, whatever it
+  says). Gmail's "signed-by" is only read
   outside the email body.
 - Brand impersonation catches look-alike domains (`paypal.tk`,
   `chronopost.us`), look-alike letters and padded or malformed names.
@@ -29,7 +30,9 @@ Fixes from several rounds of outside review; each bypass has a test in
   written-out links can no longer push the real ones out of the check.
   Forms and shared files on large sites (Microsoft Forms, OneDrive,
   SharePoint, Google Docs) and redirects to `www.` addresses no longer
-  count as links to a known site.
+  count as links to a known site, nor do redirect pages. A huge inline
+  image, comment or flood of decoy links before the real link no longer
+  hides it, and links inside SVG drawings are read in the browser too.
 - A huge `<style>` sheet can no longer stall the server.
 - Zero-width spaces, soft hyphens and control characters inside a word
   no longer cut it in pieces for the text model, and can no longer hide
@@ -46,7 +49,8 @@ Fixes from several rounds of outside review; each bypass has a test in
   and programs packed in embedded objects are flagged (OLE files read
   from their directory, in any case); .xlsb workbooks, drawings and
   document properties are read for links; an Office file holding other
-  files lists them like an archive; SVG, web archives and HTML smuggling
+  files lists them like an archive, though not the chart workbooks and
+  SVG pictures Office adds itself; SVG, web archives and HTML smuggling
   are read; 7z files are unpacked in memory.
 - Outlook: the sender's real address is used, and "internal" mail only
   gets the soft path.

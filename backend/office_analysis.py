@@ -101,8 +101,12 @@ _FIELD_ARG_RE = re.compile(r'"([^"]{1,2048})"|([^\s"\\]{1,2048})')
 _FIELD_SWITCH_RE = re.compile(r'\\\w(?:\s+"[^"]*")?')
 # Excel formulas and DDE links that start a program: =cmd|'/c calc'!A1,
 # =MSEXCEL|'\..\..\Windows\System32\cmd.exe /c ...'!A1.
+# A formula is one line (one <f>, one run of a binary part): the
+# program name starts it or follows "=", "+", "-", "@", "(", "," or ";",
+# the topic stays on the line and a cell reference follows the "!".
 _DDE_FORMULA_RE = re.compile(
-    r"(?<![\w.\\])[\w.\\]{1,64}\s*\|\s*['\"]?[^|'\"]{0,300}['\"]?\s*!", re.IGNORECASE
+    r"(?:^|(?<=[=+\-@(,;&\s]))[\w.\\]{1,64}[ \t]*\|[ \t]*['\"]?[^|'\"\r\n]{0,300}['\"]?[ \t]*![$A-Za-z0-9_]",
+    re.IGNORECASE | re.MULTILINE,
 )
 # PowerPoint "Run program" and macro actions on a click or mouse-over.
 _PIPE_RE = re.compile(rb"\||&#0*124;|&#x0*7c;", re.IGNORECASE)
@@ -212,6 +216,22 @@ def is_office_part(name: str) -> bool:
         and ".." not in n.split("/")
         and (n == "[content_types].xml" or archives._ext(n) in OFFICE_PART_EXTS)
     )
+
+
+# Files Office itself puts in a package: the SVG version of a picture or
+# an icon, and the workbook (or document) behind a chart or an embedded
+# object. Read as members (they can carry links or macros), not listed.
+_EXTRA_EMBEDDED = frozenset(
+    ["xlsx", "xlsm", "xlsb", "docx", "docm", "pptx", "pptm", "xls", "doc", "ppt", "pdf"]
+)
+
+
+def office_extra(name: str) -> bool:
+    n = part_name(name)
+    if not n.startswith(OOXML_ROOTS) or ".." in n.split("/"):
+        return False
+    ext = archives._ext(n)
+    return ("/media/" in n and ext == "svg") or ("/embeddings/" in n and ext in _EXTRA_EMBEDDED)
 
 
 def media_parts(names: list[str]) -> list[str]:
@@ -544,11 +564,16 @@ def _embedded_files(zf: zipfile.ZipFile, names: list[str], flags: list[str]) -> 
     """Programs, scripts and shortcuts packaged inside embedded objects,
     flagged as if they were in an archive (they are one click away)."""
     for name in names:
-        n = part_name(name)
-        if n.endswith((".xml", ".rels", ".vml")) or "/media/" in n:
+        # Any part is checked by its first bytes, whatever its name or
+        # folder ("word/media/x.png" can be an OLE file).
+        try:
+            with zf.open(getattr(name, "info", name)) as fh:
+                if fh.read(8) != OLE2_MAGIC:
+                    continue
+        except Exception:
             continue
         data = _read_part(zf, name, flags)
-        if not data or not data.startswith(OLE2_MAGIC):
+        if not data:
             continue
         # Any part that is an OLE file, whatever its name or folder.
         for flag in _cfb_flags(data) or []:
@@ -630,7 +655,7 @@ def _active_content(kind: str, name: str, data: bytes, flags: list[str], urls: l
     elif kind == "xlsx":
         if part_name(name).startswith("xl/externallinks/") and b"ddeLink" in data:
             _add(flags, "dde_field")
-        if _PIPE_RE.search(data) and _DDE_FORMULA_RE.search(_text_from_xml(data, {"f"}, set())):
+        if _PIPE_RE.search(data) and _DDE_FORMULA_RE.search(_text_from_xml(data, {"f"}, {"f"})):
             _add(flags, "dde_field")
 
 
@@ -743,7 +768,9 @@ def cfb_names(raw: bytes) -> list[str] | None:
         difat += [d for d in vals[:-1] if d < end]
         nxt = vals[-1]
     fat: list[int] = []
-    for d in difat[:20_000]:
+    # 512 FAT sectors map 32 MB at least: more than any attachment. The
+    # same sector listed twice is read once.
+    for d in list(dict.fromkeys(difat))[:512]:
         fat.extend(words(sector(d)))
     names: list[str] = []
     cur, visited = int.from_bytes(raw[48:52], "little"), set()
@@ -755,9 +782,15 @@ def cfb_names(raw: bytes) -> list[str] | None:
         for k in range(0, len(data) - 127, 128):
             length = int.from_bytes(data[k + 64 : k + 66], "little")
             if 2 <= length <= 64 and data[k + 66] in (1, 2, 5):
-                names.append(data[k : k + length - 2].decode("utf-16-le", "replace").lower())
+                # Office reads a name up to its first NUL, whatever length
+                # the entry claims.
+                name = data[k : k + length - 2].decode("utf-16-le", "replace")
+                name = name.partition("\x00")[0].lower()
+                if name:
+                    names.append(name)
         cur = fat[cur] if cur < len(fat) else end
-    return names
+    # No name at all: the directory was not found, not empty.
+    return names or None
 
 
 # Directory names (lower case) that mean macros, encryption, an object.
@@ -829,9 +862,12 @@ def analyse_ole(raw: bytes, filename: str) -> dict[str, Any]:
     texts += [raw[k:].decode("utf-16-le", errors="ignore") for k in (0, 1)]
     if any(_LEGACY_DDE_RE.search(t) for t in texts):
         flags.append("dde_field")
+    # Addresses from the text runs, each on its own line: read over the
+    # whole file, a NUL that ends a string was dropped as invisible and
+    # glued the address to what followed ("https://evil.tk" + NUL +
+    # "Click" gave evil.tkclick).
     urls: list[str] = []
-    for t in texts:
-        _urls_from(t, urls)
+    _urls_from(_binary_strings(raw), urls)
 
     return {
         "kind": "office_legacy",

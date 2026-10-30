@@ -525,7 +525,7 @@ _LITERAL_RE = re.compile(r"""["'`]([^"'`\n]{10,2048})["'`]""")
 _BASE64_LITERAL_RE = re.compile(r"[\"'`]([A-Za-z0-9+/]{16,20000}={0,2})[\"'`]")
 
 
-def _script_strings(code: str) -> str:
+def _script_readings(code: str) -> list[str]:
     """A script as its addresses are written in it: escapes decoded
     ("\\x68\\x74\\x74\\x70s://"), character codes turned into text
     (String.fromCharCode(104, 116, ...)), percent-encoding undone
@@ -557,7 +557,35 @@ def _script_strings(code: str) -> str:
         except (ValueError, binascii.Error):
             continue
         out.append(decoded.decode("utf-8", "ignore"))
-    return "\n".join(out)[:1_000_000]
+    return out
+
+
+def _script_strings(code: str) -> str:
+    return "\n".join(_script_readings(code))[:1_000_000]
+
+
+# Markup a script writes into the page (document.write, innerHTML) once
+# decoded: what is between its first tag and its last ">".
+_WRITTEN_TAG_RE = re.compile(
+    r"<(?:form|input|iframe|frame|meta|a|svg|button|img|object|embed)\b", re.I
+)
+
+
+def _inline_scripted(soup) -> None:
+    """Pages a script writes, decoded (atob, unescape, char codes,
+    escapes), parsed into the page next to the script, so that their forms
+    and password fields are read like the page's own (500 KB at most)."""
+    budget = 500_000
+    for script in soup.find_all("script", limit=1000):
+        for reading in _script_readings(script.get_text()[:200_000]):
+            m = _WRITTEN_TAG_RE.search(reading)
+            if not m or budget <= 0:
+                continue
+            start = reading.rfind("<", 0, m.start() + 1)
+            markup = reading[start : reading.rfind(">") + 1][:budget]
+            budget -= len(markup)
+            script.insert_after(BeautifulSoup(markup, "html.parser"))
+            break
 
 
 def _page_flags(soup, has_script: bool, smuggles: bool) -> list[str]:
@@ -591,6 +619,7 @@ def analyse_html(raw: bytes, filename: str, location: str = "") -> dict[str, Any
     try:
         soup = BeautifulSoup(raw, "html.parser")
         _inline_embedded(soup)
+        _inline_scripted(soup)
     except Exception as e:
         raise RuntimeError(f"HTML parse failed: {e}") from e
 
@@ -673,15 +702,22 @@ def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
     pages: list[dict[str, Any]] = []
     plain: list[str] = []
     attached = False
+    names: list[str] = []
     for part in msg.walk():
         if part.is_multipart():
             continue
         kind = part.get_content_type()
+        fname = part.get_filename() or ""
+        if fname:
+            names.append(fname)
         data = part.get_payload(decode=True)
         if not isinstance(data, bytes):
             continue
-        if part.get_filename() and kind not in ("text/html", "text/plain"):
-            attached = True
+        if fname and kind not in _MIME_PAGE_PARTS and kind != "text/plain":
+            # A page's own pictures, styles and fonts are part of it; any
+            # other file attached is not opened.
+            if not kind.startswith(("image/", "font/")) and kind != "text/css":
+                attached = True
         elif kind in _MIME_PAGE_PARTS and len(pages) < _MAX_MIME_PAGES:
             location = str(part.get("Content-Location") or "")
             pages.append(analyse_html(data[:MAX_ATTACHMENT_BYTES], filename, location))
@@ -694,7 +730,9 @@ def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
         "extracted_text": "",
         "extracted_text_chars": 0,
         "extracted_urls": [],
-        "notable_features": ["inner_files_not_extracted"] if attached else [],
+        # Attached files are named: a program or a fake extension shows.
+        "notable_features": archives.classify_names(names)
+        + (["inner_files_not_extracted"] if attached else []),
     }
     for page in pages:
         out = _merge(out, page)
@@ -859,8 +897,12 @@ def _read_zip(raw: bytes, filename: str, depth: int) -> dict[str, Any]:
     if office.media_parts(names):
         short = len((doc.get("extracted_text") or "").split()) < _FEW_WORDS
         doc = _merge(doc, _pictures_of(raw, names, read_text=short))
-    foreign = [n for n in names if not office.is_office_part(n)]
-    if not foreign and archives._ext(filename) not in archives.ARCHIVE_EXTS:
+    # What Office itself adds (a picture's SVG version, a chart's workbook)
+    # is read but neither listed nor a reason for caution; anything else
+    # is a foreign member, listed like an archive's.
+    extra = [n for n in names if office.office_extra(n)]
+    foreign = [n for n in names if not office.is_office_part(n) and not office.office_extra(n)]
+    if not foreign and not extra and archives._ext(filename) not in archives.ARCHIVE_EXTS:
         return doc
     if depth:
         # Inside an archive: the members are named, not opened.
@@ -874,6 +916,10 @@ def _read_zip(raw: bytes, filename: str, depth: int) -> dict[str, Any]:
         inner=lambda data, name: dispatch_raw(data, name, None, depth + 1),
         skip=office.is_office_part,
     )
+    listed = set(foreign)
+    members["entries"] = [n for n in members.get("entries") or [] if n in listed]
+    members["_all_entries"] = [n for n in members.get("_all_entries") or [] if n in listed]
+    members["entry_count"] = len(members["_all_entries"])
     return _merge(doc, members)
 
 

@@ -145,6 +145,9 @@ def _brand_owns(brand_domains: frozenset[str], domain: str) -> bool:
     return org in WELL_KNOWN or org in TRUSTED_DOMAINS
 
 
+_COMMENT_RE = re.compile(r"\(([^()]{1,200})\)")
+
+
 def _display_names(header: str) -> str:
     """Every display name of a From: value. A header with several
     addresses ('"Info" <x@evil.example>, "PayPal" <x@evil.example>') has
@@ -157,6 +160,13 @@ def _display_names(header: str) -> str:
         angles = list(_ANGLE_ADDR_RE.finditer(header))
         if angles:
             names.append(header[: angles[-1].start()])
+        elif "<" in header:
+            # No closing ">" ('PayPal <scam@evil.example'): mail programs
+            # still show the text before the address.
+            names.append(header.rpartition("<")[0])
+    # The old form 'scam@evil.example (PayPal)' shows its comment as the
+    # name.
+    names += _COMMENT_RE.findall(header)
     return " ".join(names)
 
 
@@ -178,21 +188,23 @@ def impersonated_brand(from_header: str) -> str | None:
     # The header as email_parsing.header_dict keeps it (spaces collapsed,
     # 8,000 characters): the whole value, not a first part of it.
     header = " ".join((from_header or "")[:32_000].split())[:8000]
-    # A person's own webmail address next to their name ("Jane
-    # (jane@gmail.com) via GitHub") does not claim to be the webmail: it is
-    # left out when other words remain. A name that is only such an address
-    # ('"security@gmail.com" <x@evil>'), or any other address
-    # ('"support@paypal.com" <x@evil>'), is read.
     name = _display_names(header)
-    rest = _WEBMAIL_IN_NAME_RE.sub(" ", name)
-    if rest != name and re.search(r"[^\W\d_]{2}", rest):
-        name = rest
-    if not name.strip(' <>"\\'):
-        return None
     # Every address of the header: one of the brand's next to an impostor's
     # ('"PayPal" <service@paypal.com>, <scam@evil.example>') does not
     # vouch for the other. The first is the one every other check reads.
     addresses = set(sender_domains(header)) or {""}
+    # A person's webmail address next to their name, in a notification a
+    # large site sends ("Jane (jane@gmail.com) via GitHub"
+    # <notifications@github.com>), does not claim to be the webmail: it is
+    # left out when the sender is a known or allowlisted site and other
+    # words remain. From anyone else ('"Security <security@gmail.com>"
+    # <x@evil>') it is read like any other address in a name.
+    if all(org_domain(d) in WELL_KNOWN or is_trusted_domain(d) for d in addresses):
+        rest = _WEBMAIL_IN_NAME_RE.sub(" ", name)
+        if rest != name and re.search(r"[^\W\d_]{2}", rest):
+            name = rest
+    if not name.strip(' <>"\\'):
+        return None
     words = _plain_words(name)
     upper = _plain_words(name, lower=False)
     for brand, domains in BRANDS.items():

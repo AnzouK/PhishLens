@@ -151,7 +151,14 @@ plainly, with escapes, character codes, percent-encoding or base64 are
 found; one it computes at run time is not, though the script itself is
 flagged. An Office file that takes more than 4 seconds to read is
 reported as not read to the end, and files attached to a web archive
-or a saved email inside an archive are named, not opened.
+or a saved email inside an archive are named, not opened, like the
+files an Office document inside an archive holds.
+
+**R13. Very large emails are read in part.** The first megabyte of an
+HTML body is parsed (inline images left out); links past it are still
+read, the last ones first, but whether they show cannot be told, and a
+flood of more than a thousand links after the padding can still push
+some out of the check. Gmail clips such messages too.
 
 ## Review triggers
 
