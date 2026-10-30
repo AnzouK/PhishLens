@@ -41,7 +41,7 @@ _HIDING_STYLES = {
 
 def _length(value: str) -> tuple[float, str] | None:
     """(number, unit) of a CSS length ("0.01em" -> (0.01, "em")), or None."""
-    value = value.strip().split(" ")[0]
+    value = value.strip().split(" ")[0].rstrip(")")
     num = value.rstrip("%abcdefghijklmnopqrstuvwxyz")
     try:
         return float(num), value[len(num) :]
@@ -49,56 +49,111 @@ def _length(value: str) -> tuple[float, str] | None:
         return None
 
 
-# Smallest readable font size per unit: 2 px, 2 pt, 0.2 em or rem, 20 %.
+# Smallest readable font size per unit (any other unit: above 0).
 _MIN_FONT = {"px": 2.0, "pt": 2.0, "em": 0.2, "rem": 0.2, "%": 20.0, "": 2.0}
+_SCALE_RE = re.compile(r"scale(?:x|y|3d)?\(([^()]{0,100})\)")
 
 
-def is_hidden_style(style: str) -> bool:
-    """True when an inline style hides its element: display:none,
-    visibility:hidden, opacity near 0, an unreadably small font, no height
-    or width with the overflow hidden, placed far off the page, or scaled
-    to nothing."""
+def _transparent(color: str) -> bool:
+    """A CSS colour that shows nothing: transparent, or an alpha of 0
+    (rgba(0,0,0,0), hsla(...,0), #rrggbb00, #rgb0)."""
+    color = color.replace(" ", "")
+    if color == "transparent":
+        return True
+    if color.startswith(("rgba(", "hsla(", "rgb(", "hsl(")) and color.count(",") == 3:
+        alpha = _length(color.rstrip(")").rsplit(",", 1)[1])
+        return bool(alpha) and alpha[0] <= 0.05
+    if "/" in color and color.startswith(("rgb(", "hsl(")):  # rgb(0 0 0 / 0)
+        alpha = _length(color.rstrip(")").rsplit("/", 1)[1])
+        return bool(alpha) and alpha[0] <= 0.05
+    return color.startswith("#") and (
+        (len(color) == 9 and color[7:] == "00") or (len(color) == 5 and color[4] == "0")
+    )
+
+
+def _style(style: str) -> dict[str, str]:
     decl: dict[str, str] = {}
     for item in (style or "")[:2000].lower().split(";"):
         key, sep, value = item.partition(":")
         if sep:
             decl[key.strip()] = value.replace("!important", "").strip()
-    for key, hiding in _HIDING_STYLES.items():
-        if decl.get(key) in hiding:
-            return True
+    return decl
+
+
+def is_hidden_style(style: str) -> bool:
+    """True when an inline style hides its text: display:none,
+    visibility:hidden, opacity near 0, an unreadably small font, a
+    transparent colour or one equal to the background, no height or
+    width with the overflow hidden, clipped away, placed far off the page,
+    or scaled to nothing."""
+    decl = _style(style)
+    if any(decl.get(key) in hiding for key, hiding in _HIDING_STYLES.items()):
+        return True
+    return _unreadable(decl) or _out_of_sight(decl)
+
+
+def _unreadable(decl: dict[str, str]) -> bool:
+    """Transparent, too small, or the colour of its background."""
     opacity = _length(decl.get("opacity", "1"))
     if opacity and opacity[0] <= 0.05:
         return True
     size = _length(decl.get("font-size", ""))
-    if size and size[0] < _MIN_FONT.get(size[1], 0):
+    if size and (size[0] <= 0 or size[0] < _MIN_FONT.get(size[1], 0)):
         return True
-    clipped = {decl.get(k) for k in ("overflow", "overflow-x", "overflow-y")} & {"hidden", "clip"}
-    if clipped:
-        for key in ("max-height", "height", "max-width", "width"):
-            n = _length(decl.get(key, "1"))
-            if n and n[0] < 1:
-                return True
-    if decl.get("position") in ("absolute", "fixed"):
-        for key in ("left", "top", "right", "bottom"):
-            n = _length(decl.get(key, "0"))
-            if n and n[0] <= -500:
-                return True
-    indent = _length(decl.get("text-indent", "0"))
-    if indent and indent[0] <= -500:
+    color = decl.get("color", "").replace(" ", "")
+    background = (decl.get("background-color") or decl.get("background", "")).replace(" ", "")
+    return bool(color) and (_transparent(color) or color == background)
+
+
+def _out_of_sight(decl: dict[str, str]) -> bool:
+    """Clipped to nothing, far off the page, or scaled to nothing."""
+    if {decl.get(k) for k in ("overflow", "overflow-x", "overflow-y")} & {"hidden", "clip"} and any(
+        (_length(decl.get(k, "1")) or (1, ""))[0] < 1
+        for k in ("max-height", "height", "max-width", "width")
+    ):
         return True
-    transform = decl.get("transform", "").replace(" ", "")
-    return "scale(0)" in transform or "scale(0," in transform or "scalex(0)" in transform
+    clip_path = decl.get("clip-path", "").replace(" ", "")
+    if clip_path.startswith("inset(") and (_length(clip_path[6:]) or (0, ""))[0] >= 50:
+        return True
+    clip = decl.get("clip", "").replace(" ", "").replace("px", "")
+    if clip_path.startswith("circle(0") or clip in ("rect(0,0,0,0)", "rect(0000)"):
+        return True
+    if decl.get("position") in ("absolute", "fixed") and any(
+        (_length(decl.get(k, "0")) or (0, ""))[0] <= -500
+        for k in ("left", "top", "right", "bottom")
+    ):
+        return True
+    if (_length(decl.get("text-indent", "0")) or (0, ""))[0] <= -500:
+        return True
+    return any(
+        (_length(a) or (1, ""))[0] == 0
+        for args in _SCALE_RE.findall(decl.get("transform", ""))
+        for a in args.split(",")
+    )
 
 
 def hidden_tags(soup) -> list:
-    """The outermost elements hidden by the hidden attribute or an inline
-    style (the first 20,000 elements are examined)."""
+    """The outermost elements hidden by the hidden attribute, an inline
+    style, a closed <details> (all but its <summary>) or a <template>
+    (the first 20,000 elements are examined)."""
     hidden, ids = [], set()
-    for tag in soup.find_all(True, limit=20_000):
-        hides = tag.has_attr("hidden") or is_hidden_style(tag.get("style", ""))
-        if hides and not any(id(p) in ids for p in tag.parents):
+
+    def add(tag) -> None:
+        if not any(id(p) in ids for p in tag.parents):
             hidden.append(tag)
             ids.add(id(tag))
+
+    for tag in soup.find_all(True, limit=20_000):
+        if tag.name == "details" and not tag.has_attr("open"):
+            for child in tag.find_all(True, recursive=False):
+                if child.name != "summary":
+                    add(child)
+        if (
+            tag.name == "template"
+            or tag.has_attr("hidden")
+            or is_hidden_style(tag.get("style", ""))
+        ):
+            add(tag)
     return hidden
 
 
@@ -155,11 +210,12 @@ def absolute_http(href: str) -> str:
 # Source code shown as text: when a mail page cannot render an email
 # (Gmail gives up on very large HTML), its visible text is the HTML
 # itself, inline images included. The text model reads that as phishing.
-# Base64 only, starting with a run of 40 characters at least, then
-# possibly more lines of it: with any whitespace allowed, the words after
-# "data:text/plain;base64," were taken for inline data too.
+# Base64 only, in lines of 40 characters at least (a wrapped data URI
+# has 76): with any whitespace, or short lines, allowed, the words after
+# "data:text/plain;base64," were taken for inline data too. A short last
+# line stays as text: one meaningless word.
 _DATA_URI_RE = re.compile(
-    r"data:[\w/+.-]{1,100};base64,[A-Za-z0-9+/=]{40,8000000}(?:\r?\n[A-Za-z0-9+/=]{1,8000000})*"
+    r"data:[\w/+.-]{1,100};base64,[A-Za-z0-9+/=]{40,8000000}(?:\r?\n[A-Za-z0-9+/=]{40,8000000})*"
 )
 _BASE64_RUN_RE = re.compile(r"[A-Za-z0-9+/=]{200,}")
 # A tag, or one cut off at the end of a truncated page text.
@@ -301,39 +357,26 @@ DUPLICATE_FROM = "x-phishlens-duplicate-from"
 
 def header_dict(items) -> dict[str, str]:
     """Header name (lowercased) -> value. A repeated header keeps its last
-    value, except the ones in _TOPMOST_WINS, which keep the first; the
-    receiving server's own Authentication-Results headers are joined. A
-    repeated From: is recorded under DUPLICATE_FROM."""
+    value, except the ones in _TOPMOST_WINS, which keep the first. A
+    repeated From: is recorded under DUPLICATE_FROM.
+
+    Only the topmost Authentication-Results is read, even from a server
+    that writes one per check (Postfix with OpenDKIM and OpenDMARC): the
+    receiving server's headers and the sender's cannot be told apart by
+    position (on Gmail, the sender's come right after Gmail's), so
+    joining a second one would let a sender add the result it wants. The
+    cost is a softer path missed on such mail, never a harder one."""
     headers: dict[str, str] = {}
-    received = merge_ar = False
     for k, v in items:
         key = k.lower()
-        value = _decoded_header(str(v))
-        if key == "received":
-            received = True
         if key == DUPLICATE_FROM:
-            continue
-        if key == "authentication-results" and key in headers:
-            # Some servers write one Authentication-Results per check
-            # (Postfix with OpenDKIM and OpenDMARC). Above the first
-            # Received line, every header is the receiving server's own;
-            # below it, the sender's, which never join.
-            if merge_ar and not received and _authserv_id(value) == _authserv_id(headers[key]):
-                headers[key] += "; " + value.partition(";")[2]
             continue
         if key in _TOPMOST_WINS and key in headers:
             if key == "from":
                 headers[DUPLICATE_FROM] = "1"
             continue
-        if key == "authentication-results":
-            merge_ar = not received
-        headers[key] = value
+        headers[key] = _decoded_header(str(v))
     return headers
-
-
-def _authserv_id(value: str) -> str:
-    """The receiving server's name, first in an Authentication-Results."""
-    return value.partition(";")[0].strip().lower()
 
 
 def _decoded_header(value: str) -> str:
@@ -465,15 +508,16 @@ def client_links(extra: Any) -> list[str]:
 
 
 def rank_links(*groups: list[str], limit: int = MAX_EMAIL_URLS) -> list[str]:
-    """The links of an email, at most `limit`: the groups in the order
-    given (link targets before addresses written in the text), and the
-    first link of each host before any second one. Addresses written in
-    hidden text once pushed every real link past the limit; fifty links
-    to one site no longer can."""
+    """The links of an email, at most `limit`, group by group in the order
+    given (link targets before addresses written in the text): no link of
+    a later group can push out one of an earlier group. Within a group,
+    the first link of each host comes before any second one, so a pile of
+    links to one site cannot push the others out either."""
     seen: set[str] = set()
-    hosts: set[str] = set()
-    first, rest = [], []
+    out: list[str] = []
     for group in groups:
+        hosts: set[str] = set()
+        first, rest = [], []
         for u in group:
             if u in seen:
                 continue
@@ -484,4 +528,7 @@ def rank_links(*groups: list[str], limit: int = MAX_EMAIL_URLS) -> list[str]:
                 host = ""
             (rest if host in hosts else first).append(u)
             hosts.add(host)
-    return (first + rest)[:limit]
+        out += first + rest
+        if len(out) >= limit:
+            break
+    return out[:limit]

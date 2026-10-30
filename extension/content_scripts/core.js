@@ -121,14 +121,17 @@ PL.MESSAGE_BODY = '.a3s, [id^="UniqueMessageBody"]';
 PL.inMessageBody = (el) => !!el?.closest?.(PL.MESSAGE_BODY);
 
 // True when the element takes no room on the page, or its text cannot be
-// seen: transparent, an unreadably small font, clipped to nothing, placed
-// far off the page or scaled to nothing. innerText already leaves out
-// display:none; these others it keeps.
+// seen: transparent (the element or its text colour), an unreadably
+// small font, clipped to nothing, placed far off the page or scaled to
+// nothing. innerText already leaves out display:none; these others it
+// keeps.
 PL.isHidden = function isHidden(el) {
     if (typeof getComputedStyle !== "function" || !el?.getClientRects) return false;
     if (!el.getClientRects().length) return true;
     const st = getComputedStyle(el);
     if (st.visibility === "hidden" || Number(st.opacity) <= 0.05 || parseFloat(st.fontSize) < 2) return true;
+    if (transparent(st.color)) return true;
+    if (/^inset\((?:[5-9]\d|\d{3,})(?:\.\d+)?%|^circle\(0(?:px)?[ )]/.test(st.clipPath || "")) return true;
     if (/hidden|clip/.test(`${st.overflow} ${st.overflowX} ${st.overflowY}`)) {
         const r = el.getBoundingClientRect();
         if (r.height < 1 || r.width < 1) return true;
@@ -140,11 +143,19 @@ PL.isHidden = function isHidden(el) {
     return /^matrix\(0, 0, 0, 0,/.test(st.transform || "");
 };
 
+// "rgba(0, 0, 0, 0)" or "transparent": the computed colour of text drawn
+// with no ink.
+function transparent(color) {
+    if (color === "transparent") return true;
+    const m = /^rgba\([^)]*,\s*([\d.]+)\)$/.exec(color || "");
+    return !!m && Number(m[1]) <= 0.05;
+}
+
 // The outermost hidden elements under `el`. Hidden subtrees are not
 // walked; at most MAX_WALK elements are examined (Gmail cuts messages
 // above 102 KB, far fewer elements than that).
 const MAX_WALK = 20000;
-function hiddenParts(el) {
+PL.hiddenParts = function hiddenParts(el) {
     if (typeof getComputedStyle !== "function" || !el?.children) return [];
     const out = [];
     const stack = [...el.children].reverse();       // popped in page order
@@ -154,16 +165,30 @@ function hiddenParts(el) {
         else stack.push(...[...n.children].reverse());
     }
     return out;
+};
+
+// The text of an element without its style sheets and scripts (whose
+// textContent is code, not words).
+function wordsOf(el) {
+    const parts = [];
+    const walk = (n) => {
+        for (const c of n.childNodes || []) {
+            if (c.nodeType === 3) parts.push(c.data);
+            else if (c.nodeType === 1 && !/^(STYLE|SCRIPT|NOSCRIPT|TEMPLATE)$/.test(c.tagName)) walk(c);
+        }
+    };
+    walk(el);
+    return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
 // The text of an email as the reader sees it, with the text hidden by its
 // style (see isHidden) after it: placed before the message, it filled
 // what the text model reads with words nobody sees. The hidden parts are
 // marked for an instant (banner.css hides them) so innerText leaves them
-// out, then read on their own.
-PL.textOf = function textOf(el) {
+// out, then read on their own. `hidden` is PL.hiddenParts(el), when the
+// caller already has it.
+PL.textOf = function textOf(el, hidden = PL.hiddenParts(el)) {
     if (!el) return "";
-    const hidden = hiddenParts(el);
     hidden.forEach((n) => n.setAttribute("data-pll-hidden", ""));
     let text;
     try {
@@ -171,7 +196,7 @@ PL.textOf = function textOf(el) {
     } finally {
         hidden.forEach((n) => n.removeAttribute("data-pll-hidden"));
     }
-    const tail = hidden.map((n) => (n.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean);
+    const tail = hidden.map(wordsOf).filter(Boolean);
     return [text, ...tail].join("\n").replace(/\s+\n/g, "\n").trim();
 };
 
@@ -191,9 +216,18 @@ PL.utf8ToB64 = (text) => PL.bytesToBase64(new TextEncoder().encode(text));
 // host: fifty hidden links to a large site placed first left the real
 // one out. Links to the mail page itself are the mail service's own
 // ("View entire message" under a long Gmail email), not the sender's.
-PL.linkTargetsOf = function linkTargetsOf(el) {
+// A link no one can see to click: neither it nor what it holds is 2 px
+// wide and high (a 1 px image, an empty anchor). An inline link around a
+// block (a button table) has a flat box of its own: its content counts.
+function tinyLink(a) {
+    if (!a.getClientRects) return false;
+    const big = (r) => r.width >= 2 && r.height >= 2;
+    if ([...a.getClientRects()].some(big)) return false;
+    return ![...(a.children || [])].some((c) => c.getBoundingClientRect && big(c.getBoundingClientRect()));
+}
+
+PL.linkTargetsOf = function linkTargetsOf(el, hidden = PL.hiddenParts(el)) {
     if (!el) return [];
-    const hidden = hiddenParts(el);
     const ranked = [[], [], [], []];   // visible new host, visible, hidden new host, hidden
     const hosts = new Set();
     const seen = new Set();
@@ -209,7 +243,7 @@ PL.linkTargetsOf = function linkTargetsOf(el) {
         }
         if (host === location.hostname) continue;
         seen.add(href);
-        const isHidden = hidden.some((part) => part.contains(anchors[i]));
+        const isHidden = hidden.some((part) => part.contains(anchors[i])) || tinyLink(anchors[i]);
         ranked[(isHidden ? 2 : 0) + (hosts.has(host) ? 1 : 0)].push(href);
         hosts.add(host);
     }

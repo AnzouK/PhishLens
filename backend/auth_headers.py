@@ -29,7 +29,7 @@ import logging
 import re
 import socket
 from dataclasses import asdict, dataclass
-from email.utils import parseaddr
+from email.utils import getaddresses, parseaddr
 from typing import Any
 
 # Set by email_parsing.header_dict when a message has several From: headers.
@@ -306,7 +306,9 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
         aligned_domains.append(verdict.dmarc_domain)
     # Two From: headers: a mail program shows one, the checks read the
     # other. DMARC treats such a message as failing; so does PhishLens.
-    proven = not arc_only and not headers.get(DUPLICATE_FROM)
+    # A From: with several addresses is the same trick in one header.
+    from_addresses = {a.lower() for _n, a in getaddresses([headers.get("from", "")[:2000]]) if a}
+    proven = not arc_only and not headers.get(DUPLICATE_FROM) and len(from_addresses) <= 1
     verdict.aligned = proven and bool(fod) and any(_org_domain(d) == fod for d in aligned_domains)
 
     # Cryptographic verification requires DKIM (the only crypto method: SPF

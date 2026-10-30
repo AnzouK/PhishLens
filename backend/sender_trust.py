@@ -19,7 +19,7 @@ from email.utils import getaddresses, parseaddr
 from typing import Any
 
 from auth_headers import SHARED_SUFFIXES, org_domain, sender_domain
-from known_domains import BRANDS, SUSPICIOUS_TLDS
+from known_domains import BRANDS, WELL_KNOWN
 from trusted_domains import TRUSTED_DOMAINS
 
 _ANGLE_ADDR_RE = re.compile(r"<\s*([^<>\s@]{1,200}@[^<>\s@]{1,253})\s*>")
@@ -34,11 +34,13 @@ def is_trusted_domain(domain: str | None) -> bool:
     return d in TRUSTED_DOMAINS or any(d.endswith("." + td) for td in TRUSTED_DOMAINS)
 
 
-# Latin look-alikes from other scripts ("PаyPal" with a Cyrillic "а"),
-# which Unicode normalisation leaves as they are.
+# Look-alikes of Latin letters that Unicode normalisation leaves as they
+# are: Cyrillic and Greek letters ("PаyPal" with a Cyrillic "а"), Latin
+# letters with a stroke or without their dot ("PayPał", "Amelı"), and
+# small capitals ("ᴘᴀʏᴘᴀʟ", read as capitals so that "ᴜᴘs" is "UPS").
 _CONFUSABLES = str.maketrans(
-    "аеорсухіјѕԁһӏАВЕКМНОРСТХІЈЅαεικνορτυχΑΒΕΗΙΚΜΝΟΡΤΥΧΖ",
-    "aeopcyxijsdhlABEKMHOPCTXIJSaeikvoptuxABEHIKMNOPTYXZ",
+    "аеорсухіјѕԁһӏАВЕКМНОРСТХІЈЅαεικνορτυχΑΒΕΗΙΚΜΝΟΡΤΥΧΖıłŁøØđĐħŧƚȷᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘʀꜱᴛᴜᴠᴡʏᴢ",
+    "aeopcyxijsdhlABEKMHOPCTXIJSaeikvoptuxABEHIKMNOPTYXZilLoOdDhtljABCDEFGHIJKLMNOPRSTUVWYZ",
 )
 
 
@@ -59,32 +61,34 @@ def _plain_words(text: str, lower: bool = True) -> str:
     return f" {kept} {kept.replace('.', ' ')} "
 
 
-# Top-level domains a brand's own address may use with one of its names:
-# generic ones and country codes, except the ones sold for any use or
-# almost free ("paypal.tk", "paypal.co"). A brand's own top-level domain
-# ("e.leclerc") is listed in full in known_domains.BRANDS.
-_BRAND_TLDS = frozenset({"com", "net", "org", "edu", "gov", "int", "eu", "info", "group"})
-_OPEN_CCTLDS = frozenset(
-    {"co", "io", "me", "ly", "to", "cc", "ws", "su", "gg", "ai", "tv", "so", "sh", "la", "pw"}
+# Where a brand's own address may use one of its names: under .com, .net,
+# .org (registered by the brands themselves almost always), or under the
+# country code of a market PhishLens serves (paypal.fr, dhl.de,
+# amazon.co.jp...). Elsewhere ("paypal.vc", "chronopost.us", "gtbank.in")
+# only a domain listed in full counts: in known_domains.BRANDS, WELL_KNOWN
+# or the allowlist. A fork for another region adds its country codes.
+_BRAND_TLDS = frozenset({"com", "net", "org"})
+_HOME_CCTLDS = frozenset(
+    {"fr", "be", "ch", "lu", "de", "at", "nl", "es", "pt", "it", "uk", "ie", "ng", "ca", "jp"}
 )
 
 
 def _brand_owns(brand_domains: frozenset[str], domain: str) -> bool:
-    """The organisational domain of `domain` is one of the brand's: listed
-    in full, or one of its names under a generic or country-code TLD.
-    Never a customer subdomain of a shared host (paypal.duckdns.org)."""
+    """The organisational domain of `domain` is one of the brand's (see
+    _BRAND_TLDS). Never a customer subdomain of a shared host
+    (paypal.duckdns.org)."""
     org = org_domain(domain)
     if not org:
         return False
     if org in brand_domains:
         return True
     label, _, rest = org.partition(".")
-    tld = org.rsplit(".", 1)[-1]
     if rest in SHARED_SUFFIXES or label not in brand_domains:
         return False
-    if tld in SUSPICIOUS_TLDS or tld in _OPEN_CCTLDS:
-        return False
-    return tld in _BRAND_TLDS or (len(tld) == 2 and tld.isascii() and tld.isalpha())
+    tld = org.rsplit(".", 1)[-1]
+    if tld in _BRAND_TLDS or tld in _HOME_CCTLDS:
+        return True
+    return org in WELL_KNOWN or org in TRUSTED_DOMAINS
 
 
 def _display_names(header: str) -> str:
@@ -114,13 +118,16 @@ def impersonated_brand(from_header: str) -> str | None:
     name = _display_names(header)
     if not name.strip(' <>"\\'):
         return None
-    # The same domain every other check reads (sender_domain).
-    domain = sender_domain(header) or ""
+    # Every address of the header: one of the brand's next to an impostor's
+    # ('"PayPal" <service@paypal.com>, <scam@evil.example>') does not
+    # vouch for the other. The first is the one every other check reads.
+    addresses = {sender_domain(a) for _n, a in getaddresses([header]) if "@" in a}
+    addresses = {d for d in addresses if d} | {sender_domain(header) or ""}
     words = _plain_words(name)
     upper = _plain_words(name, lower=False)
     for brand, domains in BRANDS.items():
         found = f" {brand.upper()} " in upper if len(brand) <= 3 else f" {brand} " in words
-        if found and not _brand_owns(domains, domain):
+        if found and not all(_brand_owns(domains, d) for d in addresses):
             return brand
     return None
 

@@ -224,3 +224,31 @@ test("a display name is sent without invisible characters and cut at 200", () =>
     assert.equal(PL.senderName("x".repeat(500)).length, 200);
     assert.equal(PL.senderName("  "), null);
 });
+
+test("the style sheet of a hidden part is not read as words", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const hidden = doc.createElement("div");
+    hidden.getClientRects = () => [];
+    const style = doc.createElement("style");
+    style.append(".x { color: red }");
+    hidden.append(style, "minutes of the meeting");
+    const p = doc.createElement("p");
+    p.append("Verify your account");
+    body.append(hidden, p);
+    assert.equal(PL.textOf(body), "Verify your account\nminutes of the meeting");
+});
+
+test("text drawn in a transparent colour counts as hidden", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const el = ctx.document.createElement("span");
+    ctx.getComputedStyle = () => ({ color: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px" });
+    assert.equal(PL.isHidden(el), true);
+    ctx.getComputedStyle = () => ({ color: "rgb(0, 0, 0)", opacity: "1", fontSize: "14px", clipPath: "inset(100%)" });
+    assert.equal(PL.isHidden(el), true);
+    ctx.getComputedStyle = () => ({ color: "rgb(0, 0, 0)", opacity: "1", fontSize: "14px", clipPath: "none" });
+    assert.equal(PL.isHidden(el), false);
+});

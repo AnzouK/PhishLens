@@ -16,9 +16,9 @@ CLOUD_FILE_HOSTS  hosts where anyone can publish a file or a page: a link
 
 Names are matched as whole words, lower case, accents removed. A brand's
 domains are matched on the first label of the organisational domain
-("chronopost" for chronopost.fr or chronopost.com) under a generic or
-country-code TLD; a name with a dot is a whole organisational domain
-("e.leclerc"). Ambiguous words
+("chronopost" for chronopost.fr or chronopost.com) under .com, .net,
+.org or a home-market country code (sender_trust._brand_owns); a name
+with a dot is a whole organisational domain ("e.leclerc"). Ambiguous words
 (Orange, Free, Post...) are left out on purpose.
 """
 

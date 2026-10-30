@@ -123,12 +123,6 @@ sites where anyone can publish a page (notion.so, medium.com,
 github.com) skip the trained link model and rely on threat
 intelligence.
 
-**R10. A long visible preamble still fills the text model's window.**
-The model reads the first 256 tokens. Hidden text is moved after the
-visible text, but benign visible text placed before the lure is read
-first. Scoring the end of long emails too would need a benchmark run
-to measure its cost in false alarms.
-
 **R8. OCR and QR decoding are best effort.** Poor scans, stylised fonts
 or damaged QR codes defeat them; an image-only PDF still raises the
 score a little.
@@ -136,10 +130,24 @@ score a little.
 **R9. The Hausa interface is a draft translation**, marked for review by
 a native speaker; English stays available in Settings.
 
+**R10. A long visible preamble still fills the text model's window.**
+The model reads the first 256 tokens. Hidden text is moved after the
+visible text, but benign visible text placed before the lure is read
+first. Scoring the end of long emails too would need a benchmark run
+to measure its cost in false alarms.
+
+**R11. Only the topmost Authentication-Results is read.** A server that
+writes one per check (Postfix with OpenDKIM and OpenDMARC) loses the
+extra results: such mail misses a softer path, never gets a harsher one.
+Joining them is not safe, since on Gmail the sender's own headers come
+right after Gmail's. An uploaded .eml from a server that adds no
+Authentication-Results at all shows the sender's own, if it wrote one.
+
 ## Review triggers
 
 Revisit this document when an endpoint, an input type or an extension
 permission is added, when the text model changes, or when the
 deployment moves off a single server. Last review: after 2.0.11, with
-three external audits (authentication parsing, impersonation, hidden
-content, link parsing, Safe Browsing quota, Outlook sender).
+five external audit rounds (authentication parsing, impersonation, hidden
+content, link parsing, Safe Browsing quota, Outlook sender, HTML
+attachments).

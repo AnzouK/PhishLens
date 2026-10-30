@@ -113,10 +113,11 @@ async function buildPayload(emailView, msg, { body, subject, links, count, sende
 async function runScan(emailView, btn) {
     const { msg, count } = currentMessage(emailView);
     const bodyEl = msg.querySelector(SEL.body);
-    const body = PL.textOf(bodyEl);
+    const hidden = PL.hiddenParts(bodyEl);       // one walk for the text and the links
+    const body = PL.textOf(bodyEl, hidden);
     const sender = msg.querySelector(SEL.sender) || emailView.querySelector(SEL.sender) || {};
     const subject = emailView.querySelector(SEL.subject)?.textContent?.trim() || "";
-    const links = PL.linkTargetsOf(bodyEl);
+    const links = PL.linkTargetsOf(bodyEl, hidden);
     const hasAttachments = !!(msg.querySelector(SEL.attachmentStrip) || emailView.querySelector(SEL.attachmentStrip));
     const attBtn = emailView.querySelector(".pll-scan-btn--all");
     const shortBody = !body || body.length < PL.MIN_BODY;

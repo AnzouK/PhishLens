@@ -122,8 +122,9 @@ async function olScan(pane, btn) {
     const { body: bodyEl, count, senderEmail, senderName, foundFrom } = currentMessage(pane);
     const subjectEl = pane.querySelector(SEL.subject);
     const subject = subjectEl?.getAttribute("title") || subjectEl?.textContent?.trim() || "";
-    const body = PL.textOf(bodyEl);
-    const links = PL.linkTargetsOf(bodyEl);
+    const hidden = PL.hiddenParts(bodyEl);       // one walk for the text and the links
+    const body = PL.textOf(bodyEl, hidden);
+    const links = PL.linkTargetsOf(bodyEl, hidden);
     const anchor = bannerSlot(pane);
 
     if ((!body || body.length < PL.MIN_BODY) && !links.length) {

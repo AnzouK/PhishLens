@@ -9,24 +9,33 @@ backend share one version number.
 
 ### Security
 - Addresses written in an email's text, hidden or not, can no longer
-  push its real links out: link targets come first, then the first link
-  of each host before any second one (100 links per email at most).
-- Impersonation is also caught under free or open country codes
-  (paypal.tk, paypal.co), with generic names (gouv.com for the French tax
-  office), in every name of a multi-address From:, and behind long
-  invisible padding; brands are listed with their full domains where a
-  single label would match anyone.
-- Hidden text: a font size in em or percent, overflow on one axis, an
-  element placed far off the page, a negative text indent or a zero
-  scale now count as hidden; the extension walks the whole message and
-  no longer skips one-letter parts. Words after "data:...;base64," on
-  separate lines stay text.
+  push its real links out: every link target comes before any address
+  written in the text, and within each, the first link of each host
+  before any second one (100 links per email at most). In the
+  extension, links too small to click (a 1 px image) rank with hidden
+  ones.
+- Impersonation: a brand's name now passes only under .com, .net, .org,
+  the country codes of the markets PhishLens serves, or a domain listed
+  in full (paypal.tk, paypal.vc, chronopost.us, gtbank.in and
+  gouv.com are caught). Every name and every address of a multi-address
+  From: is checked, and such a From: never proves the sender. Letters
+  with a stroke or without their dot (ł, ı), small capitals and long
+  invisible padding no longer hide a brand name.
+- Hidden text: a font size of 0 in any unit or too small in em or
+  percent, a transparent colour or one equal to the background, overflow
+  on one axis, a clip, an element placed far off the page, a negative
+  text indent, a zero scale on any axis, a closed <details> and a
+  <template> now count as hidden; the extension walks the whole message,
+  no longer skips one-letter parts, and leaves style sheets out of the
+  hidden text. Words after "data:...;base64," on separate lines stay
+  text (inline data needs lines of 40 base64 characters).
 - Outlook: the From line is taken from the same message as the body,
   never from inside a body.
 - A known site's redirect to a protocol-relative address ("?q=//evil")
   is not counted as a known link. HTML attachments list where they send
   their reader first (form targets, frames, meta refresh, scripts), and
   count event-handler attributes and javascript: addresses as scripts.
+  A page carried in an <iframe srcdoc> is read like the rest.
 - The link domain checked against Spamhaus no longer includes a port or
   a "user@" part.
 - Authentication-Results is read clause by clause, without its comments
@@ -119,9 +128,6 @@ backend share one version number.
   the extension cuts it after removing invisible characters, the server
   accepts longer ones, and an automatic scan skips an email the server
   refuses instead of stopping.
-- A receiving server that writes one Authentication-Results header per
-  check (Postfix with OpenDKIM and OpenDMARC) is read as one result; only
-  headers above its Received line are joined, never the sender's.
 - One Spamhaus DBL lookup, one sender-domain function and one
   impersonation check serve every part of the server; the rule-based
   sender score uses the full brand list.

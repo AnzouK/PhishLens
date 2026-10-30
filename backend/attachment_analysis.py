@@ -371,6 +371,20 @@ def analyse_image(raw: bytes, filename: str) -> dict[str, Any]:
 # =====================================================================
 # HTML analysis
 # =====================================================================
+def _inline_srcdoc(soup, depth: int = 3) -> None:
+    """The page an <iframe srcdoc="..."> carries in an attribute, parsed
+    into the iframe, so its form, scripts and links are read like the
+    rest (nested ones too, three levels, 500 KB each)."""
+    for _ in range(depth):
+        frames = soup.find_all("iframe", srcdoc=True, limit=100)
+        if not frames:
+            return
+        for frame in frames:
+            inner = BeautifulSoup(str(frame["srcdoc"])[:500_000], "html.parser")
+            del frame["srcdoc"]
+            frame.append(inner)
+
+
 def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     """
     Extract visible text + href / action URLs from an HTML attachment.
@@ -380,6 +394,7 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     """
     try:
         soup = BeautifulSoup(raw, "html.parser")
+        _inline_srcdoc(soup)
     except Exception as e:
         raise RuntimeError(f"HTML parse failed: {e}") from e
 

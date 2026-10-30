@@ -120,6 +120,15 @@ def test_gmail_values_that_are_not_host_names_are_dropped():
         '"FIRS" <x@gov.com>',
         '"' + "\u200b" * 300 + 'PayPal" <x@evil.example>',
         '"Info" <x@evil.example>, "PayPal" <x@evil.example>',
+        '"Chronopost" <info@chronopost.us>',
+        '"PayPal" <service@paypal.vc>',
+        '"GTBank" <alerts@gtbank.in>',
+        '"PayPal" <service@paypal.info>',
+        '"PayPal" <service@paypal.com>, <scam@evil.example>',
+        '"Amel\u0131" <x@evil.example>',
+        '"PayPa\u0142" <x@evil.example>',
+        '"\u1d18\u1d00\u028f\u1d18\u1d00\u029f" <x@evil.example>',
+        "\u1d1c\u1d18\ua731 <x@evil.example>",
     ],
 )
 def test_impersonation_variants_are_caught(from_):
@@ -136,6 +145,10 @@ def test_impersonation_variants_are_caught(from_):
         "BNP Paribas <x@mabanque.bnpparibas>",
         "Impots <x@dgfip.finances.gouv.fr>",
         "Amazon <x@amazon.co.jp>",
+        "PayPal <service@paypal.fr>",
+        "DHL <noreply@dhl.de>",
+        "GTBank <alerts@gtbank.com>",
+        "Airtel <x@airtel.com.ng>",
         "Societe Generale <x@particuliers.sg.fr>",
         "service@paypal.com",
     ],
@@ -197,6 +210,17 @@ def test_hidden_text_comes_after_the_visible_text():
         "position:absolute;left:-9999px",
         "text-indent:-9999px",
         "transform:scale(0)",
+        "transform:scaleY(0)",
+        "transform:scale(1, 0.0)",
+        "font-size:0vw",
+        "font-size:0ch",
+        "color:transparent;line-height:0",
+        "color:rgba(0,0,0,0)",
+        "color:rgb(0 0 0 / 0)",
+        "color:#ffffff00",
+        "color:#fff;background-color:#fff",
+        "clip-path:inset(100%)",
+        "clip:rect(0px, 0px, 0px, 0px)",
     ],
 )
 def test_hiding_styles(style):
@@ -205,7 +229,19 @@ def test_hiding_styles(style):
 
 @pytest.mark.parametrize(
     "style",
-    ["", "color:#333", "font-size:14px", "font-size:1em", "opacity:0.9", "height:0", "left:-20px"],
+    [
+        "",
+        "color:#333",
+        "font-size:14px",
+        "font-size:1em",
+        "font-size:1vw",
+        "opacity:0.9",
+        "height:0",
+        "left:-20px",
+        "transform:scale(1.2)",
+        "clip-path:inset(10%)",
+        "color:#fff;background-color:#0b57d0",
+    ],
 )
 def test_visible_styles(style):
     assert not ep.is_hidden_style(style)
@@ -238,6 +274,27 @@ def test_addresses_in_hidden_text_do_not_push_the_real_link_out():
     assert len(links) == 100
 
 
+def test_a_second_link_to_the_same_site_stays_before_addresses_in_the_text():
+    links = ep.rank_links(
+        ["https://docs.google.com/document/d/1", "https://docs.google.com/forms/d/e/phish"],
+        [f"https://d{i}.example/" for i in range(150)],
+    )
+    assert links[:2] == [
+        "https://docs.google.com/document/d/1",
+        "https://docs.google.com/forms/d/e/phish",
+    ]
+    assert len(links) == 100
+
+
+def test_closed_details_and_templates_count_as_hidden():
+    text = ep.html_to_text(
+        "<details><summary>More</summary><p>filler words</p></details>"
+        "<template><p>template words</p></template><p>Verify your account</p>"
+    )
+    assert text.startswith("More Verify your account")
+    assert "filler words" in text and "template words" in text
+
+
 def test_the_page_links_come_before_addresses_written_in_the_text():
     from extension_backend import AnalyseRequest, _resolve_email
 
@@ -264,11 +321,15 @@ def test_the_real_link_of_an_eml_is_found_behind_decoys():
     [
         "data:text/plain;base64,Urgent action required Verify your bank account now. Hi",
         "data:text/plain;base64,\nUrgent\naction\nrequired\nVerify\nyour\nbank\naccount\nnow. Hi",
+        "data:text/plain;base64,"
+        + "A" * 40
+        + "\nUrgent\naction\nrequired\nVerify\nyour\nbank\nnow. Hi",
     ],
 )
 def test_words_after_a_data_uri_header_stay_words(text):
-    assert "Verify" in ep.strip_markup_noise(text)
-    assert not ep.looks_like_source(text)
+    # Whether or not the text is then read as source, the words stay.
+    left = ep.strip_markup_noise(text)
+    assert "Verify" in left and len(left.split()) >= 5
 
 
 def test_inline_images_are_still_removed():
@@ -345,29 +406,29 @@ def test_report_fields_other_than_the_text_are_identifiers():
 # ---------------------------------------------------------------------
 # Authentication-Results written by several checks of one server
 # ---------------------------------------------------------------------
-def test_one_result_header_per_check_of_the_receiving_server_are_joined():
-    headers = ep.header_dict(
-        [
-            ("Authentication-Results", "mx.bank.example; dmarc=pass header.from=bank.example"),
-            ("Authentication-Results", "mx.bank.example; dkim=pass header.d=bank.example"),
-            ("Received", "from out.bank.example by mx.bank.example"),
-            ("From", "Bank <alerts@bank.example>"),
-        ]
-    )
-    assert ah.parse_authentication_results(headers).cryptographically_verified
-
-
-def test_result_headers_below_the_received_line_are_the_senders():
+def test_only_the_topmost_result_header_is_read():
+    # On Gmail, the sender's headers come right after Gmail's own
+    # Authentication-Results: a second one, wherever it sits, could be the
+    # sender's, so it is never joined (docs/threat-model.md, R11).
     headers = ep.header_dict(
         [
             ("Received", "from evil by mx.google.com"),
             ("Authentication-Results", "mx.google.com; spf=pass smtp.mailfrom=evil.example"),
             ("Authentication-Results", "mx.google.com; dkim=pass header.d=bank.example"),
+            ("Received", "from x by y"),
             ("From", "Bank <alerts@bank.example>"),
         ]
     )
     assert "bank.example" not in headers["authentication-results"]
     assert not ah.parse_authentication_results(headers).cryptographically_verified
+
+
+def test_a_from_with_several_addresses_proves_nothing():
+    v = verdict(
+        "mx.google.com; dkim=pass header.d=paypal.com",
+        from_='"PayPal" <service@paypal.com>, <scam@evil.example>',
+    )
+    assert not v.cryptographically_verified
 
 
 # ---------------------------------------------------------------------
@@ -395,6 +456,20 @@ def test_any_script_counts_as_javascript(html):
     import attachment_analysis as aa
 
     assert "contains_javascript" in aa.analyse_html(html.encode(), "a.html")["notable_features"]
+
+
+def test_a_page_inside_an_iframe_srcdoc_is_read():
+    import attachment_analysis as aa
+
+    html = (
+        '<iframe srcdoc="<form action=&quot;https://evil.example/login&quot;>'
+        '<input type=password></form><script>go()</script>"></iframe>'
+    )
+    out = aa.analyse_html(html.encode(), "a.html")
+    assert out["extracted_urls"] == ["https://evil.example/login"]
+    assert {"contains_form", "contains_password_field", "contains_javascript"} <= set(
+        out["notable_features"]
+    )
 
 
 # ---------------------------------------------------------------------
