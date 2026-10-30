@@ -260,10 +260,13 @@ for (const c of HIDDEN_CASES) {
     test(`hidden style case: ${c.name}`, () => {
         const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
         const { ctx, PL } = load(entry);
+        const parent = ctx.document.createElement("div");
         const el = ctx.document.createElement("div");
+        parent.append(el);
         el.getClientRects = () => (c.rects === 0 ? [] : [{ width: 300, height: 20 }]);
         el.getBoundingClientRect = () => c.box || { width: 300, height: 20 };
-        ctx.getComputedStyle = () => c.computed;
+        const parentStyle = { backgroundColor: c.parentBackground || "rgba(0, 0, 0, 0)", backgroundImage: "none" };
+        ctx.getComputedStyle = (n) => (n === parent ? parentStyle : c.computed);
         assert.equal(PL.isHidden(el), c.hidden);
     });
 }
@@ -285,4 +288,28 @@ test("visible and hidden links are sent apart, a second visible one first", () =
     const groups = PL.linkGroupsOf(body);
     assert.deepEqual([...groups.visible], ["https://docs.google.com/a", "https://docs.google.com/phish"]);
     assert.equal(groups.hidden.length, 48);
+});
+
+test("Outlook reads the sender's own address, not one in the display name", () => {
+    const entry = manifest.content_scripts.find((e) => !e.matches[0].includes("mail.google.com"));
+    const { PL } = load(entry);
+    assert.equal(PL.senderAddress(['"support@gtbank.com" <scam@attacker.example>']), "scam@attacker.example");
+    assert.equal(PL.senderAddress(["support@gtbank.com scam@attacker.example"]), "scam@attacker.example");
+    assert.equal(PL.senderAddress(["Ana Silva"]), "");
+});
+
+test("thousands of anchors without an address do not hide the links after them", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    for (let i = 0; i < 2500; i++) {
+        const a = doc.createElement("a");
+        a.href = "#";
+        body.append(a);
+    }
+    const real = doc.createElement("a");
+    real.href = "https://evil.example/login";
+    body.append(real);
+    assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
 });

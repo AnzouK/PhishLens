@@ -33,7 +33,8 @@ from bs4 import BeautifulSoup
 import archive_analysis as archives
 import ocr
 import office_analysis as office
-from email_parsing import absolute_http, hidden_tags, rank_links, urls_in_text, visible_text_first
+from email_parsing import absolute_http, rank_links, urls_in_text
+from hidden_content import hidden_tags, visible_text_first
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
@@ -374,14 +375,17 @@ def analyse_image(raw: bytes, filename: str) -> dict[str, Any]:
 # HTML analysis
 # =====================================================================
 def _data_html(value: str) -> str | None:
-    """The page in a "data:text/html[;base64],..." address, or None."""
-    value = "".join(str(value).split())
-    head, sep, payload = value.partition(",")
-    if not sep or not head.lower().startswith("data:text/html"):
+    """The page in a "data:text/html[;charset=...][;base64],..." (or
+    application/xhtml+xml) address, or None. Only a base64 payload loses
+    its spaces: in a plain one they separate the tag from its attributes."""
+    head, sep, payload = str(value).strip().partition(",")
+    params = [p.strip() for p in head.lower().split(";")]
+    if not sep or params[0] not in ("data:text/html", "data:application/xhtml+xml"):
         return None
     try:
-        if head.lower().endswith(";base64"):
-            return base64.b64decode(payload[:700_000] + "===")[:500_000].decode("utf-8", "replace")
+        if "base64" in params[1:]:
+            raw = "".join(payload[:700_000].split())
+            return base64.b64decode(raw + "===")[:500_000].decode("utf-8", "replace")
         return unquote(payload[:500_000])
     except (ValueError, binascii.Error):
         return None
@@ -450,7 +454,8 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     # 'window.location = "https://..."'), then visible links, hidden
     # links, and images and style sheets last. Two hundred hidden images
     # once pushed the form's target past the limit.
-    hidden = {id(t) for tag in hidden_tags(soup) for t in (tag, *tag.find_all(True))}
+    hidden_parts = hidden_tags(soup)  # before the <style> sheets go
+    hidden = {id(t) for tag in hidden_parts for t in (tag, *tag.find_all(True))}
     sends, visible, unseen, assets = [], [], [], []
     for tag in soup.find_all(["form", "iframe", "frame", "object", "embed"], limit=20_000):
         sends.append(absolute_http(tag.get("action") or tag.get("src") or tag.get("data") or ""))
@@ -486,7 +491,7 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     # Strip noisy tags before extracting the text; hidden text goes last.
     for tag in soup(["script", "style", "noscript"]):
         tag.decompose()
-    text = " ".join(visible_text_first(soup).split())[:MAX_EXTRACTED_TEXT]
+    text = " ".join(visible_text_first(soup, hidden_parts).split())[:MAX_EXTRACTED_TEXT]
 
     # Notable features
     flags = []

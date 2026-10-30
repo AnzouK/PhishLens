@@ -1,5 +1,5 @@
 {
- "_about": "Inline styles (read by backend/email_parsing.is_hidden_style) and the computed styles a browser gives for them (read by extension/content_scripts/core.js, PL.isHidden): both must agree on what hides text.",
+ "_about": "Inline styles (read by backend/email_parsing.is_hidden_style) and the computed styles a browser gives for them (read by extension/content_scripts/core.js, PL.isHidden): both must agree on what hides text. parentBackground, when set, is the background colour of the element's parent.",
  "cases": [
   {
    "name": "plain text",
@@ -635,6 +635,104 @@
     "transform": "none",
     "clip": "auto",
     "clipPath": "inset(10%)"
+   },
+   "hidden": false
+  },
+  {
+   "name": "near white on the white page",
+   "style": "color:#fefefe",
+   "computed": {
+    "color": "rgb(254, 254, 254)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
+   },
+   "hidden": true
+  },
+  {
+   "name": "white text, the parent's white background",
+   "style": "color:#ffffff",
+   "computed": {
+    "color": "rgb(255, 255, 255)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
+   },
+   "hidden": true,
+   "parentBackground": "rgb(255, 255, 255)"
+  },
+  {
+   "name": "white text, the parent's dark background",
+   "style": "color:#ffffff",
+   "computed": {
+    "color": "rgb(255, 255, 255)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
+   },
+   "hidden": false,
+   "parentBackground": "rgb(20, 20, 20)"
+  },
+  {
+   "name": "light grey on white",
+   "style": "color:#d0d0d0",
+   "computed": {
+    "color": "rgb(208, 208, 208)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
    },
    "hidden": false
   }

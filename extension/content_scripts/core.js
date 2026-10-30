@@ -131,8 +131,11 @@ PL.isHidden = function isHidden(el) {
     const st = getComputedStyle(el);
     if (st.visibility === "hidden" || Number(st.opacity) <= 0.05 || parseFloat(st.fontSize) < 2) return true;
     if (transparent(st.color)) return true;
-    // Text the colour of its own background.
-    if (st.color && st.color === st.backgroundColor && !transparent(st.backgroundColor)) return true;
+    // Text the colour of what is drawn behind it (closer than 10 on every
+    // channel, like backend/hidden_content.py).
+    const ink = rgb(st.color);
+    const behind = backgroundBehind(el);
+    if (ink && behind && ink.every((v, i) => Math.abs(v - behind[i]) <= 10)) return true;
     if (/^rect\(0(?:px)?,? 0(?:px)?,? 0(?:px)?,? 0(?:px)?\)$/.test(st.clip || "")) return true;
     if (/^inset\((?:[5-9]\d|\d{3,})(?:\.\d+)?%|^circle\(0(?:px)?[ )]/.test(st.clipPath || "")) return true;
     if (/hidden|clip/.test(`${st.overflow} ${st.overflowX} ${st.overflowY}`)) {
@@ -152,6 +155,24 @@ function flattened(transform) {
     if (!m) return false;
     const [a, b, c, d] = m[1].split(",").map(Number);
     return Math.abs(a * d - b * c) < 1e-4;
+}
+
+// [r, g, b] of a computed colour ("rgb(1, 2, 3)", "rgba(1, 2, 3, 0.5)").
+function rgb(color) {
+    const m = /^rgba?\((\d+), (\d+), (\d+)/.exec(color || "");
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+// The colour drawn behind an element: its own background or the nearest
+// ancestor's (backgrounds are not inherited, they show through), white
+// when none sets one; null when an image is drawn (unknown).
+function backgroundBehind(el) {
+    for (let n = el, depth = 0; n && n.nodeType === 1 && depth < 40; n = n.parentNode, depth++) {
+        const st = getComputedStyle(n);
+        if (st.backgroundImage && st.backgroundImage !== "none") return null;
+        if (st.backgroundColor && !transparent(st.backgroundColor)) return rgb(st.backgroundColor);
+    }
+    return [255, 255, 255];
 }
 
 // "rgba(0, 0, 0, 0)" or "transparent": the computed colour of text drawn
@@ -244,7 +265,9 @@ PL.linkGroupsOf = function linkGroupsOf(el, hidden = PL.hiddenParts(el)) {
     const hosts = { visible: new Set(), hidden: new Set() };
     const seen = new Set();
     const anchors = el ? el.querySelectorAll("a[href], area[href]") : [];
-    for (let i = 0; i < anchors.length && i < 2000; i++) {
+    // As many as the server reads (20,000): a cap on anchors of any kind
+    // let 2,000 hidden "#" links hide the ones after them.
+    for (let i = 0; i < anchors.length && i < MAX_WALK; i++) {
         const href = anchors[i].href || "";
         if (!/^https?:\/\//i.test(href) || href.length > 2048 || seen.has(href)) continue;
         let host;

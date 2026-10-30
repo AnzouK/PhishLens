@@ -8,6 +8,26 @@ backend share one version number.
 ## [Unreleased]
 
 ### Security
+- The server applies the email's own <style> rules when it reads which
+  parts are hidden (backend/hidden_content.py), and treats text whose
+  colour is within 10 of what is drawn behind it (its background, a
+  parent's, or the white page) as hidden; the extension does the same
+  from the browser's computed styles.
+- Only real markup is removed from a text read as source: tags without
+  attributes or with well-formed ones. Words after an unclosed "<a"
+  stay words even when a link with "=" follows. A text counts as the
+  email's source only when tags and data: URIs make half of it.
+- Outlook: the sender's address is the one between angle brackets, else
+  the last one of the From line (a display name such as
+  "support@bank.example" no longer stands in for it).
+- The extension reads up to 20,000 anchors, as the server does: 2,000
+  "#" links no longer hide the ones after them; the message's own
+  visible links rank before the page's hidden ones.
+- Header values lose their invisible characters before being cut, and
+  a header longer than 1 MB proves nothing: padding can no longer cut
+  the second address of a From:.
+- data:text/html pages with spaces, a charset parameter or the XHTML
+  type are read in HTML attachments.
 - Hidden links can no longer pass a second visible link to the same
   site: visible and hidden link targets are ranked as separate groups,
   in the server and in the extension (which now sends them apart), and

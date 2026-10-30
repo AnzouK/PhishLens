@@ -10,6 +10,7 @@ attacker-controlled text) and caps what it reads.
 from __future__ import annotations
 
 import re
+import unicodedata
 from email import message_from_bytes, policy
 from email.utils import parseaddr
 from typing import Any
@@ -17,6 +18,7 @@ from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
 
+from hidden_content import hidden_tags, visible_text_first
 from settings import MAX_EMAIL_URLS, MAX_LINK_URLS
 
 # http(s) URL written out in a text.
@@ -25,151 +27,6 @@ URL_IN_TEXT_RE = re.compile(r"https?://[^\s\"'<>)]+")
 
 def urls_in_text(text: str) -> list[str]:
     return URL_IN_TEXT_RE.findall(text)
-
-
-# Inline styles that hide an element from the reader: hidden text placed
-# before the message filled the text model's window with words nobody
-# sees. Such text is moved after the visible text rather than dropped: a
-# <style> rule can show it again (on phones, say), and the reader may
-# then see it.
-_HIDING_STYLES = {
-    "display": {"none"},
-    "visibility": {"hidden", "collapse"},
-    "mso-hide": {"all"},
-}
-
-
-def _length(value: str) -> tuple[float, str] | None:
-    """(number, unit) of a CSS length ("0.01em" -> (0.01, "em")), or None."""
-    value = value.strip().split(" ")[0].rstrip(")")
-    num = value.rstrip("%abcdefghijklmnopqrstuvwxyz")
-    try:
-        return float(num), value[len(num) :]
-    except ValueError:
-        return None
-
-
-# Smallest readable font size per unit (any other unit: above 0).
-_MIN_FONT = {"px": 2.0, "pt": 2.0, "em": 0.2, "rem": 0.2, "%": 20.0, "": 2.0}
-_SCALE_RE = re.compile(r"scale(?:x|y|3d)?\(([^()]{0,100})\)")
-
-
-def _transparent(color: str) -> bool:
-    """A CSS colour that shows nothing: transparent, or an alpha of 0
-    (rgba(0,0,0,0), hsla(...,0), #rrggbb00, #rgb0)."""
-    color = color.replace(" ", "")
-    if color == "transparent":
-        return True
-    if color.startswith(("rgba(", "hsla(", "rgb(", "hsl(")) and color.count(",") == 3:
-        alpha = _length(color.rstrip(")").rsplit(",", 1)[1])
-        return bool(alpha) and alpha[0] <= 0.05
-    if "/" in color and color.startswith(("rgb(", "hsl(")):  # rgb(0 0 0 / 0)
-        alpha = _length(color.rstrip(")").rsplit("/", 1)[1])
-        return bool(alpha) and alpha[0] <= 0.05
-    return color.startswith("#") and (
-        (len(color) == 9 and color[7:] == "00") or (len(color) == 5 and color[4] == "0")
-    )
-
-
-def _style(style: str) -> dict[str, str]:
-    decl: dict[str, str] = {}
-    for item in (style or "")[:2000].lower().split(";"):
-        key, sep, value = item.partition(":")
-        if sep:
-            decl[key.strip()] = value.replace("!important", "").strip()
-    return decl
-
-
-def is_hidden_style(style: str) -> bool:
-    """True when an inline style hides its text: display:none,
-    visibility:hidden, opacity near 0, an unreadably small font, a
-    transparent colour or one equal to the background, no height or
-    width with the overflow hidden, clipped away, placed far off the page,
-    or scaled to nothing."""
-    decl = _style(style)
-    if any(decl.get(key) in hiding for key, hiding in _HIDING_STYLES.items()):
-        return True
-    return _unreadable(decl) or _out_of_sight(decl)
-
-
-def _unreadable(decl: dict[str, str]) -> bool:
-    """Transparent, too small, or the colour of its background."""
-    opacity = _length(decl.get("opacity", "1"))
-    if opacity and opacity[0] <= 0.05:
-        return True
-    size = _length(decl.get("font-size", ""))
-    if size and (size[0] <= 0 or size[0] < _MIN_FONT.get(size[1], 0)):
-        return True
-    color = decl.get("color", "").replace(" ", "")
-    background = (decl.get("background-color") or decl.get("background", "")).replace(" ", "")
-    return bool(color) and (_transparent(color) or color == background)
-
-
-def _out_of_sight(decl: dict[str, str]) -> bool:
-    """Clipped to nothing, far off the page, or scaled to nothing."""
-    if {decl.get(k) for k in ("overflow", "overflow-x", "overflow-y")} & {"hidden", "clip"} and any(
-        (_length(decl.get(k, "1")) or (1, ""))[0] < 1
-        for k in ("max-height", "height", "max-width", "width")
-    ):
-        return True
-    clip_path = decl.get("clip-path", "").replace(" ", "")
-    if clip_path.startswith("inset(") and (_length(clip_path[6:]) or (0, ""))[0] >= 50:
-        return True
-    clip = decl.get("clip", "").replace(" ", "").replace("px", "")
-    if clip_path.startswith("circle(0") or clip in ("rect(0,0,0,0)", "rect(0000)"):
-        return True
-    if decl.get("position") in ("absolute", "fixed") and any(
-        (_length(decl.get(k, "0")) or (0, ""))[0] <= -500
-        for k in ("left", "top", "right", "bottom")
-    ):
-        return True
-    if (_length(decl.get("text-indent", "0")) or (0, ""))[0] <= -500:
-        return True
-    return any(
-        (_length(a) or (1, ""))[0] == 0
-        for args in _SCALE_RE.findall(decl.get("transform", ""))
-        for a in args.split(",")
-    )
-
-
-def hidden_tags(soup) -> list:
-    """The outermost elements hidden by the hidden attribute, an inline
-    style, a closed <details> (all but its <summary>) or a <template>
-    (the first 20,000 elements are examined)."""
-    hidden, ids = [], set()
-
-    def add(tag) -> None:
-        if not any(id(p) in ids for p in tag.parents):
-            hidden.append(tag)
-            ids.add(id(tag))
-
-    for tag in soup.find_all(True, limit=20_000):
-        if tag.name == "details" and not tag.has_attr("open"):
-            # Everything but the <summary>, its bare text included.
-            for child in list(tag.children):
-                if getattr(child, "name", None) == "summary":
-                    continue
-                if child.name is None:
-                    if not str(child).strip():
-                        continue
-                    child = child.wrap(soup.new_tag("span"))
-                add(child)
-        if (
-            tag.name == "template"
-            or tag.has_attr("hidden")
-            or is_hidden_style(tag.get("style", ""))
-        ):
-            add(tag)
-    return hidden
-
-
-def visible_text_first(soup) -> str:
-    """Text of a parsed HTML document: the visible text, then the text of
-    hidden elements (see _HIDING_STYLES)."""
-    hidden = [tag.extract() for tag in hidden_tags(soup)]
-    text = soup.get_text(separator=" ")
-    tail = " ".join(tag.get_text(separator=" ") for tag in hidden)
-    return f"{text}\n{tail}" if tail.strip() else text
 
 
 def html_to_text(html_src: str) -> str:
@@ -181,9 +38,10 @@ def html_to_text(html_src: str) -> str:
     it as words.
     """
     soup = BeautifulSoup(without_inline_data(html_src)[:1_000_000], "html.parser")
+    hidden = hidden_tags(soup)  # before the <style> sheets go
     for tag in soup(["style", "script", "head", "noscript", "title"]):
         tag.decompose()
-    text = visible_text_first(soup)
+    text = visible_text_first(soup, hidden)
     # Collapse whitespace line by line (no regex: linear on any input).
     lines = (" ".join(line.split()) for line in text.splitlines())
     return "\n".join(line for line in lines if line)
@@ -237,9 +95,48 @@ _BASE64_RUN_RE = re.compile(r"[A-Za-z0-9+/=]{200,}")
 _TAG_RE = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]{0,20}(?P<inner>\s[^<>]{0,2000})?(?:/?>|\Z)")
 
 
+_ATTR_NAME = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_:.-@")
+
+
+def _attributes(inner: str) -> bool:
+    """True when `inner` reads as HTML attributes (name="value", name=value,
+    a bare name), with at least one value: 'class="x" hidden' is, 'Urgent:
+    verify your account at https://x.example/?id=1' is not (a "/" in a
+    name). Linear: one pass, no regex."""
+    i, n, pairs = 0, len(inner), 0
+    while i < n:
+        while i < n and inner[i].isspace():
+            i += 1
+        if i < n and inner[i] == "/" and not inner[i + 1 :].strip():
+            break  # '<img src="x" />'
+        start = i
+        while i < n and inner[i] in _ATTR_NAME:
+            i += 1
+        if i == start:
+            return False if i < n else pairs > 0
+        while i < n and inner[i].isspace():
+            i += 1
+        if i < n and inner[i] == "=":
+            i += 1
+            while i < n and inner[i].isspace():
+                i += 1
+            if i < n and inner[i] in "\"'":
+                end = inner.find(inner[i], i + 1)
+                i = n if end < 0 else end + 1  # an unclosed value: a cut-off page
+            else:
+                while i < n and not inner[i].isspace() and inner[i] not in "\"'=`":
+                    i += 1
+            pairs += 1
+        elif i < n and inner[i] not in _ATTR_NAME:
+            return False
+    return pairs > 0
+
+
 def _markup(m: re.Match) -> str:
+    """The tag removed when it is markup: no attributes ("<p>", "</div>")
+    or real ones; left as words otherwise."""
     inner = m.group("inner") or ""
-    return " " if not inner.strip() or "=" in inner else m.group(0)
+    return " " if inner.strip() in ("", "/") or _attributes(inner) else m.group(0)
 
 
 def without_inline_data(html_src: str) -> str:
@@ -268,14 +165,16 @@ def looks_like_source(text: str) -> bool:
 
 def is_page_source(text: str) -> bool:
     """True when a page text is the email's HTML source shown as text
-    (Gmail gives up on very large HTML): mostly markup, with tags in it.
-    Mostly inline data without tags is a text with noise, not source: an
-    email cannot make the server drop the page text with a long base64
-    run of its own."""
+    (Gmail gives up on very large HTML): half of it at least tags and
+    data: URIs. A text with a long base64 run, or a few tags written in
+    it, is a text with noise, not source. When it is source, the parsed
+    message replaces it, read with its <style> rules (hidden_content)."""
+    text = text[:200_000]
     if not looks_like_source(text):
         return False
-    tags = sum(1 for m in _TAG_RE.finditer(text[:200_000]) if _markup(m) == " ")
-    return tags >= 5
+    markup = sum(len(m.group(0)) for m in _TAG_RE.finditer(text) if _markup(m) == " ")
+    markup += sum(len(m.group(0)) for m in _DATA_URI_RE.finditer(text))
+    return markup >= 0.5 * len(text.strip())
 
 
 def _body_text(msg, raw_bytes: bytes) -> str:
@@ -394,6 +293,7 @@ FROM_UNPROVEN = "x-phishlens-from-unproven"
 # 2,000 spaces in a From: used to push the real address past what the
 # checks read.
 MAX_HEADER_CHARS = 8000
+_MAX_RAW_HEADER = 1_000_000
 
 
 def header_dict(items) -> dict[str, str]:
@@ -417,8 +317,15 @@ def header_dict(items) -> dict[str, str]:
             if key == "from":
                 headers[FROM_UNPROVEN] = "1"
             continue
-        value = " ".join(_decoded_header(str(v)[: 4 * MAX_HEADER_CHARS]).split())
-        if len(value) > MAX_HEADER_CHARS:
+        raw = str(v)
+        # Invisible characters out and spaces collapsed before any cut: a
+        # From: padded with 32,000 spaces or zero-width characters must not
+        # lose its second address to it. A header too long to read whole
+        # proves nothing.
+        decoded = _decoded_header(raw[:_MAX_RAW_HEADER])
+        decoded = "".join(c for c in decoded if unicodedata.category(c) != "Cf")
+        value = " ".join(decoded.split())
+        if len(value) > MAX_HEADER_CHARS or len(raw) > _MAX_RAW_HEADER:
             value = value[:MAX_HEADER_CHARS]
             if key == "from":
                 headers[FROM_UNPROVEN] = "1"

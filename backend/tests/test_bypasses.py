@@ -11,6 +11,7 @@ import pytest
 
 import auth_headers as ah
 import email_parsing as ep
+import hidden_content as hc
 import link_alignment as la
 import sender_trust as st
 import structured_agents as sa
@@ -226,7 +227,7 @@ def test_hidden_text_comes_after_the_visible_text():
     ],
 )
 def test_hiding_styles(style):
-    assert ep.is_hidden_style(style)
+    assert hc.is_hidden_style(style)
 
 
 @pytest.mark.parametrize(
@@ -246,7 +247,7 @@ def test_hiding_styles(style):
     ],
 )
 def test_visible_styles(style):
-    assert not ep.is_hidden_style(style)
+    assert not hc.is_hidden_style(style)
 
 
 def test_links_are_read_as_a_browser_reads_them_visible_first():
@@ -499,7 +500,9 @@ _HIDDEN_CASES = json.loads(
 
 @pytest.mark.parametrize("case", _HIDDEN_CASES, ids=[c["name"] for c in _HIDDEN_CASES])
 def test_hidden_cases_shared_with_the_extension(case):
-    assert ep.is_hidden_style(case["style"]) is case["hidden"]
+    parent = case.get("parentBackground")
+    background = hc.parse_colour(parent) if parent else None
+    assert hc.is_hidden_style(case["style"], background) is case["hidden"]
 
 
 # ---------------------------------------------------------------------
@@ -621,3 +624,102 @@ def test_html_attachments_reveal_targets_in_formaction_and_data_pages(html):
     assert (
         "https://evil.example/login" in aa.analyse_html(html.encode(), "a.html")["extracted_urls"]
     )
+
+
+# ---------------------------------------------------------------------
+# Round 8
+# ---------------------------------------------------------------------
+def test_an_unclosed_tag_before_a_link_with_a_query_keeps_the_text():
+    text = (
+        "Hi <a Urgent: your bank account is suspended, verify your password "
+        "immediately at https://evil.example/login?id=1"
+    )
+    assert ep.strip_markup_noise(text) == text
+
+
+@pytest.mark.parametrize(
+    ("html", "left"),
+    [
+        ('<div class="x" hidden><p>Hello</p><br /><img src="a" /></div>', "Hello"),
+        ("<table border=0 cellpadding='0'><tr><td>Hi</td></tr></table>", "Hi"),
+        ('<img src="data:image/png;base64,AAAA', ""),
+    ],
+)
+def test_real_markup_is_still_removed(html, left):
+    assert ep.strip_markup_noise(html) == left
+
+
+def test_a_few_tags_in_a_noisy_text_do_not_make_it_source():
+    noisy = "benign words " * 20 + "&lt;a&gt; <a> <a> <a> <a> <a> " + "A" * 2000
+    assert not ep.is_page_source(noisy)
+    image_source = (
+        '<div style="width: 100%"><img src="data:image/jpeg;base64,' + "QUJD" * 600 + '"></div>'
+    )
+    assert ep.is_page_source(image_source)
+
+
+def test_a_style_sheet_rule_hides_text_in_the_parsed_message():
+    text = ep.html_to_text(
+        "<style>.h{display:none} @media (max-width:600px){.h{display:block}}</style>"
+        '<div class="h">' + "minutes of the meeting " * 30 + "</div><p>Verify your account</p>"
+    )
+    assert text.startswith("Verify your account")
+
+
+def test_white_text_on_a_white_parent_is_hidden_unless_a_sheet_paints_it():
+    hidden = ep.html_to_text(
+        '<div style="background-color:#ffffff"><span style="color:#fefefe">filler</span></div>'
+        "<p>Verify</p>"
+    )
+    assert hidden.startswith("Verify")
+    banner = ep.html_to_text(
+        "<style>.top{background:#0b57d0}</style>"
+        '<div class="top"><span style="color:#ffffff">Your order</span></div><p>Thanks</p>'
+    )
+    assert banner.startswith("Your order")
+
+
+@pytest.mark.parametrize(
+    "src",
+    [
+        "data:text/html,<form action='https://evil.example/login'><input type='password'></form>",
+        "data:text/html;charset=utf-8;base64,"
+        + base64.b64encode(b"<form action='https://evil.example/login'></form>").decode(),
+        "data:application/xhtml+xml;base64,"
+        + base64.b64encode(b"<form action='https://evil.example/login'></form>").decode(),
+    ],
+)
+def test_data_pages_with_spaces_or_parameters_are_read(src):
+    import attachment_analysis as aa
+
+    out = aa.analyse_html(f'<iframe src="{src}"></iframe>'.encode(), "a.html")
+    assert "https://evil.example/login" in out["extracted_urls"]
+    assert "contains_form" in out["notable_features"]
+
+
+@pytest.mark.parametrize("padding", [" " * 32_000, "​" * 9_000])
+def test_padding_cannot_cut_the_second_address_of_a_from(padding):
+    headers = ep.header_dict(
+        [
+            ("From", '"PayPal" <service@paypal.com>' + padding + ", <scam@evil.example>"),
+            ("Authentication-Results", "mx.google.com; dkim=pass header.d=paypal.com"),
+        ]
+    )
+    assert "scam@evil.example" in headers["from"]
+    assert st.impersonated_brand(headers["from"]) == "paypal"
+    assert not ah.parse_authentication_results(headers).cryptographically_verified
+
+
+def test_the_messages_visible_links_come_before_the_pages_hidden_ones():
+    from extension_backend import AnalyseRequest, _resolve_email
+
+    eml = (
+        b"From: a@b.example\r\nContent-Type: text/html\r\n\r\n"
+        b'<a href="https://evil.example/login">Verify</a>'
+    )
+    req = AnalyseRequest(
+        raw_email_b64=base64.b64encode(eml).decode(),
+        client_context={"hidden_link_urls": [f"https://d{i}.example/" for i in range(50)]},
+    )
+    _body, urls, _h, _raw = _resolve_email(req)
+    assert urls[0] == "https://evil.example/login"

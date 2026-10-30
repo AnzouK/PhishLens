@@ -362,7 +362,10 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         if len(page.split()) >= MIN_TEXT_WORDS:
             body = page
             text_urls = urls_in_text(body)
-    urls = rank_links(*_client_link_groups(ctx), urls, text_urls)
+    # Visible links of the page, then those of the message (its own
+    # visible ones first), then the page's hidden ones.
+    shown, unseen = _client_link_groups(ctx)
+    urls = rank_links(shown, urls, unseen, text_urls)
     return body, urls, headers, raw_bytes
 
 

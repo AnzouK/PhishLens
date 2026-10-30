@@ -55,6 +55,21 @@ function isDraft(body) {
     return false;
 }
 
+// The sender's address in the From line: the one between angle brackets,
+// else the last one written. A display name can carry another address
+// ('"support@gtbank.com" <scam@attacker.example>'), and it comes first.
+PL.senderAddress = function senderAddress(texts) {
+    for (const x of texts) {
+        const m = /<\s*([\w.+-]+@[\w-]+(?:\.[\w-]+)+)\s*>/.exec(x);
+        if (m) return m[1];
+    }
+    for (const x of texts) {
+        const all = x.match(new RegExp(EMAIL_RE.source, "g"));
+        if (all) return all[all.length - 1];
+    }
+    return "";
+};
+
 // The last expanded message of the conversation, drafts excluded, and
 // its sender: the last "From" line placed before its body.
 function currentMessage(pane) {
@@ -78,7 +93,7 @@ function currentMessage(pane) {
     for (const el of from?.querySelectorAll("[aria-label], [title]") || []) {
         texts.push(el.getAttribute("aria-label") || "", el.getAttribute("title") || "");
     }
-    const email = texts.map((x) => (x.match(EMAIL_RE) || [])[0]).find(Boolean) || "";
+    const email = PL.senderAddress(texts);
     const fromText = (from?.textContent || "").replace(/^\s*(From|De|Von|Da|Van)\s*:\s*/i, "").trim();
     return {
         body,

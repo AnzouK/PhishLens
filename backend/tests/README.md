@@ -21,7 +21,7 @@ OpenCV, scikit-learn, skops) skip themselves when it is missing.
 | `test_text_model.py` | text agent wrapper and LIME selection with stand-ins for torch / transformers / LIME |
 | `test_structured_agents.py` | loading the trained URL / metadata agents, pickle refusal, rule fallback |
 | `test_rf_agent.py` | inference of the Random Forest agents (feature padding, joblib fallback) |
-| `test_bypasses.py` | each way found to make a phishing email look safer (audits): forged results, impersonation variants, hidden text and links, URL tricks, attachment links |
+| `test_bypasses.py` | each way found to make a phishing email look safer (audits): forged results, impersonation variants, hidden text and links, URL tricks, attachment links; `tests/fixtures/hidden_cases.json` is shared with the extension's tests |
 | `test_extension_backend.py` | endpoints, request limits and errors, the trust paths (allowlist only for authenticated senders), attachment trust inheritance, `/metrics` |
 
 Run locally:
