@@ -15,6 +15,7 @@ import os
 import re
 from email.utils import parseaddr
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from known_domains import CLOUD_FILE_HOSTS, WELL_KNOWN
 from settings import AGENTS_ALLOW_PICKLE, HF_AGENTS_REPO, HF_AGENTS_REVISION
@@ -116,7 +117,12 @@ def _init_agent(stem: str, env_var: str, factory):
 
 
 def _host(url: str) -> str:
-    return url.split("://", 1)[-1].split("/", 1)[0].split("?", 1)[0].split(":", 1)[0].lower()
+    """Host name of a link, after any "user:password@" part: in
+    https://paypal.com:443@evil.example/ the host is evil.example."""
+    try:
+        return (urlsplit(url if "://" in url else "http://" + url).hostname or "").lower()
+    except ValueError:
+        return ""
 
 
 def on_cloud_file_host(url: str) -> bool:

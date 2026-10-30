@@ -12,13 +12,14 @@ const CACHE_KEY = "limeCache.v2";
 const MAX_ENTRIES = 200;
 const TTL_MS = 30 * 24 * 3600 * 1000;
 
-// Only what changes the explanation: the server and the text (the
-// sender, for one, does not reach the text model).
+// Only what changes the explanation: the server, the text and the subject
+// the text model reads with it (the sender does not reach the model).
 async function hashPayload(backendBase, payload) {
     const canon = JSON.stringify({
         b: (backendBase || "").replace(/\/$/, ""),
         t: payload.raw_text || null,
         e: payload.raw_email_b64 || null,
+        s: payload.client_context?.subject || null,
     });
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canon));
     return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");

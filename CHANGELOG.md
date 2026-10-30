@@ -15,7 +15,16 @@ backend share one version number.
   aligned pass is preferred.
 - The sender's domain is read from the address of the From: header, not
   from the first "@" of the line (a display name such as
-  "support@paypal.com" no longer counts).
+  "support@paypal.com" no longer counts), in the authentication check
+  and in the allowlist check alike.
+- A link such as `https://paypal.com:443@evil.example/` was read as a
+  link to paypal.com: a large known site, so the link checks and the
+  link rule skipped it. Links are now read with a URL parser.
+- A brand name over another domain's address is flagged even when the
+  email looks forwarded: a "TR:" in the subject no longer hides it.
+- The server refuses a request body sent without a length (chunked),
+  whose size could not be checked before reading it, and parses emails
+  off the event loop.
 - An attachment's file signature now wins over its name: a PDF or an
   HTML login page renamed "invoice.txt" is analysed as what it is.
 - Files inside ZIP and RAR archives are read in bounded chunks whatever
@@ -31,6 +40,8 @@ backend share one version number.
   automatic scan waits until it has been seen.
 - Scans saved at the same moment no longer overwrite each other in the
   local history.
+- The explanation cache also keys on the subject, which the text model
+  reads with the body.
 - Outlook: Dutch drafts and the German, Italian and Dutch "From:"
   prefixes are recognised.
 

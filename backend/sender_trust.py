@@ -36,7 +36,10 @@ def sender_domain(value: str) -> str | None:
     """Domain of a bare address or a 'Name <addr@domain>' header."""
     if not value:
         return None
-    m = re.search(r"@([A-Za-z0-9.\-_]+)", value)
+    # The address itself: a display name can carry another one
+    # ('"support@gtbank.com" <scam@attacker.example>').
+    addr = parseaddr(value[:2000])[1]
+    m = re.search(r"@([A-Za-z0-9.\-_]+)", addr if "@" in addr else value[:2000])
     if not m:
         return None
     return m.group(1).lower().rstrip(".") or None

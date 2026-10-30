@@ -16,6 +16,7 @@ notifications through them. Style sheets and web fonts are not links.
 from __future__ import annotations
 
 from email.utils import parseaddr
+from urllib.parse import urlsplit
 
 from auth_headers import org_domain
 from known_domains import CLOUD_FILE_HOSTS, WELL_KNOWN
@@ -46,7 +47,12 @@ ASSET_HOSTS = frozenset({"fonts.googleapis.com", "fonts.gstatic.com"})
 
 
 def _host(url: str) -> str:
-    return url.split("://", 1)[-1].split("/", 1)[0].split("?", 1)[0].split(":", 1)[0].lower()
+    """Host name of a link, after any "user:password@" part: in
+    https://paypal.com:443@evil.example/ the host is evil.example."""
+    try:
+        return (urlsplit(url if "://" in url else "http://" + url).hostname or "").lower()
+    except ValueError:
+        return ""
 
 
 def link_profile(urls: list[str], from_header: str) -> dict[str, int]:

@@ -168,10 +168,14 @@ app.add_middleware(
 
 @app.middleware("http")
 async def _limit_body_size(request: Request, call_next):
-    """Refuse a declared body above MAX_BODY_BYTES before reading it."""
+    """Refuse a body above MAX_BODY_BYTES before reading it. A body sent
+    without a length (chunked) is refused too: its size could only be
+    known by reading it. Browsers and the extension always send one."""
     length = request.headers.get("content-length")
     if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
         return JSONResponse({"detail": "Request too large."}, status_code=413)
+    if request.method in ("POST", "PUT", "PATCH") and not length:
+        return JSONResponse({"detail": "Content-Length required."}, status_code=411)
     return await call_next(request)
 
 
@@ -597,8 +601,9 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
     subject = headers.get("subject") or ctx.get("subject")
     forwarded = detect_forwarded(body, subject if isinstance(subject, str) else None)
     # A brand's name over another domain's address: authentication only
-    # proves who the impostor is, so no softer path.
-    impersonation = None if forwarded["detected"] else impersonated_brand(headers.get("from", ""))
+    # proves who the impostor is, so no softer path. Checked on forwards
+    # too: a "TR:" in the subject must not hide it.
+    impersonation = impersonated_brand(headers.get("from", ""))
     if forwarded["detected"] or impersonation:
         # The sender vouches for the forward, not for the forwarded
         # content; an impostor's authentication proves nothing.
@@ -696,7 +701,8 @@ async def analyse(request: Request, req: AnalyseRequest):
         )
         return {**cached, "cached": True}
 
-    body, urls, headers, raw_bytes = _resolve_email(req)
+    # Decoding and parsing a large email takes CPU time: off the event loop.
+    body, urls, headers, raw_bytes = await run_in_threadpool(_resolve_email, req)
     if not body and raw_bytes:
         # Attachment-only email: the subject stands in for the text (too
         # short for the text agent, see MIN_TEXT_WORDS).
