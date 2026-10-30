@@ -42,7 +42,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 from auth_headers import spamhaus_dbl
 from link_alignment import link_host
@@ -536,12 +535,9 @@ class PhishTank:
             if not u:
                 continue
             urls.add(u)
-            try:
-                netloc = urlparse(u).netloc.lower()
-                if netloc and not is_shared_path_host(netloc):
-                    domains.add(netloc)
-            except Exception:
-                pass
+            host = link_host(u)
+            if host and not is_shared_path_host(host):
+                domains.add(host)
 
         self._urls = urls
         self._domains = domains
@@ -563,11 +559,10 @@ class PhishTank:
         """O(1) lookup: returns a verdict dict if listed, None otherwise."""
         if url in self._urls:
             return {"source": "phishtank", "match": "url", "threat_types": ["PHISHING"]}
-        try:
-            netloc = urlparse(url).netloc.lower()
-        except Exception:
-            return None
-        if netloc and netloc in self._domains and not is_shared_path_host(netloc):
+        # The host as a browser reads it: "user@", a port or a final dot
+        # around a listed domain no longer hide it (the netloc kept them).
+        host = link_host(url)
+        if host and host in self._domains and not is_shared_path_host(host):
             return {"source": "phishtank", "match": "domain", "threat_types": ["PHISHING"]}
         return None
 

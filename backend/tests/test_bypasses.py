@@ -1032,3 +1032,89 @@ def test_words_written_by_a_style_sheet_are_read():
         '.absent::after{content:"never shown"}</style><p class="x">Hello</p>'
     )
     assert text == "Hello\nYour account is suspended. Verify now"
+
+
+# ---------------------------------------------------------------------
+# Round 12
+# ---------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("href", "host"),
+    [
+        ("https://evil.tk./login", "evil.tk"),
+        ("https://storage.googleapis.com./b/x.html", "storage.googleapis.com"),
+        ("http://192.168.1.1./login", "192.168.1.1"),
+        ("https://u[@evil.tk/login", "evil.tk"),
+        ("https://a.example:/x", "a.example"),
+        ("http://[::1]:8080/x", "::1"),
+    ],
+)
+def test_hosts_with_a_final_dot_brackets_or_an_empty_port(href, host):
+    assert la.link_host(href) == host
+
+
+def test_final_dots_and_brackets_keep_every_link_rule():
+    assert sa.strong_link_sign(["https://evil.tk./login"])
+    assert la.on_cloud_file_host("https://storage.googleapis.com./b/x.html")
+    assert la.ip_host("192.168.1.1.")
+    counts = la.link_profile(["https://u[@evil.tk/login"], "Bank <a@bank.example>")
+    assert counts["other"] == 1
+
+
+@pytest.mark.parametrize("href", ["https://evil.tk%40paypal.com/", "https://evil.tk＠paypal.com/"])
+def test_a_host_that_decodes_to_an_at_sign_is_not_read_as_paypal(href):
+    assert la.link_host(href) != "paypal.com"
+    assert la.link_profile([href], "PayPal <service@paypal.com>")["aligned"] == 0
+
+
+def test_phishtank_domains_are_matched_by_host():
+    import reputation as rep
+
+    pt = rep.PhishTank()
+    pt._load([{"url": "https://phish.example/login"}])
+    for url in (
+        "https://user@phish.example/x",
+        "https://phish.example:8443/x",
+        "https://phish.example./x",
+    ):
+        assert pt.check(url), url
+
+
+def test_generated_text_skips_hidden_rules_and_hidden_elements():
+    text = ep.html_to_text(
+        "<style>.x::before{content:'hidden words';display:none}"
+        ".y::before{content:'shown words'} .z::before{content:'buried words'}</style>"
+        '<p class="x">a</p><p class="y">b</p><div style="display:none"><p class="z">c</p></div>'
+    )
+    assert text == "a b\nshown words\nc"
+
+
+def test_slow_selectors_are_bounded_by_the_clock():
+    import time
+
+    css = "".join(f"div div div:nth-child({i}){{display:none}} " for i in range(3000))
+    html = (
+        "<style>"
+        + css
+        + ".h{display:none}</style>"
+        + "<div><div>v</div></div>" * 500
+        + '<div class="h">filler</div><p>Hi</p>'
+    )
+    start = time.monotonic()
+    text = ep.html_to_text(html)
+    assert time.monotonic() - start < 5
+    assert text.endswith("filler")
+
+
+def test_selectors_naming_nothing_in_the_email_cost_nothing():
+    css = "".join(f".nope{i} div{{display:none}} " for i in range(5000)) + ".h{display:none}"
+    html = (
+        "<style>" + css + "</style>" + "<div>v</div>" * 500 + '<div class="h">filler</div><p>Hi</p>'
+    )
+    assert ep.html_to_text(html).endswith("filler")
+
+
+@pytest.mark.parametrize("name", ["invoice.pdf.exe.", "invoice.pdf.exe ", "invoice.pdf.ｅｘｅ"])
+def test_a_fake_extension_with_a_final_dot_or_full_width_letters(name):
+    import archive_analysis as aa
+
+    assert "double_extension" in aa.classify_names([name])

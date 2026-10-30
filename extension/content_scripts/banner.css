@@ -333,11 +333,3 @@ html[data-phishlens-theme="dark"] {
 [data-pll-hidden] {
     display: none !important;
 }
-/* An element whose own text is unreadable: its text leaves innerText,
-   its children keep theirs unless marked themselves. */
-[data-pll-hidden-text] > * {
-    visibility: visible !important;
-}
-[data-pll-hidden-text] {
-    visibility: hidden !important;
-}

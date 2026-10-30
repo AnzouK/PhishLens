@@ -20,7 +20,7 @@ from urllib.parse import urlsplit
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
 from hidden_content import generated_text, hidden_tags, shown_link, visible_text_first
-from link_alignment import browser_url
+from link_alignment import browser_url, link_host
 from settings import MAX_EMAIL_URLS, MAX_LINK_URLS
 
 # An email that is only an address is still an email to read, not a
@@ -50,7 +50,7 @@ def html_to_text(html_src: str) -> str:
     """
     soup = BeautifulSoup(without_inline_data(html_src)[:1_000_000], "html.parser")
     hidden = hidden_tags(soup)  # before the <style> sheets go
-    generated = generated_text(soup)
+    generated = generated_text(soup, hidden)
     for tag in soup(["style", "script", "head", "noscript", "title"]):
         tag.decompose()
     text = visible_text_first(soup, hidden, generated)
@@ -495,10 +495,10 @@ def detect_shared_links(urls: list[str]) -> dict[str, Any]:
     hits: list[str] = []
     for u in urls:
         try:
-            parts = urlsplit(u)
+            parts = urlsplit(browser_url(u))
         except ValueError:
             continue
-        host = (parts.hostname or "").lower()
+        host = link_host(u)
         for host_re, path_re, name in _SHARE_SERVICES:
             if host_re.search(host) and (path_re is None or re.match(path_re, parts.path or "/")):
                 hits.append(u)
@@ -557,10 +557,7 @@ def rank_links(*groups: list[str], limit: int = MAX_EMAIL_URLS) -> Ranked:
             if u in seen:
                 continue
             seen.add(u)
-            try:
-                host = urlsplit(u).hostname or ""
-            except ValueError:
-                host = ""
+            host = link_host(u)
             (rest if host in hosts else first).append(u)
             hosts.add(host)
         out += first + rest

@@ -23,7 +23,7 @@ function setFile(file) {
     $("drop-zone").classList.toggle("drop-zone--filled", !!file);
     $("drop-empty").hidden = !!file;
     $("drop-filled").hidden = !file;
-    $("drop-filename").textContent = file?.name || "";
+    $("drop-filename").textContent = window.PhishLensShared.safeName(file?.name);
     if (!file) fileInput.value = "";
     updateAnalyzeEnabled();
     if (file) hideStatus();

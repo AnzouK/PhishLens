@@ -402,3 +402,34 @@ test("words a style sheet writes with ::before are read", () => {
     ctx.getComputedStyle = (n, pseudo) => (n === p && pseudo === "::before" ? { ...plain, content: '"Verify your account now"' } : plain);
     assert.equal(PL.textOf(body), "Hello\nVerify your account now");
 });
+
+test("unreadable text is emptied only for the reading, and put back", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const body = mailView(ctx.document).querySelector(".a3s");
+    const div = ctx.document.createElement("div");
+    const inner = ctx.document.createElement("span");
+    const deeper = ctx.document.createElement("span");
+    deeper.append("deep text");
+    inner.append(deeper);
+    div.append("filler", inner);
+    body.append(div);
+    const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = (n) => (n === div ? { ...plain, visibility: "hidden" } : plain);
+    assert.equal(PL.textOf(body), "deep text\nfiller");
+    assert.equal(div.textContent, "fillerdeep text");
+});
+
+test("display:contents shows its content", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const body = mailView(ctx.document).querySelector(".a3s");
+    const a = ctx.document.createElement("a");
+    a.href = "https://evil.example/login";
+    a.append("Sign in");
+    a.getClientRects = () => [];
+    body.append(a);
+    const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = (n) => (n === a ? { ...plain, display: "contents" } : plain);
+    assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
+});

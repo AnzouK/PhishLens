@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import colorsys
 import re
+import time
 
 import soupsieve
 from bs4 import Comment
@@ -711,7 +712,17 @@ _SIMPLE_RE = re.compile(r"^([a-z][a-z0-9-]*|\*)?((?:[.#][a-z0-9_-]+)*)$", re.IGN
 # Work allowed for all rules together, in elements checked or styled: 2,000
 # selectors over 10,000 elements took two minutes. Rules past it are not
 # applied (the email's own <style> is long enough to be suspect anyway).
-_SELECT_BUDGET = 200_000
+_SELECT_BUDGET = 20_000
+_SELECT_SECONDS = 0.5
+# Styles given to elements, all rules together ("div" repeated in 5,000
+# rules over 5,000 elements is 25 million).
+_MAX_MERGES = 500_000
+
+
+# Tags, classes and ids named in a selector; attribute tests and
+# pseudo-classes are set aside first.
+_TOKEN_RE = re.compile(r"([.#]?)([a-z][a-z0-9_-]*)", re.IGNORECASE)
+_ATTRS_RE = re.compile(r"\[[^\]]*\]|::?[a-z-]+(?:\([^)]*\))?", re.IGNORECASE)
 
 
 class _Index:
@@ -722,6 +733,7 @@ class _Index:
         self.by_class: dict[str, list] = {}
         self.by_id: dict[str, list] = {}
         self.by_tag: dict[str, list] = {}
+        self._simple: dict[str, list | None] = {}
         for tag in self.all:
             self.by_tag.setdefault(tag.name, []).append(tag)
             for name in tag.get("class") or []:
@@ -729,9 +741,51 @@ class _Index:
             if tag.get("id"):
                 self.by_id.setdefault(str(tag["id"]).lower(), []).append(tag)
 
+    def select(self, selector: str, budget: list) -> list:
+        """The elements a selector matches. Simple selectors come from the
+        index at no cost. Others cost one unit per candidate, taken from
+        `budget` ([units left, deadline]); they match nothing once it is
+        spent or past, or when they name a tag, class or id the email does
+        not have."""
+        matched = self.simple(selector)
+        if matched is not None:
+            return matched
+        if budget[0] <= 0 or time.monotonic() > budget[1]:
+            return []
+        for kind, name in _TOKEN_RE.findall(_ATTRS_RE.sub("", selector)):
+            table = {"": self.by_tag, ".": self.by_class, "#": self.by_id}[kind]
+            if name.lower() not in table:
+                return []
+        candidates = self.simple(_last_compound(selector))
+        if candidates is None:
+            candidates = self.all
+        if budget[0] < len(candidates):
+            return []
+        budget[0] -= len(candidates)
+        try:
+            compiled = soupsieve.compile(selector)
+        except Exception:  # a selector soupsieve does not support
+            return []
+        matched = []
+        for n, tag in enumerate(candidates):
+            # Some selectors cost far more per element (":nth-child" over
+            # a thousand siblings): the clock bounds them too.
+            if n % 100 == 0 and time.monotonic() > budget[1]:
+                break
+            if compiled.match(tag):
+                matched.append(tag)
+        return matched
+
     def simple(self, selector: str) -> list | None:
         """The elements a simple selector matches, or None when it is not
-        a simple one."""
+        a simple one (memoised: a sheet can repeat one thousands of
+        times)."""
+        key = selector.lower()
+        if key not in self._simple:
+            self._simple[key] = self._simple_uncached(key)
+        return self._simple[key]
+
+    def _simple_uncached(self, selector: str) -> list | None:
         m = _SIMPLE_RE.match(selector)
         if not m or not (m.group(1) or m.group(2)):
             return None
@@ -771,23 +825,33 @@ _PSEUDO_RE = re.compile(r"::?(?:before|after)\b", re.IGNORECASE)
 _QUOTED_RE = re.compile(r"\"([^\"]{0,500})\"|'([^']{0,500})'")
 
 
-def generated_text(soup) -> str:
+def generated_text(soup, hidden: list | None = None) -> str:
     """Words a <style> sheet writes on the page itself (::before and
     ::after content): the reader sees them, the document's text does not
     hold them, so a lure written there was out of the text model's reach.
-    Rules whose element is not in the email are left out (200 at most)."""
-    index, words = None, []
+    Left out: rules whose content is hidden (display, size, visibility,
+    transparent colour), rules for elements not in the email or inside a
+    `hidden` part; selectors are matched within a work budget, 200 words
+    at most."""
+    hidden_ids = {id(t) for t in hidden or []}
+    index, words, budget = None, [], [20_000, time.monotonic() + _SELECT_SECONDS]
     for selector, decl in _rules_of(soup):
         content = decl.get("content", "")
         if not _PSEUDO_RE.search(selector) or not _QUOTED_RE.search(content):
             continue
+        if _hides_box(decl) or _text_unreadable(
+            None, _ink(decl, _INK), _tiny(decl, False), _invisible(decl, False)
+        ):
+            continue
         index = index or _Index(soup)
         for part in selector.split(","):
             base = _PSEUDO_RE.sub("", part).strip() or "*"
-            found = index.simple(base)
-            if found is None:
-                found = [t for t in index.all[:2000] if _matches(base, t)]
-            if found:
+            shown = [
+                t
+                for t in index.select(base, budget)
+                if not any(id(p) in hidden_ids for p in (t, *t.parents))
+            ]
+            if shown:
                 words += [a or b for a, b in _QUOTED_RE.findall(content)]
                 break
         if len(words) >= 200:
@@ -803,32 +867,21 @@ def _cascade(soup) -> dict[int, Declarations]:
     if not rules:
         return {}
     index = _Index(soup)
-    budget = _SELECT_BUDGET
+    budget = [_SELECT_BUDGET, time.monotonic() + _SELECT_SECONDS]
     # Rules that hide a box are matched first, then those that change
     # colour, size or visibility, then the rest, so that junk rules placed
     # before them cannot spend the budget; all are then applied in their
     # own order.
     order = sorted(range(len(rules)), key=lambda i: (_tier(rules[i][1]), i))
     matches: dict[int, list] = {}
+    merges = _MAX_MERGES
     for i in order:
-        if budget < 0:
-            break
         found: list = []
         for selector in dict.fromkeys(part.strip() for part in rules[i][0].split(",")):
-            matched = index.simple(selector)
-            if matched is None:
-                # Candidates from the index by the last compound ("span" in
-                # ".x div span"), then matched one by one: a selector naming
-                # nothing in the email costs nothing.
-                candidates = index.simple(_last_compound(selector))
-                if candidates is None:
-                    candidates = index.all
-                budget -= len(candidates)
-                if budget < 0:
-                    break
-                matched = [t for t in candidates if _matches(selector, t)]
-            budget -= len(matched)
-            found += matched
+            found += index.select(selector, budget)
+        merges -= len(found)
+        if merges < 0:
+            break
         matches[i] = found
     styles: dict[int, Declarations] = {}
     for i in sorted(matches):
@@ -845,13 +898,6 @@ def _last_compound(selector: str) -> str:
     pseudo-classes: "td.dark" in "table > tr td.dark:hover"."""
     last = _COMBINATOR_RE.split(selector.strip())[-1]
     return re.split(r"[\[:]", last, maxsplit=1)[0]
-
-
-def _matches(selector: str, tag) -> bool:
-    try:
-        return bool(soupsieve.match(selector, tag))
-    except Exception:  # a selector soupsieve does not support
-        return False
 
 
 def _tier(decl: Declarations) -> int:

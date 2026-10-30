@@ -126,8 +126,9 @@ PL.inMessageBody = (el) => !!el?.closest?.(PL.MESSAGE_BODY);
 // keeps.
 PL.isHiddenBox = function isHiddenBox(el) {
     if (typeof getComputedStyle !== "function" || !el?.getClientRects) return false;
-    if (!el.getClientRects().length) return true;
     const st = getComputedStyle(el);
+    // display:contents draws no box of its own but shows its content.
+    if (st.display !== "contents" && !el.getClientRects().length) return true;
     if (Number(st.opacity) <= 0.05) return true;
     if (/^rect\(0(?:px)?,? 0(?:px)?,? 0(?:px)?,? 0(?:px)?\)$/.test(st.clip || "")) return true;
     if (/^inset\((?:[5-9]\d|\d{3,})(?:\.\d+)?%|^circle\(0(?:px)?[ )]/.test(st.clipPath || "")) return true;
@@ -267,7 +268,11 @@ const MAX_PSEUDO = 5000;
 function pseudoWords(n) {
     const words = [];
     for (const pseudo of ["::before", "::after"]) {
-        const content = getComputedStyle(n, pseudo)?.content || "";
+        const st = getComputedStyle(n, pseudo) || {};
+        // Only what can be read: shown, opaque, not invisible, 2 px or more.
+        if (st.display === "none" || /hidden|collapse/.test(st.visibility || "") ||
+            Number(st.opacity ?? 1) <= 0.05 || parseFloat(st.fontSize) < 2) continue;
+        const content = st.content || "";
         for (const m of content.matchAll(/"((?:[^"\\]|\\.){0,500})"/g)) if (m[1].trim()) words.push(m[1]);
     }
     return words;
@@ -294,20 +299,24 @@ function wordsOf(el) {
 
 // The text of an email as the reader sees it, with the hidden text after
 // it: placed before the message, it filled what the text model reads
-// with words nobody sees. Hidden parts are marked for an instant
-// (banner.css hides them, and makes unreadable text invisible to
-// innerText while its children stay readable), then read on their own.
+// with words nobody sees. Hidden boxes are marked for an instant
+// (banner.css hides them) and unreadable text emptied for that instant,
+// then both are read on their own.
 // `hidden` is PL.hiddenParts(el), when the caller already has it.
 PL.textOf = function textOf(el, hidden = PL.hiddenParts(el)) {
     if (!el) return "";
+    // The unreadable text is emptied for the instant innerText is read,
+    // and put back: a style rule would also have changed the children.
+    const blanked = hidden.texts.flatMap((n) => [...n.childNodes].filter((c) => c.nodeType === 3))
+        .map((c) => [c, c.data]);
     hidden.boxes.forEach((n) => n.setAttribute("data-pll-hidden", ""));
-    hidden.texts.forEach((n) => n.setAttribute("data-pll-hidden-text", ""));
+    blanked.forEach(([c]) => { c.data = ""; });
     let text;
     try {
         text = el.innerText;
     } finally {
         hidden.boxes.forEach((n) => n.removeAttribute("data-pll-hidden"));
-        hidden.texts.forEach((n) => n.removeAttribute("data-pll-hidden-text"));
+        blanked.forEach(([c, data]) => { c.data = data; });
     }
     const tail = [...hidden.boxes.map(wordsOf), ...hidden.texts.map(ownText)].filter(Boolean);
     const generated = (hidden.generated || []).join(" ");
@@ -329,6 +338,8 @@ PL.utf8ToB64 = (text) => PL.bytesToBase64(new TextEncoder().encode(text));
 // block (a button table) has a flat box of its own: its content counts.
 function tinyLink(a) {
     if (!a.getClientRects) return false;
+    // display:contents: no box of its own, its content is what is seen.
+    if (typeof getComputedStyle === "function" && getComputedStyle(a).display === "contents") return false;
     const big = (r) => r.width >= 2 && r.height >= 2;
     if ([...a.getClientRects()].some(big)) return false;
     return ![...(a.children || [])].some((c) => c.getBoundingClientRect && big(c.getBoundingClientRect()));

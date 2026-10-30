@@ -125,19 +125,24 @@ DROPPER_FLAGS = {
 _BIDI = frozenset("\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
 
 
-def _ext(name: str) -> str:
-    """The extension Windows would run the file by: trailing spaces and
-    dots are dropped ("invoice.exe ." runs as .exe), letters compared in
-    compatibility form and lower case."""
+def _base_name(name: str) -> str:
+    """The file name as Windows reads it: the last part of the path ("/"
+    or "\\"), in compatibility form, without trailing spaces and dots
+    ("invoice.exe ." runs as .exe)."""
     base = unicodedata.normalize("NFKC", name.rsplit("/", 1)[-1].rsplit("\\", 1)[-1])
-    base = base.rstrip(" .\t")
+    return base.rstrip(" .\t")
+
+
+def _ext(name: str) -> str:
+    """The extension Windows would run the file by, in lower case."""
+    base = _base_name(name)
     return base.rsplit(".", 1)[-1].lower() if "." in base else ""
 
 
 def _double_extension(name: str) -> bool:
     """invoice.pdf.exe, "scan.jpg   .js": a document extension followed
     by an executable, script or shortcut one."""
-    parts = name.rsplit("/", 1)[-1].lower().split(".")
+    parts = _base_name(name).lower().split(".")
     if len(parts) < 3:
         return False
     return parts[-2].strip() in DOCUMENT_EXTS and parts[-1].strip() in (

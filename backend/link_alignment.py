@@ -53,13 +53,20 @@ _SPECIAL_SCHEME_RE = re.compile(r"^\s*(https?):[/\\]*", re.IGNORECASE)
 _DOTS = str.maketrans({"\u3002": ".", "\uff0e": ".", "\uff61": "."})
 
 
+# A host that contains one of these after decoding is not one a browser
+# opens ("evil.tk%40paypal.com"): it is left as written.
+_FORBIDDEN_IN_HOST = frozenset("/\\?#@[]% ")
+
+
 def browser_url(url: str) -> str:
     """An http(s) address as a browser reads it: the scheme in lower case
     with "//" after it however many slashes or backslashes were written
-    ("HTTPS:\\\\evil.tk", "https:evil.tk"), backslashes as slashes, and a
-    host percent-decoded, in compatibility form and with ideographic dots
-    as dots ("https://%65vil.tk", "https://evil\u3002tk"). Anything else is
-    returned as it is."""
+    ("HTTPS:\\\\evil.tk", "https:evil.tk"), backslashes as slashes, brackets
+    in a "user@" part encoded, and the host percent-decoded, in
+    compatibility form, with ideographic dots as dots and no final dot
+    ("https://%65vil.tk", "https://evil\u3002tk", "https://evil.tk."). A
+    host that decodes to something no browser opens is left as written.
+    Anything else is returned as it is."""
     m = _SPECIAL_SCHEME_RE.match(url)
     if not m:
         return url
@@ -69,20 +76,45 @@ def browser_url(url: str) -> str:
         if mark in authority:
             authority, extra = authority.split(mark, 1)
             tail, sep = mark + extra + sep + tail, ""
-    userinfo, at, host = authority.rpartition("@")
-    host = unicodedata.normalize("NFKC", unquote(host)).translate(_DOTS).lower()
-    return f"{m.group(1).lower()}://{userinfo}{at}{host}{'/' if sep else ''}{tail}"
+    userinfo, at, hostport = authority.rpartition("@")
+    userinfo = userinfo.replace("[", "%5B").replace("]", "%5D")
+    host, port = _split_port(hostport)
+    if not host.startswith("["):
+        decoded = unicodedata.normalize("NFKC", unquote(host)).translate(_DOTS)
+        if not _FORBIDDEN_IN_HOST.intersection(decoded):
+            host = decoded
+        host = host.lower().rstrip(".")
+    return f"{m.group(1).lower()}://{userinfo}{at}{host}{port}{'/' if sep else ''}{tail}"
+
+
+def _split_port(hostport: str) -> tuple[str, str]:
+    """("host", ":port") of "host:port"; an empty port is dropped, an
+    IPv6 literal keeps its brackets."""
+    if hostport.startswith("["):
+        end = hostport.find("]")
+        if end > 0:
+            port = hostport[end + 1 :]
+            return hostport[: end + 1], port if port[1:].isdigit() else ""
+    host, colon, port = hostport.rpartition(":")
+    if colon and (port.isdigit() or not port):
+        return host, (":" + port) if port else ""
+    return hostport, ""
 
 
 def link_host(url: str) -> str:
     """Host name of a link as a browser reads it (browser_url), after any
     "user:password@" part: in https://paypal.com:443@evil.example/ the
-    host is evil.example; in https://evil.tk?login it is evil.tk."""
+    host is evil.example; in https://evil.tk?login it is evil.tk; in
+    https://evil.tk./ it is evil.tk."""
     url = browser_url(url)
     try:
-        return (urlsplit(url if "://" in url else "http://" + url).hostname or "").lower()
+        host = urlsplit(url if "://" in url else "http://" + url).hostname or ""
     except ValueError:
-        return ""
+        # Not a host Python accepts ("evil.tk\uff20paypal.com"): read it as
+        # written, so the link still counts as one going somewhere unknown.
+        authority = url.split("://", 1)[-1].split("/", 1)[0]
+        host = _split_port(authority.rpartition("@")[2])[0]
+    return host.lower().rstrip(".")
 
 
 _host = link_host
@@ -94,8 +126,9 @@ def ip_host(host: str) -> bool:
     decimal, octal or hexadecimal."""
     if not host:
         return False
+    host = host.strip("[]").rstrip(".")
     try:
-        ipaddress.ip_address(host.strip("[]"))
+        ipaddress.ip_address(host)
         return True
     except ValueError:
         pass

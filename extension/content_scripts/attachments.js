@@ -300,7 +300,7 @@ function archiveFiles(a, bad) {
     if (a.kind !== "archive") return [];
     const risky = Array.isArray(a.suspicious_files) ? a.suspicious_files : [];
     const entries = Array.isArray(a.entries) ? a.entries : [];
-    const name = (n) => h("span.pll-att-files__name", { title: n }, n);
+    const name = (n) => h("span.pll-att-files__name", { title: PhishLensShared.safeName(n) }, PhishLensShared.safeName(n));
     const out = [];
     if (risky.length) {
         out.push(h(`div.pll-att-files.pll-att-files--${bad ? "bad" : "warn"}`, null,
