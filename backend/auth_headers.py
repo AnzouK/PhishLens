@@ -29,7 +29,7 @@ import logging
 import re
 import socket
 from dataclasses import asdict, dataclass
-from email.utils import getaddresses, parseaddr
+from email.utils import getaddresses
 from typing import Any
 
 # Set by email_parsing.header_dict when a message has several From: headers.
@@ -131,19 +131,50 @@ class AuthVerdict:
         return asdict(self)
 
 
+_ANGLE_RE = re.compile(r"<([^<>]{1,500})>")
+_AT_DOMAIN_RE = re.compile(r"@([A-Za-z0-9.\-_]+)")
+
+
+def _address_domain(addr: str) -> str:
+    """The domain of one address: after its last "@", since a quoted local
+    part can hold another one ('"service@paypal.com"@evil.example' is
+    evil.example)."""
+    m = _AT_DOMAIN_RE.match("@" + addr.rsplit("@", 1)[-1].strip()) if "@" in addr else None
+    return m.group(1).lower().rstrip(".") if m else ""
+
+
+def sender_domains(value: str) -> list[str]:
+    """Every domain a From: value names, in order: the domain of each
+    address the header parses into, of each <...> block (two blocks with
+    no comma between them are two addresses, whatever the parser makes of
+    them), and, when nothing parses, of each "@" of the line. More than
+    one means the header does not name one sender."""
+    if not value:
+        return []
+    value = value[:8000]
+    addrs = [a for _n, a in getaddresses([value]) if "@" in a]
+    addrs += [a for a in _ANGLE_RE.findall(value) if "@" in a]
+    found = [_address_domain(a) for a in addrs]
+    if not any(found):
+        found = [d.lower().rstrip(".") for d in _AT_DOMAIN_RE.findall(value)]
+    return list(dict.fromkeys(d for d in found if d))
+
+
 def sender_domain(value: str) -> str | None:
     """Domain of a bare address or a 'Name <addr@domain>' header: the
-    address itself, not the first "@" of the line, since a display name
-    can carry another one ('"support@gtbank.com" <scam@attacker.example>').
-    Every check of the sender reads it from here."""
+    address itself (after its last "@"), not the first "@" of the line,
+    since a display name can carry another one ('"support@gtbank.com"
+    <scam@attacker.example>'). When the header does not parse, the last
+    domain it names: the address part comes after the name. Every check
+    of the sender reads it from here; sender_domains gives them all."""
     if not value:
         return None
     value = value[:8000]
-    addr = parseaddr(value)[1]
-    m = re.search(r"@([A-Za-z0-9.\-_]+)", addr if "@" in addr else value)
-    if not m:
-        return None
-    return m.group(1).lower().rstrip(".") or None
+    parsed = [a for _n, a in getaddresses([value]) if "@" in a]
+    if parsed and _address_domain(parsed[0]):
+        return _address_domain(parsed[0])
+    domains = sender_domains(value)
+    return domains[-1] if domains else None
 
 
 def _domain_of(addr: str) -> str:
@@ -308,8 +339,14 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     # Two From: headers: a mail program shows one, the checks read the
     # other. DMARC treats such a message as failing; so does PhishLens.
     # A From: with several addresses is the same trick in one header.
-    from_addresses = {a.lower() for _n, a in getaddresses([headers.get("from", "")[:8000]]) if a}
-    proven = not arc_only and not headers.get(FROM_UNPROVEN) and len(from_addresses) <= 1
+    from_value = headers.get("from", "")[:8000]
+    from_addresses = {a.lower() for _n, a in getaddresses([from_value]) if a}
+    proven = (
+        not arc_only
+        and not headers.get(FROM_UNPROVEN)
+        and len(from_addresses) <= 1
+        and len(sender_domains(from_value)) <= 1
+    )
     verdict.aligned = proven and bool(fod) and any(_org_domain(d) == fod for d in aligned_domains)
 
     # Cryptographic verification requires DKIM (the only crypto method: SPF

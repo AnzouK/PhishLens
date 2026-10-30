@@ -18,12 +18,12 @@ import unicodedata
 from email.utils import getaddresses, parseaddr
 from typing import Any
 
-from auth_headers import SHARED_SUFFIXES, org_domain, sender_domain
+from auth_headers import SHARED_SUFFIXES, org_domain, sender_domain, sender_domains
 from known_domains import BRANDS, WELL_KNOWN
 from trusted_domains import TRUSTED_DOMAINS
 from unicode_text import without_invisible
 
-_ANGLE_ADDR_RE = re.compile(r"<\s*([^<>\s@]{1,200}@[^<>\s@]{1,253})\s*>")
+_ANGLE_ADDR_RE = re.compile(r"<\s*([^<>\s]{1,200}@[^<>\s@]{1,253})\s*>")
 _HOST_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789-")
 
 
@@ -39,10 +39,60 @@ def is_trusted_domain(domain: str | None) -> bool:
 # are: Cyrillic and Greek letters ("PаyPal" with a Cyrillic "а"), Latin
 # letters with a stroke or without their dot ("PayPał", "Amelı"), and
 # small capitals ("ᴘᴀʏᴘᴀʟ", read as capitals so that "ᴜᴘs" is "UPS").
-_CONFUSABLES = str.maketrans(
-    "аеорсухіјѕԁһӏАВЕКМНОРСТХІЈЅαεικνορτυχΑΒΕΗΙΚΜΝΟΡΤΥΧΖıłŁøØđĐħŧƚȷᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘʀꜱᴛᴜᴠᴡʏᴢ",
-    "aeopcyxijsdhlABEKMHOPCTXIJSaeikvoptuxABEHIKMNOPTYXZilLoOdDhtljABCDEFGHIJKLMNOPRSTUVWYZ",
-)
+# Further letters drawn like Latin ones: Armenian ("օ", "ս", "հ"),
+# Cherokee capitals, IPA and other Greek and Cyrillic forms.
+_MORE_CONFUSABLES = {
+    "\u0585": "o",
+    "\u057d": "u",
+    "\u0570": "h",
+    "\u0578": "n",
+    "\u0581": "g",
+    "\u0566": "q",
+    "\u0561": "w",
+    "\u13aa": "A",
+    "\u13f4": "B",
+    "\u13df": "C",
+    "\u13ac": "E",
+    "\u13c0": "G",
+    "\u13bb": "H",
+    "\u13ab": "J",
+    "\u13e6": "K",
+    "\u13de": "L",
+    "\u13b7": "M",
+    "\u13e2": "P",
+    "\u13da": "S",
+    "\u13a2": "T",
+    "\u13d9": "V",
+    "\u13b3": "W",
+    "\u13c3": "Z",
+    "\u0251": "a",
+    "\u0261": "g",
+    "\u0269": "i",
+    "\u026a": "I",
+    "\u0280": "R",
+    "\u01c0": "l",
+    "\u0131": "i",
+    "\u03f2": "c",
+    "\u03f3": "j",
+    "\u051b": "q",
+    "\u051d": "w",
+    "\u0475": "v",
+    "\u04bb": "h",
+    "\u0501": "d",
+    "\u04cf": "l",
+    "\u0455": "s",
+    "\u0456": "i",
+    "\u0458": "j",
+    "\u03bf": "o",
+    "\u03c1": "p",
+}
+_CONFUSABLES = {
+    **str.maketrans(
+        "аеорсухіјѕԁһӏАВЕКМНОРСТХІЈЅαεικνορτυχΑΒΕΗΙΚΜΝΟΡΤΥΧΖıłŁøØđĐħŧƚȷᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘʀꜱᴛᴜᴠᴡʏᴢ",
+        "aeopcyxijsdhlABEKMHOPCTXIJSaeikvoptuxABEHIKMNOPTYXZilLoOdDhtljABCDEFGHIJKLMNOPRSTUVWYZ",
+    ),
+    **str.maketrans(_MORE_CONFUSABLES),
+}
 
 
 def _plain_words(text: str, lower: bool = True) -> str:
@@ -56,6 +106,9 @@ def _plain_words(text: str, lower: bool = True) -> str:
     text = without_invisible(text)
     folded = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", text))
     folded = "".join(c for c in folded if not unicodedata.combining(c)).translate(_CONFUSABLES)
+    # The joiners kept between two letters of a script that uses them do
+    # not cut a word.
+    folded = folded.replace("\u200c", "").replace("\u200d", "")
     if lower:
         folded = folded.lower()
     kept = " ".join("".join(c if c.isalnum() or c == "." else " " for c in folded).split())
@@ -124,8 +177,7 @@ def impersonated_brand(from_header: str) -> str | None:
     # Every address of the header: one of the brand's next to an impostor's
     # ('"PayPal" <service@paypal.com>, <scam@evil.example>') does not
     # vouch for the other. The first is the one every other check reads.
-    addresses = {sender_domain(a) for _n, a in getaddresses([header]) if "@" in a}
-    addresses = {d for d in addresses if d} | {sender_domain(header) or ""}
+    addresses = set(sender_domains(header)) or {""}
     words = _plain_words(name)
     upper = _plain_words(name, lower=False)
     for brand, domains in BRANDS.items():

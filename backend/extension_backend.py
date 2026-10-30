@@ -72,6 +72,7 @@ from sender_trust import (
     is_hostname,
     is_trusted_domain,
     sender_domain,
+    sender_domains,
     synthesize_auth_results,
 )
 from settings import (
@@ -357,8 +358,11 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         # or another domain. Then it proves nothing either.
         original = headers.get("from", "")
         addresses = [a for _n, a in getaddresses([original]) if "@" in a]
-        if len(addresses) > 1 or (
-            addresses and sender_domain(addresses[0]) != sender_domain(req.sender_email)
+        domains = sender_domains(original)
+        if (
+            len(addresses) > 1
+            or len(domains) > 1
+            or (domains and domains[0] != sender_domain(req.sender_email))
         ):
             headers[FROM_UNPROVEN] = "1"
         else:
@@ -873,7 +877,7 @@ def _archive_file_report(extracted: dict, reputation_verdicts: list[dict]) -> li
     intelligence. Most reasons first; at most 20."""
     bad_urls = {v.get("url") for v in reputation_verdicts if v.get("malicious")}
     report: dict[str, list[str]] = {}
-    for name in extracted.get("entries") or []:
+    for name in extracted.get("_all_entries") or extracted.get("entries") or []:
         reasons = _attachments.archives.entry_reasons(name)
         if reasons:
             report[name] = reasons
@@ -974,7 +978,8 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         "parent_trusted" if parent_trusted else "default",
     )
 
-    is_archive = extracted.get("kind") == "archive"
+    # Archives, and Office files that hold other files (read as members).
+    is_archive = extracted.get("kind") == "archive" or bool(extracted.get("inner_files"))
     suspicious_files = (
         await run_in_threadpool(_archive_file_report, extracted, rep.verdicts) if is_archive else []
     )

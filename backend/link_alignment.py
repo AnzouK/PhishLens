@@ -161,9 +161,12 @@ def on_cloud_file_host(url: str) -> bool:
 # "://" or "=//" after the host, also percent-encoded once or twice or
 # with backslashes: an address carried inside the link ("?q=//evil.example"
 # is a protocol-relative one).
-_EMBEDDED_URL_RE = re.compile(
-    r"(?::|=|%3a|%253a|%3d|%253d)(?:/|\\|%2f|%252f|%5c|%255c){2}", re.IGNORECASE
-)
+# Another address carried by a link, once its path, query and fragment
+# are decoded (twice: "%253A" is ":"): a scheme ("https:" with any number
+# of slashes, browsers accept "https:evil.tk"), or two slashes in a row
+# ("?q=//evil.tk", "?q=+//evil.tk", backslashes too). Google's AMP viewer
+# ("/amp/s/evil.tk/...") takes the address in its path.
+_EMBEDDED_URL_RE = re.compile(r"https?:|[/\\]{2}|^/amp/(?:s/)?[\w-]+(?:\.[\w-]+)+", re.IGNORECASE)
 
 
 def well_known_link(url: str) -> bool:
@@ -173,7 +176,13 @@ def well_known_link(url: str) -> bool:
     host = link_host(url)
     if not host or on_cloud_file_host(url):
         return False
-    rest = url.split("://", 1)[-1][len(host) :]
+    try:
+        parts = urlsplit(url if "://" in url else "http://" + url)
+    except ValueError:
+        return False
+    rest = f"{parts.path}?{parts.query}#{parts.fragment}"
+    for _ in range(2):
+        rest = unquote(rest)
     if _EMBEDDED_URL_RE.search(rest):
         return False
     return host in WELL_KNOWN or org_domain(host) in WELL_KNOWN

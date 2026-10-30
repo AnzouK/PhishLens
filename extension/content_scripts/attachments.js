@@ -16,15 +16,19 @@ const MAX_PER_EMAIL = 15;
 // An attached email is scanned as an email, the rest as attachments;
 // programs, scripts and disk images too (the server flags them by type).
 const SUPPORTED = new Set([...ATTACHMENT_EXTS, ...DANGEROUS_EXTS, "eml"]);
-// Where a tile's name ends: the end of the text, or the size Gmail writes
-// after it ("Checklist.pdf 320 KB"). Not at any space: "scan.jpg   .js"
-// and "notes.txt.exe" once lost their real extension.
-const NAME_END = "(?=\\s+\\d+(?:[.,]\\d+)?\\s*[KMGT]?B\\b|\\s*$)";
-// Longest extensions first, so "html" wins over "htm".
-const SUPPORTED_NAME_RE = new RegExp(
-    "([\\w \\-.()]+\\.(" + [...SUPPORTED].sort((a, b) => b.length - a.length).join("|") + "))" + NAME_END, "i");
-// Any "name.ext", to say a file PhishLens cannot read was not checked.
-const ANY_NAME_RE = new RegExp("([\\w \\-.()]+\\.([a-z0-9]{1,10}))" + NAME_END, "i");
+// The size Gmail writes after a tile's name ("Checklist.pdf 320 KB",
+// "Facture.pdf 1,2 Mo", "scan.png 500 octets"). Only that is removed: the
+// name itself is kept whole, in any script and with any character
+// ("Facture_février [1].pdf", "scan.jpg   .js", "invoice.exe .").
+const TRAILING_SIZE_RE = /\s+\d+(?:[.,]\d+)?\s*(?:[KMGT]i?B|[KMGT]o|B|o|bytes?|octets?|[КМГТ]?Б)\s*$/iu;
+
+// A tile's text as a file name: the size cut, nothing else (the
+// characters that reorder a name stay, for the server's checks and for
+// safeName; fileExt reads past invisible ones).
+function tileName(text) {
+    return String(text || "").trim().replace(TRAILING_SIZE_RE, "").trim();
+}
+PL.tileName = tileName;
 // Ways Gmail has marked an attachment tile, all looked up inside a strip
 // only: outside it, stray matches put buttons over the message body.
 const TILE_HINTS = ['a[download]', 'div[data-attachmentid]', 'div[data-tooltip*="oad"]', 'div[role="listitem"]', ".aZo"];
@@ -41,7 +45,7 @@ PL.installAttachmentButtons = function installAttachmentButtons(emailView) {
         // Newer layouts may use none of the hints: any element whose text
         // ends with a supported extension.
         strip.querySelectorAll("span, div").forEach((el) => {
-            const label = (el.textContent || "").trim();
+            const label = tileName(el.textContent);
             if (label.length > 3 && label.length < 260 && SUPPORTED.has(fileExt(label))) candidates.add(el);
         });
     });
@@ -89,13 +93,10 @@ function findTile(node, strip) {
 // File name, extension and download link of a tile, or null.
 function attachmentInfo(tile) {
     const dlAnchor = tile.querySelector("a[download]");
-    let filename = dlAnchor?.getAttribute("download")?.trim()
-        || tile.querySelector(SEL.attachmentName)?.textContent?.trim()
-        || (tile.textContent || "").trim().split("\n")[0].trim();
+    const filename = tileName(dlAnchor?.getAttribute("download")
+        || tile.querySelector(SEL.attachmentName)?.textContent
+        || (tile.textContent || "").trim().split("\n")[0]);
     if (!filename || filename.length > 260) return null;
-    // The tile text may end with the size ("Checklist.pdf 320 KB").
-    const m = filename.match(SUPPORTED_NAME_RE) || filename.match(ANY_NAME_RE);
-    if (m) filename = m[1].trim();
     const ext = fileExt(filename);
     if (!ext) return null;
     const anchor = dlAnchor

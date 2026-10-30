@@ -205,7 +205,10 @@ def url_agent(urls: list[str], body_text: str = "") -> float:
                 # and a harmless link was all it saw next to them.
                 feats = _FEATURE_EXTRACT.extract_url_features(" ".join(visible))
                 pred = _URL_AGENT.get_prediction_with_confidence(feats)
-                score = float(pred["phishing_probability"])
+                # The model adds to the rules, never removes from them:
+                # it was trained before cloud-hosted pages, IDN hosts and
+                # numeric IPs were common, and reads them as harmless.
+                score = max(score, float(pred["phishing_probability"]))
             except Exception as e:
                 logger.warning("url_agent trained path failed (%s); rules used", e)
     if hidden:

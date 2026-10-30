@@ -32,9 +32,12 @@ import re
 import tempfile
 import unicodedata
 import zipfile
+import zlib
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+from unicode_text import without_invisible
 
 # ---------------------------------------------------------------------
 # Limits (zip-bomb and abuse protection)
@@ -66,6 +69,14 @@ EXECUTABLE_EXTS = {
     "pkg",
     "reg",
     "sys",
+    "xll",
+    "msu",
+    "appxbundle",
+    "msixbundle",
+    "appinstaller",
+    "gadget",
+    "ocx",
+    "drv",
 }
 SCRIPT_EXTS = {
     "js",
@@ -85,10 +96,42 @@ SCRIPT_EXTS = {
     "scf",
     "inf",
     "chm",
+    "msc",
+    "msh",
+    "mshxml",
+    "psc1",
+    "ws",
+    "jnlp",
+    "command",
+    "xbap",
+    "application",
+    "diagcab",
+    "wsb",
+    "udl",
+    "settingcontent-ms",
+    "xlam",
+    "ppam",
 }
-SHORTCUT_EXTS = {"lnk", "url", "desktop", "website", "library-ms", "search-ms"}
-DISK_IMAGE_EXTS = {"iso", "img", "vhd", "vhdx"}
-ARCHIVE_EXTS = {"zip", "rar", "7z", "gz", "tgz", "tar", "cab", "arj", "ace", "xz", "bz2"}
+SHORTCUT_EXTS = {"lnk", "url", "desktop", "website", "library-ms", "search-ms", "webloc", "inetloc"}
+DISK_IMAGE_EXTS = {"iso", "img", "vhd", "vhdx", "udf"}
+ARCHIVE_EXTS = {
+    "zip",
+    "rar",
+    "7z",
+    "gz",
+    "tgz",
+    "tar",
+    "cab",
+    "arj",
+    "ace",
+    "xz",
+    "bz2",
+    "lzh",
+    "lha",
+    "zst",
+    "z",
+    "uue",
+}
 DOCUMENT_EXTS = {
     "pdf",
     "doc",
@@ -100,6 +143,22 @@ DOCUMENT_EXTS = {
     "ppt",
     "pptx",
     "pptm",
+    "dotx",
+    "dotm",
+    "xltx",
+    "xltm",
+    "potx",
+    "potm",
+    "ppsx",
+    "ppsm",
+    "xlsb",
+    "svg",
+    "xhtml",
+    "shtml",
+    "mht",
+    "mhtml",
+    "eml",
+    "ics",
     "txt",
     "rtf",
     "jpg",
@@ -109,6 +168,42 @@ DOCUMENT_EXTS = {
     "html",
     "htm",
     "csv",
+}
+
+# Inner files read first: what a victim opens and what can carry a form
+# or a link (pages, PDFs, Office files, invites), then text, then
+# pictures (OCR is slow, and a few screenshots must not use up the
+# slots ahead of the login page). Names not listed are not opened.
+_INNER_ORDER = {
+    **dict.fromkeys(("html", "htm", "xhtml", "shtml", "svg", "mht", "mhtml", "eml"), 0),
+    "pdf": 1,
+    **dict.fromkeys(
+        [
+            "doc",
+            "docx",
+            "docm",
+            "dotx",
+            "dotm",
+            "xls",
+            "xlsx",
+            "xlsm",
+            "xlsb",
+            "xltx",
+            "xltm",
+            "ppt",
+            "pptx",
+            "pptm",
+            "potx",
+            "potm",
+            "ppsx",
+            "ppsm",
+            "rtf",
+        ],
+        2,
+    ),
+    "ics": 3,
+    **dict.fromkeys(("txt", "csv"), 4),
+    **dict.fromkeys(("jpg", "jpeg", "png", "gif"), 5),
 }
 
 # Types whose presence forces the phishing verdict (like Office macros).
@@ -128,9 +223,18 @@ _BIDI = frozenset("\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\
 def _base_name(name: str) -> str:
     """The file name as Windows reads it: the last part of the path ("/"
     or "\\"), in compatibility form, without trailing spaces and dots
-    ("invoice.exe ." runs as .exe)."""
+    ("invoice.exe ." runs as .exe) or invisible characters."""
     base = unicodedata.normalize("NFKC", name.rsplit("/", 1)[-1].rsplit("\\", 1)[-1])
-    return base.rstrip(" .\t")
+    # Characters that take no room are not part of the name as read:
+    # "invoice.pdf.exe" + zero-width space, or + U+202C, is shown as an
+    # .exe and flagged as one (an extension Windows does not know only
+    # hides the real type from scanners).
+    return without_invisible(base).rstrip(" .\t")
+
+
+def is_dir(name: str) -> bool:
+    """A ZIP entry that is a folder (an entry may have an empty name)."""
+    return name.endswith(("/", "\\"))
 
 
 def _ext(name: str) -> str:
@@ -208,15 +312,27 @@ class _Entry:
         self.name, self.size, self.packed, self.is_dir = name, size, packed, is_dir
 
 
-def _choose_inner(raw: bytes, entries: list[_Entry], add: Callable[[str], None]) -> list[str]:
-    """Supported inner files within the size and ratio limits."""
+def _choose_inner(
+    raw: bytes,
+    entries: list[_Entry],
+    add: Callable[[str], None],
+    skip: Callable[[str], bool] | None = None,
+) -> list[str]:
+    """Supported inner files within the size and ratio limits, the most
+    telling kinds first (_INNER_ORDER), in archive order within a kind.
+    `skip(name)` leaves out members another reader covers (the parts of
+    an Office document)."""
     chosen: list[str] = []
     total = 0
-    for e in entries:
+    candidates = [
+        e
+        for e in entries
+        if not e.is_dir and _ext(e.name) in _INNER_ORDER and not (skip and skip(e.name))
+    ]
+    candidates.sort(key=lambda e: _INNER_ORDER[_ext(e.name)])
+    for e in candidates:
         if len(chosen) >= MAX_INNER_FILES:
             break
-        if e.is_dir or _ext(e.name) not in DOCUMENT_EXTS:
-            continue
         if e.size is None:
             # No size in the listing: it cannot be checked before
             # extraction, so the file is not extracted.
@@ -266,6 +382,7 @@ def _analyse_listing(
     read: Callable[[list[str]], dict[str, bytes]] | None,
     inner: Callable[[bytes, str], dict[str, Any]] | None,
     flags: list[str] | None = None,
+    skip: Callable[[str], bool] | None = None,
 ) -> dict[str, Any]:
     """Shared by ZIP, RAR and 7z: flag risky names, pick the supported
     inner files within the size limits, read them through `read(names)`
@@ -282,7 +399,7 @@ def _analyse_listing(
     if encrypted:
         add("encrypted_archive")
 
-    chosen = _choose_inner(raw, entries, add) if inner and read and not encrypted else []
+    chosen = _choose_inner(raw, entries, add, skip) if inner and read and not encrypted else []
     texts: list[str] = []
     urls: list[str] = []
     inner_results: list[dict[str, Any]] = []
@@ -313,6 +430,8 @@ def _analyse_listing(
         "size_bytes": len(raw),
         "archive_format": fmt,
         "entries": names[:50],
+        # Private, every listed name for the per-file report; never sent.
+        "_all_entries": names,
         "entry_count": len(names),
         "encrypted": encrypted,
         "inner_files": inner_results,
@@ -340,7 +459,10 @@ def _looks_like_password_error(e: Exception) -> bool:
 
 
 def analyse_zip(
-    raw: bytes, filename: str, inner: Callable[[bytes, str], dict[str, Any]] | None = None
+    raw: bytes,
+    filename: str,
+    inner: Callable[[bytes, str], dict[str, Any]] | None = None,
+    skip: Callable[[str], bool] | None = None,
 ) -> dict[str, Any]:
     """List a ZIP archive, flag risky content, analyse supported files.
 
@@ -353,7 +475,7 @@ def analyse_zip(
     except zipfile.BadZipFile as e:
         raise RuntimeError(f"ZIP parse failed: {e}") from e
 
-    entries = [_Entry(i.filename, i.file_size, i.compress_size, i.is_dir()) for i in infos]
+    entries = [_Entry(i.filename, i.file_size, i.compress_size, is_dir(i.filename)) for i in infos]
     encrypted = any(i.flag_bits & 0x1 for i in infos)
 
     def read(names: list[str]) -> dict[str, bytes]:
@@ -364,11 +486,19 @@ def analyse_zip(
                 # whatever size the archive declares.
                 with zf.open(n) as fh:
                     out[n] = fh.read(MAX_INNER_BYTES)
-            except (zipfile.BadZipFile, NotImplementedError, RuntimeError, KeyError):
+            except (
+                zipfile.BadZipFile,
+                NotImplementedError,
+                RuntimeError,
+                KeyError,
+                EOFError,
+                OSError,
+                zlib.error,
+            ):
                 continue
         return out
 
-    return _analyse_listing(raw, filename, "zip", entries, encrypted, read, inner)
+    return _analyse_listing(raw, filename, "zip", entries, encrypted, read, inner, skip=skip)
 
 
 def analyse_7z(
@@ -501,6 +631,9 @@ def analyse_uninspectable_archive(raw: bytes, filename: str, fmt: str) -> dict[s
 # ---------------------------------------------------------------------
 # Calendar invites (.ics)
 # ---------------------------------------------------------------------
+_HREF_RE = re.compile(r"""(?:href|src)\s*=\s*["']?([^"'\s>]{1,2048})""", re.IGNORECASE)
+
+
 def _strip_tags(html: str) -> str:
     """Drop <...> tags without a regex (linear, safe on crafted input)."""
     out = []
@@ -519,24 +652,36 @@ _ICS_FIELDS = ("SUMMARY", "DESCRIPTION", "LOCATION", "URL", "ATTACH", "ORGANIZER
 def analyse_ics(
     raw: bytes, filename: str, extract_urls: Callable[[str], list[str]]
 ) -> dict[str, Any]:
-    text = raw.decode("utf-8", errors="ignore")
+    text = without_invisible(raw.decode("utf-8", errors="ignore"))
     # RFC 5545 line unfolding: a line starting with a space continues the previous one.
     text = re.sub(r"\r?\n[ \t]", "", text)
     kept: list[str] = []
+    # Addresses come from every property (CONFERENCE, IMAGE, URL, a
+    # meeting link in an X- property, the links of the HTML description),
+    # the text from the fields a person reads.
+    values: list[str] = []
     organizer = None
     for line in text.splitlines():
+        if ":" not in line:
+            continue
         key = line.split(":", 1)[0].split(";", 1)[0].upper()
-        if key in _ICS_FIELDS and ":" in line:
-            value = line.split(":", 1)[1]
-            value = value.replace("\\n", "\n").replace("\\,", ",").replace("\\;", ";")
-            if key == "ORGANIZER":
-                organizer = value.replace("mailto:", "").replace("MAILTO:", "").strip()
-                continue
-            if key == "X-ALT-DESC":
-                value = _strip_tags(value)
-            kept.append(value)
+        value = line.split(":", 1)[1]
+        value = value.replace("\\n", "\n").replace("\\,", ",").replace("\\;", ";")
+        values.append(value)
+        if key not in _ICS_FIELDS:
+            continue
+        if key == "ORGANIZER":
+            organizer = value.replace("mailto:", "").replace("MAILTO:", "").strip()
+            continue
+        if key == "X-ALT-DESC":
+            values.extend(_HREF_RE.findall(value))
+            value = _strip_tags(value)
+        kept.append(value)
     body = "\n".join(kept)[:20_000]
     urls = extract_urls(body)
+    for u in extract_urls("\n".join(values)[:200_000]):
+        if u not in urls:
+            urls.append(u)
     flags = ["calendar_invite"]
     if urls:
         flags.append("calendar_with_links")

@@ -1,0 +1,83 @@
+{
+ "_about": "File names and the extension they are opened by (backend/archive_analysis._ext and PhishLensConstants.fileExt must agree), and Gmail tile texts with the name PL.tileName reads from them.",
+ "names": [
+  {
+   "name": "invoice.pdf",
+   "ext": "pdf"
+  },
+  {
+   "name": "invoice.pdf.exe\u200b",
+   "ext": "exe"
+  },
+  {
+   "name": "invoice\u202efdp.exe\u202c",
+   "ext": "exe"
+  },
+  {
+   "name": "invoice.exe .",
+   "ext": "exe"
+  },
+  {
+   "name": "invoice.exe\u0000",
+   "ext": "exe"
+  },
+  {
+   "name": "scan.jpg   .js",
+   "ext": "js"
+  },
+  {
+   "name": "Facture_f\u00e9vrier [1].pdf",
+   "ext": "pdf"
+  },
+  {
+   "name": "\uff49\uff4e\uff56\uff4f\uff49\uff43\uff45\uff0e\uff45\uff58\uff45",
+   "ext": "exe"
+  },
+  {
+   "name": "REPORT.DOCM",
+   "ext": "docm"
+  },
+  {
+   "name": "archive.tar.gz",
+   "ext": "gz"
+  },
+  {
+   "name": "report",
+   "ext": ""
+  }
+ ],
+ "tiles": [
+  {
+   "text": "Checklist.pdf 320 KB",
+   "name": "Checklist.pdf"
+  },
+  {
+   "text": "Checklist.pdf",
+   "name": "Checklist.pdf"
+  },
+  {
+   "text": "scan.jpg   .js 12 KB",
+   "name": "scan.jpg   .js"
+  },
+  {
+   "text": "invoice.exe . 320 KB",
+   "name": "invoice.exe ."
+  },
+  {
+   "text": "Facture_f\u00e9vrier [1].pdf 1,2 Mo",
+   "name": "Facture_f\u00e9vrier [1].pdf"
+  },
+  {
+   "text": "invoice\u202efdp.exe\u202c 320 KB",
+   "name": "invoice\u202efdp.exe\u202c"
+  },
+  {
+   "text": "track.mp3 4 MB",
+   "name": "track.mp3"
+  },
+  {
+   "text": "notes 2024.txt 500 octets",
+   "name": "notes 2024.txt"
+  }
+ ]
+}

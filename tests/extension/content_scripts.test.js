@@ -503,3 +503,25 @@ test("invisible characters are removed as on the server", () => {
     const { PL } = load(entry);
     for (const c of INVISIBLE_CASES) assert.equal(PL.withoutInvisible(c.text), c.clean, JSON.stringify(c.text));
 });
+
+// The same cases as backend/tests/test_bypasses.py (archive_analysis._ext).
+const FILE_NAMES = require(path.join(__dirname, "..", "fixtures", "file_name_cases.json"));
+test("file extensions and Gmail tile names are read as on the server", () => {
+    const C = require(path.join(EXT, "lib", "constants.js"));
+    for (const c of FILE_NAMES.names) assert.equal(C.fileExt(c.name), c.ext, JSON.stringify(c.name));
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { PL } = load(entry);
+    for (const c of FILE_NAMES.tiles) assert.equal(PL.tileName(c.text), c.name, JSON.stringify(c.text));
+});
+
+test("the Outlook sender is the address after the name, quoted or not", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("outlook"));
+    const { PL } = load(entry);
+    assert.equal(PL.senderAddress(['"PayPal <service@paypal.com>" <"scam"@attacker.example>']), "scam@attacker.example");
+    assert.equal(PL.senderAddress(['PayPal <service@paypal.com> <scam@attacker.example>']), "scam@attacker.example");
+    // A quoted local part can hold an "@": the domain is after the last one
+    // (the server reads it so: auth_headers.sender_domain).
+    assert.equal(PL.senderAddress(['PayPal <"service@paypal.com"@attacker.example>']), "service@paypal.com@attacker.example");
+    assert.equal(PL.senderAddress(['"support@gtbank.com" <scam@attacker.example>']), "scam@attacker.example");
+    assert.equal(PL.senderAddress(["jane@corp.example"]), "jane@corp.example");
+});

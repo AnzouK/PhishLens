@@ -146,6 +146,7 @@
     "flag_flash_or_richmedia": "Flash oder Rich Media",
     "flag_image_only_pdf": "gescanntes PDF (nur Bild)",
     "flag_inner_files_not_extracted": "Dateien nicht geöffnet",
+    "flag_document_not_fully_read": "nicht bis zum Ende gelesen",
     "flag_launch_external_action": "startet ein Programm",
     "flag_legacy_office_format": "altes Office-Format",
     "flag_meta_refresh_redirect": "automatische Weiterleitung",

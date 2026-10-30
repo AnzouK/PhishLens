@@ -7,8 +7,8 @@ Standard library only (zipfile + ElementTree): no python-docx or
 openpyxl, so there is nothing extra to install and nothing that
 executes document content.
 
-Modern formats (.docx .docm .xlsx .xlsm .pptx .pptm) are ZIP containers
-of XML parts. Legacy formats (.doc .xls .ppt) and password-protected
+Modern formats (.docx .docm .xlsx .xlsm .pptx .pptm and their
+templates, shows and add-ins) are ZIP containers of XML parts. Legacy formats (.doc .xls .ppt) and password-protected
 modern files are OLE2 compound files; for those we only scan the raw
 bytes for macro and encryption markers and pull out URLs.
 
@@ -25,6 +25,11 @@ Flags raised (scored in fusion.FEATURE_RISK):
                             usually in the email, to blind scanners
 * legacy_office_format      pre-2007 binary format
 * suspicious_xml_doctype    an XML part declares a DOCTYPE (XXE attempt)
+* launch_external_action    "Run program" action, or a link to a share,
+                            a local file, a protocol handler or a program
+* document_not_fully_read   reading stopped at the time limit
+* executable_in_archive...  a program, script or shortcut packed in an
+                            embedded object (archive_analysis names)
 
 Safety limits: entry count, total uncompressed size (zip bombs), per
 part size, and any part with a DOCTYPE is skipped instead of parsed.
@@ -35,6 +40,7 @@ from __future__ import annotations
 import io
 import logging
 import re
+import time
 import zipfile
 from typing import Any
 
@@ -43,7 +49,8 @@ from typing import Any
 from defusedxml import ElementTree as ET
 
 import archive_analysis as archives
-from email_parsing import urls_in_text
+from email_parsing import absolute_http, urls_in_text
+from unicode_text import without_invisible
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
@@ -57,11 +64,22 @@ OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
 OOXML_MIMES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
     "application/vnd.ms-word.document.macroenabled.12",
+    "application/vnd.ms-word.template.macroenabled.12",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
     "application/vnd.ms-excel.sheet.macroenabled.12",
+    "application/vnd.ms-excel.sheet.binary.macroenabled.12",
+    "application/vnd.ms-excel.template.macroenabled.12",
+    "application/vnd.ms-excel.addin.macroenabled.12",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.openxmlformats-officedocument.presentationml.template",
+    "application/vnd.openxmlformats-officedocument.presentationml.slideshow",
     "application/vnd.ms-powerpoint.presentation.macroenabled.12",
+    "application/vnd.ms-powerpoint.template.macroenabled.12",
+    "application/vnd.ms-powerpoint.slideshow.macroenabled.12",
+    "application/vnd.ms-powerpoint.addin.macroenabled.12",
 }
 LEGACY_MIMES = {
     "application/msword",
@@ -70,9 +88,27 @@ LEGACY_MIMES = {
     "application/x-ole-storage",
 }
 
-# Word field codes: HYPERLINK "https://..." and DDE / DDEAUTO
-_HYPERLINK_FIELD_RE = re.compile(r'HYPERLINK\s+"([^"]{1,2048})"', re.IGNORECASE)
+# Word field codes: DDE / DDEAUTO, and the address of HYPERLINK and
+# INCLUDEPICTURE / INCLUDETEXT fields with or without quotes and switches
+# (HYPERLINK \o "tip" "https://..." or HYPERLINK https://...).
 _DDE_FIELD_RE = re.compile(r"\bDDE(AUTO)?\b", re.IGNORECASE)
+_LINK_FIELD_RE = re.compile(
+    r"\b(?:HYPERLINK|INCLUDEPICTURE|INCLUDETEXT)\b((?:\s+(?:\\\w(?:\s+\"[^\"]*\")?|\"[^\"]*\"|[^\s\"\\]+))*)",
+    re.IGNORECASE,
+)
+_FIELD_ARG_RE = re.compile(r'"([^"]{1,2048})"|([^\s"\\]{1,2048})')
+_FIELD_SWITCH_RE = re.compile(r'\\\w(?:\s+"[^"]*")?')
+# Excel formulas and DDE links that start a program: =cmd|'/c calc'!A1,
+# =MSEXCEL|'\..\..\Windows\System32\cmd.exe /c ...'!A1.
+_DDE_FORMULA_RE = re.compile(
+    r"(?<![\w.\\])[\w.\\]{1,64}\s*\|\s*['\"]?[^|'\"]{0,300}['\"]?\s*!", re.IGNORECASE
+)
+# PowerPoint "Run program" and macro actions on a click or mouse-over.
+_PIPE_RE = re.compile(rb"\||&#0*124;|&#x0*7c;", re.IGNORECASE)
+# Time for reading the parts: a document built to be slow to read is
+# reported as not read to the end, never as read and clean.
+_READ_SECONDS = 4.0
+_RUN_ACTION_RE = re.compile(rb"ppaction://(?:program|macro|ole)", re.IGNORECASE)
 
 
 # XML namespaces: we match on local names so we don't depend on them.
@@ -97,12 +133,94 @@ def _urls_from(text: str, into: list[str]) -> None:
 # case: Office resolves part names without regard to case.
 _MAIN_PART = {
     "docx": re.compile(r"word/document\d*\.xml"),
-    "xlsx": re.compile(r"xl/workbook\.xml"),
+    "xlsx": re.compile(r"xl/workbook\.(?:xml|bin)"),
     "pptx": re.compile(r"ppt/presentation\.xml"),
 }
 # What an Office package holds at its root; anything else in the ZIP is
 # not part of the document (see attachment_analysis._plain_archive).
-OOXML_ROOTS = ("[content_types].xml", "_rels/", "docprops/", "customxml/", "word/", "xl/", "ppt/")
+OOXML_ROOTS = (
+    "[content_types].xml",
+    "_rels/",
+    "docprops/",
+    "docmetadata/",
+    "customxml/",
+    "customui/",
+    "_xmlsignatures/",
+    "word/",
+    "xl/",
+    "ppt/",
+)
+# What the parts of an Office package are: XML, relationships, binary
+# parts (OLE objects and macros, flagged by name), media and fonts.
+# Anything else (a page, a PDF, an embedded document, a program) is read
+# as an archive member too (attachment_analysis).
+OFFICE_PART_EXTS = frozenset(
+    [
+        "xml",
+        "rels",
+        "bin",
+        "vml",
+        "emf",
+        "wmf",
+        "emz",
+        "wmz",
+        "png",
+        "jpg",
+        "jpeg",
+        "jpe",
+        "jfif",
+        "gif",
+        "bmp",
+        "tif",
+        "tiff",
+        "svg",
+        "wdp",
+        "jxr",
+        "hdp",
+        "odttf",
+        "ttf",
+        "otf",
+        "fntdata",
+        "sigs",
+        "psdsxs",
+        "mp3",
+        "mp4",
+        "m4a",
+        "wav",
+        "wma",
+        "wmv",
+        "avi",
+        "mov",
+        "glb",
+    ]
+)
+_MEDIA_EXTS = frozenset(["png", "jpg", "jpeg", "jpe", "jfif", "gif", "bmp", "tif", "tiff"])
+
+
+def part_name(name: str) -> str:
+    """An entry name as Office resolves it: "/" separators (a "\\" too),
+    no leading slash, any case."""
+    return name.replace("\\", "/").lstrip("/").lower()
+
+
+def is_office_part(name: str) -> bool:
+    """The entry is one an Office package holds: under one of its folders,
+    with a part's extension, and no ".." in its path."""
+    n = part_name(name)
+    return (
+        n.startswith(OOXML_ROOTS)
+        and ".." not in n.split("/")
+        and (n == "[content_types].xml" or archives._ext(n) in OFFICE_PART_EXTS)
+    )
+
+
+def media_parts(names: list[str]) -> list[str]:
+    """The pictures of a package (its text may be nothing but a picture)."""
+    return [
+        n
+        for n in names
+        if is_office_part(n) and "/media/" in part_name(n) and archives._ext(n) in _MEDIA_EXTS
+    ]
 
 
 def detect_ooxml_kind(raw: bytes) -> str | None:
@@ -111,7 +229,7 @@ def detect_ooxml_kind(raw: bytes) -> str | None:
     corrupt one."""
     try:
         with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-            names = {n.lower() for n in zf.namelist()[:MAX_ZIP_ENTRIES]}
+            names = {part_name(n) for n in zf.namelist()[:MAX_ZIP_ENTRIES]}
     except Exception:
         return None
     if "[content_types].xml" not in names:
@@ -122,9 +240,20 @@ def detect_ooxml_kind(raw: bytes) -> str | None:
     return None
 
 
+class _Part(str):
+    """An entry's name that opens that very entry (_read_part)."""
+
+    info: zipfile.ZipInfo
+
+    def __new__(cls, info: zipfile.ZipInfo) -> _Part:
+        part = super().__new__(cls, info.filename)
+        part.info = info
+        return part
+
+
 def _read_part(zf: zipfile.ZipFile, name: str, flags: list[str]) -> bytes | None:
     try:
-        with zf.open(name) as fh:
+        with zf.open(getattr(name, "info", name)) as fh:
             data = fh.read(MAX_PART_BYTES + 1)
     except Exception:
         return None
@@ -155,39 +284,92 @@ def _text_from_xml(data: bytes, text_tags: set[str], block_tags: set[str]) -> st
     return re.sub(r"\n{2,}", "\n", "".join(out)).strip()
 
 
+class _Fields:
+    """Word fields being read: one frame per open field, with its
+    instruction parts, its result parts and whether its separate was seen."""
+
+    def __init__(self) -> None:
+        self.codes: list[str] = []
+        self.stack: list[tuple[list[str], list[str], list[bool]]] = []
+
+    def in_instruction(self) -> bool:
+        return bool(self.stack) and not self.stack[-1][2][0]
+
+    def char(self, kind: str) -> None:
+        if kind == "begin" and len(self.stack) < 64:
+            self.stack.append(([], [], [False]))
+        elif kind == "separate" and self.stack:
+            self.stack[-1][2][0] = True
+        elif kind == "end" and self.stack:
+            self.close()
+
+    def instruction(self, text: str) -> None:
+        if self.in_instruction():
+            self.stack[-1][0].append(text)
+        elif not self.stack:
+            self.codes.append(text)
+
+    def result(self, text: str) -> None:
+        if self.stack and self.stack[-1][2][0]:
+            self.stack[-1][1].append(text)
+
+    def close(self) -> None:
+        instr, result, _sep = self.stack.pop()
+        if instr:
+            self.codes.append("".join(instr))
+        if self.in_instruction():
+            self.stack[-1][0].append("".join(result))
+
+
 def _field_codes(data: bytes) -> str:
-    """Word field instructions, one per field: the instrText runs between
-    a field's begin and its separate (or end) are joined without a space,
-    as Word reads them ("DD" + "EAUTO" is DDEAUTO), and fldSimple@instr."""
-    codes: list[str] = []
-    current: list[str] | None = None
+    """Word field instructions, as Word builds them: the instrText runs
+    between a field's begin and its separate (or end) are joined without
+    a space ("DD" + "EAUTO" is DDEAUTO), a field nested in an instruction
+    adds its result there ("DD" + {QUOTE "EAUTO"} is DDEAUTO, an empty
+    nested field adds nothing), and every field's own instruction is kept
+    too. fldSimple@instr is read as one field."""
+    fields = _Fields()
     try:
         for _event, el in ET.iterparse(io.BytesIO(data), events=("end",)):
             name = _local(el.tag)
             if name == "fldChar":
-                kind = next((v for k, v in el.attrib.items() if _local(k) == "fldCharType"), "")
-                if kind == "begin":
-                    current = []
-                elif current is not None:
-                    codes.append("".join(current))
-                    current = None
+                fields.char(
+                    next(
+                        (v.lower() for k, v in el.attrib.items() if _local(k) == "fldCharType"), ""
+                    )
+                )
             elif name == "instrText" and el.text:
-                if current is None:
-                    codes.append(el.text)
-                else:
-                    current.append(el.text)
+                fields.instruction(el.text)
+            elif name == "t" and el.text:
+                fields.result(el.text)
             elif name == "fldSimple":
-                codes += [v for k, v in el.attrib.items() if _local(k) == "instr"]
+                fields.codes += [v for k, v in el.attrib.items() if _local(k) == "instr"]
             el.clear()
     except ET.ParseError:
         pass
-    if current:
-        codes.append("".join(current))
-    return " ".join(codes)
+    while fields.stack:
+        fields.close()
+    return " ".join(fields.codes)
 
 
-def _external_rels(data: bytes) -> list[tuple[str, str]]:
-    """(relationship type suffix, target) for every TargetMode=External rel."""
+def _field_urls(codes: str, urls: list[str]) -> None:
+    """Addresses of HYPERLINK / INCLUDEPICTURE / INCLUDETEXT fields: the
+    first argument that is not a switch, quoted or not, plus any address
+    written elsewhere in the codes."""
+    for m in _LINK_FIELD_RE.finditer(codes):
+        args = _FIELD_SWITCH_RE.sub(" ", m.group(1))
+        for a in _FIELD_ARG_RE.finditer(args):
+            target = a.group(1) or a.group(2) or ""
+            href = absolute_http(target)
+            if href and href not in urls:
+                urls.append(href)
+            break
+    _urls_from(codes, urls)
+
+
+def _relationships(data: bytes) -> list[tuple[str, str, bool]]:
+    """(relationship type suffix in lower case, target, external) for every
+    relationship of a .rels part."""
     rels = []
     try:
         root = ET.fromstring(data)
@@ -196,17 +378,16 @@ def _external_rels(data: bytes) -> list[tuple[str, str]]:
     for el in root:
         if _local(el.tag) != "Relationship":
             continue
-        if (el.get("TargetMode") or "").lower() != "external":
-            continue
-        rtype = (el.get("Type") or "").rsplit("/", 1)[-1]
-        rels.append((rtype, el.get("Target") or ""))
+        external = (el.get("TargetMode") or "").strip().lower() == "external"
+        rtype = (el.get("Type") or "").rsplit("/", 1)[-1].strip().lower()
+        rels.append((rtype, (el.get("Target") or "").strip(), external))
     return rels
 
 
 def _part_name_flags(names: list[str]) -> list[str]:
     """Risky features visible from the part names alone."""
     flags: list[str] = []
-    lower = [n.lower() for n in names]
+    lower = [part_name(n) for n in names]
     if any(n.endswith("vbaproject.bin") for n in lower) or any(
         n.startswith("xl/macrosheets/") for n in lower
     ):
@@ -243,38 +424,150 @@ def _text_parts(kind: str, names: list[str]) -> tuple[list[str], set[str], set[s
     parts = [
         n
         for n in names
-        if n.lower().startswith(folder)
-        and n.lower().endswith(".xml")
-        and not _NOT_TEXT.fullmatch(n)
+        if part_name(n).startswith(folder)
+        and part_name(n).endswith(".xml")
+        and not _NOT_TEXT.fullmatch(part_name(n))
     ]
     main = _MAIN_PART[kind]
     # The main part first, then the others in natural order (sheet2 before
     # sheet10).
     parts.sort(
         key=lambda n: (
-            not main.fullmatch(n.lower()),
-            [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", n.lower())],
+            not main.fullmatch(part_name(n)),
+            [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", part_name(n))],
         )
     )
     return parts, text_tags, block_tags
 
 
+# Relationship types that make Office load something when the file
+# opens: a template or a frame (template injection), a sub-document, an
+# OLE object or a linked workbook.
+_LOADING_RELS = {
+    "attachedtemplate": "remote_template",
+    "frame": "remote_template",
+    "subdocument": "remote_template",
+    "oleobject": "embedded_ole_object",
+    "externallinkpath": "external_data_connection",
+    "externallink": "external_data_connection",
+}
+_MACRO_RELS = {"vbaproject", "wordvbadata", "xlmacrosheet", "xlintlmacrosheet", "macrosheet"}
+# Content types that only a macro project, a control or an OLE object has.
+_CONTENT_TYPE_FLAGS = (
+    (re.compile(rb"vbaproject|macrosheet|vbadata", re.I), "contains_macros"),
+    (re.compile(rb"activex", re.I), "contains_activex"),
+    (re.compile(rb"oleobject", re.I), "embedded_ole_object"),
+)
+
+
+_SCHEME_RE = re.compile(r"[a-z][a-z0-9+.-]*:")
+_DRIVE_RE = re.compile(r"[a-z]:[\\/]")
+# Targets that open something other than a web page.
+_RUNNING_TARGETS = (
+    "\\\\",
+    "file:",
+    "ms-",
+    "mhtml:",
+    "search-ms:",
+    "search:",
+    "javascript:",
+    "vbscript:",
+    "shell:",
+)
+
+
+def _add(flags: list[str], flag: str) -> None:
+    if flag not in flags:
+        flags.append(flag)
+
+
 def _scan_relationships(
     zf: zipfile.ZipFile, names: list[str], flags: list[str], urls: list[str]
 ) -> None:
-    """Relationships: hyperlinks, remote templates, external OLE links."""
+    """Relationships: hyperlinks, remote templates and frames, external OLE
+    links, macro projects whatever their part is named, and programs or
+    shares a click or the opening reaches (a target that is not a web
+    address: "\\\\host\\share", file:, ms-msdt:, mhtml:, or a program)."""
     for name in names:
-        if not name.lower().endswith(".rels"):
+        if not part_name(name).endswith(".rels"):
             continue
         data = _read_part(zf, name, flags)
         if data is None:
             continue
-        for rtype, target in _external_rels(data):
-            if rtype == "attachedTemplate" and "remote_template" not in flags:
-                flags.append("remote_template")
-            if rtype == "oleObject" and "embedded_ole_object" not in flags:
-                flags.append("embedded_ole_object")
+        for rtype, target, external in _relationships(data):
+            if rtype in _MACRO_RELS:
+                _add(flags, "contains_macros")
+            if rtype == "control":
+                _add(flags, "contains_activex")
+            if not external:
+                continue
+            if rtype in _LOADING_RELS:
+                _add(flags, _LOADING_RELS[rtype])
+            low = target.lower()
+            # A share ("\\\\host\\share", which also sends the Windows
+            # password hash), a local file, a protocol handler or a program.
+            href = "" if low.startswith(_RUNNING_TARGETS) else absolute_http(target)
+            # A web address is a link; anything else that opens a program
+            # ("calc.exe", "..\\run.lnk") is not.
+            path = not _SCHEME_RE.match(low) or _DRIVE_RE.match(low)
+            if low.startswith(_RUNNING_TARGETS) or (
+                not href and path and archives.entry_reasons(target.split("?")[0])
+            ):
+                _add(flags, "launch_external_action")
+            if href:
+                if href not in urls:
+                    urls.append(href)
+                continue
             _urls_from(target, urls)
+
+
+def _content_type_flags(zf: zipfile.ZipFile, names: list[str], flags: list[str]) -> None:
+    for name in names:
+        if part_name(name) == "[content_types].xml":
+            data = _read_part(zf, name, flags) or b""
+            for pattern, flag in _CONTENT_TYPE_FLAGS:
+                if pattern.search(data):
+                    _add(flags, flag)
+            return
+
+
+# The file name an OLE "Package" object carries (Ole10Native): the
+# "double-click to open" icon in a document that runs a program or script.
+_PACKAGE_NAME_RE = re.compile(rb"([^\x00-\x1f\\/:*?\"<>|]{1,200}\.[A-Za-z0-9-]{1,20})\x00")
+
+
+def _embedded_files(zf: zipfile.ZipFile, names: list[str], flags: list[str]) -> None:
+    """Programs, scripts and shortcuts packaged inside embedded objects,
+    flagged as if they were in an archive (they are one click away)."""
+    for name in names:
+        n = part_name(name)
+        if "/embeddings/" not in n or archives._ext(n) not in ("bin", ""):
+            continue
+        data = _read_part(zf, name, flags)
+        if not data or b"O\x00l\x00e\x001\x000\x00N\x00a\x00t\x00i\x00v\x00e" not in data:
+            continue
+        found = [m.decode("latin-1") for m in _PACKAGE_NAME_RE.findall(data[:2_000_000])]
+        for flag in archives.classify_names(found):
+            _add(flags, flag)
+
+
+def _active_content(kind: str, name: str, data: bytes, flags: list[str], urls: list[str]) -> None:
+    """What a part makes Office do: "Run program" actions, DDE fields and
+    formulas, and the addresses of link fields."""
+    if _RUN_ACTION_RE.search(data):
+        _add(flags, "launch_external_action")
+    # Parsed only when the part holds what is looked for (element names
+    # cannot be escaped in XML; a "|" can, as a character reference).
+    if kind == "docx" and (b"instrText" in data or b"fldSimple" in data):
+        codes = _field_codes(data)
+        if _DDE_FIELD_RE.search(codes):
+            _add(flags, "dde_field")
+        _field_urls(codes, urls)
+    elif kind == "xlsx":
+        if part_name(name).startswith("xl/externallinks/") and b"ddeLink" in data:
+            _add(flags, "dde_field")
+        if _PIPE_RE.search(data) and _DDE_FORMULA_RE.search(_text_from_xml(data, {"f"}, set())):
+            _add(flags, "dde_field")
 
 
 def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
@@ -294,7 +587,9 @@ def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
                 "Office document expands beyond the safe size limit (possible zip bomb)."
             )
 
-        names = [i.filename for i in infos]
+        # Every entry, each opened as itself: a ZIP may hold two parts of
+        # the same name, and opening by name gives only one of them.
+        names = [_Part(i) for i in infos if not archives.is_dir(i.filename)]
         kind = detect_ooxml_kind(raw)
         if kind is None:
             raise ValueError(
@@ -309,24 +604,26 @@ def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
                 flags.append(flag)
         if any(i.flag_bits & 0x1 for i in infos) and "encrypted_document" not in flags:
             flags.append("encrypted_document")
+        _content_type_flags(zf, names, flags)
         texts: list[str] = []
         urls: list[str] = []
         parts, text_tags, block_tags = _text_parts(kind, names)
+        deadline = time.monotonic() + _READ_SECONDS
         for name in parts:
+            if time.monotonic() > deadline:
+                _add(flags, "document_not_fully_read")
+                break
             data = _read_part(zf, name, flags)
             if data is None:
                 continue
-            texts.append(_text_from_xml(data, text_tags, block_tags))
-            if kind == "docx":
-                codes = _field_codes(data)
-                if _DDE_FIELD_RE.search(codes) and "dde_field" not in flags:
-                    flags.append("dde_field")
-                for m in _HYPERLINK_FIELD_RE.finditer(codes):
-                    _urls_from(m.group(1), urls)
-            if sum(len(t) for t in texts) >= MAX_TEXT:
-                break
+            # Every part is checked for active content; the text stops
+            # growing at MAX_TEXT, the checks do not.
+            _active_content(kind, name, data, flags, urls)
+            if sum(len(t) for t in texts) < MAX_TEXT:
+                texts.append(without_invisible(_text_from_xml(data, text_tags, block_tags)))
 
         _scan_relationships(zf, names, flags, urls)
+        _embedded_files(zf, names, flags)
 
     text = "\n".join(t for t in texts if t)[:MAX_TEXT]
     _urls_from(text, urls)
@@ -357,6 +654,9 @@ _OLE_ENCRYPTED_MARKERS = (_utf16("EncryptedPackage"), _utf16("EncryptionInfo"))
 _OLE_OBJECT_MARKERS = (_utf16("ObjectPool"), _utf16("Ole10Native"))
 
 
+_LEGACY_DDE_RE = re.compile(r"\bDDEAUTO\b|\x13\s*DDE\b", re.IGNORECASE)
+
+
 def analyse_ole(raw: bytes, filename: str) -> dict[str, Any]:
     if not raw.startswith(OLE2_MAGIC):
         raise ValueError("Unsupported or corrupt Office document: not an OLE2 file.")
@@ -372,17 +672,22 @@ def analyse_ole(raw: bytes, filename: str) -> dict[str, Any]:
         flags.append("contains_macros")
     if any(m in raw for m in _OLE_OBJECT_MARKERS):
         flags.append("embedded_ole_object")
-    if b"DDEAUTO" in raw or _utf16("DDEAUTO") in raw:
-        flags.append("dde_field")
+        # A packaged file's name: "invoice.pdf.js" behind an icon.
+        found = [m.decode("latin-1") for m in _PACKAGE_NAME_RE.findall(raw[:5_000_000])]
+        for flag in archives.classify_names(found):
+            _add(flags, flag)
 
-    # Binary formats keep text in either cp1252 or UTF-16LE runs. We only
-    # pull URLs out of them; the text agent is skipped (too noisy).
+    # Binary formats keep text in either cp1252 or UTF-16LE runs (a field
+    # starts with U+0013). We only pull URLs and DDE fields out of them,
+    # in any case; the text agent is skipped (too noisy).
+    texts = [raw.decode("latin-1", errors="ignore")]
+    # UTF-16 runs start at an even or an odd offset.
+    texts += [raw[k:].decode("utf-16-le", errors="ignore") for k in (0, 1)]
+    if any(_LEGACY_DDE_RE.search(t) for t in texts):
+        flags.append("dde_field")
     urls: list[str] = []
-    _urls_from(raw.decode("latin-1", errors="ignore"), urls)
-    try:
-        _urls_from(raw.decode("utf-16-le", errors="ignore"), urls)
-    except Exception:
-        pass
+    for t in texts:
+        _urls_from(t, urls)
 
     return {
         "kind": "office_legacy",

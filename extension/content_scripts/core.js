@@ -463,23 +463,10 @@ PL.linkTargetsOf = function linkTargetsOf(el, hidden = PL.hiddenParts(el)) {
     return [...visible, ...unseen];
 };
 
-// Characters that take no room on screen (same list as
-// backend/unicode_text.py): format characters, the combining grapheme
-// joiner, variation selectors, Hangul fillers.
-const INVISIBLE_RE = /[\p{Cf}\u034F\u115F\u1160\u3164\uFFA0\uFE00-\uFE0F\u{E0100}-\u{E01EF}]/gu;
-// A visible letter of a script the joiners shape (Arabic, Persian, Indic).
-const SHAPED_RE = /[\u0600-\u061B\u061D-\u08FF\u0900-\u0DFF\uFB50-\uFDFF\uFE70-\uFEFC]/u;
-
-const shaped = (c) => !!c && SHAPED_RE.test(c) && !/\p{Cf}/u.test(c);
-
-// The text without invisible characters, the joiners (U+200C, U+200D)
-// kept between two letters of a script they shape: the same rule as
+// The text without invisible characters, the joiners kept where Arabic,
+// Persian and Indic writing uses them: lib/shared.js, the same rule as
 // backend/unicode_text.without_invisible.
-PL.withoutInvisible = function withoutInvisible(text) {
-    const s = String(text || "");
-    return s.replace(INVISIBLE_RE, (c, i) => (
-        (c === "\u200C" || c === "\u200D") && shaped(s[i - 1]) && shaped(s[i + 1]) ? c : ""));
-};
+PL.withoutInvisible = PhishLensShared.withoutInvisible;
 
 // A sender's display name as sent to the server: invisible characters
 // out, spaces collapsed, 200 characters at most (the name comes from the

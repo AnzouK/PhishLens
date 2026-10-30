@@ -147,6 +147,7 @@
     "flag_flash_or_richmedia": "Flash ko kafofin watsa labarai",
     "flag_image_only_pdf": "PDF da aka duba (hoto kawai)",
     "flag_inner_files_not_extracted": "ba a buɗe fayiloli ba",
+    "flag_document_not_fully_read": "ba a karanta har ƙarshe ba",
     "flag_launch_external_action": "yana kunna shiri",
     "flag_legacy_office_format": "tsohon tsarin Office",
     "flag_meta_refresh_redirect": "juyawa ta atomatik",

@@ -60,6 +60,58 @@
   {
    "text": "\u3164PayPal",
    "clean": "PayPal"
+  },
+  {
+   "text": "Pay\u064b\u200c\u064bPal",
+   "clean": "Pay\u064b\u064bPal"
+  },
+  {
+   "text": "Pay\u093c\u200d\u093cPal",
+   "clean": "Pay\u093c\u093cPal"
+  },
+  {
+   "text": "V\u007ferify",
+   "clean": "Verify"
+  },
+  {
+   "text": "V\u0000e\u001fr\u0085ify",
+   "clean": "Verify"
+  },
+  {
+   "text": "line\tone\r\nline\ftwo",
+   "clean": "line\tone\r\nline\ftwo"
+  },
+  {
+   "text": "V\u180berify",
+   "clean": "Verify"
+  },
+  {
+   "text": "V\u17b4erify",
+   "clean": "Verify"
+  },
+  {
+   "text": "x\udb40\udc41y",
+   "clean": "xy"
+  },
+  {
+   "text": "\u0dc1\u0dca\u200d\u0dbb\u0dd3",
+   "clean": "\u0dc1\u0dca\u200d\u0dbb\u0dd3"
+  },
+  {
+   "text": "\u0915\u094d\u200d\u0937",
+   "clean": "\u0915\u094d\u200d\u0937"
+  },
+  {
+   "text": "\u0645\u064b\u200c\u062e",
+   "clean": "\u0645\u064b\u200c\u062e"
+  },
+  {
+   "text": "a\u200c\u0645",
+   "clean": "a\u0645"
+  },
+  {
+   "text": "invoice.pdf.exe\u200b",
+   "clean": "invoice.pdf.exe"
   }
  ]
 }

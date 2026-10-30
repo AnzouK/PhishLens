@@ -5,7 +5,7 @@ Extract text and URLs from email attachments and reuse the existing
 text / URL / reputation pipeline on the extracted content.
 
 Supported: PDF (with OCR for scanned pages and QR decoding),
-HTML, plain text, images (OCR + QR), Word / Excel / PowerPoint in both
+HTML, SVG, web archives (.mht), plain text, images (OCR + QR), Word / Excel / PowerPoint in both
 modern and legacy formats (text, links and macro-style flags; see
 office_analysis.py). OCR and QR live in ocr.py. Also ZIP archives
 (listed, risky entries flagged, supported files inside analysed one level
@@ -22,12 +22,16 @@ from __future__ import annotations
 
 import base64
 import binascii
+import gzip
 import io
 import logging
 import re
 import zipfile
+from collections.abc import Callable
+from email import message_from_bytes
+from email import policy as email_policy
 from typing import Any
-from urllib.parse import unquote
+from urllib.parse import unquote, urljoin
 
 from bs4 import BeautifulSoup
 
@@ -36,6 +40,7 @@ import ocr
 import office_analysis as office
 from email_parsing import absolute_http, rank_links, urls_in_text
 from hidden_content import generated_text, hidden_tags, shown_link, shown_maps, visible_text_first
+from unicode_text import without_invisible
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
@@ -73,6 +78,16 @@ _MIME_BY_EXT = {
     ".html": "text/html",
     ".htm": "text/html",
     ".xhtml": "application/xhtml+xml",
+    ".shtml": "text/html",
+    # A picture to the eye, a page to the browser: scripts, links and
+    # forms (foreignObject) run when it is opened.
+    ".svg": "image/svg+xml",
+    ".svgz": "image/svg+xml",
+    # Web archives and saved emails: MIME messages whose HTML parts open
+    # as pages (in a browser, Word or a mail program).
+    ".mht": "multipart/related",
+    ".mhtml": "multipart/related",
+    ".eml": "message/rfc822",
     ".txt": "text/plain",
     # Archives and calendar invites
     ".zip": "application/zip",
@@ -86,6 +101,15 @@ _MIME_BY_EXT = {
     ".xlsm": "application/vnd.ms-excel.sheet.macroenabled.12",
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     ".pptm": "application/vnd.ms-powerpoint.presentation.macroenabled.12",
+    ".dotx": "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
+    ".dotm": "application/vnd.ms-word.template.macroenabled.12",
+    ".xltx": "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
+    ".xltm": "application/vnd.ms-excel.template.macroenabled.12",
+    ".xlsb": "application/vnd.ms-excel.sheet.binary.macroenabled.12",
+    ".potx": "application/vnd.openxmlformats-officedocument.presentationml.template",
+    ".potm": "application/vnd.ms-powerpoint.template.macroenabled.12",
+    ".ppsx": "application/vnd.openxmlformats-officedocument.presentationml.slideshow",
+    ".ppsm": "application/vnd.ms-powerpoint.slideshow.macroenabled.12",
     # Office, legacy (OLE2)
     ".doc": "application/msword",
     ".xls": "application/vnd.ms-excel",
@@ -101,7 +125,10 @@ _MIME_BY_EXT = {
     ".tiff": "image/tiff",
 }
 
-IMAGE_MIMES = {m for m in _MIME_BY_EXT.values() if m.startswith("image/")}
+IMAGE_MIMES = {m for m in _MIME_BY_EXT.values() if m.startswith("image/")} - {"image/svg+xml"}
+MIME_PAGE_TYPES = {"multipart/related", "message/rfc822"}
+# Read as pages: HTML, and SVG (a page with a picture's name).
+PAGE_MIMES = {"text/html", "application/xhtml+xml", "image/svg+xml"}
 
 
 def _magic_type(head: bytes) -> str | None:
@@ -147,6 +174,8 @@ def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> s
     text_like = by_ext is None or by_ext.startswith("text/")
     if text_like and any(m in content_head[:1024].lower() for m in _HTML_MARKS):
         return "text/html"
+    if (text_like or by_ext == "image/svg+xml") and b"<svg" in content_head[:1024].lower():
+        return "image/svg+xml"
     if by_ext:
         return by_ext
     head = content_head[:16]
@@ -291,7 +320,9 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
             }
         raise RuntimeError(f"PDF parse failed: {e}") from e
 
-    text = "\n".join(text_chunks)[:MAX_EXTRACTED_TEXT]
+    # Invisible characters out before the cut: 20,000 zero-width spaces
+    # on the first page once left nothing else to read.
+    text = without_invisible("\n".join(text_chunks))[:MAX_EXTRACTED_TEXT]
 
     # URLs: extracted text can miss link annotations (clickable button
     # with no visible URL text). We also parse /URI markers directly.
@@ -310,7 +341,7 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
         pages = ocr.render_pdf_pages(raw)
         scan = ocr.scan_images(pages, do_ocr=scanned and caps["ocr"])
         if scan["text"]:
-            text = (text + "\n" + scan["text"]).strip()[:MAX_EXTRACTED_TEXT]
+            text = (text + "\n" + without_invisible(scan["text"])).strip()[:MAX_EXTRACTED_TEXT]
             ocr_used = True
         qr_found = scan["qr_urls"]
         _add_new(urls, extract_urls(scan["text"]) if scan["text"] else [])
@@ -345,7 +376,7 @@ def analyse_image(raw: bytes, filename: str) -> dict[str, Any]:
     img = ocr.load_image(raw)
     caps = ocr.capabilities()
     scan = ocr.scan_images([img], do_ocr=caps["ocr"])
-    text = scan["text"][:MAX_EXTRACTED_TEXT]
+    text = without_invisible(scan["text"])[:MAX_EXTRACTED_TEXT]
     urls = extract_urls(text)
     for u in scan["qr_urls"]:
         if u not in urls:
@@ -374,13 +405,17 @@ def analyse_image(raw: bytes, filename: str) -> dict[str, Any]:
 # =====================================================================
 # HTML analysis
 # =====================================================================
+_PAGE_DATA_TYPES = ("data:text/html", "data:application/xhtml+xml", "data:image/svg+xml")
+
+
 def _data_html(value: str) -> str | None:
     """The page in a "data:text/html[;charset=...][;base64],..." (or
     application/xhtml+xml) address, or None. Only a base64 payload loses
     its spaces: in a plain one they separate the tag from its attributes."""
     head, sep, payload = str(value).strip().partition(",")
-    params = [p.strip() for p in head.lower().split(";")]
-    if not sep or params[0] not in ("data:text/html", "data:application/xhtml+xml"):
+    # Browsers drop tabs and line breaks anywhere in an address.
+    params = ["".join(p.split()) for p in head.lower().split(";")]
+    if not sep or params[0] not in _PAGE_DATA_TYPES:
         return None
     try:
         if "base64" in params[1:]:
@@ -446,6 +481,96 @@ def _inline_embedded(soup, depth: int = 3) -> None:
             return
 
 
+def _script_url(value: str) -> bool:
+    """javascript: or vbscript:, as browsers read an address (controls
+    and spaces dropped, any case)."""
+    v = "".join(c for c in str(value)[:200] if c > " ").lower()
+    return v.startswith(("javascript:", "vbscript:"))
+
+
+def _page_urls(soup) -> Callable[[str], str]:
+    """How the page's addresses are read: absolute ones as browsers read
+    them, relative ones against the page's <base href> (a form posting to
+    "login.php" under <base href="https://evil.tk/"> goes to evil.tk).
+    Without a base, a relative address in a saved page points to a local
+    file, not a site."""
+    tag = soup.find("base", href=True)
+    base = absolute_http(tag["href"]) if tag else ""
+
+    def url(value: str) -> str:
+        found = absolute_http(value)
+        if found or not base or not str(value).strip():
+            return found
+        try:
+            return absolute_http(urljoin(base, str(value).strip()))
+        except ValueError:
+            return ""
+
+    return url
+
+
+# HTML smuggling: a file built from data in the page and handed to the
+# browser to save or open.
+_SMUGGLING_RE = re.compile(
+    r"msSaveOrOpenBlob|msSaveBlob|createObjectURL\s*\(|\.download\s*=|new\s+File\s*\(",
+    re.IGNORECASE,
+)
+_JS_ESCAPE_RE = re.compile(r"\\x([0-9a-fA-F]{2})|\\u\{([0-9a-fA-F]{1,6})\}|\\u([0-9a-fA-F]{4})")
+_CHAR_CODES_RE = re.compile(r"fromCharCode\s*\(\s*((?:\d{1,7}\s*,\s*){3,4000}\d{1,7})\s*\)")
+_BASE64_LITERAL_RE = re.compile(r"[\"'`]([A-Za-z0-9+/]{16,20000}={0,2})[\"'`]")
+
+
+def _script_strings(code: str) -> str:
+    """A script as its addresses are written in it: escapes decoded
+    ("\\x68\\x74\\x74\\x70s://"), character codes turned into text
+    (String.fromCharCode(104, 116, ...)), percent-encoding undone
+    (unescape("%68...")) and base64 literals decoded (atob("aHR0cHM6...")),
+    each added after the code itself."""
+    out = [code]
+
+    def char(m: re.Match) -> str:
+        try:
+            return chr(int(m.group(1) or m.group(2) or m.group(3), 16))
+        except (ValueError, OverflowError):
+            return ""
+
+    out.append(_JS_ESCAPE_RE.sub(char, code))
+    for m in _CHAR_CODES_RE.finditer(code):
+        out.append(
+            "".join(chr(int(n)) for n in re.findall(r"\d+", m.group(1)) if int(n) < 0x110000)
+        )
+    if "%" in code:
+        out.append(unquote(code))
+    for m in _BASE64_LITERAL_RE.finditer(code):
+        try:
+            decoded = base64.b64decode(m.group(1) + "==", validate=False)[:20_000]
+        except (ValueError, binascii.Error):
+            continue
+        out.append(decoded.decode("utf-8", "ignore"))
+    return "\n".join(out)[:1_000_000]
+
+
+def _page_flags(soup, has_script: bool, smuggles: bool) -> list[str]:
+    flags = []
+    if soup.find("form"):
+        flags.append("contains_form")
+    # Attribute values keep their case in the parser, browsers ignore it:
+    # type="PASSWORD" is a password field.
+    if soup.find("input", attrs={"type": re.compile(r"^\s*password\s*$", re.I)}):
+        flags.append("contains_password_field")
+    if has_script:
+        flags.append("contains_javascript")
+    if soup.find("iframe"):
+        flags.append("contains_iframe")
+    if soup.find("meta", attrs={"http-equiv": re.compile(r"^\s*refresh\s*$", re.I)}):
+        flags.append("meta_refresh_redirect")
+    if smuggles:
+        # HTML smuggling: the page builds a file in the browser and saves
+        # it, so no scanner ever sees the file itself.
+        flags.append("embeds_another_file")
+    return flags
+
+
 def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     """
     Extract visible text + href / action URLs from an HTML attachment.
@@ -468,34 +593,38 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     hidden_parts = hidden_tags(soup)  # before the <style> sheets go
     hidden = {id(tag) for tag in hidden_parts}
     maps = shown_maps(soup, hidden)
+    url = _page_urls(soup)
     sends, visible, unseen, assets = [], [], [], []
     for tag in soup.find_all(["form", "iframe", "frame", "object", "embed"], limit=20_000):
-        sends.append(absolute_http(tag.get("action") or tag.get("src") or tag.get("data") or ""))
+        sends.append(url(tag.get("action") or tag.get("src") or tag.get("data") or ""))
     # A submit button can send the form elsewhere (formaction).
     for tag in soup.find_all(["button", "input"], formaction=True, limit=20_000):
-        sends.append(absolute_http(tag["formaction"]))
+        sends.append(url(tag["formaction"]))
     for meta in soup.find_all("meta", attrs={"http-equiv": re.compile(r"^\s*refresh\s*$", re.I)}):
-        sends.append(absolute_http(_refresh_target(meta)))
-    for script in soup.find_all("script"):
-        sends += urls_in_text(script.get_text()[:200_000])
-    for tag in soup.find_all(["a", "area"], href=True, limit=20_000):
-        (visible if shown_link(tag, hidden, maps) else unseen).append(absolute_http(tag["href"]))
+        sends.append(url(_refresh_target(meta)))
+    smuggles = False
+    for script in soup.find_all("script", limit=1000):
+        code = script.get_text()[:200_000]
+        sends += urls_in_text(_script_strings(code))
+        smuggles = smuggles or bool(_SMUGGLING_RE.search(code))
+    for tag in soup.find_all(["a", "area"], limit=20_000):
+        # SVG links use xlink:href.
+        href = tag.get("href") or tag.get("xlink:href")
+        if href:
+            (visible if shown_link(tag, hidden, maps) else unseen).append(url(href))
     for tag in soup.find_all(["img", "link", "script"], limit=20_000):
-        assets.append(absolute_http(tag.get("src") or tag.get("href") or ""))
+        assets.append(url(tag.get("src") or tag.get("href") or ""))
     urls = rank_links(
         *([u for u in group if u] for group in (sends, visible, unseen, assets)),
         limit=MAX_EXTRACTED_URLS,
     )
 
     # Read before the scripts are removed: a script element, an event
-    # handler attribute (onclick, onerror, onfocus...) or a javascript:
-    # address.
+    # handler attribute (onclick, onerror, onfocus...) or a script address
+    # in any attribute (href, src, data, xlink:href, formaction...), as
+    # browsers read it: controls and spaces dropped, any case.
     has_script = bool(soup.find("script")) or any(
-        name.lower().startswith("on")
-        or (
-            name.lower() in ("href", "src", "action", "formaction")
-            and "".join(str(value).split()).lower().startswith("javascript:")
-        )
+        name.lower().startswith("on") or _script_url(value)
         for tag in soup.find_all(True, limit=20_000)
         for name, value in tag.attrs.items()
     )
@@ -505,22 +634,11 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     generated = generated_text(soup, hidden_parts)
     for tag in soup(["script", "style", "noscript"]):
         tag.decompose()
-    text = " ".join(visible_text_first(soup, hidden_parts, generated).split())[:MAX_EXTRACTED_TEXT]
+    text = " ".join(without_invisible(visible_text_first(soup, hidden_parts, generated)).split())[
+        :MAX_EXTRACTED_TEXT
+    ]
 
-    # Notable features
-    flags = []
-    if soup.find("form"):
-        flags.append("contains_form")
-    # Attribute values keep their case in the parser, browsers ignore it:
-    # type="PASSWORD" is a password field.
-    if soup.find("input", attrs={"type": re.compile(r"^\s*password\s*$", re.I)}):
-        flags.append("contains_password_field")
-    if has_script:
-        flags.append("contains_javascript")
-    if soup.find("iframe"):
-        flags.append("contains_iframe")
-    if soup.find("meta", attrs={"http-equiv": re.compile(r"^\s*refresh\s*$", re.I)}):
-        flags.append("meta_refresh_redirect")
+    flags = _page_flags(soup, has_script, smuggles)
 
     return {
         "kind": "html",
@@ -531,6 +649,48 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
         "extracted_urls": urls,
         "notable_features": flags,
     }
+
+
+_MAX_MIME_PAGES = 3
+
+
+def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
+    """A web archive (.mht) or a saved email (.eml) inside an archive: its
+    HTML parts read as pages (forms, scripts, links), its plain text as
+    text. Files attached to it are named, not opened."""
+    msg = message_from_bytes(raw, policy=email_policy.compat32)
+    pages: list[dict[str, Any]] = []
+    plain: list[str] = []
+    attached = False
+    for part in msg.walk():
+        if part.is_multipart():
+            continue
+        kind = part.get_content_type()
+        data = part.get_payload(decode=True)
+        if not isinstance(data, bytes):
+            continue
+        if part.get_filename() and kind not in ("text/html", "text/plain"):
+            attached = True
+        elif kind in ("text/html", "image/svg+xml") and len(pages) < _MAX_MIME_PAGES:
+            pages.append(analyse_html(data[:MAX_ATTACHMENT_BYTES], filename))
+        elif kind == "text/plain" and not plain:
+            plain.append(data.decode(part.get_content_charset() or "utf-8", "replace"))
+    out: dict[str, Any] = {
+        "kind": "html",
+        "filename": filename,
+        "size_bytes": len(raw),
+        "extracted_text": "",
+        "extracted_text_chars": 0,
+        "extracted_urls": [],
+        "notable_features": ["inner_files_not_extracted"] if attached else [],
+    }
+    for page in pages:
+        out = _merge(out, page)
+    if not pages and plain:
+        text = without_invisible(plain[0])[:MAX_EXTRACTED_TEXT]
+        out = _merge(out, {"extracted_text": text, "extracted_urls": extract_urls(text)})
+    out["kind"] = "html"
+    return out
 
 
 # =====================================================================
@@ -589,23 +749,133 @@ def _dangerous_type(raw: bytes, filename: str) -> dict[str, Any] | None:
     }
 
 
-def _plain_archive(raw: bytes, filename: str) -> bool:
-    """A ZIP to read as an archive, not as an Office document: named as
-    an archive, not an Office package (no content types or main part),
-    holding what no Office file holds (a program, a script, a disk
-    image), or holding anything outside an Office package's folders (a
-    login page next to two empty Word parts)."""
+def _zip_names(raw: bytes) -> list[str] | None:
     try:
         with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-            names = zf.namelist()[: archives.MAX_ENTRIES]
+            return [
+                i.filename
+                for i in zf.infolist()[: archives.MAX_ENTRIES]
+                if not archives.is_dir(i.filename)
+            ]
     except (zipfile.BadZipFile, ValueError):
-        # Not a readable ZIP: the Office reader says so to the user.
-        return archives._ext(filename) in archives.ARCHIVE_EXTS
-    if archives._ext(filename) in archives.ARCHIVE_EXTS or office.detect_ooxml_kind(raw) is None:
-        return True
-    if archives.classify_names(names):
-        return True
-    return any(not n.lower().startswith(office.OOXML_ROOTS) for n in names if not n.endswith("/"))
+        return None
+
+
+# The pictures of an Office document are checked for QR codes, and read
+# (OCR) when its text is shorter than this: a page that is one
+# screenshot, or a few words around a QR code.
+_FEW_WORDS = 25
+_MAX_PICTURES = 3
+
+
+def _merge(doc: dict[str, Any], other: dict[str, Any]) -> dict[str, Any]:
+    """The Office reading of a package with what its other members say:
+    flags, links and text added, the members listed like an archive's."""
+    out = dict(doc)
+    out["notable_features"] = list(
+        dict.fromkeys([*doc.get("notable_features", []), *other.get("notable_features", [])])
+    )
+    out["extracted_urls"] = list(
+        dict.fromkeys([*doc.get("extracted_urls", []), *other.get("extracted_urls", [])])
+    )[:MAX_EXTRACTED_URLS]
+    # Each reading keeps room in the cut: a long document cannot push the
+    # login page next to it out of what is scored.
+    extra = (other.get("extracted_text") or "")[: MAX_EXTRACTED_TEXT // 2]
+    own = (doc.get("extracted_text") or "")[: MAX_EXTRACTED_TEXT - len(extra) - 1]
+    out["extracted_text"] = "\n".join(t for t in (own, extra) if t)
+    out["extracted_text_chars"] = len(out["extracted_text"])
+    for key in ("inner_files", "entries", "_all_entries", "entry_count", "qr_urls", "ocr_used"):
+        if other.get(key):
+            out[key] = other[key]
+    return out
+
+
+def _pictures_of(raw: bytes, names: list[str], read_text: bool) -> dict[str, Any]:
+    """QR codes of the largest pictures of a package, and their text (OCR)
+    when `read_text`."""
+    images = []
+    with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+        infos = [zf.getinfo(n) for n in office.media_parts(names)]
+        infos = [i for i in infos if 0 < i.file_size <= archives.MAX_INNER_BYTES]
+        infos.sort(key=lambda i: -i.file_size)
+        for info in infos[:_MAX_PICTURES]:
+            if info.file_size / max(info.compress_size, 1) > archives.MAX_RATIO:
+                continue
+            try:
+                with zf.open(info) as fh:
+                    images.append(ocr.load_image(fh.read(archives.MAX_INNER_BYTES)))
+            except Exception:
+                continue
+    if not images:
+        return {}
+    caps = ocr.capabilities()
+    scan = ocr.scan_images(images, do_ocr=read_text and caps["ocr"])
+    text = without_invisible(scan["text"])[:MAX_EXTRACTED_TEXT]
+    flags = (["contains_qr_code"] if scan["qr_urls"] else []) + (["text_from_ocr"] if text else [])
+    return {
+        "extracted_text": text,
+        "extracted_urls": [*extract_urls(text), *scan["qr_urls"]],
+        "notable_features": flags,
+        "qr_urls": scan["qr_urls"],
+        "ocr_used": bool(text),
+    }
+
+
+def _read_zip(raw: bytes, filename: str, depth: int) -> dict[str, Any]:
+    """Any ZIP, whatever its name or announced type, read by what it holds.
+
+    An Office package (content types and the main part of its kind) is
+    always read as a document: its macros, fields and relationships are
+    what Office acts on, whatever else the ZIP holds. Members Office does
+    not use (a login page in word/, an .exe at the root, an embedded
+    document) are read as archive members on top, and the two readings
+    are merged: hiding one behind the other changes nothing. Any other
+    ZIP is an archive."""
+    names = _zip_names(raw)
+    kind = office.detect_ooxml_kind(raw) if names is not None else None
+    if kind is None:
+        if names is None and archives._ext(filename) not in archives.ARCHIVE_EXTS:
+            # Not a readable ZIP: the Office reader says so to the user.
+            return office.analyse_ooxml(raw, filename)
+        if depth:
+            raise ValueError("Nested archive.")
+        return archives.analyse_zip(
+            raw, filename, inner=lambda data, name: dispatch_raw(data, name, None, depth + 1)
+        )
+    doc = office.analyse_ooxml(raw, filename)
+    names = names or []
+    if office.media_parts(names):
+        short = len((doc.get("extracted_text") or "").split()) < _FEW_WORDS
+        doc = _merge(doc, _pictures_of(raw, names, read_text=short))
+    foreign = [n for n in names if not office.is_office_part(n)]
+    if not foreign and archives._ext(filename) not in archives.ARCHIVE_EXTS:
+        return doc
+    if depth:
+        # Inside an archive: the members are named, not opened.
+        flags = archives.classify_names(foreign)
+        if foreign:
+            flags.append("inner_files_not_extracted")
+        return _merge(doc, {"notable_features": flags})
+    members = archives.analyse_zip(
+        raw,
+        filename,
+        inner=lambda data, name: dispatch_raw(data, name, None, depth + 1),
+        skip=office.is_office_part,
+    )
+    return _merge(doc, members)
+
+
+def _read_page(raw: bytes, filename: str, mime: str) -> dict[str, Any]:
+    """HTML, SVG (compressed or not), and MIME files made of pages."""
+    if mime in MIME_PAGE_TYPES:
+        return analyse_mime_pages(raw, filename)
+    if raw[:2] == b"\x1f\x8b":  # .svgz
+        try:
+            with gzip.GzipFile(fileobj=io.BytesIO(raw)) as gz:
+                raw = gz.read(MAX_ATTACHMENT_BYTES)
+        except OSError as e:
+            raise RuntimeError(f"SVG parse failed: {e}") from e
+    return analyse_html(raw, filename)
 
 
 def dispatch_raw(
@@ -632,17 +902,9 @@ def dispatch_raw(
         return archives.analyse_ics(raw, filename, extract_urls)
 
     # Office documents: modern ones are ZIPs, legacy / encrypted ones OLE2.
-    # Any ZIP, whatever its name says, is read by what it holds
-    # (_plain_archive): a .zip renamed .docx, or two empty parts named
-    # like a Word document next to an .exe or a login page, is an archive.
-    if raw.startswith(b"PK") and (mime == "application/zip" or mime in office.OOXML_MIMES):
-        if _plain_archive(raw, filename):
-            if depth:
-                raise ValueError("Nested archive.")
-            return archives.analyse_zip(
-                raw, filename, inner=lambda data, name: dispatch_raw(data, name, None, depth + 1)
-            )
-        return office.analyse_ooxml(raw, filename)
+    # Any ZIP, whatever its name says, is read by what it holds (_read_zip).
+    if raw.startswith(b"PK"):
+        return _read_zip(raw, filename, depth)
     if mime in office.OOXML_MIMES:
         if raw.startswith(office.OLE2_MAGIC):
             # password-protected .docx/.xlsx are OLE2 containers
@@ -655,11 +917,11 @@ def dispatch_raw(
 
     if mime == "application/pdf":
         return analyse_pdf(raw, filename)
-    if mime in ("text/html", "application/xhtml+xml"):
-        return analyse_html(raw, filename)
+    if mime in MIME_PAGE_TYPES or mime in PAGE_MIMES:
+        return _read_page(raw, filename, mime)
     if mime == "text/plain":
         # trivial: treat as plain text
-        text = raw.decode("utf-8", errors="ignore")[:MAX_EXTRACTED_TEXT]
+        text = without_invisible(raw.decode("utf-8", errors="ignore"))[:MAX_EXTRACTED_TEXT]
         return {
             "kind": "text",
             "filename": filename,
@@ -672,7 +934,8 @@ def dispatch_raw(
 
     raise ValueError(
         f"Unsupported attachment type: {mime}. "
-        "Supported: PDF, HTML, plain text, images (PNG, JPEG, GIF, WebP, BMP, TIFF), "
+        "Supported: PDF, HTML, SVG, web archives (.mht), plain text, "
+        "images (PNG, JPEG, GIF, WebP, BMP, TIFF), "
         "Word, Excel and PowerPoint (modern and legacy formats), ZIP, RAR and 7z archives "
         "and calendar invites (.ics)."
     )

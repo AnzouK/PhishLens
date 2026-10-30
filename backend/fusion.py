@@ -218,6 +218,7 @@ FEATURE_RISK: dict[str, float] = {
     "encrypted_document": 0.30,  # the password in the email blinds scanners
     "legacy_office_format": 0.10,
     "suspicious_xml_doctype": 0.20,
+    "document_not_fully_read": 0.10,  # built to be slow to read
     # Archives, calendar invites, risky file types
     "encrypted_archive": 0.35,  # scanners cannot open it
     "uninspectable_archive": 0.20,  # RAR / 7z the server cannot open

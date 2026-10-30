@@ -301,6 +301,21 @@ def _link_targets(msg, body: str) -> list[str]:
     return rank_links(visible, hidden, urls_in_text(body))
 
 
+def _raw_items(msg) -> list[tuple[str, str]]:
+    """The headers as written, not as the standard parser rebuilds them:
+    it drops what it cannot parse ('"PayPal" <service@paypal.com>
+    <scam@evil.example>' became '"PayPal" <service@paypal.com>'), and the
+    checks must read what mail programs read. 8-bit bytes are read as
+    UTF-8; encoded words are decoded by header_dict."""
+    items = []
+    for k, v in msg.raw_items():
+        value = str(v)
+        if any("\udc80" <= c <= "\udcff" for c in value):
+            value = value.encode("ascii", "surrogateescape").decode("utf-8", "replace")
+        items.append((k, value))
+    return items
+
+
 def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
     """Return (body_text, urls_list, headers_dict).
 
@@ -310,7 +325,7 @@ def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
     try:
         msg = message_from_bytes(raw_bytes, policy=policy.default)
         body = _body_text(msg, raw_bytes)
-        return body.strip(), _link_targets(msg, body), header_dict(msg.items())
+        return body.strip(), _link_targets(msg, body), header_dict(_raw_items(msg))
     except Exception:
         return _parse_lenient(raw_bytes)
 

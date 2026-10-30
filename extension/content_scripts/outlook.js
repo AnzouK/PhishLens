@@ -18,6 +18,7 @@ const SEL = Object.freeze({
     from: '[id^="MSG_"][id$="_FROM"]',
 });
 const EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
+const ANGLED_RE = /<\s*((?:"[^"<>]{0,200}"|[^<>\s"]{1,200})@[\w-]+(?:\.[\w-]+)+)\s*>/g;
 // Drafts sit in the conversation too, with an editor; never scanned.
 const DRAFT_RE = /\[(Draft|Brouillon|Borrador|Rascunho|Entwurf|Bozza|Concept)\]/i;
 
@@ -62,9 +63,11 @@ function isDraft(body) {
 PL.senderAddress = function senderAddress(texts) {
     // The last one between angle brackets, over every part of the line
     // (a name can be '"PayPal <service@paypal.com>" <scam@...>').
-    const angled = texts.flatMap((x) => [...x.matchAll(/<\s*([\w.+-]+@[\w-]+(?:\.[\w-]+)+)\s*>/g)].map((m) => m[1]));
+    // A quoted local part ('<"scam"@...>', '<"service@paypal.com"@...>')
+    // counts, quotes removed: the domain is the one after the last "@".
+    const angled = texts.flatMap((x) => [...String(x || "").matchAll(ANGLED_RE)].map((m) => m[1].replace(/["\s]/g, "")));
     if (angled.length) return angled[angled.length - 1];
-    const all = texts.flatMap((x) => x.match(new RegExp(EMAIL_RE.source, "g")) || []);
+    const all = texts.flatMap((x) => String(x || "").match(new RegExp(EMAIL_RE.source, "g")) || []);
     return all.length ? all[all.length - 1] : "";
 };
 

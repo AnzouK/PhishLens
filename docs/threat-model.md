@@ -145,6 +145,13 @@ Authentication-Results at all shows the sender's own, if it wrote one;
 an .eml attached to another email and scanned from Gmail is read
 without them.
 
+**R12. Attachments are read, never run.** Addresses a script writes
+plainly, with escapes, character codes, percent-encoding or base64 are
+found; one it computes at run time is not, though the script itself is
+flagged. An Office file that takes more than 4 seconds to read is
+reported as not read to the end, and files attached to a web archive
+or a saved email inside an archive are named, not opened.
+
 ## Review triggers
 
 Revisit this document when an endpoint, an input type or an extension

