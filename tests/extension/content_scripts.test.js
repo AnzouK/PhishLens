@@ -495,3 +495,11 @@ test("a name cut after many invisible marks keeps the brand", () => {
     assert.equal(PL.senderName("\u034f".repeat(300) + "PayPal"), "PayPal");
     assert.equal(PL.senderName("\ufe0f".repeat(300) + "PayPal"), "PayPal");
 });
+
+// The same cases as backend/tests/test_bypasses.py (unicode_text).
+const INVISIBLE_CASES = require(path.join(__dirname, "..", "fixtures", "invisible_cases.json")).cases;
+test("invisible characters are removed as on the server", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { PL } = load(entry);
+    for (const c of INVISIBLE_CASES) assert.equal(PL.withoutInvisible(c.text), c.clean, JSON.stringify(c.text));
+});

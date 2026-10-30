@@ -1,0 +1,65 @@
+{
+ "_about": "Texts with characters that take no room on screen, and the text once they are removed: backend/unicode_text.without_invisible and PL.withoutInvisible (extension/content_scripts/core.js) must give the same.",
+ "cases": [
+  {
+   "text": "Verify",
+   "clean": "Verify"
+  },
+  {
+   "text": "V\u200be\u200br\u200bify",
+   "clean": "Verify"
+  },
+  {
+   "text": "V\u200b\u200ce\u200b\u200cr\u200b\u200ci\u200b\u200cf\u200b\u200cy",
+   "clean": "Verify"
+  },
+  {
+   "text": "V\u034fe\u034fr\u034fi\u034ff\u034fy",
+   "clean": "Verify"
+  },
+  {
+   "text": "V\ufe0fe\ufe0fr\ufe0fi\ufe0ff\ufe0fy",
+   "clean": "Verify"
+  },
+  {
+   "text": "Pay\ufe0f\u200c\ufe0fPal",
+   "clean": "PayPal"
+  },
+  {
+   "text": "a\u061c\u200c\u061cb",
+   "clean": "ab"
+  },
+  {
+   "text": "acc\u00adount",
+   "clean": "account"
+  },
+  {
+   "text": "\u202ePayPal",
+   "clean": "PayPal"
+  },
+  {
+   "text": "\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645",
+   "clean": "\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645"
+  },
+  {
+   "text": "\u092e\u093f\u200d\u0924\u094d\u0930",
+   "clean": "\u092e\u093f\u200d\u0924\u094d\u0930"
+  },
+  {
+   "text": "\u041f\u200c\u043e",
+   "clean": "\u041f\u043e"
+  },
+  {
+   "text": "\u0645\u200b\u200c\u062e",
+   "clean": "\u0645\u062e"
+  },
+  {
+   "text": "x\udb40\udd00y",
+   "clean": "xy"
+  },
+  {
+   "text": "\u3164PayPal",
+   "clean": "PayPal"
+  }
+ ]
+}

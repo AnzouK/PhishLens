@@ -333,7 +333,10 @@ PL.textOf = function textOf(el, hidden = PL.hiddenParts(el)) {
     }
     const tail = [...hidden.boxes.map(wordsOf), ...hidden.texts.map(ownText)].filter(Boolean);
     const generated = (hidden.generated || []).join(" ");
-    return [text, generated, ...tail].filter(Boolean).join("\n").replace(/\s+\n/g, "\n").trim();
+    // Without invisible characters, before anyone cuts the text to a
+    // length: 4,000 zero-width spaces once filled what was sent.
+    return PL.withoutInvisible([text, generated, ...tail].filter(Boolean).join("\n"))
+        .replace(/\s+\n/g, "\n").trim();
 };
 
 // Base64 of bytes, in chunks so large files do not overflow the stack.
@@ -464,12 +467,25 @@ PL.linkTargetsOf = function linkTargetsOf(el, hidden = PL.hiddenParts(el)) {
 // backend/unicode_text.py): format characters, the combining grapheme
 // joiner, variation selectors, Hangul fillers.
 const INVISIBLE_RE = /[\p{Cf}\u034F\u115F\u1160\u3164\uFFA0\uFE00-\uFE0F\u{E0100}-\u{E01EF}]/gu;
+// A visible letter of a script the joiners shape (Arabic, Persian, Indic).
+const SHAPED_RE = /[\u0600-\u061B\u061D-\u08FF\u0900-\u0DFF\uFB50-\uFDFF\uFE70-\uFEFC]/u;
+
+const shaped = (c) => !!c && SHAPED_RE.test(c) && !/\p{Cf}/u.test(c);
+
+// The text without invisible characters, the joiners (U+200C, U+200D)
+// kept between two letters of a script they shape: the same rule as
+// backend/unicode_text.without_invisible.
+PL.withoutInvisible = function withoutInvisible(text) {
+    const s = String(text || "");
+    return s.replace(INVISIBLE_RE, (c, i) => (
+        (c === "\u200C" || c === "\u200D") && shaped(s[i - 1]) && shaped(s[i + 1]) ? c : ""));
+};
 
 // A sender's display name as sent to the server: invisible characters
 // out, spaces collapsed, 200 characters at most (the name comes from the
 // email and can be any length).
 PL.senderName = function senderName(text) {
-    const name = String(text || "").replace(INVISIBLE_RE, "").replace(/\s+/g, " ").trim().slice(0, 200);
+    const name = PL.withoutInvisible(text).replace(/\s+/g, " ").trim().slice(0, 200);
     return name || null;
 };
 

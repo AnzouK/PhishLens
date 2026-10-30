@@ -93,22 +93,32 @@ def _urls_from(text: str, into: list[str]) -> None:
 # =====================================================================
 # OOXML (zip + xml)
 # =====================================================================
+# The part each kind of document opens from. Names are compared in lower
+# case: Office resolves part names without regard to case.
+_MAIN_PART = {
+    "docx": re.compile(r"word/document\d*\.xml"),
+    "xlsx": re.compile(r"xl/workbook\.xml"),
+    "pptx": re.compile(r"ppt/presentation\.xml"),
+}
+# What an Office package holds at its root; anything else in the ZIP is
+# not part of the document (see attachment_analysis._plain_archive).
+OOXML_ROOTS = ("[content_types].xml", "_rels/", "docprops/", "customxml/", "word/", "xl/", "ppt/")
+
+
 def detect_ooxml_kind(raw: bytes) -> str | None:
-    """Return 'docx', 'xlsx' or 'pptx' for a valid OOXML container, None
-    for any other ZIP (or a corrupt one)."""
+    """Return 'docx', 'xlsx' or 'pptx' for an OOXML package (content types
+    and the main part of its kind present), None for any other ZIP or a
+    corrupt one."""
     try:
         with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-            names = set(zf.namelist())
+            names = {n.lower() for n in zf.namelist()[:MAX_ZIP_ENTRIES]}
     except Exception:
         return None
-    if "[Content_Types].xml" not in names:
+    if "[content_types].xml" not in names:
         return None
-    if any(n.startswith("word/") for n in names):
-        return "docx"
-    if any(n.startswith("xl/") for n in names):
-        return "xlsx"
-    if any(n.startswith("ppt/") for n in names):
-        return "pptx"
+    for kind, main in _MAIN_PART.items():
+        if any(main.fullmatch(n) for n in names):
+            return kind
     return None
 
 
@@ -146,21 +156,34 @@ def _text_from_xml(data: bytes, text_tags: set[str], block_tags: set[str]) -> st
 
 
 def _field_codes(data: bytes) -> str:
-    """Word field instructions (instrText and fldSimple@instr)."""
-    out = []
+    """Word field instructions, one per field: the instrText runs between
+    a field's begin and its separate (or end) are joined without a space,
+    as Word reads them ("DD" + "EAUTO" is DDEAUTO), and fldSimple@instr."""
+    codes: list[str] = []
+    current: list[str] | None = None
     try:
         for _event, el in ET.iterparse(io.BytesIO(data), events=("end",)):
             name = _local(el.tag)
-            if name == "instrText" and el.text:
-                out.append(el.text)
+            if name == "fldChar":
+                kind = next((v for k, v in el.attrib.items() if _local(k) == "fldCharType"), "")
+                if kind == "begin":
+                    current = []
+                elif current is not None:
+                    codes.append("".join(current))
+                    current = None
+            elif name == "instrText" and el.text:
+                if current is None:
+                    codes.append(el.text)
+                else:
+                    current.append(el.text)
             elif name == "fldSimple":
-                for k, v in el.attrib.items():
-                    if _local(k) == "instr":
-                        out.append(v)
+                codes += [v for k, v in el.attrib.items() if _local(k) == "instr"]
             el.clear()
     except ET.ParseError:
         pass
-    return " ".join(out)
+    if current:
+        codes.append("".join(current))
+    return " ".join(codes)
 
 
 def _external_rels(data: bytes) -> list[tuple[str, str]]:
@@ -197,21 +220,42 @@ def _part_name_flags(names: list[str]) -> list[str]:
     return flags
 
 
+# Parts of the kind's folder that hold no text of the document.
+_NOT_TEXT = re.compile(
+    r".*/(styles|stylesWithEffects|settings|webSettings|fontTable|numbering|theme\d*|"
+    r"presProps|viewProps|tableStyles|calcChain|people|commentsIds|commentsExtended)\.xml",
+    re.IGNORECASE,
+)
+
+
 def _text_parts(kind: str, names: list[str]) -> tuple[list[str], set[str], set[str]]:
     """The XML parts holding the document's text, in reading order, with
-    the tags that hold text and the tags that end a block."""
+    the tags that hold text and the tags that end a block. Every XML part
+    of the kind's folder is read, whatever its name or case ("Document.xml",
+    "document2.xml"), but the style, setting and theme parts."""
+    folder = {"docx": "word/", "xlsx": "xl/", "pptx": "ppt/"}[kind]
     if kind == "docx":
-        pattern = r"word/(document|header\d*|footer\d*|footnotes|endnotes|comments)\.xml"
         text_tags, block_tags = {"t"}, {"p", "tr"}
     elif kind == "xlsx":
-        pattern = r"xl/sharedStrings\.xml|xl/worksheets/sheet\d+\.xml"
         text_tags, block_tags = {"t", "f"}, {"si", "row"}
     else:
-        pattern = r"ppt/(slides/slide\d+|notesSlides/notesSlide\d+)\.xml"
         text_tags, block_tags = {"t"}, {"p"}
-    parts = [n for n in names if re.fullmatch(pattern, n)]
-    # stable order: document.xml / sheet1 / slide1 first
-    parts.sort(key=lambda n: [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", n)])
+    parts = [
+        n
+        for n in names
+        if n.lower().startswith(folder)
+        and n.lower().endswith(".xml")
+        and not _NOT_TEXT.fullmatch(n)
+    ]
+    main = _MAIN_PART[kind]
+    # The main part first, then the others in natural order (sheet2 before
+    # sheet10).
+    parts.sort(
+        key=lambda n: (
+            not main.fullmatch(n.lower()),
+            [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", n.lower())],
+        )
+    )
     return parts, text_tags, block_tags
 
 
@@ -220,7 +264,7 @@ def _scan_relationships(
 ) -> None:
     """Relationships: hyperlinks, remote templates, external OLE links."""
     for name in names:
-        if not name.endswith(".rels"):
+        if not name.lower().endswith(".rels"):
             continue
         data = _read_part(zf, name, flags)
         if data is None:

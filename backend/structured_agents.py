@@ -200,7 +200,10 @@ def url_agent(urls: list[str], body_text: str = "") -> float:
             and not all(well_known_link(u) for u in visible)
         ):
             try:
-                feats = _FEATURE_EXTRACT.extract_url_features(body_text)
+                # The links as read (lower-case scheme, "www." made a URL):
+                # the model's own pattern misses "HTTPS://" and "www.",
+                # and a harmless link was all it saw next to them.
+                feats = _FEATURE_EXTRACT.extract_url_features(" ".join(visible))
                 pred = _URL_AGENT.get_prediction_with_confidence(feats)
                 score = float(pred["phishing_probability"])
             except Exception as e:

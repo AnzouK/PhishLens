@@ -31,8 +31,10 @@ Fixes from several rounds of outside review; each bypass has a test in
   scan sends it at most 30 links, and its key stays out of the logs.
 - Attachments: forms, frames and pages inside `data:` addresses are
   read in HTML files; names that Windows runs as programs ("invoice.exe ."
-  or with a direction mark) are caught, also in a ZIP dressed as a Word
-  file; 7z files are unpacked in memory.
+  or with a direction mark) are caught; a ZIP is read by what it holds,
+  whatever its name; Office parts are read whatever their name or case,
+  and Word fields split over several runs are joined; 7z files are
+  unpacked in memory.
 - Outlook: the sender's real address is used, and "internal" mail only
   gets the soft path.
 - Personal mailboxes and platforms that relay their users' messages

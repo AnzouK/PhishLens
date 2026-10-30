@@ -136,9 +136,7 @@ def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> s
     HTML login page renamed "invoice.txt" is still read as what it is),
     then the extension, then the client's hint.
     """
-    ext = ""
-    if filename and "." in filename:
-        ext = "." + filename.rsplit(".", 1)[1].lower()
+    ext = "." + archives._ext(filename) if archives._ext(filename) else ""
     magic = _magic_type(content_head[:16])
     by_ext = _MIME_BY_EXT.get(ext)
     office_container = ("application/zip", "application/x-ole-storage")
@@ -386,7 +384,8 @@ def _data_html(value: str) -> str | None:
         return None
     try:
         if "base64" in params[1:]:
-            raw = "".join(payload[:700_000].split())
+            # Percent-decoded first, as browsers do ("%2B" is "+").
+            raw = "".join(unquote(payload[:700_000]).split())
             return base64.b64decode(raw + "===")[:500_000].decode("utf-8", "replace")
         return unquote(payload[:500_000])
     except (ValueError, binascii.Error):
@@ -394,11 +393,19 @@ def _data_html(value: str) -> str | None:
 
 
 def _refresh_target(meta) -> str:
-    """The address of a <meta http-equiv="refresh" content="0; url=...">."""
-    content = str(meta.get("content") or "")
-    if "url" not in content.lower():
+    """The address of a <meta http-equiv="refresh">: what follows the
+    delay and ";" or ",", with or without "url=" ("0; url=https://x",
+    "0; https://x", "0,URL = 'https://x'")."""
+    content = str(meta.get("content") or "").strip()
+    cut = min((i for i in (content.find(";"), content.find(",")) if i >= 0), default=-1)
+    if cut < 0:
         return ""
-    return content.partition("=")[2].strip(" '\"")
+    target = content[cut + 1 :].strip()
+    if target[:3].lower() == "url":
+        rest = target[3:].lstrip()
+        if rest.startswith("="):
+            target = rest[1:]
+    return target.strip(" '\"")
 
 
 # Where a page can carry another page: an attribute holding its HTML
@@ -583,13 +590,22 @@ def _dangerous_type(raw: bytes, filename: str) -> dict[str, Any] | None:
 
 
 def _plain_archive(raw: bytes, filename: str) -> bool:
-    if archives._ext(filename) in archives.ARCHIVE_EXTS:
-        return True
+    """A ZIP to read as an archive, not as an Office document: named as
+    an archive, not an Office package (no content types or main part),
+    holding what no Office file holds (a program, a script, a disk
+    image), or holding anything outside an Office package's folders (a
+    login page next to two empty Word parts)."""
     try:
         with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-            return bool(archives.classify_names(zf.namelist()[: archives.MAX_ENTRIES]))
+            names = zf.namelist()[: archives.MAX_ENTRIES]
     except (zipfile.BadZipFile, ValueError):
-        return False
+        # Not a readable ZIP: the Office reader says so to the user.
+        return archives._ext(filename) in archives.ARCHIVE_EXTS
+    if archives._ext(filename) in archives.ARCHIVE_EXTS or office.detect_ooxml_kind(raw) is None:
+        return True
+    if archives.classify_names(names):
+        return True
+    return any(not n.lower().startswith(office.OOXML_ROOTS) for n in names if not n.endswith("/"))
 
 
 def dispatch_raw(
@@ -616,11 +632,11 @@ def dispatch_raw(
         return archives.analyse_ics(raw, filename, extract_urls)
 
     # Office documents: modern ones are ZIPs, legacy / encrypted ones OLE2.
-    if mime == "application/zip":
-        # Read as the archive it is when it says so (a .zip name) or when
-        # it holds what no Office file holds (a program, a script...): two
-        # empty parts named like a Word document once hid an .exe.
-        if office.detect_ooxml_kind(raw) is None or _plain_archive(raw, filename):
+    # Any ZIP, whatever its name says, is read by what it holds
+    # (_plain_archive): a .zip renamed .docx, or two empty parts named
+    # like a Word document next to an .exe or a login page, is an archive.
+    if raw.startswith(b"PK") and (mime == "application/zip" or mime in office.OOXML_MIMES):
+        if _plain_archive(raw, filename):
             if depth:
                 raise ValueError("Nested archive.")
             return archives.analyse_zip(

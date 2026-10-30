@@ -38,7 +38,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from email.utils import parseaddr
+from email.utils import getaddresses, parseaddr
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
@@ -52,6 +52,7 @@ import fusion
 import structured_agents
 import text_model
 from email_parsing import (
+    FROM_UNPROVEN,
     Ranked,
     client_links,
     detect_forwarded,
@@ -351,7 +352,17 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         for key in ("authentication-results", "arc-authentication-results"):
             headers.pop(key, None)
     if req.sender_email:
-        headers["from"] = _from_value(req.sender_email, req.sender_name, headers.get("from", ""))
+        # The message's own From: is kept when the page's sender does not
+        # say all it says: several addresses (Gmail shows only the first),
+        # or another domain. Then it proves nothing either.
+        original = headers.get("from", "")
+        addresses = [a for _n, a in getaddresses([original]) if "@" in a]
+        if len(addresses) > 1 or (
+            addresses and sender_domain(addresses[0]) != sender_domain(req.sender_email)
+        ):
+            headers[FROM_UNPROVEN] = "1"
+        else:
+            headers["from"] = _from_value(req.sender_email, req.sender_name, original)
     # The page text, unless it is the email's source shown as text: then
     # the text parsed from the original message is better. The page text
     # reflects the styles the browser applied (hidden parts last), which

@@ -20,10 +20,20 @@ _JOINERS = "‌‍"
 
 
 def _shaped(c: str) -> bool:
-    """A letter of the scripts whose shape the joiners change (Arabic,
-    Persian, the Indic scripts)."""
+    """A visible letter of the scripts whose shape the joiners change:
+    Arabic and Persian (with their presentation forms), the Indic scripts.
+    Never an invisible character, even one inside those blocks (U+061C,
+    the variation selectors, U+FEFF): two of them around a joiner once
+    kept it inside "Pay<joiner>Pal"."""
+    if is_invisible(c):
+        return False
     o = ord(c)
-    return 0x0600 <= o <= 0x08FF or 0x0900 <= o <= 0x0DFF or 0xFB50 <= o <= 0xFEFF
+    return (
+        0x0600 <= o <= 0x08FF
+        or 0x0900 <= o <= 0x0DFF
+        or 0xFB50 <= o <= 0xFDFF
+        or 0xFE70 <= o <= 0xFEFC
+    )
 
 
 def is_invisible(c: str) -> bool:

@@ -132,7 +132,9 @@ export function initUpload() {
         const f = e.dataTransfer.files?.[0];
         if (!f) return;
         const ext = fileExt(f.name);
-        if (ext === "eml" || ATTACHMENT_EXTS.includes(ext)) setFile(f);
+        // Any file with an extension: an .eml is read as an email, any
+        // other one as an attachment (a program is flagged by type).
+        if (ext) setFile(f);
         else showStatus(t("drop_wrong_type"));
     });
 

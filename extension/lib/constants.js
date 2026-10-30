@@ -9,6 +9,14 @@ const ATTACHMENT_EXTS = Object.freeze([
     "zip", "rar", "7z", "ics", "txt",
 ]);
 
+// Files that run or mount when opened (programs, scripts, shortcuts, disk
+// images): nothing to read, the server flags them by type. Same list as
+// backend/archive_analysis.py (EXECUTABLE, SCRIPT, SHORTCUT, DISK_IMAGE).
+const DANGEROUS_EXTS = Object.freeze((
+    "apk app appx bat chm cmd com cpl desktop dll dmg exe hta img inf iso jar js jse library-ms lnk " +
+    "msi msix msp pif pkg ps1 psm1 reg scf scr sct search-ms sys url vb vbe vbs vhd vhdx website wsc wsf wsh"
+).split(" "));
+
 // Attachment flags meaning "PhishLens could not look inside": a low score
 // is not reassuring, so these get a caution verdict instead of "safe".
 const CAUTION_FLAGS = Object.freeze([
@@ -38,7 +46,7 @@ function isCaution(flags) {
 }
 
 const PhishLensConstants = Object.freeze({
-    ATTACHMENT_EXTS, CAUTION_FLAGS, MAX_FILE_MB, SOURCE_LABELS, fileExt, isCaution,
+    ATTACHMENT_EXTS, CAUTION_FLAGS, DANGEROUS_EXTS, MAX_FILE_MB, SOURCE_LABELS, fileExt, isCaution,
 });
 globalThis.PhishLensConstants = PhishLensConstants;
 

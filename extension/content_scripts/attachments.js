@@ -7,20 +7,24 @@
 const PL = globalThis.PhishLensPage;
 const { t, tn, flagLabel, reasonLabel } = PhishLensI18n;
 const { h, icon } = PhishLensDom;
-const { ATTACHMENT_EXTS, MAX_FILE_MB, SOURCE_LABELS, fileExt, isCaution } = PhishLensConstants;
+const { ATTACHMENT_EXTS, DANGEROUS_EXTS, MAX_FILE_MB, SOURCE_LABELS, fileExt, isCaution } = PhishLensConstants;
 const { debug } = PhishLensShared;
 const G = PhishLensGmail;
 const { SEL } = G;
 
 const MAX_PER_EMAIL = 15;
-// An attached email is scanned as an email, the rest as attachments.
-const SUPPORTED = new Set([...ATTACHMENT_EXTS, "eml"]);
-// Longest extensions first, so "html" wins over "htm". The name must end
-// there (or before the size): "notes.txt.exe" once became "notes.txt".
+// An attached email is scanned as an email, the rest as attachments;
+// programs, scripts and disk images too (the server flags them by type).
+const SUPPORTED = new Set([...ATTACHMENT_EXTS, ...DANGEROUS_EXTS, "eml"]);
+// Where a tile's name ends: the end of the text, or the size Gmail writes
+// after it ("Checklist.pdf 320 KB"). Not at any space: "scan.jpg   .js"
+// and "notes.txt.exe" once lost their real extension.
+const NAME_END = "(?=\\s+\\d+(?:[.,]\\d+)?\\s*[KMGT]?B\\b|\\s*$)";
+// Longest extensions first, so "html" wins over "htm".
 const SUPPORTED_NAME_RE = new RegExp(
-    "([\\w \\-.()]+\\.(" + [...SUPPORTED].sort((a, b) => b.length - a.length).join("|") + "))(?=\\s|$)", "i");
+    "([\\w \\-.()]+\\.(" + [...SUPPORTED].sort((a, b) => b.length - a.length).join("|") + "))" + NAME_END, "i");
 // Any "name.ext", to say a file PhishLens cannot read was not checked.
-const ANY_NAME_RE = /([\w \-.()]+\.([a-z0-9]{1,5}))(?=\s|$)/i;
+const ANY_NAME_RE = new RegExp("([\\w \\-.()]+\\.([a-z0-9]{1,10}))" + NAME_END, "i");
 // Ways Gmail has marked an attachment tile, all looked up inside a strip
 // only: outside it, stray matches put buttons over the message body.
 const TILE_HINTS = ['a[download]', 'div[data-attachmentid]', 'div[data-tooltip*="oad"]', 'div[role="listitem"]', ".aZo"];
