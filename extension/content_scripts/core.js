@@ -120,22 +120,15 @@ PL.setBtnLoading = function setBtnLoading(btn, on) {
 PL.MESSAGE_BODY = '.a3s, [id^="UniqueMessageBody"]';
 PL.inMessageBody = (el) => !!el?.closest?.(PL.MESSAGE_BODY);
 
-// True when the element takes no room on the page, or its text cannot be
-// seen: transparent (the element or its text colour), an unreadably
-// small font, clipped to nothing, placed far off the page or scaled to
+// True when the element and everything in it are out of view: no box,
+// transparent, clipped to nothing, placed far off the page or scaled to
 // nothing. innerText already leaves out display:none; these others it
 // keeps.
-PL.isHidden = function isHidden(el) {
+PL.isHiddenBox = function isHiddenBox(el) {
     if (typeof getComputedStyle !== "function" || !el?.getClientRects) return false;
     if (!el.getClientRects().length) return true;
     const st = getComputedStyle(el);
-    if (st.visibility === "hidden" || Number(st.opacity) <= 0.05 || parseFloat(st.fontSize) < 2) return true;
-    if (transparent(st.color)) return true;
-    // Text with too little contrast against what is drawn behind it (a
-    // ratio under 1.2, like backend/hidden_content.py).
-    const ink = rgba(st.color);
-    const behind = backgroundBehind(el);
-    if (ink && behind && contrast(over(ink, behind), behind) < 1.2) return true;
+    if (Number(st.opacity) <= 0.05) return true;
     if (/^rect\(0(?:px)?,? 0(?:px)?,? 0(?:px)?,? 0(?:px)?\)$/.test(st.clip || "")) return true;
     if (/^inset\((?:[5-9]\d|\d{3,})(?:\.\d+)?%|^circle\(0(?:px)?[ )]/.test(st.clipPath || "")) return true;
     if (/hidden|clip/.test(`${st.overflow} ${st.overflowX} ${st.overflowY}`)) {
@@ -147,6 +140,23 @@ PL.isHidden = function isHidden(el) {
     if (parseFloat(st.textIndent) <= -500) return true;
     return flattened(st.transform);
 };
+
+// True when the element's own text cannot be read: visibility hidden, a
+// font under 2 px, or too little contrast with what is drawn behind it
+// (a WCAG ratio under 1.2, like backend/hidden_content.py). Its children
+// set their own colour and size: a dark section whose paragraphs are
+// white is not hidden.
+PL.textUnreadable = function textUnreadable(el) {
+    if (typeof getComputedStyle !== "function") return false;
+    const st = getComputedStyle(el);
+    if (st.visibility === "hidden" || st.visibility === "collapse" || parseFloat(st.fontSize) < 2) return true;
+    const ink = rgba(st.color);
+    const behind = backgroundBehind(el);
+    return !!ink && (ink[3] <= 0.05 || (!!behind && contrast(over(ink, behind), behind) < 1.2));
+};
+
+// Either: the element's text cannot be seen (the shared test cases).
+PL.isHidden = (el) => PL.isHiddenBox(el) || PL.textUnreadable(el);
 
 // A transform that flattens the element to a line or a point (a scale of
 // 0 on any axis): its 2D matrix has a determinant of 0.
@@ -205,21 +215,32 @@ function transparent(color) {
     return !!m && Number(m[1]) <= 0.05;
 }
 
-// The outermost hidden elements under `el`. Hidden subtrees are not
-// walked; at most MAX_WALK elements are examined (Gmail cuts messages
-// above 102 KB, far fewer elements than that).
+// What is hidden under `el`: { boxes, texts }. `boxes` are the outermost
+// elements hidden whole (their subtrees are not walked); `texts` the
+// elements whose own text is unreadable while their children may not be.
+// At most MAX_WALK elements are examined (Gmail cuts messages above
+// 102 KB, far fewer elements than that).
 const MAX_WALK = 20000;
 PL.hiddenParts = function hiddenParts(el) {
-    if (typeof getComputedStyle !== "function" || !el?.children) return [];
-    const out = [];
+    const out = { boxes: [], texts: [] };
+    if (typeof getComputedStyle !== "function" || !el?.children) return out;
     const stack = [...el.children].reverse();       // popped in page order
     for (let seen = 0; stack.length && seen < MAX_WALK; seen++) {
         const n = stack.pop();
-        if (PL.isHidden(n)) out.push(n);
-        else stack.push(...[...n.children].reverse());
+        if (PL.isHiddenBox(n)) {
+            out.boxes.push(n);
+            continue;
+        }
+        if (ownText(n) && PL.textUnreadable(n)) out.texts.push(n);
+        stack.push(...[...n.children].reverse());
     }
     return out;
 };
+
+// The text written directly in an element, not in its children.
+function ownText(el) {
+    return [...(el.childNodes || [])].filter((c) => c.nodeType === 3).map((c) => c.data).join(" ").replace(/\s+/g, " ").trim();
+}
 
 // The text of an element without its style sheets and scripts (whose
 // textContent is code, not words).
@@ -235,22 +256,24 @@ function wordsOf(el) {
     return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
-// The text of an email as the reader sees it, with the text hidden by its
-// style (see isHidden) after it: placed before the message, it filled
-// what the text model reads with words nobody sees. The hidden parts are
-// marked for an instant (banner.css hides them) so innerText leaves them
-// out, then read on their own. `hidden` is PL.hiddenParts(el), when the
-// caller already has it.
+// The text of an email as the reader sees it, with the hidden text after
+// it: placed before the message, it filled what the text model reads
+// with words nobody sees. Hidden parts are marked for an instant
+// (banner.css hides them, and makes unreadable text invisible to
+// innerText while its children stay readable), then read on their own.
+// `hidden` is PL.hiddenParts(el), when the caller already has it.
 PL.textOf = function textOf(el, hidden = PL.hiddenParts(el)) {
     if (!el) return "";
-    hidden.forEach((n) => n.setAttribute("data-pll-hidden", ""));
+    hidden.boxes.forEach((n) => n.setAttribute("data-pll-hidden", ""));
+    hidden.texts.forEach((n) => n.setAttribute("data-pll-hidden-text", ""));
     let text;
     try {
         text = el.innerText;
     } finally {
-        hidden.forEach((n) => n.removeAttribute("data-pll-hidden"));
+        hidden.boxes.forEach((n) => n.removeAttribute("data-pll-hidden"));
+        hidden.texts.forEach((n) => n.removeAttribute("data-pll-hidden-text"));
     }
-    const tail = hidden.map(wordsOf).filter(Boolean);
+    const tail = [...hidden.boxes.map(wordsOf), ...hidden.texts.map(ownText)].filter(Boolean);
     return [text, ...tail].join("\n").replace(/\s+\n/g, "\n").trim();
 };
 
@@ -272,6 +295,30 @@ function tinyLink(a) {
     const big = (r) => r.width >= 2 && r.height >= 2;
     if ([...a.getClientRects()].some(big)) return false;
     return ![...(a.children || [])].some((c) => c.getBoundingClientRect && big(c.getBoundingClientRect()));
+}
+
+// A link the reader can see: outside every hidden box, not too small to
+// click, and showing something: text outside the hidden parts, or an
+// image or drawing of 2 px at least. Fifty links whose only text was
+// transparent once filled the place of the real one.
+function shownLink(a, hidden) {
+    if (hidden.boxes.some((part) => part.contains(a)) || tinyLink(a)) return false;
+    if (a.tagName === "AREA") return true;
+    const unreadable = new Set(hidden.texts);
+    const walk = (n) => {
+        for (const c of n.childNodes || []) {
+            if (c.nodeType === 3 && c.data.trim() && !unreadable.has(n)) return true;
+            if (c.nodeType !== 1 || hidden.boxes.includes(c)) continue;
+            if (/^(IMG|SVG|PICTURE|VIDEO)$/i.test(c.tagName)) {
+                const r = c.getBoundingClientRect?.();
+                if (!r || (r.width >= 2 && r.height >= 2)) return true;
+            } else if (walk(c)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    return walk(a);
 }
 
 // http(s) targets of the links in a message body, deduplicated, 50 at
@@ -300,7 +347,7 @@ PL.linkGroupsOf = function linkGroupsOf(el, hidden = PL.hiddenParts(el)) {
         }
         if (host === location.hostname) continue;
         seen.add(href);
-        const kind = hidden.some((part) => part.contains(anchors[i])) || tinyLink(anchors[i]) ? "hidden" : "visible";
+        const kind = shownLink(anchors[i], hidden) ? "visible" : "hidden";
         groups[kind][hosts[kind].has(host) ? 1 : 0].push(href);
         hosts[kind].add(host);
     }

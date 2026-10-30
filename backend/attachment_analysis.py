@@ -34,7 +34,7 @@ import archive_analysis as archives
 import ocr
 import office_analysis as office
 from email_parsing import absolute_http, rank_links, urls_in_text
-from hidden_content import hidden_tags, visible_text_first
+from hidden_content import hidden_tags, shown_link, visible_text_first
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
@@ -455,7 +455,7 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     # links, and images and style sheets last. Two hundred hidden images
     # once pushed the form's target past the limit.
     hidden_parts = hidden_tags(soup)  # before the <style> sheets go
-    hidden = {id(t) for tag in hidden_parts for t in (tag, *tag.find_all(True))}
+    hidden = {id(tag) for tag in hidden_parts}
     sends, visible, unseen, assets = [], [], [], []
     for tag in soup.find_all(["form", "iframe", "frame", "object", "embed"], limit=20_000):
         sends.append(absolute_http(tag.get("action") or tag.get("src") or tag.get("data") or ""))
@@ -467,7 +467,7 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     for script in soup.find_all("script"):
         sends += urls_in_text(script.get_text()[:200_000])
     for tag in soup.find_all(["a", "area"], href=True, limit=20_000):
-        (unseen if id(tag) in hidden else visible).append(absolute_http(tag["href"]))
+        (visible if shown_link(tag, hidden) else unseen).append(absolute_http(tag["href"]))
     for tag in soup.find_all(["img", "link", "script"], limit=20_000):
         assets.append(absolute_http(tag.get("src") or tag.get("href") or ""))
     urls = rank_links(

@@ -59,10 +59,12 @@ class Element extends Node {
         const siblings = this.parentNode?.children || [];
         return siblings[siblings.indexOf(this) + 1] || null;
     }
-    // Leaves out what banner.css hides ([data-pll-hidden]).
+    // Leaves out what banner.css hides ([data-pll-hidden], and the own
+    // text of [data-pll-hidden-text]).
     get innerText() {
         if ("data-pll-hidden" in this.attributes) return "";
-        return this.childNodes.map((c) => (c.nodeType === 3 ? c.data : c.innerText)).join("");
+        const ownHidden = "data-pll-hidden-text" in this.attributes;
+        return this.childNodes.map((c) => (c.nodeType === 3 ? (ownHidden ? "" : c.data) : c.innerText)).join("");
     }
     removeAttribute(k) { delete this.attributes[k]; }
     // Laid out by default; a test hides an element by replacing these.

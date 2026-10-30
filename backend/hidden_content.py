@@ -6,9 +6,12 @@ words nobody sees, and hidden links pushed the real ones out. Hidden
 parts are moved after the visible ones rather than dropped: a rule for
 phones can show them again, and the reader may then see them.
 
-Each element's style is its <style> rules (in order) then its inline
-style; backgrounds are composed from the page (white) down, alpha
-included. The extension makes the same decision from the styles the
+Each element's style is its <style> rules (in order, !important kept)
+then its inline style; backgrounds are composed from the page (white)
+down, alpha included. A style can hide a whole box (display, opacity,
+clipping...) or only make an element's own text unreadable (colour,
+size, visibility): then its children, which may set their own, are
+judged on their own. The extension makes the same decision from the styles the
 browser computed (content_scripts/core.js, PL.isHidden); both sides are
 checked against tests/fixtures/hidden_cases.json.
 
@@ -22,9 +25,12 @@ from __future__ import annotations
 import colorsys
 import re
 
+from bs4 import Comment
+
+# Styles that hide an element and everything in it. visibility is not
+# one: a child can say visible again (see _invisible).
 _HIDING_STYLES = {
     "display": {"none"},
-    "visibility": {"hidden", "collapse"},
     "mso-hide": {"all"},
 }
 # Smallest readable font size per unit (any other unit: above 0).
@@ -43,7 +49,7 @@ _NAMED = {
     "grey": (128, 128, 128),
 }
 MAX_ELEMENTS = 20_000
-_MAX_RULES = 300
+_MAX_RULES = 2000
 
 Colour = tuple[int, int, int]
 
@@ -122,25 +128,74 @@ def _same_colour(a: Colour, b: Colour) -> bool:
     return (lb + 0.05) / (la + 0.05) < _MIN_CONTRAST
 
 
-def style_declarations(style: str) -> dict[str, str]:
-    decl: dict[str, str] = {}
-    for item in (style or "")[:4000].lower().split(";"):
+class Declarations(dict):
+    """Property -> value, lower case, with the properties marked
+    !important in `important`."""
+
+    def __init__(self, *args, important=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.important = set(important)
+
+    def then(self, later: Declarations) -> Declarations:
+        """These declarations with `later` applied over them: a later value
+        wins unless this one is !important and the later one is not."""
+        out = Declarations(self, important=self.important)
+        for key, value in later.items():
+            if key in self.important and key not in later.important:
+                continue
+            out[key] = value
+            if key in later.important:
+                out.important.add(key)
+        return out
+
+
+_COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
+
+
+def style_declarations(style: str) -> Declarations:
+    decl = Declarations()
+    for item in _COMMENT_RE.sub(" ", (style or "")[:4000]).lower().split(";"):
         key, sep, value = item.partition(":")
         if sep:
-            decl[key.strip()] = value.replace("!important", "").strip()
+            key = key.strip()
+            important = "!important" in value
+            if key in decl.important and not important:
+                continue  # an !important value is kept over a later plain one
+            if important:
+                decl.important.add(key)
+            decl[key] = value.replace("!important", "").strip()
     return decl
+
+
+_COLOUR_FN_RE = re.compile(r"(?:rgba?|hsla?)\([^()]{0,80}\)")
+
+
+def _background_value(value: str) -> tuple | str | None:
+    """The colour of a background value, shorthand included ("no-repeat
+    center #0b57d0", "rgb(11, 87, 208) no-repeat"); "image" for an image
+    or a gradient; None for none."""
+    if "url(" in value or "gradient(" in value or "image(" in value:
+        return "image"
+    found = _COLOUR_FN_RE.search(value)
+    tokens = [found.group(0)] if found else value.split()
+    for token in tokens:
+        colour = parse_colour(token)
+        if colour:
+            return colour if colour[3] > 0 else None
+    return None
 
 
 def _own_background(decl: dict[str, str], tag=None) -> tuple | str | None:
     """The background an element paints: (r, g, b, alpha), "image"
     (unknown colour), or None. From its style, else its bgcolor or
     background attribute."""
-    if "url(" in decl.get("background", "") or decl.get("background-image", "none") != "none":
+    if decl.get("background-image", "none") != "none":
         return "image"
-    value = decl.get("background-color") or decl.get("background", "")
-    if value:
-        colour = parse_colour(value if value.startswith(("rgb", "hsl")) else value.split()[0])
-        return colour if colour and colour[3] > 0 else None
+    for key in ("background", "background-color"):
+        if decl.get(key):
+            found = _background_value(decl[key])
+            if found is not None or key == "background-color":
+                return found
     if tag is not None:
         if tag.get("background"):
             return "image"
@@ -163,37 +218,60 @@ def _behind(decl: dict[str, str], parent: Colour | None, tag=None) -> Colour | N
     return over(own, parent)
 
 
-def is_hidden_style(style: str, background: tuple | None = None) -> bool:
-    """True when an inline style hides its text: display:none,
-    visibility:hidden, opacity near 0, an unreadably small font, a colour
-    too close to the background behind it (its own over `background`, by
-    default the white page), no height or width with the overflow hidden,
-    clipped away, placed far off the page, or scaled to nothing."""
-    decl = style_declarations(style)
-    parent = PAGE if background is None else tuple(background[:3])
-    return _hides(decl, _behind(decl, parent))
-
-
-def _hides(decl: dict[str, str], behind: Colour | None, ink: Colour | None = None) -> bool:
+def _hides_box(decl: dict[str, str]) -> bool:
+    """The element and everything in it are out of view: display:none,
+    opacity near 0, clipped, off the page or scaled to nothing."""
     if any(decl.get(key) in hiding for key, hiding in _HIDING_STYLES.items()):
         return True
-    return _unreadable(decl, behind, ink) or _out_of_sight(decl)
-
-
-def _unreadable(decl: dict[str, str], behind: Colour | None, ink: Colour | None) -> bool:
     opacity = _length(decl.get("opacity", "1"))
-    if opacity and opacity[0] <= 0.05:
+    return bool(opacity and opacity[0] <= 0.05) or _out_of_sight(decl)
+
+
+def _tiny(decl: dict[str, str], parent_tiny: bool) -> bool:
+    """The font is too small to read: set so here, or inherited (an em or
+    percent size of a tiny font stays tiny)."""
+    size = _length(decl.get("font-size", "")) if decl.get("font-size") else None
+    if size is None:
+        return parent_tiny
+    if size[0] <= 0 or size[0] < _MIN_FONT.get(size[1], 0):
         return True
-    size = _length(decl.get("font-size", ""))
-    if size and (size[0] <= 0 or size[0] < _MIN_FONT.get(size[1], 0)):
-        return True
-    colour = parse_colour(decl["color"]) if decl.get("color") else None
-    if colour and colour[3] <= 0.05:
-        return True
-    if behind is None:
-        return False
-    text = over(colour, behind) if colour else ink
-    return text is not None and _same_colour(text, behind)
+    return parent_tiny and size[1] in ("em", "%")
+
+
+def _invisible(decl: dict[str, str], parent_invisible: bool) -> bool:
+    """visibility:hidden, inherited until a child says visible."""
+    value = decl.get("visibility")
+    return value in ("hidden", "collapse") if value else parent_invisible
+
+
+def _ink(decl: dict[str, str], behind: Colour | None, parent_ink: Colour, tag=None) -> Colour:
+    """The colour the text is drawn in, over what is behind it: its own
+    (style, or <font color>), else inherited."""
+    value = decl.get("color") or (
+        tag.get("color") if tag is not None and tag.name == "font" else ""
+    )
+    colour = parse_colour(str(value)) if value else None
+    return over(colour, behind or PAGE) if colour else parent_ink
+
+
+def _text_unreadable(behind: Colour | None, ink: Colour, tiny: bool, invisible: bool) -> bool:
+    return tiny or invisible or (behind is not None and _same_colour(ink, behind))
+
+
+def is_hidden_style(style: str, background: tuple | None = None) -> bool:
+    """True when an inline style hides the text of its element: display
+    none, visibility hidden, opacity near 0, an unreadably small font, a
+    colour too close to the background behind it (its own over
+    `background`, by default the white page), no height or width with the
+    overflow hidden, clipped away, placed far off the page, or scaled to
+    nothing."""
+    decl = style_declarations(style)
+    parent = PAGE if background is None else tuple(background[:3])
+    behind = _behind(decl, parent)
+    ink = _ink(decl, behind, _INK)
+    return _hides_box(decl) or _text_unreadable(
+        behind, ink, _tiny(decl, False), _invisible(decl, False)
+    )
 
 
 def _out_of_sight(decl: dict[str, str]) -> bool:
@@ -230,7 +308,39 @@ def _applies_on_screen(condition: str) -> bool:
     return bool(words) and words[0] == "@media" and set(words[1:]) <= {"screen", "all", "only"}
 
 
-def _sheet_rules(css: str, out: list[tuple[str, dict[str, str]]]) -> None:
+# Properties that can hide something; a rule without any is skipped.
+_RELEVANT = frozenset(
+    [
+        "display",
+        "visibility",
+        "opacity",
+        "font-size",
+        "color",
+        "background",
+        "background-color",
+        "background-image",
+        "overflow",
+        "overflow-x",
+        "overflow-y",
+        "height",
+        "max-height",
+        "width",
+        "max-width",
+        "clip",
+        "clip-path",
+        "position",
+        "left",
+        "top",
+        "right",
+        "bottom",
+        "text-indent",
+        "transform",
+        "mso-hide",
+    ]
+)
+
+
+def _sheet_rules(css: str, out: list[tuple[str, Declarations]]) -> None:
     """(selectors, declarations) of the rules of a style sheet, in order:
     top-level ones and those of @media blocks every screen reads.
     Statements such as @charset and @import end at their ";"."""
@@ -249,20 +359,21 @@ def _sheet_rules(css: str, out: list[tuple[str, dict[str, str]]]) -> None:
             if depth == 0:
                 body = css[body_start:i]
                 if not head.startswith("@"):
-                    out.append((head, style_declarations(body)))
+                    decl = style_declarations(body)
+                    if _RELEVANT.intersection(decl):
+                        out.append((head, decl))
                 elif _applies_on_screen(head):
                     _sheet_rules(body, out)
                 start = i + 1
 
 
-def _cascade(soup) -> dict[int, dict[str, str]]:
+def _cascade(soup) -> dict[int, Declarations]:
     """id(element) -> the declarations its <style> rules give it, later
     rules over earlier ones (specificity is not weighed)."""
-    rules: list[tuple[str, dict[str, str]]] = []
+    rules: list[tuple[str, Declarations]] = []
     for sheet in soup.find_all("style", limit=50):
-        css = re.sub(r"/\*.*?\*/", " ", sheet.get_text()[:200_000], flags=re.S)
-        _sheet_rules(css, rules)
-    styles: dict[int, dict[str, str]] = {}
+        _sheet_rules(_COMMENT_RE.sub(" ", sheet.get_text()[:200_000]), rules)
+    styles: dict[int, Declarations] = {}
     for selectors, decl in rules:
         for selector in selectors.split(","):
             try:
@@ -270,18 +381,22 @@ def _cascade(soup) -> dict[int, dict[str, str]]:
             except Exception:  # a selector soupsieve does not support
                 continue
             for tag in matched:
-                styles.setdefault(id(tag), {}).update(decl)
+                styles[id(tag)] = styles.get(id(tag), Declarations()).then(decl)
     return styles
 
 
 def hidden_tags(soup) -> list:
-    """The outermost hidden elements: hidden by an attribute, their style
-    (<style> rules then inline), a closed <details> (all but its
-    <summary>) or a <template>; the first MAX_ELEMENTS elements are
-    examined. Call it before removing the document's <style> elements."""
+    """The outermost hidden parts of a document, in page order. An element
+    is hidden whole by an attribute, a <template>, a closed <details>
+    (all but its <summary>), or a style that hides its box (display,
+    opacity, clipping, position, scale). A style that only makes text
+    unreadable (colour, size, visibility) hides that element's own text,
+    wrapped in a <span>: a dark section whose paragraphs set a light
+    colour stays visible. Styles are its <style> rules then inline; the
+    first MAX_ELEMENTS elements are examined. Call it before removing the
+    document's <style> elements."""
     sheet = _cascade(soup)
-    behind: dict[int, Colour | None] = {}
-    ink: dict[int, Colour | None] = {}
+    state: dict[int, tuple] = {}  # id -> (behind, ink, tiny, invisible)
     hidden, ids = [], set()
 
     def add(tag) -> None:
@@ -290,35 +405,57 @@ def hidden_tags(soup) -> list:
             ids.add(id(tag))
 
     for tag in soup.find_all(True, limit=MAX_ELEMENTS):
-        parent = tag.parent
-        parent_behind = behind.get(id(parent), PAGE) if parent is not None else PAGE
-        parent_ink = ink.get(id(parent), _INK) if parent is not None else _INK
-        decl = {**sheet.get(id(tag), {}), **style_declarations(tag.get("style", ""))}
-        behind[id(tag)] = _behind(decl, parent_behind, tag)
-        colour = parse_colour(decl["color"]) if decl.get("color") else None
-        ink[id(tag)] = (
-            over(colour, behind[id(tag)] or PAGE) if colour and colour[3] > 0.05 else parent_ink
-        )
+        p_behind, p_ink, p_tiny, p_invisible = state.get(id(tag.parent), (PAGE, _INK, False, False))
+        decl = sheet.get(id(tag), Declarations()).then(style_declarations(tag.get("style", "")))
+        behind = _behind(decl, p_behind, tag)
+        ink = _ink(decl, behind, p_ink, tag)
+        tiny, invisible = _tiny(decl, p_tiny), _invisible(decl, p_invisible)
+        state[id(tag)] = (behind, ink, tiny, invisible)
+        if tag.name == "template" or tag.has_attr("hidden") or _hides_box(decl):
+            add(tag)
+            continue
+        own_text = [
+            c
+            for c in tag.children
+            if c.name is None and not isinstance(c, Comment) and str(c).strip()
+        ]
         if tag.name == "details" and not tag.has_attr("open"):
             # Everything but the <summary>, its bare text included.
             for child in list(tag.children):
-                if getattr(child, "name", None) == "summary":
+                if getattr(child, "name", None) == "summary" or child in own_text:
                     continue
-                if child.name is None:
-                    if not str(child).strip():
-                        continue
-                    child = child.wrap(soup.new_tag("span"))
                 add(child)
-        # The colour check only where this element sets a colour or a
-        # background: its children are checked where they change them.
-        paints = "color" in decl or _own_background(decl, tag) is not None
-        if (
-            tag.name == "template"
-            or tag.has_attr("hidden")
-            or ((decl or paints) and _hides(decl, behind[id(tag)] if paints else None, parent_ink))
-        ):
-            add(tag)
+            for text in own_text:
+                add(text.wrap(soup.new_tag("span")))
+        elif own_text and _text_unreadable(behind, ink, tiny, invisible):
+            for text in own_text:
+                add(text.wrap(soup.new_tag("span")))
     return hidden
+
+
+def shown_link(tag, hidden_ids: set[int]) -> bool:
+    """A link the reader can see: outside every hidden part, and showing
+    something (an <area> always does). Fifty links whose only text was
+    transparent once filled the place of the real one."""
+    if any(id(p) in hidden_ids for p in (tag, *tag.parents)):
+        return False
+    return tag.name == "area" or visible_content(tag, hidden_ids)
+
+
+def visible_content(tag, hidden_ids: set[int]) -> bool:
+    """True when a link (or any element) shows something outside the
+    hidden parts: some text, or an image or drawing larger than 1 px."""
+    for node in tag.descendants:
+        if any(id(p) in hidden_ids for p in (node, *node.parents)):
+            continue
+        if node.name is None:
+            if str(node).strip():
+                return True
+        elif node.name in ("img", "svg", "picture", "video"):
+            sizes = [_length(str(node.get(k, ""))) for k in ("width", "height")]
+            if not any(size and size[0] <= 1 for size in sizes):
+                return True
+    return False
 
 
 def visible_text_first(soup, hidden: list | None = None) -> str:

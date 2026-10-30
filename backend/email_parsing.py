@@ -18,7 +18,7 @@ from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
 
-from hidden_content import hidden_tags, visible_text_first
+from hidden_content import hidden_tags, shown_link, visible_text_first
 from settings import MAX_EMAIL_URLS, MAX_LINK_URLS
 
 # http(s) URL written out in a text.
@@ -60,12 +60,12 @@ def html_link_groups(html_src: str) -> tuple[list[str], list[str]]:
     """(visible, hidden) link targets of an HTML document, kept apart so
     that no hidden link can be ranked before a visible one."""
     soup = BeautifulSoup(without_inline_data(html_src)[:1_000_000], "html.parser")
-    hidden_ids = {id(t) for tag in hidden_tags(soup) for t in (tag, *tag.find_all(True))}
+    hidden_ids = {id(tag) for tag in hidden_tags(soup)}
     visible, hidden = [], []
     for tag in soup.find_all(["a", "area"], href=True, limit=20_000):
         url = absolute_http(tag["href"])
         if url:
-            (hidden if id(tag) in hidden_ids else visible).append(url)
+            (visible if shown_link(tag, hidden_ids) else hidden).append(url)
     return visible, hidden
 
 
@@ -154,7 +154,16 @@ def _markup(m: re.Match) -> str:
     or real ones; left as words otherwise."""
     inner = m.group("inner") or ""
     cut_off = m.end() == len(m.string) and len(m.string) >= _CUT_AT
+    if not m.group(0).endswith(">") and not cut_off and not _short_cut_tag(inner):
+        return m.group(0)
     return " " if inner.strip() in ("", "/") or _attributes(inner, cut_off) else m.group(0)
+
+
+def _short_cut_tag(inner: str) -> bool:
+    """A tag the text ends in without its ">": markup only when it is
+    short and carries no address (a source page cut inside an <img>), not
+    a sentence written after "<a x="."""
+    return len(inner.split()) <= 12 and "http" not in inner.lower()
 
 
 def without_inline_data(html_src: str) -> str:
@@ -190,10 +199,13 @@ def is_page_source(text: str) -> bool:
     text = text[:200_000]
     if not looks_like_source(text):
         return False
+    if not text.lstrip().startswith("<"):
+        return False  # a page's source starts with its markup
     tags = [len(m.group(0)) for m in _TAG_RE.finditer(text) if _markup(m) == " "]
     data = [len(m.group(0)) for m in _DATA_URI_RE.finditer(text)]
-    # One long pseudo-tag is not a page: two pieces of markup at least.
-    return len(tags) + len(data) >= 2 and sum(tags) + sum(data) >= 0.5 * len(text.strip())
+    # An inline image, or ten tags at least: a few written in a text are
+    # not a page.
+    return (bool(data) or len(tags) >= 10) and sum(tags) + sum(data) >= 0.5 * len(text.strip())
 
 
 def _body_text(msg, raw_bytes: bytes) -> str:

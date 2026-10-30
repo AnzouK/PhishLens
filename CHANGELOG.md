@@ -63,6 +63,10 @@ Fixes from several rounds of outside review; each bypass has a test in
   scores), comparable with anyone's own run.
 - Every `/analyse` answer says which sign forced the verdict
   (`forced_by`).
+- The home page in each language describes PhishLens to search engines
+  with a schema.org `SoftwareApplication` block (JSON-LD): a free,
+  open-source security application for Chrome, its languages, licence,
+  download page and source code.
 
 ### Changed
 - The signs that force a verdict on each trust path are declared with
@@ -73,27 +77,6 @@ Fixes from several rounds of outside review; each bypass has a test in
   (of the 22 the text model reads), and the false alarms as 1 of 414.
 - The changelog keeps one short entry per change; the measurements are
   in `docs/evaluation.md`.
-
-### Fixed
-- A large inline image (a `data:` URI) before an email's links pushed
-  them past the part of the HTML the scan reads: a bank's welcome email
-  with a 600 KB banner showed no link at all.
-- In Gmail, an email too large to display shows its HTML source as text;
-  that text was scored as the email's wording (99%, a false alarm on a
-  DKIM-signed bank email).
-- Transaction alerts sent through `email-messaging.com` click tracking
-  were taken for links "elsewhere" and flagged by the link rule.
-- A sender showing "E.Leclerc" or "Stanbic IBTC" from another domain is
-  now flagged as impersonation (a fake Leclerc prize email was rated
-  safe).
-
-### Added
-- The home page in each language describes PhishLens to search engines
-  with a schema.org `SoftwareApplication` block (JSON-LD): a free,
-  open-source security application for Chrome, its languages, licence,
-  download page and source code.
-
-### Changed
 - The website's results show the whole system as it runs, in the 8
   languages: 90.6% of 2,000 recent phishing emails nobody had looked at
   caught, and 1 of 414 legitimate emails flagged (0.2%), instead of the
@@ -107,6 +90,19 @@ Fixes from several rounds of outside review; each bypass has a test in
   on `innerHTML`.
 - A failed word-level explanation in Gmail and Outlook now says so,
   instead of "Computing the explanation…" forever.
+
+### Fixed
+- A large inline image (a `data:` URI) before an email's links pushed
+  them past the part of the HTML the scan reads: a bank's welcome email
+  with a 600 KB banner showed no link at all.
+- In Gmail, an email too large to display shows its HTML source as text;
+  that text was scored as the email's wording (99%, a false alarm on a
+  DKIM-signed bank email).
+- Transaction alerts sent through `email-messaging.com` click tracking
+  were taken for links "elsewhere" and flagged by the link rule.
+- A sender showing "E.Leclerc" or "Stanbic IBTC" from another domain is
+  now flagged as impersonation (a fake Leclerc prize email was rated
+  safe).
 
 ### Documentation
 - The privacy policy and the terms, in the 8 languages, say who runs
@@ -147,7 +143,7 @@ Fixes from several rounds of outside review; each bypass has a test in
 
 ### Documentation
 - The link rule, measured on the running server: 90.6% of 2,000 fresh
-  phishing emails caught (95% CI 89.2% to 91.8%.
+  phishing emails caught (95% CI 89.2% to 91.8%).
 - `docs/evaluation.md` and `docs/multilingual-model.md`: two changes
   measured and not shipped.
 
@@ -219,7 +215,8 @@ Fixes from several rounds of outside review; each bypass has a test in
   0.9, which makes it phishing.
 - The release workflow can also be started by hand from the Actions tab:
   it tags `main` with the code's version and publishes the release.
-- Links to public cloud hosts
+- Links to public cloud hosts (Google Cloud Storage, Firebase, Azure
+  Blob, R2, Pages, IPFS gateways...) raise the link score.
 
 ### Changed
 - Links that only go to large known sites (Amazon, Coinbase, La
@@ -561,7 +558,7 @@ inbox (header and URL models on 2026 mail).
   `host_permissions`).
 - Trained URL model and hidden links: on real 2026 links the URL Random
   Forest scores almost any URL with a path at ~0.95
-  (`github.com/user/repo` 0.95, `wikipedia.org/wiki/...` 0.97.
+  (`github.com/user/repo` 0.95, `wikipedia.org/wiki/...` 0.97).
 - Text the text model reads: a scan with the full original sends the
   page text too, and the backend uses it for the text agent (a GitHub CI
   email scored 0.51 on the page text and 0.998 on its plain-text part,

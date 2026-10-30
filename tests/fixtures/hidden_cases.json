@@ -1,5 +1,5 @@
 {
- "_about": "Inline styles (read by backend/email_parsing.is_hidden_style) and the computed styles a browser gives for them (read by extension/content_scripts/core.js, PL.isHidden): both must agree on what hides text. parentBackground, when set, is the background colour of the element's parent.",
+ "_about": "Inline styles (read by backend/hidden_content.is_hidden_style) and the computed styles a browser gives for them (read by extension/content_scripts/core.js, PL.isHidden): both must agree on whether the element's text can be seen. parentBackground, when set, is the background colour of the element's parent.",
  "cases": [
   {
    "name": "plain text",
@@ -879,6 +879,129 @@
     "clipPath": "none"
    },
    "hidden": false
+  },
+  {
+   "name": "button with a shorthand background",
+   "style": "background: no-repeat center #0b57d0; color: #ffffff",
+   "computed": {
+    "color": "rgb(255, 255, 255)",
+    "backgroundColor": "rgb(11, 87, 208)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
+   },
+   "hidden": false
+  },
+  {
+   "name": "shorthand rgb then keywords",
+   "style": "background: rgb(11, 87, 208) no-repeat; color: #ffffff",
+   "computed": {
+    "color": "rgb(255, 255, 255)",
+    "backgroundColor": "rgb(11, 87, 208)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
+   },
+   "hidden": false
+  },
+  {
+   "name": "display none behind a comment",
+   "style": "display:/*x*/none",
+   "hidden": true,
+   "computed": {
+    "color": "rgb(0, 0, 0)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
+   },
+   "rects": 0
+  },
+  {
+   "name": "white on a gradient",
+   "style": "background: linear-gradient(#0b57d0, #003399); color: #ffffff",
+   "computed": {
+    "color": "rgb(255, 255, 255)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none",
+    "backgroundImage": "linear-gradient(rgb(11, 87, 208), rgb(0, 51, 153))"
+   },
+   "hidden": false
+  },
+  {
+   "name": "!important wins over a later value",
+   "style": "display: none !important; display: block",
+   "computed": {
+    "color": "rgb(0, 0, 0)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
+   },
+   "rects": 0,
+   "hidden": true
   }
  ]
 }

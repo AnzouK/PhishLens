@@ -826,3 +826,72 @@ def test_a_link_the_browser_saw_hidden_stays_hidden():
 )
 def test_colours_parse(value, rgb):
     assert hc.parse_colour(value)[:3] == rgb
+
+
+# ---------------------------------------------------------------------
+# Round 10
+# ---------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("html", "first"),
+    [
+        # legitimate: a dark section whose children set a light colour
+        (
+            '<p>Hello,</p><div style="background:#111"><p style="color:#fff">Your statement</p>'
+            '<a href="https://bank.example/login" style="color:#fff">Open</a></div><p>Footer</p>',
+            "Hello, Your statement Open Footer",
+        ),
+        (
+            '<style>.dark{background:#111}</style><div class="dark"><p style="color:#fff">Dark</p></div><p>Hi</p>',
+            "Dark Hi",
+        ),
+        (
+            '<a style="background: no-repeat center #0b57d0; color:#ffffff">One</a>'
+            '<a style="background: rgb(11, 87, 208) no-repeat; color:#fff">Two</a>'
+            '<a style="background: linear-gradient(#0b57d0,#003399); color:#fff">Three</a><p>Hi</p>',
+            "One Two Three Hi",
+        ),
+        (
+            '<div style="visibility:hidden">filler<p style="visibility:visible">Shown</p></div><p>Hi</p>',
+            "Shown Hi",
+        ),
+        # hiding
+        (
+            '<div style="background:#111">filler<p style="color:#fff">Dark</p></div><p>Hi</p>',
+            "Dark Hi",
+        ),
+        (
+            '<style>.h{display:none !important}</style><div class="h" style="display:block">x</div><p>Hi</p>',
+            "Hi",
+        ),
+        ('<div style="display:/*x*/none">x</div><p>Hi</p>', "Hi"),
+        ('<font color="#ffffff">x</font><p>Hi</p>', "Hi"),
+    ],
+)
+def test_text_level_and_box_level_hiding(html, first):
+    text = ep.html_to_text(html)
+    assert text.split("\n")[0] == first
+
+
+def test_links_that_show_nothing_count_as_hidden():
+    visible, hidden = ep.html_link_groups(
+        '<a href="https://d0.example/"><span style="opacity:0">Click</span></a>'
+        '<a href="https://d1.example/"></a>'
+        '<a href="https://d2.example/"><img width="1" height="1"></a>'
+        '<a href="https://shop.example/"><img src="banner.png"></a>'
+        '<a href="https://evil.example/">Verify</a>'
+    )
+    assert visible == ["https://shop.example/", "https://evil.example/"]
+    assert hidden == ["https://d0.example/", "https://d1.example/", "https://d2.example/"]
+
+
+def test_a_sentence_after_a_closed_quote_without_a_bracket_stays_words():
+    text = (
+        'Hi <a x="Urgent: your bank account is suspended, verify your password '
+        'immediately at https://evil.example/login?id=1"'
+    )
+    assert ep.strip_markup_noise(text) == text
+
+
+def test_a_short_text_with_two_tags_is_not_source():
+    assert not ep.is_page_source('<p><div a="' + "A" * 1990 + '">')
+    assert not ep.is_page_source("Hello " + "<b>x</b>" * 3)

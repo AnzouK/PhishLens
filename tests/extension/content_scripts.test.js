@@ -191,8 +191,9 @@ test("hidden text and hidden links come after what the reader sees", () => {
     p.append("Verify your account");
     const link = doc.createElement("a");
     link.href = "https://evil.example/login";
+    link.append("Verify");
     body.append(hidden, p, link);
-    assert.equal(PL.textOf(body), "Verify your account\nmeeting notes nobody sees");
+    assert.equal(PL.textOf(body), "Verify your accountVerify\nmeeting notes nobody sees");
     const links = PL.linkTargetsOf(body);
     assert.equal(links[0], "https://evil.example/login");
     assert.equal(links.length, 50);
@@ -279,6 +280,7 @@ test("visible and hidden links are sent apart, a second visible one first", () =
     const link = (href) => {
         const a = doc.createElement("a");
         a.href = href;
+        a.append("link");
         return a;
     };
     const hidden = doc.createElement("div");
@@ -310,6 +312,7 @@ test("thousands of anchors without an address do not hide the links after them",
     }
     const real = doc.createElement("a");
     real.href = "https://evil.example/login";
+    real.append("Verify");
     body.append(real);
     assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
 });
@@ -319,4 +322,47 @@ test("Outlook takes the last address between angle brackets, over every part of 
     const { PL } = load(entry);
     assert.equal(PL.senderAddress(['"PayPal <service@paypal.com>" <scam@attacker.example>']), "scam@attacker.example");
     assert.equal(PL.senderAddress(["support@gtbank.com", "Support", "scam@attacker.example"]), "scam@attacker.example");
+});
+
+test("a link whose only text is hidden counts as hidden", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const decoy = doc.createElement("a");
+    decoy.href = "https://d0.example/";
+    const span = doc.createElement("span");
+    span.getClientRects = () => [];
+    span.append("Click here");
+    decoy.append(span);
+    const empty = doc.createElement("a");
+    empty.href = "https://d1.example/";
+    const real = doc.createElement("a");
+    real.href = "https://evil.example/login";
+    real.append("Verify");
+    body.append(decoy, empty, real);
+    const groups = PL.linkGroupsOf(body);
+    assert.deepEqual([...groups.visible], ["https://evil.example/login"]);
+    assert.deepEqual([...groups.hidden], ["https://d0.example/", "https://d1.example/"]);
+});
+
+test("a dark section whose paragraphs are white stays visible; its own dark text does not", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const section = doc.createElement("div");
+    const p = doc.createElement("p");
+    p.append("Your statement is ready");
+    section.append("filler", p);
+    body.append(section);
+    const styles = new Map([
+        [section, { color: "rgb(0, 0, 0)", backgroundColor: "rgb(17, 17, 17)", opacity: "1", fontSize: "14px", visibility: "visible" }],
+        [p, { color: "rgb(255, 255, 255)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" }],
+    ]);
+    ctx.getComputedStyle = (n) => styles.get(n) || { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    const hidden = PL.hiddenParts(body);
+    assert.equal(hidden.boxes.length, 0);
+    assert.deepEqual([...hidden.texts], [section]);
+    assert.equal(PL.textOf(body, hidden), "Your statement is ready\nfiller");
 });
