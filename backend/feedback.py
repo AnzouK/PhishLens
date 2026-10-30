@@ -33,6 +33,10 @@ logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 Kind = Literal["false_positive", "false_negative", "wrong_language", "stats"]
 _LOCK = threading.Lock()
 _LANG = Field(None, max_length=8, pattern=r"^[a-z]{2,3}$|^und$|^other$")
+# Short identifiers only ("gmail", "trusted_sender", "2.0.11"): these are
+# stored as they are and shown in the report notification, unlike the
+# text, which is redacted.
+_WORD = r"^[a-z0-9_.-]{1,40}$"
 
 
 class AgentScores(BaseModel):
@@ -45,7 +49,7 @@ class StatRow(BaseModel):
     """One reviewed scan, without subject, sender or text."""
 
     day: str | None = Field(None, max_length=10, pattern=r"^\d{4}-\d{2}-\d{2}$")
-    source: str | None = Field(None, max_length=30)
+    source: str | None = Field(None, max_length=30, pattern=_WORD)
     verdict: Literal["phishing", "safe"]
     score: float = Field(0.0, ge=0, le=1)
     agents: AgentScores = AgentScores()
@@ -61,12 +65,12 @@ class FeedbackRequest(BaseModel):
     verdict: Literal["phishing", "safe"] | None = None
     fused_score: float | None = Field(None, ge=0, le=1)
     agents: AgentScores | None = None
-    trust_path: str | None = Field(None, max_length=40)
-    source: str | None = Field(None, max_length=30)
+    trust_path: str | None = Field(None, max_length=40, pattern=_WORD)
+    source: str | None = Field(None, max_length=30, pattern=_WORD)
     lang: str | None = _LANG
     lang_user: str | None = _LANG
     ui_lang: str | None = _LANG
-    version: str | None = Field(None, max_length=20)
+    version: str | None = Field(None, max_length=20, pattern=_WORD)
     rows: list[StatRow] | None = Field(None, max_length=500)
 
 

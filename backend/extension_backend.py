@@ -44,7 +44,6 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from link_alignment import link_profile, links_elsewhere_only
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -62,6 +61,7 @@ from email_parsing import (
     urls_in_text,
 )
 from language import detect_language
+from link_alignment import link_profile, links_elsewhere_only
 from result_cache import ResultCache, make_key
 from sender_trust import (
     impersonated_brand,
@@ -230,8 +230,10 @@ def _count_verdict(endpoint: str, is_phishing: bool, trust_path: str) -> None:
         _VERDICTS.labels(endpoint, "phishing" if is_phishing else "safe", trust_path).inc()
 
 
-# Same request, same answer for 24 h (result_cache.py).
+# Same request, same answer for 24 h (result_cache.py), an hour for a safe
+# verdict on an email with links.
 _RESULT_CACHE = ResultCache()
+SAFE_WITH_LINKS_CACHE_TTL = 3600.0
 
 
 def _server_error(what: str) -> HTTPException:
@@ -273,7 +275,10 @@ def _from_value(email: str, name: str | None, original: str = "") -> str:
     """From: built from the address the client sent and the name it shows
     (or the name of the original header), so that the name can be checked
     against the address (impersonation)."""
-    display = (name or parseaddr(original)[0] or "").replace('"', "'").strip()[:200]
+    display = " ".join((name or parseaddr(original)[0] or "").split())[:200]
+    # Quoted as RFC 5322 says: a name ending in a backslash escaped the
+    # closing quote, and the name was lost (with the impersonation check).
+    display = display.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{display}" <{email}>' if display else email
 
 
@@ -564,6 +569,10 @@ async def _score(
         logger.warning("reputation check failed: %s", e)
         rep = fusion.summarize_reputation([])
         cacheable = False
+    # A link Safe Browsing could not check (quota, outage) is not known
+    # to be clean: the answer is not reused.
+    if rep.verdicts and not _reputation.fully_checked(rep.verdicts):
+        cacheable = False
 
     return _Scores(
         p_text=p_text,
@@ -587,16 +596,18 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
     # Outlook on the web shows only the name of senders from the user's own
     # organisation; that mail was authenticated by the organisation's
     # server, and the organisation's domain stands in for the sender's.
+    # Only when no sender address was found: a page that showed one is not
+    # internal mail, whatever the client says.
     outlook_internal = (
         ctx.get("origin") == "outlook"
         and ctx.get("outlook_internal") is True
         and not crypto_verified
+        and not domain
     )
-    if outlook_internal and not domain:
+    if outlook_internal:
         org = str(ctx.get("org_domain") or "").strip().lower()[:253]
         if is_hostname(org):
             domain = org
-            allowlisted = is_trusted_domain(org)
 
     subject = headers.get("subject") or ctx.get("subject")
     forwarded = detect_forwarded(body, subject if isinstance(subject, str) else None)
@@ -622,9 +633,10 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
         domain=domain,
         crypto_verified=crypto_verified,
         outlook_internal=outlook_internal,
-        # The allowlist counts only for an authenticated sender: the From:
-        # text alone can be forged.
-        trusted_sender=allowlisted and (crypto_verified or outlook_internal),
+        # The allowlist counts only for a sender proven by its signature:
+        # the From: text alone can be forged, and "internal" is only read
+        # from the page (no address shown), so it gets the soft path.
+        trusted_sender=allowlisted and crypto_verified,
         inbox_soft=inbox_soft,
         forwarded=forwarded,
         impersonation=impersonation,
@@ -778,7 +790,10 @@ async def analyse(request: Request, req: AnalyseRequest):
         "cached": False,
     }
     if s.cacheable:
-        _RESULT_CACHE.set(cache_key, result)
+        # A safe verdict on an email with links is kept an hour at most:
+        # a link added to the blocklists later must reach the next scan.
+        ttl = SAFE_WITH_LINKS_CACHE_TTL if urls and not verdict.is_phishing else None
+        _RESULT_CACHE.set(cache_key, result, ttl=ttl)
     return result
 
 

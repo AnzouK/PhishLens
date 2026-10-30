@@ -15,6 +15,8 @@ notifications through them. Style sheets and web fonts are not links.
 
 from __future__ import annotations
 
+import ipaddress
+import re
 from email.utils import parseaddr
 from urllib.parse import urlsplit
 
@@ -46,13 +48,62 @@ TRACKING = frozenset(
 ASSET_HOSTS = frozenset({"fonts.googleapis.com", "fonts.gstatic.com"})
 
 
-def _host(url: str) -> str:
+def link_host(url: str) -> str:
     """Host name of a link, after any "user:password@" part: in
-    https://paypal.com:443@evil.example/ the host is evil.example."""
+    https://paypal.com:443@evil.example/ the host is evil.example; in
+    https://evil.tk?login it is evil.tk."""
     try:
         return (urlsplit(url if "://" in url else "http://" + url).hostname or "").lower()
     except ValueError:
         return ""
+
+
+_host = link_host
+
+
+def ip_host(host: str) -> bool:
+    """An IP address as host, in any form a browser accepts: dotted,
+    IPv6, or a single number (http://3232235777/ is 192.168.1.1),
+    decimal, octal or hexadecimal."""
+    if not host:
+        return False
+    try:
+        ipaddress.ip_address(host.strip("[]"))
+        return True
+    except ValueError:
+        pass
+    parts = host.split(".")
+    return 1 <= len(parts) <= 4 and all(_ip_number(p) for p in parts)
+
+
+def _ip_number(part: str) -> bool:
+    if part[:2] in ("0x", "0X"):
+        return len(part) > 2 and all(c in "0123456789abcdefABCDEF" for c in part[2:])
+    return part.isdigit()
+
+
+def on_cloud_file_host(url: str) -> bool:
+    """The link points to storage or a page anyone can publish
+    (storage.googleapis.com, *.web.app, *.r2.dev...)."""
+    host = link_host(url)
+    return any(host == h or host.endswith("." + h) for h in CLOUD_FILE_HOSTS)
+
+
+# "://" after the host, also percent-encoded once or twice or with
+# backslashes: an address carried inside the link.
+_EMBEDDED_URL_RE = re.compile(r"(?::|%3a|%253a)(?:/|\\|%2f|%252f|%5c){2}", re.IGNORECASE)
+
+
+def well_known_link(url: str) -> bool:
+    """The link goes to a large, known site and carries no other address
+    (an open redirect such as ...?url=https://elsewhere is not known)."""
+    host = link_host(url)
+    if not host or on_cloud_file_host(url):
+        return False
+    rest = url.split("://", 1)[-1][len(host) :]
+    if _EMBEDDED_URL_RE.search(rest):
+        return False
+    return host in WELL_KNOWN or org_domain(host) in WELL_KNOWN
 
 
 def link_profile(urls: list[str], from_header: str) -> dict[str, int]:
@@ -72,9 +123,10 @@ def link_profile(urls: list[str], from_header: str) -> dict[str, int]:
             counts["aligned"] += 1
         elif org in TRACKING:
             counts["tracking"] += 1
-        elif any(host == h or host.endswith("." + h) for h in CLOUD_FILE_HOSTS):
+        elif on_cloud_file_host(url):
             counts["cloud"] += 1
-        elif host in WELL_KNOWN or org in WELL_KNOWN:
+        elif well_known_link(url):
+            # A known site's redirect to another address is not known.
             counts["well_known"] += 1
         else:
             counts["other"] += 1

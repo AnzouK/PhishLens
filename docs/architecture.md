@@ -76,7 +76,8 @@ Why each rule exists:
 - **The discount needs proof.** A From: header can say anything; a DKIM
   signature aligned with it cannot be forged. The allowlist only adds
   to an authenticated sender, never replaces the authentication (until
-  2.0, a forged bank address got the softest path).
+  2.0, a forged bank address got the softest path), and leaves out
+  platforms that send their users' own words (shares, invoices).
 - **A signature proves the domain, not honesty.** Attackers sign mail
   from their own domains. On `crypto_verified`, a sender none of whose
   links go to its own domain, with phishing-like wording, is flagged
@@ -97,6 +98,9 @@ Why each rule exists:
   chains) near 1.0: 130 of 297 legitimate emails flagged in the 2.0.7
   benchmark. The sender score now comes from rules and the real SPF,
   DKIM and DMARC results.
+- **What the reader cannot see comes last.** The text model reads the
+  first 256 tokens; text and links hidden by their style are moved after
+  the visible ones, so invisible filler cannot push the message out.
 - **Too little text, no text verdict.** Under 3 words (image-only mail)
   the text agent is left out and links and sender share its weight.
 - **Safe Browsing always wins.** A blocklisted link from a trusted

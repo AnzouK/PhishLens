@@ -154,3 +154,46 @@ test("before the first PhishLens Cloud scan, the page shows where the email goes
     store.backend = "local";
     assert.equal(await PL.confirmCloudUse(view), true);
 });
+
+test("a signed-by line written in the email body is not taken for Gmail's", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const view = mailView(ctx.document);
+    const row = (parent, label, value) => {
+        const a = ctx.document.createElement("span");
+        a.textContent = label;
+        const b = ctx.document.createElement("span");
+        b.textContent = value;
+        parent.append(a, b);
+    };
+    row(view.querySelector(".a3s"), "signed-by:", "bank.example");
+    assert.equal(PL.extractGmailAuthSignals(view, view).signedBy, null);
+    row(view, "signed-by:", "real.example");
+    assert.equal(PL.extractGmailAuthSignals(view, view).signedBy, "real.example");
+});
+
+test("hidden text and hidden links come after what the reader sees", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const hidden = doc.createElement("div");
+    hidden.getClientRects = () => [];
+    hidden.append("meeting notes nobody sees");
+    const decoys = [];
+    for (let i = 0; i < 60; i++) {
+        const a = doc.createElement("a");
+        a.href = `https://big.example/${i}`;
+        decoys.push(a);
+    }
+    hidden.append(...decoys);
+    const p = doc.createElement("p");
+    p.append("Verify your account");
+    const link = doc.createElement("a");
+    link.href = "https://evil.example/login";
+    body.append(hidden, p, link);
+    assert.equal(PL.textOf(body), "Verify your account\nmeeting notes nobody sees");
+    const links = PL.linkTargetsOf(body);
+    assert.equal(links[0], "https://evil.example/login");
+    assert.equal(links.length, 50);
+});

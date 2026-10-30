@@ -17,7 +17,8 @@ from email.utils import parseaddr
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from known_domains import CLOUD_FILE_HOSTS, WELL_KNOWN
+from link_alignment import ip_host, on_cloud_file_host, well_known_link
+from link_alignment import link_host as _host
 from settings import AGENTS_ALLOW_PICKLE, HF_AGENTS_REPO, HF_AGENTS_REVISION
 
 try:
@@ -116,34 +117,6 @@ def _init_agent(stem: str, env_var: str, factory):
         return None
 
 
-def _host(url: str) -> str:
-    """Host name of a link, after any "user:password@" part: in
-    https://paypal.com:443@evil.example/ the host is evil.example."""
-    try:
-        return (urlsplit(url if "://" in url else "http://" + url).hostname or "").lower()
-    except ValueError:
-        return ""
-
-
-def on_cloud_file_host(url: str) -> bool:
-    """The link points to storage or a page anyone can publish
-    (storage.googleapis.com, *.web.app, *.r2.dev...)."""
-    host = _host(url)
-    return any(host == h or host.endswith("." + h) for h in CLOUD_FILE_HOSTS)
-
-
-def well_known_link(url: str) -> bool:
-    """The link goes to a large, known site and carries no other address
-    (an open redirect such as ...?url=https://elsewhere is not known)."""
-    host = _host(url)
-    if not host or on_cloud_file_host(url):
-        return False
-    rest = url.split("://", 1)[-1][len(host) :]
-    if re.search(r"https?(:|%3a)(//|%2f%2f)", rest, re.I):
-        return False
-    return host in WELL_KNOWN or org_domain(host) in WELL_KNOWN
-
-
 def url_heuristic(urls: list[str]) -> float:
     """Rule-based URL score (worst URL): plain http, raw IP host, "@" in
     the URL, very long URL, suspicious TLD, credential keywords, a file
@@ -151,17 +124,18 @@ def url_heuristic(urls: list[str]) -> float:
     bad = 0.0
     for u in urls:
         score = 0.0
+        host = _host(u)
         if u.startswith("http://"):
             score += 0.25
-        if re.match(r"https?://\d{1,3}(\.\d{1,3}){3}", u):
+        if ip_host(host):
             score += 0.40
-        if "@" in u.split("://", 1)[-1]:
+        if _has_userinfo(u):
             score += 0.35
         if len(u) > 75:
             score += 0.15
-        host = u.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
-        tld = host.rsplit(".", 1)[-1].lower()
-        if tld in SUSPICIOUS_TLDS:
+        if host.rsplit(".", 1)[-1] in SUSPICIOUS_TLDS:
+            score += 0.30
+        if _lookalike_host(host):
             score += 0.30
         if re.search(r"(login|verify|account|update|secure)", u, re.I):
             score += 0.10
@@ -173,19 +147,32 @@ def url_heuristic(urls: list[str]) -> float:
     return bad
 
 
+def _has_userinfo(url: str) -> bool:
+    """A "name@" part before the host (https://paypal.com@evil.example)."""
+    try:
+        return "@" in urlsplit(url if "://" in url else "http://" + url).netloc
+    except ValueError:
+        return "@" in url.split("://", 1)[-1].split("/", 1)[0]
+
+
+def _lookalike_host(host: str) -> bool:
+    """A host written with non-Latin letters, directly or in its
+    punycode form (xn--...): the usual way to imitate a brand's domain
+    with look-alike letters."""
+    return bool(host) and (not host.isascii() or any(p.startswith("xn--") for p in host.split(".")))
+
+
 def strong_link_sign(urls: list[str]) -> bool:
     """A link sign that legitimate mail rarely shows: a raw IP host, "@"
-    before the host, a suspicious TLD, a file on a public cloud host.
-    Plain http, length and keywords are left out: build servers, archives
-    and personal sites written out in mailing-list mail have them."""
+    before the host, a suspicious TLD, a look-alike (punycode) host, a
+    file on a public cloud host. Plain http, length and keywords are left
+    out: build servers, archives and personal sites written out in
+    mailing-list mail have them."""
     for u in urls:
         if well_known_link(u):
             continue
-        rest = u.split("://", 1)[-1]
-        host = rest.split("/", 1)[0].split(":", 1)[0].lower()
-        if re.match(r"\d{1,3}(\.\d{1,3}){3}$", host):
-            return True
-        if "@" in rest.split("/", 1)[0]:
+        host = _host(u)
+        if ip_host(host) or _has_userinfo(u) or _lookalike_host(host):
             return True
         if host.rsplit(".", 1)[-1] in SUSPICIOUS_TLDS or on_cloud_file_host(u):
             return True

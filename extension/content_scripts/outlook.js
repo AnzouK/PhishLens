@@ -64,11 +64,24 @@ function currentMessage(pane) {
     for (const f of pane.querySelectorAll(SEL.from)) {
         if (body && (f.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING)) from = f;
     }
-    const fromText = (from?.querySelector("[aria-label]")?.getAttribute("aria-label") || from?.textContent || "")
-        .replace(/^\s*(From|De|Von|Da|Van)\s*:\s*/i, "").trim();
-    const email = (fromText.match(EMAIL_RE) || [])[0] || "";
-    // "Name <address>" -> "Name"
-    return { body, count: bodies.length, senderEmail: email.toLowerCase(), senderName: fromText.split("<")[0].trim() };
+    // The address may be in the text or in a label or title of any part
+    // of the line (the first labelled part is often the avatar, with the
+    // name only): every one is read.
+    const texts = from ? [from.textContent || ""] : [];
+    for (const el of from?.querySelectorAll("[aria-label], [title]") || []) {
+        texts.push(el.getAttribute("aria-label") || "", el.getAttribute("title") || "");
+    }
+    const email = texts.map((x) => (x.match(EMAIL_RE) || [])[0]).find(Boolean) || "";
+    const fromText = (from?.textContent || "").replace(/^\s*(From|De|Von|Da|Van)\s*:\s*/i, "").trim();
+    return {
+        body,
+        count: bodies.length,
+        // "Internal" only when there is a From line and no address in it.
+        foundFrom: !!from && !texts.some((x) => x.includes("@")),
+        senderEmail: email.toLowerCase(),
+        // "Name <address>" -> "Name"
+        senderName: fromText.split("<")[0].trim(),
+    };
 }
 
 // Domain of the signed-in account, from the folder pane ("name@org").
@@ -99,7 +112,7 @@ function bannerSlot(pane) {
 }
 
 async function olScan(pane, btn) {
-    const { body: bodyEl, count, senderEmail, senderName } = currentMessage(pane);
+    const { body: bodyEl, count, senderEmail, senderName, foundFrom } = currentMessage(pane);
     const subjectEl = pane.querySelector(SEL.subject);
     const subject = subjectEl?.getAttribute("title") || subjectEl?.textContent?.trim() || "";
     const body = PL.textOf(bodyEl);
@@ -121,8 +134,9 @@ async function olScan(pane, btn) {
             client_context: {
                 origin: "outlook",
                 subject,
-                // No address shown: a sender of the user's own organisation.
-                ...(senderEmail ? {} : { outlook_internal: true, org_domain: accountDomain() }),
+                // A From line without an address: a sender of the user's own
+                // organisation (soft path only, see docs/architecture.md).
+                ...(foundFrom && !senderEmail ? { outlook_internal: true, org_domain: accountDomain() } : {}),
                 link_urls: links,
                 thread_messages: count,
             },

@@ -25,8 +25,80 @@ def urls_in_text(text: str) -> list[str]:
     return URL_IN_TEXT_RE.findall(text)
 
 
+# Inline styles that hide an element from the reader: hidden text placed
+# before the message filled the text model's window with words nobody
+# sees. Such text is moved after the visible text rather than dropped: a
+# <style> rule can show it again (on phones, say), and the reader may
+# then see it.
+_HIDING_STYLES = {
+    "display": {"none"},
+    "visibility": {"hidden", "collapse"},
+    "mso-hide": {"all"},
+}
+
+
+def _number(value: str) -> float | None:
+    num = value.strip().split(" ")[0].rstrip("%").rstrip("abcdefghijklmnopqrstuvwxyz")
+    try:
+        return float(num)
+    except ValueError:
+        return None
+
+
+def is_hidden_style(style: str) -> bool:
+    """True when an inline style hides its element: display:none,
+    visibility:hidden, opacity near 0, a font smaller than 2 px, or no
+    height or width with the overflow hidden."""
+    decl: dict[str, str] = {}
+    for item in (style or "")[:2000].lower().split(";"):
+        key, sep, value = item.partition(":")
+        if sep:
+            decl[key.strip()] = value.replace("!important", "").strip()
+    for key, hiding in _HIDING_STYLES.items():
+        if decl.get(key) in hiding:
+            return True
+    opacity = _number(decl.get("opacity", "1"))
+    if opacity is not None and opacity <= 0.05:
+        return True
+    size = decl.get("font-size", "")
+    if (
+        size
+        and (n := _number(size)) is not None
+        and (n == 0 or (n < 2 and size.endswith(("px", "pt"))))
+    ):
+        return True
+    if decl.get("overflow") == "hidden":
+        for key in ("max-height", "height", "max-width", "width"):
+            n = _number(decl.get(key, "1"))
+            if n is not None and n < 1:
+                return True
+    return False
+
+
+def _hidden_tags(soup) -> list:
+    """The outermost elements hidden by the hidden attribute or an inline
+    style (the first 20,000 elements are examined)."""
+    hidden, ids = [], set()
+    for tag in soup.find_all(True, limit=20_000):
+        hides = tag.has_attr("hidden") or is_hidden_style(tag.get("style", ""))
+        if hides and not any(id(p) in ids for p in tag.parents):
+            hidden.append(tag)
+            ids.add(id(tag))
+    return hidden
+
+
+def visible_text_first(soup) -> str:
+    """Text of a parsed HTML document: the visible text, then the text of
+    hidden elements (see _HIDING_STYLES)."""
+    hidden = [tag.extract() for tag in _hidden_tags(soup)]
+    text = soup.get_text(separator=" ")
+    tail = " ".join(tag.get_text(separator=" ") for tag in hidden)
+    return f"{text}\n{tail}" if tail.strip() else text
+
+
 def html_to_text(html_src: str) -> str:
-    """Visible text of an HTML email body, like the text Gmail shows.
+    """Visible text of an HTML email body, like the text Gmail shows, with
+    the text of hidden elements after it (visible_text_first).
 
     <style>, <script> and <head> contents are dropped: a plain tag strip
     kept the CSS ("25px", "roboto", "heading"...) and the text model read
@@ -40,7 +112,7 @@ def html_to_text(html_src: str) -> str:
         soup = BeautifulSoup(html_src, "html.parser")
         for tag in soup(["style", "script", "head", "noscript", "title"]):
             tag.decompose()
-        text = soup.get_text(separator=" ")
+        text = visible_text_first(soup)
     except Exception:
         low = html_src.lower()
         out, i = [], 0
@@ -75,12 +147,44 @@ def html_to_text(html_src: str) -> str:
     return "\n".join(line for line in lines if line)
 
 
+def html_links(html_src: str, limit: int = 200) -> list[str]:
+    """http(s) targets of the links of an HTML document, as a browser reads
+    them (entities decoded, spaces around "=" allowed, protocol-relative
+    "//host" as https), visible links before hidden ones. A regex on
+    'href="https://' missed 'href = "...' and '&#104;ttps://'."""
+    html_src = without_inline_data(html_src)[:1_000_000]
+    try:
+        from bs4 import BeautifulSoup  # type: ignore
+
+        soup = BeautifulSoup(html_src, "html.parser")
+    except Exception:
+        return list(dict.fromkeys(m.group(1) for m in _HREF_RE.finditer(html_src)))[:limit]
+    hidden = {id(t) for tag in _hidden_tags(soup) for t in (tag, *tag.find_all(True))}
+    visible, later = [], []
+    for tag in soup.find_all(["a", "area"], href=True, limit=20_000):
+        url = _absolute_http(tag["href"])
+        if url:
+            (later if id(tag) in hidden else visible).append(url)
+    return list(dict.fromkeys(visible + later))[:limit]
+
+
+def _absolute_http(href: str) -> str:
+    """An http(s) URL from an href, or "": control characters and spaces
+    removed as browsers do, "//host/..." read as https."""
+    href = "".join(c for c in str(href)[:2048] if c > " " and c != "\x7f")
+    if href.startswith("//"):
+        href = "https:" + href
+    return href if href[:8].lower().startswith(("http://", "https://")) else ""
+
+
 # href="https://..." in an HTML part. Bounded class, no nested
 # quantifiers: linear on any input.
 # Source code shown as text: when a mail page cannot render an email
 # (Gmail gives up on very large HTML), its visible text is the HTML
 # itself, inline images included. The text model reads that as phishing.
-_DATA_URI_RE = re.compile(r"data:[\w/+.-]{1,100};base64,[A-Za-z0-9+/=\s]{1,8000000}")
+# Base64 characters and line breaks only: with any whitespace, the words
+# after "data:text/plain;base64," were taken for inline data too.
+_DATA_URI_RE = re.compile(r"data:[\w/+.-]{1,100};base64,[A-Za-z0-9+/=\r\n]{1,8000000}")
 _BASE64_RUN_RE = re.compile(r"[A-Za-z0-9+/=]{200,}")
 # A tag, or one cut off at the end of a truncated page text.
 _TAG_RE = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]{0,20}(?:\s[^<>]{0,2000})?(?:/?>|\Z)")
@@ -149,9 +253,9 @@ def _link_targets(msg, body: str) -> list[str]:
             html_src = part.get_content()
         except Exception:
             continue
-        for m in _HREF_RE.finditer(without_inline_data(html_src)[:500_000]):
-            if m.group(1) not in urls:
-                urls.append(m.group(1))
+        for url in html_links(html_src):
+            if url not in urls:
+                urls.append(url)
             if len(urls) >= 200:
                 break
     return urls
@@ -196,9 +300,9 @@ def _parse_lenient(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
         html = html_to_text(texts["text/html"]) if texts["text/html"] else ""
         body = (html if html.strip() else texts["text/plain"]).strip()
         urls = urls_in_text(body)
-        for m in _HREF_RE.finditer(without_inline_data(texts["text/html"])[:500_000]):
-            if m.group(1) not in urls and len(urls) < 200:
-                urls.append(m.group(1))
+        for url in html_links(texts["text/html"]):
+            if url not in urls and len(urls) < 200:
+                urls.append(url)
         if body or urls:
             return body, urls, headers
     except Exception:
@@ -213,19 +317,51 @@ def _parse_lenient(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
 # is the receiving provider's. Lower ones come from earlier hops (an
 # internal Microsoft 365 relay says "dkim=none") or from the sender, who
 # can write anything there.
-_TOPMOST_WINS = frozenset({"authentication-results", "arc-authentication-results"})
+# A message has one From:, Sender:, Reply-To: and Subject:; when a crafted
+# one repeats them, mail programs show the first, so the checks read it too.
+_TOPMOST_WINS = frozenset(
+    {
+        "authentication-results",
+        "arc-authentication-results",
+        "from",
+        "sender",
+        "reply-to",
+        "subject",
+    }
+)
+# Same name as auth_headers.DUPLICATE_FROM (not imported: no cycle).
+DUPLICATE_FROM = "x-phishlens-duplicate-from"
 
 
 def header_dict(items) -> dict[str, str]:
     """Header name (lowercased) -> value. A repeated header keeps its last
-    value, except the authentication results, which keep the topmost."""
+    value, except the ones in _TOPMOST_WINS, which keep the first. A
+    repeated From: is recorded under DUPLICATE_FROM."""
     headers: dict[str, str] = {}
     for k, v in items:
         key = k.lower()
-        if key in _TOPMOST_WINS and key in headers:
+        if key == DUPLICATE_FROM:
             continue
-        headers[key] = str(v)
+        if key in _TOPMOST_WINS and key in headers:
+            if key == "from":
+                headers[DUPLICATE_FROM] = "1"
+            continue
+        headers[key] = _decoded_header(str(v))
     return headers
+
+
+def _decoded_header(value: str) -> str:
+    """Encoded words ("=?utf-8?b?UGF5UGFs?=") decoded, as a mail program
+    shows them. The standard parser already does it; the lenient one
+    does not, and the name checks must read the same text either way."""
+    if "=?" not in value:
+        return value
+    try:
+        from email.header import decode_header, make_header
+
+        return str(make_header(decode_header(value[:4000])))
+    except Exception:
+        return value
 
 
 # ---------------------------------------------------------------------

@@ -194,20 +194,31 @@ function extractGmailAuthSignals(emailView, msg) {
     if (msg) scrapeAuthRows(msg, out);
     if (!out.signedBy && !out.mailedBy) scrapeAuthRows(document.body, out);
     for (const el of (msg || emailView).querySelectorAll("span")) {
+        if (!fromGmail(el)) continue;
         out.via = G.viaDomain(el.textContent);
         if (out.via) break;
     }
     return out;
 }
 
+// Written by Gmail, not by the sender: outside every message body (an
+// email can contain a "signed-by: bank.com" of its own, even hidden) and
+// visible.
+function fromGmail(el) {
+    return !PL.inMessageBody(el) && !PL.isHidden(el);
+}
+
+const HOST_RE = /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i;
+
 function scrapeAuthRows(root, out) {
     for (const el of root.querySelectorAll("td, span, div")) {
         const raw = el.textContent || "";
         if (!raw || raw.length > 40) continue;
         const kind = G.authRowKind(raw);
-        if (!kind) continue;
-        const value = el.nextElementSibling?.textContent?.trim();
-        if (value && /\./.test(value) && !/\s/.test(value)) out[kind] = value;
+        if (!kind || !fromGmail(el)) continue;
+        const next = el.nextElementSibling;
+        const value = next?.textContent?.trim();
+        if (value && HOST_RE.test(value) && fromGmail(next)) out[kind] = value;
     }
 }
 

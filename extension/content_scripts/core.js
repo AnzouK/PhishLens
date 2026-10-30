@@ -114,8 +114,56 @@ PL.setBtnLoading = function setBtnLoading(btn, on) {
     btn.querySelector(".pll-scan-btn__label").textContent = on ? t("scanning") : t("scan_again");
 };
 
+// The body of an email, on Gmail and on Outlook. What is inside one is
+// written by the sender: never read as part of the mail service's page
+// (sender checks, the user's own address).
+PL.MESSAGE_BODY = '.a3s, [id^="UniqueMessageBody"]';
+PL.inMessageBody = (el) => !!el?.closest?.(PL.MESSAGE_BODY);
+
+// True when the element takes no room on the page, or its text cannot be
+// seen: transparent, a font under 2 px, or clipped to nothing.
+// innerText already leaves out display:none; these others it keeps.
+PL.isHidden = function isHidden(el) {
+    if (typeof getComputedStyle !== "function" || !el?.getClientRects) return false;
+    if (!el.getClientRects().length) return true;
+    const st = getComputedStyle(el);
+    if (st.visibility === "hidden" || Number(st.opacity) <= 0.05 || parseFloat(st.fontSize) < 2) return true;
+    if (st.overflow === "hidden" || st.overflowY === "hidden" || st.overflowX === "hidden") {
+        const r = el.getBoundingClientRect();
+        if (r.height < 1 || r.width < 1) return true;
+    }
+    return false;
+};
+
+// The outermost hidden elements under `el` (at most 3000 examined).
+function hiddenParts(el) {
+    if (typeof getComputedStyle !== "function" || !el?.querySelectorAll) return [];
+    const out = [];
+    const all = el.querySelectorAll("*");
+    for (let i = 0; i < all.length && i < 3000; i++) {
+        const n = all[i];
+        if (out.some((part) => part.contains(n))) continue;
+        if (PL.isHidden(n)) out.push(n);
+    }
+    return out;
+}
+
+// The text of an email as the reader sees it. Text hidden by its style
+// (see isHidden) is moved to the end: placed before the message, it
+// filled what the text model reads with words nobody sees.
 PL.textOf = function textOf(el) {
-    return el ? el.innerText.replace(/\s+\n/g, "\n").trim() : "";
+    if (!el) return "";
+    let text = el.innerText;
+    const hidden = [];
+    for (const part of hiddenParts(el)) {
+        const words = (part.innerText || "").trim();
+        if (words.length < 2) continue;
+        const at = text.indexOf(words);
+        if (at < 0) continue;
+        text = text.slice(0, at) + " " + text.slice(at + words.length);
+        hidden.push(words);
+    }
+    return [text, ...hidden].join("\n").replace(/\s+\n/g, "\n").trim();
 };
 
 // Base64 of bytes, in chunks so large files do not overflow the stack.
@@ -130,19 +178,33 @@ PL.utf8ToB64 = (text) => PL.bytesToBase64(new TextEncoder().encode(text));
 
 // http(s) targets of the links in a message body, deduplicated, max 50:
 // the visible text only says "Click here", not where the link goes.
-// Links to the mail page itself are the mail service's own ("View entire
-// message" under a long Gmail email), not the sender's.
+// Visible links first, one per host before any second one of the same
+// host: fifty hidden links to a large site placed first left the real
+// one out. Links to the mail page itself are the mail service's own
+// ("View entire message" under a long Gmail email), not the sender's.
 PL.linkTargetsOf = function linkTargetsOf(el) {
     if (!el) return [];
-    const out = new Set();
-    for (const a of el.querySelectorAll("a[href]")) {
-        const href = a.href || "";
-        if (!/^https?:\/\//i.test(href) || href.length > 2048) continue;
-        if (new URL(href).hostname === location.hostname) continue;
-        out.add(href);
-        if (out.size >= 50) break;
+    const hidden = hiddenParts(el);
+    const ranked = [[], [], [], []];   // visible new host, visible, hidden new host, hidden
+    const hosts = new Set();
+    const seen = new Set();
+    const anchors = el.querySelectorAll("a[href], area[href]");
+    for (let i = 0; i < anchors.length && i < 2000; i++) {
+        const href = anchors[i].href || "";
+        if (!/^https?:\/\//i.test(href) || href.length > 2048 || seen.has(href)) continue;
+        let host;
+        try {
+            host = new URL(href).hostname;
+        } catch {
+            continue;
+        }
+        if (host === location.hostname) continue;
+        seen.add(href);
+        const isHidden = hidden.some((part) => part.contains(anchors[i]));
+        ranked[(isHidden ? 2 : 0) + (hosts.has(host) ? 1 : 0)].push(href);
+        hosts.add(host);
     }
-    return [...out];
+    return ranked.flat().slice(0, 50);
 };
 
 PL.pct = (p) => (p == null ? null : Math.round(p * 100));

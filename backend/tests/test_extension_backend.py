@@ -328,7 +328,10 @@ class TestAnalyse:
 
         monkeypatch.setattr(eb, "_REPUTATION_AVAILABLE", True)
         monkeypatch.setattr(
-            eb, "_reputation", types.SimpleNamespace(check_urls=fake_check_urls), raising=False
+            eb,
+            "_reputation",
+            types.SimpleNamespace(check_urls=fake_check_urls, fully_checked=lambda v: True),
+            raising=False,
         )
         text_score(monkeypatch, 0.10)
         r = client.post(
@@ -785,7 +788,9 @@ class TestUrlOverrideNeedsConfirmation:
 class TestOutlookInternal:
     BODY = "Dear student, please find your attendance details below and have a fruitful day."
 
-    def test_internal_sender_from_trusted_org(self, client, monkeypatch):
+    def test_internal_sender_of_an_allowlisted_org_is_not_trusted_sender(self, client, monkeypatch):
+        # "Internal" is read from the page (no address shown), not proven:
+        # the soft path, never the allowlist's.
         text_score(monkeypatch, 0.99)
         j = client.post(
             "/analyse",
@@ -798,8 +803,21 @@ class TestOutlookInternal:
                 },
             },
         ).json()
-        assert j["trust_path"] == "trusted_sender"
-        assert j["verdict"] == "safe"
+        assert j["trust_path"] == "outlook_internal"
+        assert j["trusted_sender"] is False
+
+    def test_internal_claim_ignored_when_an_address_was_found(self, client, monkeypatch):
+        text_score(monkeypatch, 0.99)
+        j = client.post(
+            "/analyse",
+            json={
+                "raw_text": self.BODY,
+                "sender_email": "x@unknown.example",
+                "client_context": {"origin": "outlook", "outlook_internal": True},
+            },
+        ).json()
+        assert j["trust_path"] == "default"
+        assert j["verdict"] == "phishing"
 
     def test_internal_sender_soft_path(self, client, monkeypatch):
         text_score(monkeypatch, 0.99)

@@ -33,7 +33,8 @@ class TestSafeBrowsing:
 
         def handler(request):
             seen["body"] = json.loads(request.content)
-            seen["key"] = request.url.params["key"]
+            seen["key"] = request.headers.get("x-goog-api-key")
+            seen["url"] = str(request.url)
             return httpx.Response(
                 200,
                 json={
@@ -54,6 +55,8 @@ class TestSafeBrowsing:
 
         out = run(self.make(handler).check_batch(["http://bad.example/", "https://good.example/"]))
         assert seen["key"] == "KEY"
+        # never in the URL, which error messages quote
+        assert "KEY" not in seen["url"]
         assert [e["url"] for e in seen["body"]["threatInfo"]["threatEntries"]] == [
             "http://bad.example/",
             "https://good.example/",
@@ -68,16 +71,16 @@ class TestSafeBrowsing:
 
     def test_errors_and_exhausted_quota_mean_unavailable(self):
         assert (
-            run(self.make(lambda r: httpx.Response(503)).check_batch(["http://x.example/"])) == {}
+            run(self.make(lambda r: httpx.Response(503)).check_batch(["http://x.example/"])) is None
         )
         called = []
         gsb = self.make(lambda r: called.append(1) or httpx.Response(200, json={}), limit=1)
-        assert run(gsb.check_batch(["http://a.example/", "http://b.example/"])) == {}
+        assert run(gsb.check_batch(["http://a.example/", "http://b.example/"])) is None
         assert not called
 
     def test_no_key_no_request(self):
         gsb = rep.GoogleSafeBrowsing("", rep.GsbQuota(10, 0))
-        assert run(gsb.check_batch(["http://x.example/"])) == {}
+        assert run(gsb.check_batch(["http://x.example/"])) is None
 
 
 class TestUrlhaus:

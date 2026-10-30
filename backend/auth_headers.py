@@ -32,25 +32,15 @@ from dataclasses import asdict, dataclass
 from email.utils import parseaddr
 from typing import Any
 
+# Set by email_parsing.header_dict when a message has several From: headers.
+DUPLICATE_FROM = "x-phishlens-duplicate-from"
+
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
 
 # =====================================================================
 # Authentication-Results parsing
 # =====================================================================
-
-# Matches things like:
-#   spf=pass smtp.mailfrom=service@paypal.com
-#   dkim=pass header.i=@paypal.com header.s=selector1
-#   dmarc=pass (p=REJECT sp=REJECT) header.from=paypal.com
-# We only care about the verdict token (pass / fail / softfail / neutral /
-# temperror / permerror / none / bestguesspass) and the identifier that
-# tells us which domain was authenticated.
-_METHOD_RE = re.compile(
-    r"\b(?P<method>spf|dkim|dmarc)=(?P<result>pass|fail|softfail|neutral|"
-    r"temperror|permerror|none|bestguesspass|policy)\b",
-    re.IGNORECASE,
-)
 
 # Extracts the authenticated identity for each method.
 _SPF_ID_RE = re.compile(r"smtp\.mailfrom=([^\s;]+)", re.IGNORECASE)
@@ -59,13 +49,58 @@ _DMARC_ID_RE = re.compile(r"header\.from=([^\s;]+)", re.IGNORECASE)
 _ID_RE = {"spf": _SPF_ID_RE, "dkim": _DKIM_ID_RE, "dmarc": _DMARC_ID_RE}
 
 
+def _without_comments(value: str) -> str:
+    """The value with its comments "(...)", nested or not, and the
+    contents of its quoted strings removed (RFC 5322). Both are free text
+    the sender can influence: a quoted local part in the envelope address
+    ('"dkim=pass header.i=@bank.example"@attacker.example') or a comment
+    the receiving server copies from the message must not read as a
+    result. Linear on any input."""
+    out: list[str] = []
+    depth, quoted, escaped = 0, False, False
+    for ch in value:
+        if escaped:
+            escaped = False
+            continue
+        if ch == "\\" and (quoted or depth):
+            escaped = True
+            continue
+        if quoted:
+            if ch == '"':
+                quoted = False
+                out.append('q"')
+            continue
+        if ch == '"' and not depth:
+            quoted = True
+            out.append('"')
+        elif ch == "(":
+            depth += 1
+        elif ch == ")" and depth:
+            depth -= 1
+            if not depth:
+                out.append(" ")
+        elif not depth:
+            out.append(ch)
+    return "".join(out)
+
+
+_CLAUSE_RE = re.compile(
+    r"\s*(?P<method>spf|dkim|dmarc)\s*=\s*(?P<result>pass|fail|softfail|neutral|"
+    r"temperror|permerror|none|bestguesspass|policy)\b",
+    re.IGNORECASE,
+)
+
+
 def _clauses(ar: str):
-    """(method, result, text up to the next method result) for each
-    method result in an Authentication-Results value."""
-    found = list(_METHOD_RE.finditer(ar))
-    for i, m in enumerate(found):
-        end = found[i + 1].start() if i + 1 < len(found) else len(ar)
-        yield m.group("method").lower(), m.group("result").lower(), ar[m.end() : end]
+    """(method, result, rest of the clause) for each result of an
+    Authentication-Results value: one result per ";"-separated clause,
+    each starting with its method (RFC 8601). The server's name comes
+    first (Microsoft 365 leaves it out); a "dkim=pass" anywhere else in a
+    clause is not a result."""
+    for segment in _without_comments(ar[:20_000]).split(";"):
+        m = _CLAUSE_RE.match(segment)
+        if m:
+            yield m.group("method").lower(), m.group("result").lower(), segment[m.end() :]
 
 
 @dataclass
@@ -142,7 +177,7 @@ _GENERIC_SLDS = {
 }
 # Shared hosting suffixes where every customer gets a subdomain: the
 # customer label is the organisation, never the suffix itself.
-_SHARED_SUFFIXES = {
+SHARED_SUFFIXES = {
     "github.io",
     "herokuapp.com",
     "web.app",
@@ -180,7 +215,7 @@ def _org_domain(domain: str) -> str:
     if len(parts) <= 2:
         return ".".join(parts)
     tail2 = ".".join(parts[-2:])
-    if tail2 in _SHARED_SUFFIXES:
+    if tail2 in SHARED_SUFFIXES:
         return ".".join(parts[-3:])
     if len(parts[-1]) == 2 and parts[-2] in _GENERIC_SLDS:
         return ".".join(parts[-3:])
@@ -213,8 +248,11 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
         verdict.from_domain = _domain_of(m.group(1))
 
     ar = headers.get("authentication-results", "") or ""
-    if not ar:
-        # Some providers use ARC-Authentication-Results as a fallback.
+    # Without Authentication-Results, the ARC copy is shown, but it proves
+    # nothing: no receiving server vouched for it, and a sender can write
+    # one in its own message.
+    arc_only = not ar
+    if arc_only:
         ar = headers.get("arc-authentication-results", "") or ""
     if not ar:
         return verdict
@@ -257,7 +295,10 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
         aligned_domains.append(verdict.dkim_domain)
     if verdict.dmarc == "pass" and verdict.dmarc_domain:
         aligned_domains.append(verdict.dmarc_domain)
-    verdict.aligned = bool(fod) and any(_org_domain(d) == fod for d in aligned_domains)
+    # Two From: headers: a mail program shows one, the checks read the
+    # other. DMARC treats such a message as failing; so does PhishLens.
+    proven = not arc_only and not headers.get(DUPLICATE_FROM)
+    verdict.aligned = proven and bool(fod) and any(_org_domain(d) == fod for d in aligned_domains)
 
     # Cryptographic verification requires DKIM (the only crypto method: SPF
     # is envelope-only, DMARC is a policy layer on top of the other two) to
@@ -265,7 +306,7 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     dkim_aligned = (
         verdict.dkim == "pass" and verdict.dkim_domain and _org_domain(verdict.dkim_domain) == fod
     )
-    verdict.cryptographically_verified = bool(dkim_aligned)
+    verdict.cryptographically_verified = proven and bool(dkim_aligned)
 
     return verdict
 

@@ -64,6 +64,7 @@ except ImportError:
 GSB_API_KEY = os.environ.get("GSB_API_KEY", "").strip()
 GSB_DAILY_LIMIT = int(os.environ.get("GSB_DAILY_LIMIT", "10000"))
 GSB_SAFETY_BUFFER = int(os.environ.get("GSB_SAFETY_BUFFER", "500"))
+GSB_MAX_PER_SCAN = int(os.environ.get("GSB_MAX_PER_SCAN", "30"))
 # Per-user cache folder by default, not the shared /tmp.
 CACHE_DB_PATH = os.environ.get(
     "REPUTATION_CACHE_DB",
@@ -269,18 +270,21 @@ class GoogleSafeBrowsing:
         if self._client and not self._client.is_closed:
             await self._client.aclose()
 
-    async def check_batch(self, urls: list[str]) -> dict[str, dict[str, Any]]:
+    async def check_batch(self, urls: list[str]) -> dict[str, dict[str, Any]] | None:
         """
         Query GSB for a batch of URLs. Returns {url: verdict} for URLs that
-        matched a threat; URLs not in the dict are assumed clean.
+        matched a threat; URLs not in the dict were checked and are clean.
 
-        On quota exhaustion or transport error, returns an empty dict:
-        callers must treat that as "GSB unavailable, use fallbacks".
+        None when GSB did not answer (no key, quota exhausted, transport
+        error): those URLs were not checked, and must not be cached as
+        clean.
         """
-        if not self.api_key or not urls:
+        if not self.api_key:
+            return None
+        if not urls:
             return {}
         if not await self.quota.try_consume(len(urls)):
-            return {}
+            return None
 
         payload = {
             "client": {"clientId": "phishlens", "clientVersion": VERSION},
@@ -293,12 +297,16 @@ class GoogleSafeBrowsing:
         }
         try:
             client = await self._get_client()
-            r = await client.post(f"{self.ENDPOINT}?key={self.api_key}", json=payload)
+            # The key in a header, not in the URL: transport errors quote
+            # the URL, and they are logged.
+            r = await client.post(
+                self.ENDPOINT, json=payload, headers={"X-Goog-Api-Key": self.api_key}
+            )
             r.raise_for_status()
             body = r.json()
         except Exception as e:
-            logger.warning(f"GSB request failed: {e}")
-            return {}
+            logger.warning(f"GSB request failed: {_safe_error(e)}")
+            return None
 
         # Opt-in debug: set GSB_DEBUG=1 to log every GSB call and its
         # match count. Off by default in production; useful when you're
@@ -512,7 +520,7 @@ class PhishTank:
                 data = self._parse(r.content)
         except Exception as e:
             self._last_error = type(e).__name__
-            logger.warning(f"PhishTank refresh failed: {e}")
+            logger.warning(f"PhishTank refresh failed: {_safe_error(e)}")
             return 0
         n = self._load(data)
         self._last_refresh_ts = time.time()
@@ -874,23 +882,32 @@ class ReputationEngine:
             return [verdicts[u].to_dict() for u in norm]
 
         # ---- 2. Google Safe Browsing (batch) ----
+        # At most GSB_MAX_PER_SCAN URLs per scan, one per host first: the
+        # daily quota is shared by every user, and one request with
+        # hundreds of links must not spend it.
         gsb_hits: dict[str, dict[str, Any]] = {}
-        gsb_used = False
+        gsb_checked: set[str] = set()
         if self.gsb:
-            gsb_hits = await self.gsb.check_batch(uncached)
-            gsb_used = True  # even if empty result, we consumed the quota
+            batch = _gsb_batch(uncached, GSB_MAX_PER_SCAN)
+            answer = await self.gsb.check_batch(batch)
+            if answer is not None:
+                gsb_hits, gsb_checked = answer, set(batch)
 
         # ---- 3. Fallback cascade for URLs GSB didn't flag ----
         # (also for the case where GSB is disabled / quota exhausted)
-        need_fallback = _apply_gsb(verdicts, uncached, gsb_hits, gsb_used)
+        need_fallback = _apply_gsb(verdicts, uncached, gsb_hits, gsb_checked)
         if need_fallback:
             await asyncio.gather(
                 *(self._fallback(verdicts[u]) for u in need_fallback), return_exceptions=True
             )
 
         # ---- 4. Persist to cache ----
+        # A clean verdict is kept only when Safe Browsing (when configured)
+        # checked the URL: otherwise exhausting the quota with junk links,
+        # then sending a phishing link, would store it as clean for a day.
         for u in uncached:
-            await self.cache.put(u, verdicts[u].to_dict())
+            if verdicts[u].malicious or not self.gsb or u in gsb_checked:
+                await self.cache.put(u, verdicts[u].to_dict())
 
         return [verdicts[u].to_dict() for u in norm]
 
@@ -937,6 +954,13 @@ async def check_urls(urls: Iterable[str]) -> list[dict[str, Any]]:
     return await get_engine().check_urls(urls)
 
 
+def fully_checked(verdicts: list[dict[str, Any]]) -> bool:
+    """Every URL is flagged, or Safe Browsing (when configured) checked it."""
+    if not (_ENGINE and _ENGINE.gsb):
+        return True
+    return all(v.get("malicious") or "gsb_clean" in (v.get("tiers_run") or []) for v in verdicts)
+
+
 def stats() -> dict[str, Any]:
     return get_engine().stats() if _ENGINE else {"engine": "not_initialised"}
 
@@ -945,7 +969,7 @@ def _apply_gsb(
     verdicts: dict[str, UrlVerdict],
     uncached: list[str],
     gsb_hits: dict[str, dict[str, Any]],
-    gsb_used: bool,
+    gsb_checked: set[str],
 ) -> list[str]:
     """Mark Safe Browsing matches; return the URLs left for the fallback
     sources."""
@@ -960,7 +984,29 @@ def _apply_gsb(
             v.tiers_run.append("gsb")
             v.raw_matches.append(gsb_hits[u])
         else:
-            if gsb_used:
+            if u in gsb_checked:
                 verdicts[u].tiers_run.append("gsb_clean")
             need_fallback.append(u)
     return need_fallback
+
+
+def _gsb_batch(urls: list[str], limit: int) -> list[str]:
+    """At most `limit` URLs, the first one of each host before any second
+    one of the same host (order kept otherwise)."""
+    seen: set[str] = set()
+    first, rest = [], []
+    for u in urls:
+        try:
+            host = urlparse(u).hostname or ""
+        except ValueError:
+            host = ""
+        (rest if host in seen else first).append(u)
+        seen.add(host)
+    return (first + rest)[:limit]
+
+
+def _safe_error(e: Exception) -> str:
+    """An error for the logs without the request URL, which can carry an
+    API key (PhishTank's is in the feed's path)."""
+    status = getattr(getattr(e, "response", None), "status_code", None)
+    return f"{type(e).__name__}" + (f" (HTTP {status})" if status else "")

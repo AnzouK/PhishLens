@@ -8,6 +8,59 @@ backend share one version number.
 ## [Unreleased]
 
 ### Security
+- Authentication-Results is read clause by clause, without its comments
+  and quoted strings: a "dkim=pass header.i=@bank" written inside the
+  envelope address or a comment no longer counts as a result. Results
+  found only in ARC-Authentication-Results, and messages with two From:
+  headers, never prove the sender. The first From:, Subject:, Sender:
+  and Reply-To: of a message are the ones read, as mail programs show.
+- Gmail's "signed-by" and "mailed-by" are read only outside the email's
+  body and only when visible: an email could write its own.
+- Brand impersonation is also caught with a look-alike domain under the
+  brand's name (paypal.xyz, a shared-host subdomain such as
+  paypal.duckdns.org), with invisible characters or Cyrillic and Greek
+  letters in the name, behind long padding, and in a malformed From:
+  whose name parsing failed (a name ending in a backslash).
+- Text hidden by inline styles (display:none, zero font size, zero
+  opacity, clipped to nothing) is moved after the visible text, in the
+  server and in the extension: placed first, it filled what the text
+  model reads.
+- Links are read from the HTML as a browser reads them (spaces around
+  "=", HTML entities, "//host" links); the extension sends visible links
+  first, one per host before any second one, so fifty hidden decoys no
+  longer push the real link out.
+- Hosts are read with a URL parser in every link rule: `evil.tk?login`
+  keeps its suspicious TLD, numeric and hexadecimal IP addresses count
+  as IPs, and punycode or non-Latin host names are a strong link sign. A
+  large site's redirect to another address is no longer counted as a
+  link to a known site in the link rule.
+- "data:...;base64," followed by words no longer hides them from the
+  text model.
+- A clean link verdict is cached only when Google Safe Browsing actually
+  checked it: exhausting the quota no longer stores phishing links as
+  clean for a day. One scan sends at most 30 links to Safe Browsing,
+  one per host first, and a safe verdict on an email with links is
+  reused for an hour at most.
+- The Safe Browsing key travels in a header, and API errors are logged
+  without their URL, which could contain a key.
+- Outlook: the sender's address is looked for in every label of the From
+  line, a page that shows one is never "internal", and internal mail
+  only gets the soft path, never the allowlist's.
+- Personal mailbox domains (googlemail.com, icloud.com) and platforms
+  that send their users' own words (document shares, invoices,
+  signature envelopes, private messages: google.com, paypal.com,
+  docusign.net, dropbox.com, linkedin.com, facebookmail.com, github.com,
+  gitlab.com, x.com, twitter.com) left the allowlist; their signed mail
+  gets the DKIM-signed path and its link rule.
+- 7z members are extracted in memory, cut at the size limit, instead of
+  on disk; HTML attachments also report the addresses in scripts and
+  meta refreshes, and a script now counts as JavaScript.
+- Reports: no-break spaces and full-width digits no longer hide phone
+  and account numbers from redaction, the user's own name is read
+  outside email bodies only, and report fields other than the text
+  accept short identifiers only.
+- The service worker answers only messages from the extension itself;
+  a Gmail search "in:anywhere" is not treated as the inbox.
 - An email carrying two DKIM signatures, a failing one in a brand's name
   and a passing one for the sender's own domain, could be read as "DKIM
   pass for the brand" and get the softer trust path: each DKIM, SPF and
@@ -36,6 +89,9 @@ backend share one version number.
 - The extension downloads attachments only from Gmail's own address,
   gives up on a server that does not answer within 60 seconds, and
   refuses a server address that is not http(s).
+- The server refuses pickle (joblib) model files by default: they run
+  code when loaded. `AGENTS_ALLOW_PICKLE=1` still allows them, for an old
+  local copy of the agents never converted to skops.
 
 ### Changed
 - Before the first scan with PhishLens Cloud, Gmail and Outlook show the
@@ -47,21 +103,20 @@ backend share one version number.
   reads with the body.
 - Outlook: Dutch drafts and the German, Italian and Dutch "From:"
   prefixes are recognised.
+- The website leads with one figure and its confidence interval instead
+  of four, drops the numbered sections, and says who runs PhishLens and
+  why, in the 8 languages.
+- The documentation is shorter: each page keeps the reasons (decisions,
+  thresholds, what was measured and rejected) and drops descriptions of
+  the code; the README says who makes PhishLens.
 
 ### Added
 - A Firefox build of the extension (Firefox 140 or later), attached to
   each release next to the Chrome zip: the same files, with the
   background run as an event page and the add-on id and data-collection
   declaration Firefox requires (`scripts/build_extension.py`).
-
-### Security
-- The server refuses pickle (joblib) model files by default: they run
-  code when loaded. `AGENTS_ALLOW_PICKLE=1` still allows them, for an old
-  local copy of the agents never converted to skops.
-
-### Documentation
-- The self-hosting commands say that the downloaded model is the public
-  English one, while PhishLens Cloud runs the multilingual model.
+- A test fails when a translation of the website carries other figures
+  than the English page.
 
 ### Fixed
 - The website's live counters wait at most 6 seconds and are left out
@@ -69,17 +124,9 @@ backend share one version number.
   `/reputation/stats` keeps its answer 30 seconds (counting the cache
   took 2.5 seconds per visit).
 
-### Added
-- A test fails when a translation of the website carries other figures
-  than the English page.
-
-### Changed
-- The website leads with one figure and its confidence interval instead
-  of four, drops the numbered sections, and says who runs PhishLens and
-  why, in the 8 languages.
-- The documentation is shorter: each page keeps the reasons (decisions,
-  thresholds, what was measured and rejected) and drops descriptions of
-  the code; the README says who makes PhishLens.
+### Documentation
+- The self-hosting commands say that the downloaded model is the public
+  English one, while PhishLens Cloud runs the multilingual model.
 
 ## [2.0.11] - 2026-10-28
 

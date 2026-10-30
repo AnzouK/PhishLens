@@ -359,9 +359,8 @@ def analyse_zip(
 def analyse_7z(
     raw: bytes, filename: str, inner: Callable[[bytes, str], dict[str, Any]] | None = None
 ) -> dict[str, Any]:
-    """7z, with py7zr. Members are extracted to a private
-    temporary folder that is deleted at once; only the chosen supported
-    files (size-checked first) are written."""
+    """7z, with py7zr. Only the chosen supported files (size-checked
+    first) are extracted, in memory."""
     try:
         import py7zr
     except ImportError:
@@ -392,20 +391,22 @@ def analyse_7z(
         ]
 
         def read(names: list[str]) -> dict[str, bytes]:
+            # In memory, each member cut at MAX_INNER_BYTES whatever size
+            # the listing declared: nothing is written to disk.
+            from py7zr.io import BytesIOFactory
+
+            factory = BytesIOFactory(MAX_INNER_BYTES)
+            try:
+                szf.reset()
+                szf.extract(targets=names, factory=factory)
+            except Exception as e:
+                raise _NotExtracted(str(e)) from e
             out: dict[str, bytes] = {}
-            with tempfile.TemporaryDirectory(prefix="pl7z-") as tmp:
-                root = Path(tmp).resolve()
-                try:
-                    szf.reset()
-                    szf.extract(path=tmp, targets=names)
-                except Exception as e:
-                    raise _NotExtracted(str(e)) from e
-                for n in names:
-                    p = (root / n).resolve()
-                    if root not in p.parents or not p.is_file():
-                        continue  # path traversal or not written: ignore
-                    with open(p, "rb") as fh:
-                        out[n] = fh.read(MAX_INNER_BYTES)
+            for n in names:
+                product = factory.products.get(n)
+                if product is not None:
+                    product.seek(0)
+                    out[n] = product.read(MAX_INNER_BYTES)
             return out
 
         return _analyse_listing(raw, filename, "7z", entries, encrypted, read, inner)

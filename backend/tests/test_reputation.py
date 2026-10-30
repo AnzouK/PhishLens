@@ -50,12 +50,17 @@ class FakeUrlhaus:
 
 
 class FakeGsb:
-    def __init__(self, bad: set[str]):
+    def __init__(self, bad: set[str], down: bool = False):
         self.bad = bad
+        self.down = down
         self.calls = 0
+        self.sent: list[str] = []
 
     async def check_batch(self, urls):
         self.calls += 1
+        self.sent.extend(urls)
+        if self.down:
+            return None
         return {u: {"threat_types": ["SOCIAL_ENGINEERING"]} for u in urls if u in self.bad}
 
     async def close(self):
@@ -219,3 +224,29 @@ class TestCascade:
         [v] = asyncio.run(eng.check_urls(["http://x.tld"]))
         assert v["malicious"] is False
         assert v["note"] == "httpx not installed"
+
+
+class TestGsbUnavailable:
+    def test_clean_verdict_not_cached_when_gsb_did_not_answer(self, tmp_path, offline):
+        gsb = FakeGsb(set(), down=True)
+        eng = make_engine(tmp_path, gsb=gsb)
+        asyncio.run(eng.check_urls(["http://evil.example/login"]))
+        gsb.down = False
+        gsb.bad = {"http://evil.example/login"}
+        out = asyncio.run(eng.check_urls(["http://evil.example/login"]))
+        assert out[0]["malicious"] is True
+        assert gsb.calls == 2
+
+    def test_one_scan_spends_at_most_the_per_scan_budget(self, tmp_path, offline, monkeypatch):
+        monkeypatch.setattr(rep, "GSB_MAX_PER_SCAN", 3)
+        gsb = FakeGsb(set())
+        eng = make_engine(tmp_path, gsb=gsb)
+        urls = [f"https://a.example/{i}" for i in range(5)] + [
+            "https://b.example/",
+            "https://c.example/",
+        ]
+        out = asyncio.run(eng.check_urls(urls))
+        assert gsb.sent == ["https://a.example/0", "https://b.example/", "https://c.example/"]
+        # the URLs Safe Browsing did not see are not stored as clean
+        assert asyncio.run(eng.cache.get("https://a.example/4")) is None
+        assert "gsb_clean" not in out[4]["tiers_run"]

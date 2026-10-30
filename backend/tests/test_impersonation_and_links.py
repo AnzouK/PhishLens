@@ -328,9 +328,8 @@ def test_a_large_inline_image_does_not_hide_the_links():
 
 
 def test_userinfo_before_the_host_does_not_hide_it():
-    from link_alignment import link_profile, links_elsewhere_only
-
     import structured_agents as sa_
+    from link_alignment import link_profile, links_elsewhere_only
 
     url = "https://paypal.com:443@evil.example/login"
     assert sa_._host(url) == "evil.example"

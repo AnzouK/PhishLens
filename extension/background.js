@@ -155,6 +155,9 @@ const HANDLERS = {
 };
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    // Only this extension's own pages and scripts (no page can message it
+    // without externally_connectable, but the check costs nothing).
+    if (sender?.id !== chrome.runtime.id) return false;
     if (msg?.type === "phishlens.notify") {
         try { notify(msg, sender); } catch (e) { debug("notification", e); }
         sendResponse({ ok: true });

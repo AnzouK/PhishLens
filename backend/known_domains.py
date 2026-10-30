@@ -14,7 +14,9 @@ CLOUD_FILE_HOSTS  hosts where anyone can publish a file or a page: a link
 
 Names are matched as whole words, lower case, accents removed. A brand's
 domains are matched on the first label of the organisational domain
-("chronopost" for chronopost.fr or chronopost.com). Ambiguous words
+("chronopost" for chronopost.fr or chronopost.com) under a generic or
+country-code TLD; a name with a dot is a whole organisational domain
+("e.leclerc"). Ambiguous words
 (Orange, Free, Post...) are left out on purpose.
 """
 
@@ -78,15 +80,14 @@ BRANDS: dict[str, frozenset[str]] = {
         "sfr": "sfr",
         "bouygues": "bouyguestelecom bouygues",
         "credit agricole": "credit-agricole ca-paris ca-cib",
-        "bnp paribas": "bnpparibas mabanque",
+        "bnp paribas": "bnpparibas mabanque.bnpparibas",
         "societe generale": "societegenerale sg",
         "la banque postale": "labanquepostale",
         "boursorama": "boursorama boursobank",
         "vinted": "vinted",
         "leboncoin": "leboncoin",
-        # E.Leclerc also sends from its own top-level domain (e.leclerc),
-        # whose organisational domain starts with "e".
-        "leclerc": "e-leclerc leclerc mouvement-leclerc e",
+        # E.Leclerc also sends from its own top-level domain.
+        "leclerc": "e-leclerc leclerc mouvement-leclerc e.leclerc",
         # Elsewhere in Europe
         "correos": "correos",
         "ctt": "ctt",

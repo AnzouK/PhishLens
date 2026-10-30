@@ -29,6 +29,7 @@ from typing import Any
 import archive_analysis as archives
 import ocr
 import office_analysis as office
+from email_parsing import urls_in_text, visible_text_first
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
@@ -391,22 +392,37 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     except Exception as e:
         raise RuntimeError(f"HTML parse failed: {e}") from e
 
-    # Strip noisy tags before extracting visible text
-    for tag in soup(["script", "style", "noscript"]):
-        tag.decompose()
-
-    text = soup.get_text(separator=" ", strip=True)[:MAX_EXTRACTED_TEXT]
-
-    # URLs from the DOM even when they're not in the visible text
-    urls, seen = [], set()
-    for tag in soup.find_all(["a", "form", "iframe", "link", "img", "script"]):
+    # URLs from the DOM even when they're not in the visible text: links,
+    # form targets, frames, scripts, a meta refresh, and addresses written
+    # in a script ('window.location = "https://..."'), the usual way an
+    # HTML attachment sends its reader on.
+    found: list[str] = []
+    for tag in soup.find_all(
+        ["a", "area", "form", "iframe", "link", "img", "script"], limit=20_000
+    ):
         for attr in ("href", "action", "src"):
             u = (tag.get(attr) or "").strip()
-            if u.lower().startswith(("http://", "https://")) and u not in seen:
-                seen.add(u)
-                urls.append(u)
-                if len(urls) >= MAX_EXTRACTED_URLS:
-                    break
+            if u.startswith("//"):
+                u = "https:" + u
+            if u.lower().startswith(("http://", "https://")):
+                found.append(u)
+    for meta in soup.find_all("meta", attrs={"http-equiv": re.compile("^refresh$", re.I)}):
+        found.extend(urls_in_text(str(meta.get("content") or "")))
+    for script in soup.find_all("script"):
+        found.extend(urls_in_text(script.get_text()[:200_000]))
+    urls = list(dict.fromkeys(found))[:MAX_EXTRACTED_URLS]
+
+    # Notable features are read before the scripts are removed.
+    has_script = bool(
+        soup.find(["script"])
+        or soup.find(attrs={"onclick": True})
+        or soup.find(attrs={"onload": True})
+    )
+
+    # Strip noisy tags before extracting the text; hidden text goes last.
+    for tag in soup(["script", "style", "noscript"]):
+        tag.decompose()
+    text = " ".join(visible_text_first(soup).split())[:MAX_EXTRACTED_TEXT]
 
     # Notable features
     flags = []
@@ -414,11 +430,7 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
         flags.append("contains_form")
     if soup.find(["input"], attrs={"type": "password"}):
         flags.append("contains_password_field")
-    if (
-        soup.find(["script"])
-        or soup.find(attrs={"onclick": True})
-        or soup.find(attrs={"onload": True})
-    ):
+    if has_script:
         flags.append("contains_javascript")
     if soup.find("iframe"):
         flags.append("contains_iframe")

@@ -100,9 +100,10 @@ function viaDomain(text) {
     return m ? m[1] : null;
 }
 
-// Spam and Trash have their own hash in Gmail's URL.
+// Spam and Trash have their own hash in Gmail's URL; a search can reach
+// them too ("in:spam", "in:anywhere").
 function inInbox(hash) {
-    return !/spam|trash/i.test(String(hash || ""));
+    return !/spam|trash|anywhere/i.test(String(hash || ""));
 }
 
 const PhishLensGmail = Object.freeze({

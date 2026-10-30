@@ -9,9 +9,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-from link_alignment import ASSET_HOSTS, TRACKING, link_profile  # noqa: E402, F401
-
 from email_parsing import parse_eml  # noqa: E402
+from link_alignment import ASSET_HOSTS, TRACKING, link_profile  # noqa: E402, F401
 
 
 def profile(raw: bytes) -> dict[str, int]:
