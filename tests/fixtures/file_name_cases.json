@@ -44,6 +44,46 @@
   {
    "name": "report",
    "ext": ""
+  },
+  {
+   "name": "invoice.pdf.exe\r",
+   "ext": "exe"
+  },
+  {
+   "name": "invoice.pdf.exe\n",
+   "ext": "exe"
+  },
+  {
+   "name": "invoice.pdf.exe\f",
+   "ext": "exe"
+  },
+  {
+   "name": "invoice.pdf.exe\u000b",
+   "ext": "exe"
+  },
+  {
+   "name": "invoice.pdf.exe\u00a0",
+   "ext": "exe"
+  },
+  {
+   "name": "dir\uff0finvoice.exe",
+   "ext": "exe"
+  },
+  {
+   "name": "dir\uff3cinvoice.exe",
+   "ext": "exe"
+  },
+  {
+   "name": "invoice.pdf. exe",
+   "ext": "exe"
+  },
+  {
+   "name": "invoice.pdf\u3002exe",
+   "ext": "exe"
+  },
+  {
+   "name": "folder/report.txt",
+   "ext": "txt"
   }
  ],
  "tiles": [

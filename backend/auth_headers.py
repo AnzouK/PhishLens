@@ -152,9 +152,15 @@ def sender_domains(value: str) -> list[str]:
     if not value:
         return []
     value = value[:8000]
+    # <...> blocks and stray "@" are looked for outside quoted names and
+    # comments: '"Jane <jane@gmail.com> (via Docs)" <drive@google.com>'
+    # names one sender, google.com.
+    bare = _without_comments(value)
     addrs = [a for _n, a in getaddresses([value]) if "@" in a]
-    addrs += [a for a in _ANGLE_RE.findall(value) if "@" in a]
+    addrs += [a for a in _ANGLE_RE.findall(bare) if "@" in a]
     found = [_address_domain(a) for a in addrs]
+    if not any(found):
+        found = [d.lower().rstrip(".") for d in _AT_DOMAIN_RE.findall(bare)]
     if not any(found):
         found = [d.lower().rstrip(".") for d in _AT_DOMAIN_RE.findall(value)]
     return list(dict.fromkeys(d for d in found if d))

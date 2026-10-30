@@ -220,16 +220,26 @@ DROPPER_FLAGS = {
 _BIDI = frozenset("\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
 
 
+# Full stops drawn like a dot (NFKC already turns the full-width one
+# into "."): "invoice.pdf\u3002exe" is shown as an .exe.
+_DOTS = str.maketrans({"\u3002": ".", "\uff61": ".", "\ufe52": "."})
+
+
 def _base_name(name: str) -> str:
-    """The file name as Windows reads it: the last part of the path ("/"
-    or "\\"), in compatibility form, without trailing spaces and dots
-    ("invoice.exe ." runs as .exe) or invisible characters."""
-    base = unicodedata.normalize("NFKC", name.rsplit("/", 1)[-1].rsplit("\\", 1)[-1])
-    # Characters that take no room are not part of the name as read:
-    # "invoice.pdf.exe" + zero-width space, or + U+202C, is shown as an
-    # .exe and flagged as one (an extension Windows does not know only
-    # hides the real type from scanners).
-    return without_invisible(base).rstrip(" .\t")
+    """The file name as Windows reads it, in this order (the extension does
+    the same: lib/constants.js fileExt, cases in
+    tests/fixtures/file_name_cases.json): compatibility form (a
+    full-width "/" is a "/"), invisible characters out ("invoice.pdf.exe"
+    + zero-width space, or + U+202C, is shown as an .exe), ideographic
+    full stops read as dots, the last part of the path, then no trailing
+    white space of any kind or dots ("invoice.exe ." and "invoice.exe\r"
+    are .exe files)."""
+    norm = without_invisible(unicodedata.normalize("NFKC", str(name or ""))).translate(_DOTS)
+    base = norm.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    end = len(base)
+    while end and (base[end - 1].isspace() or base[end - 1] == "."):
+        end -= 1
+    return base[:end]
 
 
 def is_dir(name: str) -> bool:
@@ -240,7 +250,7 @@ def is_dir(name: str) -> bool:
 def _ext(name: str) -> str:
     """The extension Windows would run the file by, in lower case."""
     base = _base_name(name)
-    return base.rsplit(".", 1)[-1].lower() if "." in base else ""
+    return base.rsplit(".", 1)[-1].strip().lower() if "." in base else ""
 
 
 def _double_extension(name: str) -> bool:
@@ -471,7 +481,12 @@ def analyse_zip(
     """
     try:
         zf = zipfile.ZipFile(io.BytesIO(raw))
-        infos = zf.infolist()[:MAX_ENTRIES]
+        infos = zf.infolist()
+        if skip:
+            # Members another reader covers are neither listed nor counted:
+            # a page placed after 500 Office parts is still the 1st member.
+            infos = [i for i in infos if not skip(i.filename)]
+        infos = infos[:MAX_ENTRIES]
     except zipfile.BadZipFile as e:
         raise RuntimeError(f"ZIP parse failed: {e}") from e
 

@@ -429,18 +429,26 @@ def header_dict(items) -> dict[str, str]:
     return headers
 
 
+_ENCODED_WORD_RE = re.compile(r"=\?[^?\s]{1,40}\?[qQbB]\?[^?\s]{0,2000}\?=")
+_BETWEEN_WORDS_RE = re.compile(r"(\?=)[ \t]+(?==\?)")
+
+
 def _decoded_header(value: str) -> str:
     """Encoded words ("=?utf-8?b?UGF5UGFs?=") decoded, as a mail program
-    shows them. The standard parser already does it; the lenient one
-    does not, and the name checks must read the same text either way."""
+    shows them: each one on its own, wherever it stands (inside quotes,
+    next to "<" or another word), the space between two of them dropped
+    (RFC 2047). An undecodable word stays as written."""
     if "=?" not in value:
         return value
-    try:
-        from email.header import decode_header, make_header
+    from email.header import decode_header, make_header
 
-        return str(make_header(decode_header(value)))
-    except Exception:
-        return value
+    def one(m: re.Match) -> str:
+        try:
+            return str(make_header(decode_header(m.group(0))))
+        except Exception:
+            return m.group(0)
+
+    return _ENCODED_WORD_RE.sub(one, _BETWEEN_WORDS_RE.sub(r"\1", value))
 
 
 # ---------------------------------------------------------------------

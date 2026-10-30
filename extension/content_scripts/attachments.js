@@ -303,7 +303,8 @@ function renderResult(card, data, filename) {
 // Inside an archive: the files that explain the verdict ("Do not open"),
 // then the full list, folded.
 function archiveFiles(a, bad) {
-    if (a.kind !== "archive") return [];
+    // Archives, and Office files that hold other files (read as members).
+    if (a.kind !== "archive" && !Array.isArray(a.entries)) return [];
     const risky = Array.isArray(a.suspicious_files) ? a.suspicious_files : [];
     const entries = Array.isArray(a.entries) ? a.entries : [];
     const name = (n) => h("span.pll-att-files__name", { title: PhishLensShared.safeName(n) }, PhishLensShared.safeName(n));

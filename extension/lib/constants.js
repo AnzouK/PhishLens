@@ -44,12 +44,16 @@ const SOURCE_LABELS = Object.freeze({
 const { withoutInvisible } = globalThis.PhishLensShared || require("./shared.js");
 
 // The extension a system would open the file by: compatibility form,
-// invisible characters and trailing dots and spaces dropped ("invoice.exe ."
-// is an .exe, so is "invoice.pdf.exe" + zero-width space). Same as
-// backend/archive_analysis._ext.
+// invisible characters out, ideographic full stops read as dots, the last
+// part of the path, trailing dots and white space of any kind dropped
+// ("invoice.exe ." and "invoice.exe\r" are .exe files, so is
+// "invoice.pdf.exe" + zero-width space). Same as
+// backend/archive_analysis._ext (tests/fixtures/file_name_cases.json).
 function fileExt(name) {
-    const parts = withoutInvisible(String(name || "").normalize("NFKC")).replace(/[.\s]+$/, "").split(".");
-    return parts.length > 1 ? parts.pop().toLowerCase() : "";
+    const norm = withoutInvisible(String(name || "").normalize("NFKC")).replace(/[\u3002\uff61\ufe52]/g, ".");
+    const base = norm.split(/[/\\]/).pop().replace(/[.\s]+$/u, "");
+    const parts = base.split(".");
+    return parts.length > 1 ? parts.pop().trim().toLowerCase() : "";
 }
 
 function isCaution(flags) {

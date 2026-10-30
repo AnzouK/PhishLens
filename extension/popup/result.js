@@ -111,7 +111,8 @@ function renderMetaBadges(auth) {
 function renderArchiveFiles(att, isPhishing) {
     const box = $("archive-files");
     box.replaceChildren();
-    if (att?.kind === "archive") {
+    // Archives, and Office files that hold other files (read as members).
+    if (att?.kind === "archive" || Array.isArray(att?.entries)) {
         const risky = Array.isArray(att.suspicious_files) ? att.suspicious_files : [];
         const entries = Array.isArray(att.entries) ? att.entries : [];
         const name = (n) => h("span.archive-files__name", { title: window.PhishLensShared.safeName(n) }, window.PhishLensShared.safeName(n));

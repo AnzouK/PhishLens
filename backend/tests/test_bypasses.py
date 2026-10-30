@@ -1939,13 +1939,7 @@ def test_a_web_archive_is_read_as_a_page():
 
 
 def test_a_program_packaged_in_an_embedded_object_is_flagged():
-    ole = (
-        b"\xd0\xcf\x11\xe0"
-        + b"\x00" * 64
-        + "Ole10Native".encode("utf-16-le")
-        + b"\x00" * 16
-        + b"\x02\x00invoice.pdf.js\x00C:\\Users\\a\\invoice.pdf.js\x00"
-    )
+    ole = _cfb(["\x01Ole10Native"]) + b"\x02\x00invoice.pdf.js\x00C:\\Users\\a\\invoice.pdf.js\x00"
     out = _office_flags(
         {
             "[Content_Types].xml": "",
@@ -2000,3 +1994,213 @@ def test_a_document_built_to_be_slow_is_not_reported_clean(monkeypatch):
 )
 def test_more_look_alike_letters(name):
     assert st.impersonated_brand(name) in ("amazon", "paypal")
+
+
+def _cfb(streams: list[str]) -> bytes:
+    """A minimal OLE2 compound file (512-byte sectors): a header, one FAT
+    sector and one directory sector naming `streams` (at most 3)."""
+    import struct
+
+    import office_analysis as oa
+
+    header = bytearray(b"\xff" * 512)
+    header[:76] = (
+        oa.OLE2_MAGIC
+        + b"\x00" * 16
+        + struct.pack("<HHHHH", 0x3E, 3, 0xFFFE, 9, 6)
+        + b"\x00" * 10
+        + struct.pack("<IIIIIIII", 1, 1, 0, 4096, 0xFFFFFFFE, 0, 0xFFFFFFFE, 0)
+    )
+    header[76:80] = struct.pack("<I", 0)
+    fat = struct.pack("<II", 0xFFFFFFFD, 0xFFFFFFFE) + b"\xff" * 504
+
+    def entry(name: str, kind: int) -> bytes:
+        raw = name.encode("utf-16-le") + b"\x00\x00"
+        return raw.ljust(64, b"\x00") + struct.pack("<HB", len(raw), kind) + b"\x00" * 61
+
+    directory = entry("Root Entry", 5) + b"".join(entry(n, 2) for n in streams)
+    return bytes(header) + fat + directory.ljust(512, b"\x00")
+
+
+@pytest.mark.parametrize(
+    ("streams", "flag"),
+    [
+        (["_vba_project"], "contains_macros"),
+        (["MACROS"], "contains_macros"),
+        (["\x01OLE10NATIVE"], "embedded_ole_object"),
+        (["objectpool"], "embedded_ole_object"),
+        (["encryptedpackage"], "encrypted_document"),
+    ],
+)
+def test_ole_directory_names_in_any_case(streams, flag):
+    import office_analysis as oa
+
+    assert flag in oa.analyse_ole(_cfb(streams), "a.doc")["notable_features"]
+
+
+def test_a_legacy_document_about_macros_is_not_a_macro_document():
+    import office_analysis as oa
+
+    raw = _cfb(["WordDocument"]) + "Enable Macros in Excel".encode("utf-16-le")
+    assert "contains_macros" not in oa.analyse_ole(raw, "a.doc")["notable_features"]
+
+
+def test_an_ole_part_under_any_name_is_read():
+    out = _office_flags(
+        {
+            "[Content_Types].xml": "",
+            "word/document.xml": _DOC,
+            "word/pkg.dat": _cfb(["_VBA_PROJECT"]),
+        },
+        "a.docx",
+    )
+    assert "contains_macros" in out["notable_features"]
+
+
+def test_parts_outside_the_text_are_read_for_addresses():
+    import struct
+
+    shared = struct.pack("<I", 0) + "Pay at https://evil.tk/xlsb now".encode("utf-16-le")
+    xlsb = _office_flags(
+        {"[Content_Types].xml": "", "xl/workbook.bin": "x", "xl/sharedStrings.bin": shared},
+        "book.xlsb",
+    )
+    assert "https://evil.tk/xlsb" in xlsb["extracted_urls"]
+    vml = '<xml><v:shape href="https://evil.tk/vml"/></xml>'
+    props = "<Properties><Company>https://evil.tk/props</Company></Properties>"
+    svg = '<svg xmlns="http://www.w3.org/2000/svg"><a href="https://evil.tk/svg"><text>Go</text></a></svg>'
+    out = _office_flags(
+        {
+            "[Content_Types].xml": "",
+            "word/document.xml": _DOC,
+            "word/vmlDrawing1.vml": vml,
+            "docProps/app.xml": props,
+            "word/media/image1.svg": svg,
+        },
+        "a.docx",
+    )
+    assert {"https://evil.tk/vml", "https://evil.tk/props", "https://evil.tk/svg"} <= set(
+        out["extracted_urls"]
+    )
+
+
+def test_an_internal_package_relationship_is_an_object():
+    rel = '<Relationship Id="r1" Type="http://x/package" Target="embeddings/x.docx"/>'
+    out = _office_flags(
+        {
+            "[Content_Types].xml": "",
+            "word/document.xml": _DOC,
+            "word/_rels/document.xml.rels": _RELS.format(rel),
+        },
+        "a.docx",
+    )
+    assert "embedded_ole_object" in out["notable_features"]
+
+
+def test_a_page_after_many_office_parts_is_read():
+    parts = {"[Content_Types].xml": "", "word/document.xml": _DOC}
+    parts |= {f"word/media/i{i}.png": "x" for i in range(600)}
+    parts["login.html"] = "<form><input type=password></form>"
+    out = _office_flags(parts, "a.docx")
+    assert "contains_password_field" in out["notable_features"]
+    assert out["entries"] == ["login.html"]
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        '"=?utf-8?b?UGF5UGFs?=" <a@evil.example>',
+        "=?utf-8?b?UGF5UGFs?=<a@evil.example>",
+        "=?utf-8?b?UGF5?==?utf-8?b?UGFs?= <a@evil.example>",
+        "=?utf-8?b?UGF5?= =?utf-8?b?UGFs?= <a@evil.example>",
+    ],
+)
+def test_encoded_names_wherever_they_stand(header):
+    _b, _u, headers = ep.parse_eml(f"From: {header}\r\n\r\nHello".encode())
+    assert st.impersonated_brand(headers["from"]) == "paypal"
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        '"Jane <jane@gmail.com> (via Google Docs)" <drive-shares-noreply@google.com>',
+        '"jane@example.org via LinkedIn" <messages-noreply@linkedin.com>',
+        "Jane Doe (jane@gmail.com) <notifications@github.com>",
+    ],
+)
+def test_addresses_inside_a_display_name_are_not_senders(header):
+    assert len(ah.sender_domains(header)) == 1
+    assert st.impersonated_brand(header) is None
+
+
+def test_a_webmail_address_alone_in_the_name_still_claims_the_brand():
+    assert st.impersonated_brand('"security@gmail.com" <alerts@evil.example>') == "gmail"
+
+
+@pytest.mark.parametrize(
+    ("html", "url"),
+    [
+        (
+            "<script>location=String.fromCharCode(0x68,0x74,0x74,0x70,0x73,0x3a,0x2f,0x2f,"
+            "0x65,0x76,0x69,0x6c,0x2e,0x74,0x6b)</script>",
+            "https://evil.tk",
+        ),
+        ("<script>location=\"https://ev\" + 'il.tk/login'</script>", "https://evil.tk/login"),
+        (
+            '<script>location="nigol/kt.live//:sptth".split("").reverse().join("")</script>',
+            "https://evil.tk/login",
+        ),
+        ('<script>location=atob("aHR0cHM6Ly9l"+"dmlsLnRr")</script>', "https://evil.tk"),
+    ],
+)
+def test_script_addresses_built_in_pieces(html, url):
+    import attachment_analysis as aa
+
+    urls = aa.analyse_html(html.encode(), "a.html")["extracted_urls"]
+    assert url in urls
+    assert "https://ev" not in urls
+
+
+def test_a_web_archive_page_reads_relative_targets_from_its_location():
+    import attachment_analysis as aa
+
+    mht = (
+        b'MIME-Version: 1.0\r\nContent-Type: multipart/related; boundary="b"\r\n\r\n--b\r\n'
+        b"Content-Type: application/xhtml+xml\r\nContent-Location: https://evil.tk/dir/index.html\r\n\r\n"
+        b'<form action="login.php"><input type="password"/></form>\r\n--b--\r\n'
+    )
+    out = aa.analyse_attachment(base64.b64encode(mht).decode(), filename="page.mht")
+    assert "https://evil.tk/dir/login.php" in out["extracted_urls"]
+
+
+def test_a_link_around_a_drawn_shape_is_shown():
+    visible, hidden = ep.html_link_groups(
+        '<svg><a href="https://evil.tk/login"><rect width="100" height="30"/></a></svg>'
+    )
+    assert visible == ["https://evil.tk/login"]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://forms.office.com/r/abc",
+        "https://onedrive.live.com/redir?resid=1",
+        "https://contoso.sharepoint.com/:b:/g/x",
+        "https://docs.google.com/forms/d/e/x/viewform",
+        "https://www.youtube.com/redirect?q=www.evil.example/login",
+    ],
+)
+def test_pages_anyone_can_publish_on_known_sites_are_not_known_links(url):
+    assert not la.well_known_link(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.youtube.com/watch?v=abc",
+        "https://www.office.com/",
+        "https://www.linkedin.com/in/x?trk=www",
+    ],
+)
+def test_known_sites_stay_known(url):
+    assert la.well_known_link(url)

@@ -979,7 +979,11 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
     )
 
     # Archives, and Office files that hold other files (read as members).
-    is_archive = extracted.get("kind") == "archive" or bool(extracted.get("inner_files"))
+    is_archive = (
+        extracted.get("kind") == "archive"
+        or bool(extracted.get("inner_files"))
+        or bool(extracted.get("_all_entries"))
+    )
     suspicious_files = (
         await run_in_threadpool(_archive_file_report, extracted, rep.verdicts) if is_archive else []
     )

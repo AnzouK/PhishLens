@@ -422,6 +422,27 @@ NOTES_PAGE = b"<html><body><p>Minutes of the board meeting, action items below.<
 
 
 class TestAnalyseAttachment:
+    def test_an_office_file_holding_a_program_lists_it(self, client):
+        import io
+        import zipfile
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("[Content_Types].xml", "")
+            zf.writestr("word/document.xml", "<w:document/>")
+            zf.writestr("invoice.pdf.exe", "MZ")
+        r = client.post(
+            "/analyse_attachment",
+            json={"content_b64": b64(buf.getvalue()), "filename": "report.docx"},
+        )
+        att = r.json()["attachment"]
+        assert att["kind"] == "docx"
+        assert att["entries"] == ["invoice.pdf.exe"]
+        assert {"name": "invoice.pdf.exe", "reasons": ["fake extension", "program"]} in att[
+            "suspicious_files"
+        ]
+        assert "_all_entries" not in att
+
     def test_unsupported_type_is_400(self, client):
         r = client.post(
             "/analyse_attachment",

@@ -1007,6 +1007,11 @@ def hidden_tags(soup) -> list:
 
 
 _MEDIA = frozenset({"img", "svg", "picture", "video", "canvas", "object", "embed", "iframe"})
+# The shapes of a drawing: a link inside an <svg> around a <rect> shows the
+# shape (same list in content_scripts/core.js, shownLink).
+_SHAPES = frozenset(
+    {"rect", "path", "circle", "ellipse", "polygon", "polyline", "line", "use", "image"}
+)
 _NOT_SHOWN = frozenset({"style", "script", "noscript", "title", "template", "head", "meta"})
 
 
@@ -1064,7 +1069,7 @@ def visible_content(tag, hidden_ids: set[int]) -> bool:
                 return True
         elif id(node) in hidden_ids or node.name in _NOT_SHOWN:
             continue
-        elif node.name in _MEDIA:
+        elif node.name in _MEDIA or node.name in _SHAPES:
             return True
         else:
             stack.extend(node.children)

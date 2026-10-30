@@ -524,4 +524,26 @@ test("the Outlook sender is the address after the name, quoted or not", () => {
     assert.equal(PL.senderAddress(['PayPal <"service@paypal.com"@attacker.example>']), "service@paypal.com@attacker.example");
     assert.equal(PL.senderAddress(['"support@gtbank.com" <scam@attacker.example>']), "scam@attacker.example");
     assert.equal(PL.senderAddress(["jane@corp.example"]), "jane@corp.example");
+    assert.equal(PL.senderAddress(['"PayPal <service@paypal.com>"', "scam@attacker.example"]), "scam@attacker.example");
+    assert.equal(PL.senderAddress(['"Jane <jane@gmail.com> (via Docs)" <drive@google.com>']), "drive@google.com");
+    assert.equal(PL.senderAddress(['"support@gtbank.com"']), "support@gtbank.com");
+});
+
+test("a link around a drawn shape is shown, as on the server", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const svg = doc.createElement("svg");
+    const a = doc.createElement("a");
+    a.setAttribute("href", "https://evil.example/login");
+    a.href = "https://evil.example/login";
+    const rect = doc.createElement("rect");
+    rect.getBoundingClientRect = () => ({ width: 100, height: 30 });
+    a.append(rect);
+    svg.append(a);
+    body.append(svg);
+    const visible = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = () => visible;
+    assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
 });

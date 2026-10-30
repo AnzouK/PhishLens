@@ -57,18 +57,22 @@ function isDraft(body) {
 }
 
 // The sender's address in the From line: the last one between angle
-// brackets, else the last one written. A display name can carry another
-// address ('"support@gtbank.com" <scam@attacker.example>'), and it comes
-// first.
+// brackets, else the last one written, never one inside a quoted display
+// name ('"PayPal <service@paypal.com>"' then "scam@attacker.example"). A
+// quoted local part ('<"scam"@...>', '<"service@paypal.com"@...>') counts,
+// quotes removed: the domain is the one after the last "@". Same reading
+// as backend/auth_headers.sender_domains.
+const QUOTED_NAME_RE = /"[^"]*"(?!\s*@)/g;
 PL.senderAddress = function senderAddress(texts) {
-    // The last one between angle brackets, over every part of the line
-    // (a name can be '"PayPal <service@paypal.com>" <scam@...>').
-    // A quoted local part ('<"scam"@...>', '<"service@paypal.com"@...>')
-    // counts, quotes removed: the domain is the one after the last "@".
-    const angled = texts.flatMap((x) => [...String(x || "").matchAll(ANGLED_RE)].map((m) => m[1].replace(/["\s]/g, "")));
+    const parts = texts.map((x) => String(x || ""));
+    const bare = parts.map((x) => x.replace(QUOTED_NAME_RE, " "));
+    const angled = bare.flatMap((x) => [...x.matchAll(ANGLED_RE)].map((m) => m[1].replace(/["\s]/g, "")));
     if (angled.length) return angled[angled.length - 1];
-    const all = texts.flatMap((x) => String(x || "").match(new RegExp(EMAIL_RE.source, "g")) || []);
-    return all.length ? all[all.length - 1] : "";
+    for (const list of [bare, parts]) {
+        const all = list.flatMap((x) => x.match(new RegExp(EMAIL_RE.source, "g")) || []);
+        if (all.length) return all[all.length - 1];
+    }
+    return "";
 };
 
 // The last expanded message of the conversation, drafts excluded, and

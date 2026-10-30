@@ -40,6 +40,7 @@ from __future__ import annotations
 import io
 import logging
 import re
+import struct
 import time
 import zipfile
 from typing import Any
@@ -173,7 +174,6 @@ OFFICE_PART_EXTS = frozenset(
         "bmp",
         "tif",
         "tiff",
-        "svg",
         "wdp",
         "jxr",
         "hdp",
@@ -267,14 +267,14 @@ def _read_part(zf: zipfile.ZipFile, name: str, flags: list[str]) -> bytes | None
     return data
 
 
-def _text_from_xml(data: bytes, text_tags: set[str], block_tags: set[str]) -> str:
+def _text_from_xml(data: bytes, text_tags: set[str] | None, block_tags: set[str]) -> str:
     """Collect text nodes, with a newline at the end of each block
     (paragraph, table row, shared string)."""
     out: list[str] = []
     try:
         for _event, el in ET.iterparse(io.BytesIO(data), events=("end",)):
             name = _local(el.tag)
-            if name in text_tags and el.text:
+            if (text_tags is None or name in text_tags) and el.text:
                 out.append(el.text)
             elif name in block_tags:
                 out.append("\n")
@@ -396,7 +396,8 @@ def _part_name_flags(names: list[str]) -> list[str]:
         flags.append("embedded_ole_object")
     if any("/activex/" in n for n in lower):
         flags.append("contains_activex")
-    if "xl/connections.xml" in lower:
+    if any(n.startswith(("xl/connections.", "xl/externallinks/")) for n in lower):
+        # A data connection or a linked workbook, XML (.xlsx) or binary (.xlsb).
         flags.append("external_data_connection")
     return flags
 
@@ -499,6 +500,9 @@ def _scan_relationships(
                 _add(flags, "contains_macros")
             if rtype == "control":
                 _add(flags, "contains_activex")
+            if rtype in ("oleobject", "package"):
+                # An embedded object or package, inside the file or not.
+                _add(flags, "embedded_ole_object")
             if not external:
                 continue
             if rtype in _LOADING_RELS:
@@ -541,14 +545,74 @@ def _embedded_files(zf: zipfile.ZipFile, names: list[str], flags: list[str]) -> 
     flagged as if they were in an archive (they are one click away)."""
     for name in names:
         n = part_name(name)
-        if "/embeddings/" not in n or archives._ext(n) not in ("bin", ""):
+        if n.endswith((".xml", ".rels", ".vml")) or "/media/" in n:
             continue
         data = _read_part(zf, name, flags)
-        if not data or b"O\x00l\x00e\x001\x000\x00N\x00a\x00t\x00i\x00v\x00e" not in data:
+        if not data or not data.startswith(OLE2_MAGIC):
+            continue
+        # Any part that is an OLE file, whatever its name or folder.
+        for flag in _cfb_flags(data) or []:
+            if flag != "encrypted_document":
+                _add(flags, flag)
+        if not set(cfb_names(data) or []) & _CFB_OBJECT and b"O\x00l\x00e\x001\x000" not in data:
             continue
         found = [m.decode("latin-1") for m in _PACKAGE_NAME_RE.findall(data[:2_000_000])]
         for flag in archives.classify_names(found):
             _add(flags, flag)
+
+
+# Printable runs in a binary part: UTF-16 (at an even or odd offset) or
+# single-byte text of 4 characters or more.
+_UTF16_RUN_RE = re.compile(rb"(?:[\x20-\x7e\xa0-\xff][\x00]){4,}")
+_BYTE_RUN_RE = re.compile(rb"[\x20-\x7e]{6,}")
+# Text a document keeps outside its body: shapes drawn in VML (links in
+# href / o:href), custom XML data and document properties. Their element
+# text is read for addresses, never their attributes (namespaces are URLs).
+_HREF_ATTR_RE = re.compile(rb"""\bhref\s*=\s*["']([^"']{1,2048})["']""", re.IGNORECASE)
+
+
+def _binary_strings(data: bytes) -> str:
+    runs = [
+        m.decode("utf-16-le", "ignore") for k in (0, 1) for m in _UTF16_RUN_RE.findall(data[k:])
+    ]
+    runs += [m.decode("latin-1") for m in _BYTE_RUN_RE.findall(data)]
+    return "\n".join(runs)
+
+
+def _other_parts(
+    zf: zipfile.ZipFile, names: list[str], flags: list[str], urls: list[str], deadline: float
+) -> str:
+    """What the text parts do not hold: the binary parts of an .xlsb
+    workbook (strings, formulas, links: read as runs of text), VML
+    drawings, custom XML and document properties (addresses only). The
+    text of an .xlsb's shared strings is returned for the text model."""
+    text: list[str] = []
+    for name in names:
+        if time.monotonic() > deadline:
+            _add(flags, "document_not_fully_read")
+            break
+        n = part_name(name)
+        if n.startswith("xl/") and n.endswith(".bin") and "vbaproject" not in n:
+            data = _read_part(zf, name, flags)
+            if not data or data.startswith(OLE2_MAGIC):
+                continue
+            strings = _binary_strings(data[:MAX_PART_BYTES])
+            if _DDE_FORMULA_RE.search(strings) or _LEGACY_DDE_RE.search(strings):
+                _add(flags, "dde_field")
+            _urls_from(strings, urls)
+            if "sharedstrings" in n:
+                text.append(strings)
+        elif n.endswith(".vml"):
+            data = _read_part(zf, name, flags) or b""
+            for m in _HREF_ATTR_RE.findall(data):
+                href = absolute_http(m.decode("utf-8", "ignore"))
+                if href and href not in urls:
+                    urls.append(href)
+        elif n.endswith(".xml") and n.startswith(("customxml/", "docprops/")):
+            data = _read_part(zf, name, flags)
+            if data:
+                _urls_from(_text_from_xml(data, None, set()), urls)
+    return without_invisible("\n".join(text))[:MAX_TEXT]
 
 
 def _active_content(kind: str, name: str, data: bytes, flags: list[str], urls: list[str]) -> None:
@@ -623,6 +687,7 @@ def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
                 texts.append(without_invisible(_text_from_xml(data, text_tags, block_tags)))
 
         _scan_relationships(zf, names, flags, urls)
+        texts.append(_other_parts(zf, names, flags, urls, deadline))
         _embedded_files(zf, names, flags)
 
     text = "\n".join(t for t in texts if t)[:MAX_TEXT]
@@ -648,6 +713,74 @@ def _utf16(s: str) -> bytes:
 
 # "_VBA_PROJECT" is the stream every VBA project has (Word, Excel,
 # PowerPoint); "Macros" is the Word 97-2003 storage that holds it.
+def cfb_names(raw: bytes) -> list[str] | None:
+    """The names of the storages and streams of an OLE2 (compound) file,
+    read from its directory (MS-CFB), or None when it cannot be read.
+    Names are given in lower case: the format ignores case, so
+    "_vba_project" is "_VBA_PROJECT". Bounded on any input."""
+    if not raw.startswith(OLE2_MAGIC) or len(raw) < 512:
+        return None
+    shift = int.from_bytes(raw[30:32], "little")
+    if shift not in (9, 12):
+        return None
+    size = 1 << shift
+    per = size // 4
+
+    def sector(n: int) -> bytes:
+        return raw[(n + 1) * size : (n + 2) * size]
+
+    def words(data: bytes) -> tuple[int, ...]:
+        return struct.unpack_from(f"<{len(data) // 4}I", data)
+
+    end = 0xFFFFFFFA
+    difat = [d for d in words(raw[76:512]) if d < end]
+    nxt, seen = int.from_bytes(raw[68:72], "little"), set()
+    while nxt < end and nxt not in seen and len(seen) < 2000:
+        seen.add(nxt)
+        vals = words(sector(nxt))
+        if len(vals) < per:
+            break
+        difat += [d for d in vals[:-1] if d < end]
+        nxt = vals[-1]
+    fat: list[int] = []
+    for d in difat[:20_000]:
+        fat.extend(words(sector(d)))
+    names: list[str] = []
+    cur, visited = int.from_bytes(raw[48:52], "little"), set()
+    while cur < end and cur not in visited and len(visited) < 20_000:
+        visited.add(cur)
+        data = sector(cur)
+        if not data:
+            break
+        for k in range(0, len(data) - 127, 128):
+            length = int.from_bytes(data[k + 64 : k + 66], "little")
+            if 2 <= length <= 64 and data[k + 66] in (1, 2, 5):
+                names.append(data[k : k + length - 2].decode("utf-16-le", "replace").lower())
+        cur = fat[cur] if cur < len(fat) else end
+    return names
+
+
+# Directory names (lower case) that mean macros, encryption, an object.
+_CFB_VBA = {"_vba_project", "vba", "macros", "_xlm"}
+_CFB_ENCRYPTED = {"encryptedpackage", "encryptioninfo"}
+_CFB_OBJECT = {"objectpool", "\x01ole10native", "ole10native"}
+
+
+def _cfb_flags(raw: bytes) -> list[str] | None:
+    names = cfb_names(raw)
+    if names is None:
+        return None
+    have = set(names)
+    flags = []
+    if have & _CFB_ENCRYPTED:
+        flags.append("encrypted_document")
+    if have & _CFB_VBA:
+        flags.append("contains_macros")
+    if have & _CFB_OBJECT:
+        flags.append("embedded_ole_object")
+    return flags
+
+
 _OLE_VBA_MARKERS = (_utf16("_VBA_PROJECT"), b"Attribute VB_Name")
 _OLE_XLM_MARKERS = (_utf16("Macros"),)
 _OLE_ENCRYPTED_MARKERS = (_utf16("EncryptedPackage"), _utf16("EncryptionInfo"))
@@ -661,17 +794,28 @@ def analyse_ole(raw: bytes, filename: str) -> dict[str, Any]:
     if not raw.startswith(OLE2_MAGIC):
         raise ValueError("Unsupported or corrupt Office document: not an OLE2 file.")
 
+    # The directory says what the file holds, in any case; the byte
+    # markers are the fallback for a directory that cannot be read, and
+    # the VBA source marker ("Attribute VB_Name") counts either way.
+    found = _cfb_flags(raw)
+    if found is None:
+        found = []
+        if any(m in raw for m in _OLE_ENCRYPTED_MARKERS):
+            found.append("encrypted_document")
+        if any(m in raw for m in _OLE_VBA_MARKERS + _OLE_XLM_MARKERS):
+            found.append("contains_macros")
+        if any(m in raw for m in _OLE_OBJECT_MARKERS):
+            found.append("embedded_ole_object")
+    if b"Attribute VB_Name" in raw and "contains_macros" not in found:
+        found.append("contains_macros")
     flags: list[str] = []
-    encrypted = any(m in raw for m in _OLE_ENCRYPTED_MARKERS)
-    if encrypted:
+    if "encrypted_document" in found:
         # A password-protected .docx/.xlsx is stored as OLE2 too.
         flags.append("encrypted_document")
     else:
         flags.append("legacy_office_format")
-    if any(m in raw for m in _OLE_VBA_MARKERS + _OLE_XLM_MARKERS):
-        flags.append("contains_macros")
-    if any(m in raw for m in _OLE_OBJECT_MARKERS):
-        flags.append("embedded_ole_object")
+    flags += [f for f in found if f != "encrypted_document"]
+    if "embedded_ole_object" in flags:
         # A packaged file's name: "invoice.pdf.js" behind an icon.
         found = [m.decode("latin-1") for m in _PACKAGE_NAME_RE.findall(raw[:5_000_000])]
         for flag in archives.classify_names(found):

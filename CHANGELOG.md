@@ -14,7 +14,9 @@ Fixes from several rounds of outside review; each bypass has a test in
   more `dkim=pass` hidden in a comment or a quoted address), and a
   second From:, a From: with several addresses or domains, or ARC
   results alone no longer prove anything. The From: is read as written,
-  not as Python's parser rebuilds it. Gmail's "signed-by" is only read
+  not as Python's parser rebuilds it, encoded names are decoded wherever
+  they stand, and an address inside a quoted display name no longer
+  counts as a second sender. Gmail's "signed-by" is only read
   outside the email body.
 - Brand impersonation catches look-alike domains (`paypal.tk`,
   `chronopost.us`), look-alike letters and padded or malformed names.
@@ -25,6 +27,9 @@ Fixes from several rounds of outside review; each bypass has a test in
 - Links are read like a browser reads them (`HTTPS:evil.tk`,
   backslashes, encoded hosts, `www.` in plain text), and hidden or
   written-out links can no longer push the real ones out of the check.
+  Forms and shared files on large sites (Microsoft Forms, OneDrive,
+  SharePoint, Google Docs) and redirects to `www.` addresses no longer
+  count as links to a known site.
 - A huge `<style>` sheet can no longer stall the server.
 - Zero-width spaces, soft hyphens and control characters inside a word
   no longer cut it in pieces for the text model, and can no longer hide
@@ -38,8 +43,11 @@ Fixes from several rounds of outside review; each bypass has a test in
   Office file stays an Office file whatever else its ZIP holds; Office
   parts are read whatever their name or case, Word fields as Word
   builds them, and templates, frames, "Run program" actions, Excel DDE
-  and programs packed in embedded objects are flagged; SVG, web
-  archives and HTML smuggling are read; 7z files are unpacked in memory.
+  and programs packed in embedded objects are flagged (OLE files read
+  from their directory, in any case); .xlsb workbooks, drawings and
+  document properties are read for links; an Office file holding other
+  files lists them like an archive; SVG, web archives and HTML smuggling
+  are read; 7z files are unpacked in memory.
 - Outlook: the sender's real address is used, and "internal" mail only
   gets the soft path.
 - Personal mailboxes and platforms that relay their users' messages

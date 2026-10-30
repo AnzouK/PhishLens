@@ -18,11 +18,10 @@ from __future__ import annotations
 import ipaddress
 import re
 import unicodedata
-from email.utils import parseaddr
 from urllib.parse import quote, unquote, urlsplit
 
-from auth_headers import org_domain
-from known_domains import CLOUD_FILE_HOSTS, WELL_KNOWN
+from auth_headers import org_domain, sender_domain
+from known_domains import CLOUD_FILE_HOSTS, USER_CONTENT_HOSTS, WELL_KNOWN
 
 TRACKING = frozenset(
     [
@@ -158,15 +157,15 @@ def on_cloud_file_host(url: str) -> bool:
     return any(host == h or host.endswith("." + h) for h in CLOUD_FILE_HOSTS)
 
 
-# "://" or "=//" after the host, also percent-encoded once or twice or
-# with backslashes: an address carried inside the link ("?q=//evil.example"
-# is a protocol-relative one).
 # Another address carried by a link, once its path, query and fragment
 # are decoded (twice: "%253A" is ":"): a scheme ("https:" with any number
 # of slashes, browsers accept "https:evil.tk"), or two slashes in a row
-# ("?q=//evil.tk", "?q=+//evil.tk", backslashes too). Google's AMP viewer
-# ("/amp/s/evil.tk/...") takes the address in its path.
-_EMBEDDED_URL_RE = re.compile(r"https?:|[/\\]{2}|^/amp/(?:s/)?[\w-]+(?:\.[\w-]+)+", re.IGNORECASE)
+# ("?q=//evil.tk", "?q=+//evil.tk", backslashes too), or a parameter that
+# starts with "www." ("?q=www.evil.tk", which redirectors complete).
+# Google's AMP viewer ("/amp/s/evil.tk/...") takes the address in its path.
+_EMBEDDED_URL_RE = re.compile(
+    r"https?:|[/\\]{2}|[=?&#]\s*www\.[\w-]+\.|^/amp/(?:s/)?[\w-]+(?:\.[\w-]+)+", re.IGNORECASE
+)
 
 
 def well_known_link(url: str) -> bool:
@@ -175,6 +174,8 @@ def well_known_link(url: str) -> bool:
     url = browser_url(url)
     host = link_host(url)
     if not host or on_cloud_file_host(url):
+        return False
+    if any(host == h or host.endswith("." + h) for h in USER_CONTENT_HOSTS):
         return False
     try:
         parts = urlsplit(url if "://" in url else "http://" + url)
@@ -192,8 +193,8 @@ def link_profile(urls: list[str], from_header: str) -> dict[str, int]:
     """Counts of distinct links: to the sender's own organisational domain
     ("aligned"), to large known sites, to public file hosts, through
     click tracking, elsewhere."""
-    sender = parseaddr(from_header or "")[1]
-    own = org_domain(sender.rsplit("@", 1)[-1]) if "@" in sender else ""
+    domain = sender_domain(from_header or "")
+    own = org_domain(domain) if domain else ""
     counts = {"links": 0, "aligned": 0, "well_known": 0, "cloud": 0, "tracking": 0, "other": 0}
     for url in dict.fromkeys(urls):
         host = _host(url)

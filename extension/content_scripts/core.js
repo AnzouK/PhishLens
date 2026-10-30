@@ -405,7 +405,9 @@ function shownLink(a, hidden, boxes = new Set(hidden.boxes), unreadable = new Se
         for (const c of n.childNodes || []) {
             if (c.nodeType === 3 && c.data.trim() && !unreadable.has(n)) return true;
             if (c.nodeType !== 1 || boxes.has(c)) continue;
-            if (/^(IMG|SVG|PICTURE|VIDEO|CANVAS|OBJECT|EMBED|IFRAME)$/i.test(c.tagName)) {
+            // Pictures, and the shapes of a drawing (a link inside an <svg>
+            // around a <rect> shows the shape).
+            if (/^(IMG|SVG|PICTURE|VIDEO|CANVAS|OBJECT|EMBED|IFRAME|RECT|PATH|CIRCLE|ELLIPSE|POLYGON|POLYLINE|LINE|USE|IMAGE)$/i.test(c.tagName)) {
                 // Seen when it has a box of 2 px and is not invisible
                 // (visibility hidden keeps the box, not the picture).
                 const r = c.getBoundingClientRect?.();

@@ -13,6 +13,8 @@ SUSPICIOUS_TLDS   top-level domains mostly seen in abuse (free or
 CLOUD_FILE_HOSTS  hosts where anyone can publish a file or a page: a link
                   to them is a sign (phishing pages are often hosted
                   there), not a proof.
+USER_CONTENT_HOSTS  the parts of large known sites where anyone can
+                  publish a form or a document (forms.office.com...).
 
 Names are matched as whole words, lower case, accents removed. A brand's
 domains are matched on the first label of the organisational domain
@@ -144,6 +146,27 @@ _CLOUD_FILE_HOSTS_TEXT = """
     s3.amazonaws.com netlify.app vercel.app glitch.me github.io
 """
 CLOUD_FILE_HOSTS = frozenset(_CLOUD_FILE_HOSTS_TEXT.split())
+
+# Parts of large known sites where anyone can publish a form, a document
+# or a page: a link there is never "to a known site" (well_known_link),
+# though the rest of the site is.
+USER_CONTENT_HOSTS = frozenset(
+    [
+        "forms.office.com",
+        "forms.microsoft.com",
+        "forms.cloud.microsoft",
+        "sway.office.com",
+        "sway.cloud.microsoft",
+        "onedrive.live.com",
+        "1drv.ms",
+        "sharepoint.com",
+        "docs.google.com",
+        "drive.google.com",
+        "sites.google.com",
+        "forms.gle",
+        "script.google.com",
+    ]
+)
 
 SUSPICIOUS_TLDS = frozenset(
     {

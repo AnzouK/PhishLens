@@ -488,14 +488,15 @@ def _script_url(value: str) -> bool:
     return v.startswith(("javascript:", "vbscript:"))
 
 
-def _page_urls(soup) -> Callable[[str], str]:
+def _page_urls(soup, location: str = "") -> Callable[[str], str]:
     """How the page's addresses are read: absolute ones as browsers read
     them, relative ones against the page's <base href> (a form posting to
-    "login.php" under <base href="https://evil.tk/"> goes to evil.tk).
-    Without a base, a relative address in a saved page points to a local
-    file, not a site."""
+    "login.php" under <base href="https://evil.tk/"> goes to evil.tk), or
+    against the address a web archive says the page came from
+    (Content-Location). Without either, a relative address in a saved page
+    points to a local file, not a site."""
     tag = soup.find("base", href=True)
-    base = absolute_http(tag["href"]) if tag else ""
+    base = (absolute_http(tag["href"]) if tag else "") or absolute_http(location)
 
     def url(value: str) -> str:
         found = absolute_http(value)
@@ -516,7 +517,11 @@ _SMUGGLING_RE = re.compile(
     re.IGNORECASE,
 )
 _JS_ESCAPE_RE = re.compile(r"\\x([0-9a-fA-F]{2})|\\u\{([0-9a-fA-F]{1,6})\}|\\u([0-9a-fA-F]{4})")
-_CHAR_CODES_RE = re.compile(r"fromCharCode\s*\(\s*((?:\d{1,7}\s*,\s*){3,4000}\d{1,7})\s*\)")
+_NUMBER = r"(?:0[xX][0-9a-fA-F]{1,6}|0[oO][0-7]{1,8}|\d{1,7})"
+_CHAR_CODES_RE = re.compile(rf"fromCharCode\s*\(\s*((?:{_NUMBER}\s*,\s*){{3,4000}}{_NUMBER})\s*\)")
+# Two string literals joined with "+": "https://ev" + "il.tk".
+_JOINED_RE = re.compile(r"""(["'`])\s*\+\s*(["'`])""")
+_LITERAL_RE = re.compile(r"""["'`]([^"'`\n]{10,2048})["'`]""")
 _BASE64_LITERAL_RE = re.compile(r"[\"'`]([A-Za-z0-9+/]{16,20000}={0,2})[\"'`]")
 
 
@@ -525,8 +530,8 @@ def _script_strings(code: str) -> str:
     ("\\x68\\x74\\x74\\x70s://"), character codes turned into text
     (String.fromCharCode(104, 116, ...)), percent-encoding undone
     (unescape("%68...")) and base64 literals decoded (atob("aHR0cHM6...")),
-    each added after the code itself."""
-    out = [code]
+    each added after the code itself (string literals joined)."""
+    out: list[str] = []
 
     def char(m: re.Match) -> str:
         try:
@@ -534,13 +539,18 @@ def _script_strings(code: str) -> str:
         except (ValueError, OverflowError):
             return ""
 
-    out.append(_JS_ESCAPE_RE.sub(char, code))
+    # Literals joined first ('"https://ev" + "il.tk"', also across
+    # quote kinds), escapes decoded, then every other reading on that.
+    code = _JOINED_RE.sub("", code)
+    code = _JS_ESCAPE_RE.sub(char, code)
+    out.append(code)
     for m in _CHAR_CODES_RE.finditer(code):
-        out.append(
-            "".join(chr(int(n)) for n in re.findall(r"\d+", m.group(1)) if int(n) < 0x110000)
-        )
+        codes = [int(n, 0) for n in re.findall(r"0[xXoO][0-9a-fA-F]+|\d+", m.group(1))]
+        out.append("".join(chr(n) for n in codes if n < 0x110000))
     if "%" in code:
         out.append(unquote(code))
+    # A string written backwards ("kt.live//:sptth".split("").reverse()).
+    out += [lit[::-1] for lit in _LITERAL_RE.findall(code) if "//:" in lit]
     for m in _BASE64_LITERAL_RE.finditer(code):
         try:
             decoded = base64.b64decode(m.group(1) + "==", validate=False)[:20_000]
@@ -571,7 +581,7 @@ def _page_flags(soup, has_script: bool, smuggles: bool) -> list[str]:
     return flags
 
 
-def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
+def analyse_html(raw: bytes, filename: str, location: str = "") -> dict[str, Any]:
     """
     Extract visible text + href / action URLs from an HTML attachment.
     HTML phishing attachments typically render a login form styled as
@@ -593,7 +603,7 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     hidden_parts = hidden_tags(soup)  # before the <style> sheets go
     hidden = {id(tag) for tag in hidden_parts}
     maps = shown_maps(soup, hidden)
-    url = _page_urls(soup)
+    url = _page_urls(soup, location)
     sends, visible, unseen, assets = [], [], [], []
     for tag in soup.find_all(["form", "iframe", "frame", "object", "embed"], limit=20_000):
         sends.append(url(tag.get("action") or tag.get("src") or tag.get("data") or ""))
@@ -652,6 +662,7 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
 
 
 _MAX_MIME_PAGES = 3
+_MIME_PAGE_PARTS = ("text/html", "application/xhtml+xml", "image/svg+xml")
 
 
 def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
@@ -671,8 +682,9 @@ def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
             continue
         if part.get_filename() and kind not in ("text/html", "text/plain"):
             attached = True
-        elif kind in ("text/html", "image/svg+xml") and len(pages) < _MAX_MIME_PAGES:
-            pages.append(analyse_html(data[:MAX_ATTACHMENT_BYTES], filename))
+        elif kind in _MIME_PAGE_PARTS and len(pages) < _MAX_MIME_PAGES:
+            location = str(part.get("Content-Location") or "")
+            pages.append(analyse_html(data[:MAX_ATTACHMENT_BYTES], filename, location))
         elif kind == "text/plain" and not plain:
             plain.append(data.decode(part.get_content_charset() or "utf-8", "replace"))
     out: dict[str, Any] = {
@@ -754,7 +766,7 @@ def _zip_names(raw: bytes) -> list[str] | None:
         with zipfile.ZipFile(io.BytesIO(raw)) as zf:
             return [
                 i.filename
-                for i in zf.infolist()[: archives.MAX_ENTRIES]
+                for i in zf.infolist()[: office.MAX_ZIP_ENTRIES]
                 if not archives.is_dir(i.filename)
             ]
     except (zipfile.BadZipFile, ValueError):

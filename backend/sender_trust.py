@@ -160,6 +160,13 @@ def _display_names(header: str) -> str:
     return " ".join(names)
 
 
+_WEBMAIL_IN_NAME_RE = re.compile(
+    r"[\w.+-]+@(?:gmail|googlemail|outlook|hotmail|live|yahoo|ymail|icloud|me|aol|proton|"
+    r"protonmail|gmx|mail|yandex)\.[a-z]{2,6}(?:\.[a-z]{2})?\b",
+    re.IGNORECASE,
+)
+
+
 def impersonated_brand(from_header: str) -> str | None:
     """The brand a From: claims when its address is not the brand's.
 
@@ -171,7 +178,15 @@ def impersonated_brand(from_header: str) -> str | None:
     # The header as email_parsing.header_dict keeps it (spaces collapsed,
     # 8,000 characters): the whole value, not a first part of it.
     header = " ".join((from_header or "")[:32_000].split())[:8000]
+    # A person's own webmail address next to their name ("Jane
+    # (jane@gmail.com) via GitHub") does not claim to be the webmail: it is
+    # left out when other words remain. A name that is only such an address
+    # ('"security@gmail.com" <x@evil>'), or any other address
+    # ('"support@paypal.com" <x@evil>'), is read.
     name = _display_names(header)
+    rest = _WEBMAIL_IN_NAME_RE.sub(" ", name)
+    if rest != name and re.search(r"[^\W\d_]{2}", rest):
+        name = rest
     if not name.strip(' <>"\\'):
         return None
     # Every address of the header: one of the brand's next to an impostor's

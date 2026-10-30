@@ -121,7 +121,8 @@ words (document shares, invoices, signature requests) are kept off the
 list, but their signed mail still gets the DKIM-signed discount; large
 sites where anyone can publish a page (notion.so, medium.com,
 github.com) skip the trained link model and rely on threat
-intelligence.
+intelligence. Forms and shared files on large sites (Microsoft Forms,
+OneDrive, SharePoint, Google Docs) never count as links to a known site.
 
 **R8. OCR and QR decoding are best effort.** Poor scans, stylised fonts
 or damaged QR codes defeat them; an image-only PDF still raises the
