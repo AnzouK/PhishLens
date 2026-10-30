@@ -895,3 +895,140 @@ def test_a_sentence_after_a_closed_quote_without_a_bracket_stays_words():
 def test_a_short_text_with_two_tags_is_not_source():
     assert not ep.is_page_source('<p><div a="' + "A" * 1990 + '">')
     assert not ep.is_page_source("Hello " + "<b>x</b>" * 3)
+
+
+# ---------------------------------------------------------------------
+# Round 11
+# ---------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "decoy",
+    [
+        '<a href="https://d0.example/" style="visibility:hidden"><svg width="10" height="10"></svg></a>',
+        '<a href="https://d0.example/"><img src="x.png" width="10" height="10" style="visibility:hidden"></a>',
+        '<a href="https://d0.example/"><img src="x.png" style="width:1px;height:1px"></a>',
+        '<a href="https://d0.example/"><!-- x --></a>',
+        '<a href="https://d0.example/"><style>.x{}</style></a>',
+    ],
+)
+def test_links_showing_nothing_visible_are_hidden(decoy):
+    visible, hidden = ep.html_link_groups(decoy + '<a href="https://evil.example/">Verify</a>')
+    assert visible == ["https://evil.example/"]
+    assert hidden == ["https://d0.example/"]
+
+
+@pytest.mark.parametrize(
+    ("html", "first"),
+    [
+        # hiding
+        (
+            '<div style="background:linear-gradient(#fff,#fff);color:transparent">filler</div><p>Hi</p>',
+            "Hi",
+        ),
+        (
+            '<div style="color:transparent"><span style="background:#000">filler</span></div><p>Hi</p>',
+            "Hi",
+        ),
+        ('<p style="color:ivory">filler</p><p>Hi</p>', "Hi"),
+        ('<div style="display: none ! important">filler</div><p>Hi</p>', "Hi"),
+        ("<details><summary>One</summary><summary>filler</summary></details><p>Hi</p>", "One Hi"),
+        # legitimate
+        ('<a style="background-color:navy;color:#fff">Sign in</a><p>Hi</p>', "Sign in Hi"),
+        ('<td bgcolor="0b57d0" style="color:#fff">Statement</td><p>Hi</p>', "Statement Hi"),
+        (
+            '<a style="background:#fff;background-color:#0b57d0;color:#fff">Open</a><p>Hi</p>',
+            "Open Hi",
+        ),
+        (
+            '<style>.b{background:#fff}</style><a class="b" style="background-color:#0b57d0;color:#fff">Go</a>',
+            "Go",
+        ),
+        ('<a style="background-color:var(--brand);color:#fff">Brand</a><p>Hi</p>', "Brand Hi"),
+    ],
+)
+def test_round_11_hiding_and_legitimate_styles(html, first):
+    assert ep.html_to_text(html).split("\n")[0] == first
+
+
+def test_a_quoted_sentence_is_not_an_attribute_even_with_a_closing_bracket():
+    text = (
+        'Hi <a x="Urgent: your bank account is suspended, verify your password '
+        'immediately at https://evil.example/login?id=1">'
+    )
+    assert ep.strip_markup_noise(text) == text
+    # a real style value stays markup
+    assert (
+        ep.strip_markup_noise(
+            '<td style="width: 100%; max-width: 600px; margin: 0 auto; padding: 0 10px">x'
+        )
+        == "x"
+    )
+
+
+@pytest.mark.parametrize(
+    ("href", "url", "host"),
+    [
+        ("https://evil.tk\\@paypal.com/", "https://evil.tk/@paypal.com/", "evil.tk"),
+        ("HTTPS:evil.tk/login", "https://evil.tk/login", "evil.tk"),
+        ("https:\\\\evil.tk", "https://evil.tk", "evil.tk"),
+        ("https://%65vil.tk/x", "https://evil.tk/x", "evil.tk"),
+        ("https://evil。tk/", "https://evil.tk/", "evil.tk"),
+        ("https://ＰＡＹＰＡＬ.com/", "https://paypal.com/", "paypal.com"),
+        ("https://a.example/?q=1#f", "https://a.example/?q=1#f", "a.example"),
+    ],
+)
+def test_links_are_read_as_browsers_read_them(href, url, host):
+    assert ep.absolute_http(href) == url
+    assert la.link_host(href) == host
+
+
+def test_addresses_written_in_capitals_or_with_www_are_links_too():
+    assert ep.urls_in_text("see HTTPS://EVIL.tk/login, and www.evil.tk/x.") == [
+        "https://evil.tk/login",
+        "http://www.evil.tk/x",
+    ]
+
+
+@pytest.mark.parametrize(
+    "name", ["invoice.exe ", "invoice.exe.", "invoice‮fdp.exe", "ｉｎｖ.ＥＸＥ"]
+)
+def test_file_names_windows_would_run(name):
+    import archive_analysis as aa
+
+    assert "executable_in_archive" in aa.classify_names([name])
+
+
+def test_a_name_with_a_direction_override_is_a_fake_extension():
+    import archive_analysis as aa
+
+    assert "double_extension" in aa.classify_names(["invoice‮exe.pdf"])
+
+
+def test_a_huge_style_sheet_does_not_stall_the_server():
+    import time
+
+    css = "".join(f".c{i} div span{{display:none}} " for i in range(2000))
+    css += "div, " * 5000 + "p{display:none}"
+    html = "<style>" + css + "</style>" + '<div class="c5"><span>x</span></div>' * 5000
+    start = time.monotonic()
+    ep.html_to_text(html)
+    assert time.monotonic() - start < 10
+
+
+def test_junk_rules_before_a_hiding_rule_do_not_spend_the_budget():
+    css = "".join(f".c{i} div span{{color:#333}} " for i in range(3000)) + ".h{display:none}"
+    html = (
+        "<style>"
+        + css
+        + "</style>"
+        + "<div><span>x</span></div>" * 300
+        + '<div class="h">filler</div><p>Hi</p>'
+    )
+    assert ep.html_to_text(html).endswith("filler")
+
+
+def test_words_written_by_a_style_sheet_are_read():
+    text = ep.html_to_text(
+        '<style>.x::before{content:"Your account is suspended. Verify now"}'
+        '.absent::after{content:"never shown"}</style><p class="x">Hello</p>'
+    )
+    assert text == "Hello\nYour account is suspended. Verify now"

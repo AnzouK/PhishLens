@@ -146,12 +146,12 @@ PL.isHiddenBox = function isHiddenBox(el) {
 // (a WCAG ratio under 1.2, like backend/hidden_content.py). Its children
 // set their own colour and size: a dark section whose paragraphs are
 // white is not hidden.
-PL.textUnreadable = function textUnreadable(el) {
+PL.textUnreadable = function textUnreadable(el, cache) {
     if (typeof getComputedStyle !== "function") return false;
     const st = getComputedStyle(el);
     if (st.visibility === "hidden" || st.visibility === "collapse" || parseFloat(st.fontSize) < 2) return true;
     const ink = rgba(st.color);
-    const behind = backgroundBehind(el);
+    const behind = backgroundBehind(el, cache);
     return !!ink && (ink[3] <= 0.05 || (!!behind && contrast(over(ink, behind), behind) < 1.2));
 };
 
@@ -195,16 +195,35 @@ function contrast(a, b) {
 // The colour drawn behind an element: its background and its ancestors'
 // composed from the white page up, alpha included (backgrounds are not
 // inherited, they show through); null when an image is drawn (unknown).
-function backgroundBehind(el) {
-    const layers = [];
-    for (let n = el, depth = 0; n && n.nodeType === 1 && depth < 40; n = n.parentNode, depth++) {
+function backgroundBehind(el, cache = new Map()) {
+    // Up to the first element already known, an opaque or image
+    // background, or the page; then down again, each result memoised (the
+    // walk is shared by all the children; a loop, not recursion, for very
+    // deep messages).
+    const chain = [];
+    let below = [255, 255, 255];
+    for (let n = el; n && n.nodeType === 1; n = n.parentNode) {
+        if (cache.has(n)) {
+            below = cache.get(n);
+            break;
+        }
         const st = getComputedStyle(n);
-        if (st.backgroundImage && st.backgroundImage !== "none") return null;
         const c = rgba(st.backgroundColor);
-        if (c && c[3] > 0) layers.push(c);
-        if (c && c[3] >= 1) break;
+        const image = !!st.backgroundImage && st.backgroundImage !== "none";
+        chain.push([n, c, image]);
+        if (image || (c && c[3] >= 1)) {
+            below = undefined;
+            break;
+        }
     }
-    return layers.reverse().reduce((below, layer) => over(layer, below), [255, 255, 255]);
+    for (let i = chain.length - 1; i >= 0; i--) {
+        const [n, c, image] = chain[i];
+        if (image) below = null;
+        else if (c && c[3] >= 1) below = c.slice(0, 3);
+        else if (below && c && c[3] > 0) below = over(c, below);
+        cache.set(n, below);
+    }
+    return chain.length ? cache.get(el) : below;
 }
 
 // "rgba(0, 0, 0, 0)" or "transparent": the computed colour of text drawn
@@ -215,15 +234,17 @@ function transparent(color) {
     return !!m && Number(m[1]) <= 0.05;
 }
 
-// What is hidden under `el`: { boxes, texts }. `boxes` are the outermost
-// elements hidden whole (their subtrees are not walked); `texts` the
-// elements whose own text is unreadable while their children may not be.
+// What is hidden under `el`: { boxes, texts, generated }. `boxes` are the
+// outermost elements hidden whole (their subtrees are not walked); `texts`
+// the elements whose own text is unreadable while their children may not
+// be; `generated` the words style sheets write (pseudoWords), visible.
 // At most MAX_WALK elements are examined (Gmail cuts messages above
 // 102 KB, far fewer elements than that).
 const MAX_WALK = 20000;
 PL.hiddenParts = function hiddenParts(el) {
-    const out = { boxes: [], texts: [] };
+    const out = { boxes: [], texts: [], generated: [] };
     if (typeof getComputedStyle !== "function" || !el?.children) return out;
+    const backgrounds = new Map();
     const stack = [...el.children].reverse();       // popped in page order
     for (let seen = 0; stack.length && seen < MAX_WALK; seen++) {
         const n = stack.pop();
@@ -231,11 +252,26 @@ PL.hiddenParts = function hiddenParts(el) {
             out.boxes.push(n);
             continue;
         }
-        if (ownText(n) && PL.textUnreadable(n)) out.texts.push(n);
+        if (ownText(n) && PL.textUnreadable(n, backgrounds)) out.texts.push(n);
+        else if (seen < MAX_PSEUDO) out.generated.push(...pseudoWords(n));
         stack.push(...[...n.children].reverse());
     }
     return out;
 };
+
+// Words a style sheet writes on the page itself (::before and ::after
+// content): the reader sees them, innerText does not hold them, so a lure
+// written there was out of the text model's reach. Looked for on the
+// first MAX_PSEUDO elements.
+const MAX_PSEUDO = 5000;
+function pseudoWords(n) {
+    const words = [];
+    for (const pseudo of ["::before", "::after"]) {
+        const content = getComputedStyle(n, pseudo)?.content || "";
+        for (const m of content.matchAll(/"((?:[^"\\]|\\.){0,500})"/g)) if (m[1].trim()) words.push(m[1]);
+    }
+    return words;
+}
 
 // The text written directly in an element, not in its children.
 function ownText(el) {
@@ -274,7 +310,8 @@ PL.textOf = function textOf(el, hidden = PL.hiddenParts(el)) {
         hidden.texts.forEach((n) => n.removeAttribute("data-pll-hidden-text"));
     }
     const tail = [...hidden.boxes.map(wordsOf), ...hidden.texts.map(ownText)].filter(Boolean);
-    return [text, ...tail].join("\n").replace(/\s+\n/g, "\n").trim();
+    const generated = (hidden.generated || []).join(" ");
+    return [text, generated, ...tail].filter(Boolean).join("\n").replace(/\s+\n/g, "\n").trim();
 };
 
 // Base64 of bytes, in chunks so large files do not overflow the stack.
@@ -301,17 +338,23 @@ function tinyLink(a) {
 // click, and showing something: text outside the hidden parts, or an
 // image or drawing of 2 px at least. Fifty links whose only text was
 // transparent once filled the place of the real one.
-function shownLink(a, hidden) {
-    if (hidden.boxes.some((part) => part.contains(a)) || tinyLink(a)) return false;
+function shownLink(a, hidden, boxes = new Set(hidden.boxes), unreadable = new Set(hidden.texts)) {
+    // Inside a hidden box: walk up the ancestors (sets, not a scan of
+    // every box for every link: 10,000 boxes and 20,000 links froze the tab).
+    for (let n = a; n; n = n.parentNode) if (boxes.has(n)) return false;
+    if (tinyLink(a)) return false;
     if (a.tagName === "AREA") return true;
-    const unreadable = new Set(hidden.texts);
     const walk = (n) => {
         for (const c of n.childNodes || []) {
             if (c.nodeType === 3 && c.data.trim() && !unreadable.has(n)) return true;
-            if (c.nodeType !== 1 || hidden.boxes.includes(c)) continue;
-            if (/^(IMG|SVG|PICTURE|VIDEO)$/i.test(c.tagName)) {
+            if (c.nodeType !== 1 || boxes.has(c)) continue;
+            if (/^(IMG|SVG|PICTURE|VIDEO|CANVAS|OBJECT|EMBED|IFRAME)$/i.test(c.tagName)) {
+                // Seen when it has a box of 2 px and is not invisible
+                // (visibility hidden keeps the box, not the picture).
                 const r = c.getBoundingClientRect?.();
-                if (!r || (r.width >= 2 && r.height >= 2)) return true;
+                const st = typeof getComputedStyle === "function" ? getComputedStyle(c) : {};
+                const seen = !/hidden|collapse/.test(st.visibility || "") && Number(st.opacity ?? 1) > 0.05;
+                if (seen && (!r || (r.width >= 2 && r.height >= 2))) return true;
             } else if (walk(c)) {
                 return true;
             }
@@ -334,6 +377,8 @@ PL.linkGroupsOf = function linkGroupsOf(el, hidden = PL.hiddenParts(el)) {
     const hosts = { visible: new Set(), hidden: new Set() };
     const seen = new Set();
     const anchors = el ? el.querySelectorAll("a[href], area[href]") : [];
+    const boxes = new Set(hidden.boxes);
+    const unreadable = new Set(hidden.texts);
     // As many as the server reads (20,000): a cap on anchors of any kind
     // let 2,000 hidden "#" links hide the ones after them.
     for (let i = 0; i < anchors.length && i < MAX_WALK; i++) {
@@ -347,7 +392,7 @@ PL.linkGroupsOf = function linkGroupsOf(el, hidden = PL.hiddenParts(el)) {
         }
         if (host === location.hostname) continue;
         seen.add(href);
-        const kind = shownLink(anchors[i], hidden) ? "visible" : "hidden";
+        const kind = shownLink(anchors[i], hidden, boxes, unreadable) ? "visible" : "hidden";
         groups[kind][hosts[kind].has(host) ? 1 : 0].push(href);
         hosts[kind].add(host);
     }

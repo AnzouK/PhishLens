@@ -176,8 +176,8 @@ function cardHead(iconName, title, filename, spin = false) {
     return h("div.pll-att-banner__row", null,
         h(`span.pll-att-banner__icon${spin ? ".pll-spin" : ""}`, null, icon(iconName)),
         h("div.pll-att-banner__main", null,
-            h("div.pll-att-banner__title", { title: filename }, title),
-            h("div.pll-att-banner__file", { title: filename }, filename)));
+            h("div.pll-att-banner__title", { title: PhishLensShared.safeName(filename) }, title),
+            h("div.pll-att-banner__file", { title: PhishLensShared.safeName(filename) }, PhishLensShared.safeName(filename))));
 }
 
 function setCard(card, state, ...children) {

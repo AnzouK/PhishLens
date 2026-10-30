@@ -17,8 +17,9 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import unicodedata
 from email.utils import parseaddr
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from auth_headers import org_domain
 from known_domains import CLOUD_FILE_HOSTS, WELL_KNOWN
@@ -48,10 +49,36 @@ TRACKING = frozenset(
 ASSET_HOSTS = frozenset({"fonts.googleapis.com", "fonts.gstatic.com"})
 
 
+_SPECIAL_SCHEME_RE = re.compile(r"^\s*(https?):[/\\]*", re.IGNORECASE)
+_DOTS = str.maketrans({"\u3002": ".", "\uff0e": ".", "\uff61": "."})
+
+
+def browser_url(url: str) -> str:
+    """An http(s) address as a browser reads it: the scheme in lower case
+    with "//" after it however many slashes or backslashes were written
+    ("HTTPS:\\\\evil.tk", "https:evil.tk"), backslashes as slashes, and a
+    host percent-decoded, in compatibility form and with ideographic dots
+    as dots ("https://%65vil.tk", "https://evil\u3002tk"). Anything else is
+    returned as it is."""
+    m = _SPECIAL_SCHEME_RE.match(url)
+    if not m:
+        return url
+    rest = url[m.end() :].replace("\\", "/")
+    authority, sep, tail = rest.partition("/")
+    for mark in ("?", "#"):
+        if mark in authority:
+            authority, extra = authority.split(mark, 1)
+            tail, sep = mark + extra + sep + tail, ""
+    userinfo, at, host = authority.rpartition("@")
+    host = unicodedata.normalize("NFKC", unquote(host)).translate(_DOTS).lower()
+    return f"{m.group(1).lower()}://{userinfo}{at}{host}{'/' if sep else ''}{tail}"
+
+
 def link_host(url: str) -> str:
-    """Host name of a link, after any "user:password@" part: in
-    https://paypal.com:443@evil.example/ the host is evil.example; in
-    https://evil.tk?login it is evil.tk."""
+    """Host name of a link as a browser reads it (browser_url), after any
+    "user:password@" part: in https://paypal.com:443@evil.example/ the
+    host is evil.example; in https://evil.tk?login it is evil.tk."""
+    url = browser_url(url)
     try:
         return (urlsplit(url if "://" in url else "http://" + url).hostname or "").lower()
     except ValueError:
@@ -100,6 +127,7 @@ _EMBEDDED_URL_RE = re.compile(
 def well_known_link(url: str) -> bool:
     """The link goes to a large, known site and carries no other address
     (an open redirect such as ...?url=https://elsewhere is not known)."""
+    url = browser_url(url)
     host = link_host(url)
     if not host or on_cloud_file_host(url):
         return False

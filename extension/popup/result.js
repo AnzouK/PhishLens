@@ -114,7 +114,7 @@ function renderArchiveFiles(att, isPhishing) {
     if (att?.kind === "archive") {
         const risky = Array.isArray(att.suspicious_files) ? att.suspicious_files : [];
         const entries = Array.isArray(att.entries) ? att.entries : [];
-        const name = (n) => h("span.archive-files__name", { title: n }, n);
+        const name = (n) => h("span.archive-files__name", { title: window.PhishLensShared.safeName(n) }, window.PhishLensShared.safeName(n));
         if (risky.length) {
             box.append(h(`div.archive-files__risky.archive-files__risky--${isPhishing ? "bad" : "warn"}`, null,
                 h("div.archive-files__title", null, t(isPhishing ? "att_do_not_open" : "att_check_before")),

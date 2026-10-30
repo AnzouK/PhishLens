@@ -44,8 +44,14 @@ function apiErrorMessage(data, status) {
     return t ? t("err_server", { status }) : `Server error (HTTP ${status}).`;
 }
 
+// A file name as shown to the user: the characters that reorder text
+// ("invoice\u202efdp.exe" displays as "invoiceexe.pdf") made visible.
+function safeName(name) {
+    return String(name || "").replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "\u2420");
+}
+
 const PhishLensShared = Object.freeze({
-    BACKEND_PRESETS, DEFAULT_BACKEND, resolveBackend, getBackendBase, apiErrorMessage, debug,
+    BACKEND_PRESETS, DEFAULT_BACKEND, resolveBackend, getBackendBase, apiErrorMessage, debug, safeName,
 });
 globalThis.PhishLensShared = PhishLensShared;
 

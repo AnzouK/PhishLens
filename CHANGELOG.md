@@ -19,13 +19,17 @@ Fixes from several rounds of outside review; each bypass has a test in
   `chronopost.us`), look-alike letters and padded or malformed names.
 - Hidden text and links (inline styles, `<style>` rules, near-invisible
   colours, tiny links) go after the visible ones, on the server and in
-  the extension, which share their test cases.
-- Links are parsed like a browser does, and hidden or written-out links
-  can no longer push the real ones out of the check.
+  the extension, which share their test cases; words a style sheet
+  writes with `::before` are read too.
+- Links are read like a browser reads them (`HTTPS:evil.tk`,
+  backslashes, encoded hosts, `www.` in plain text), and hidden or
+  written-out links can no longer push the real ones out of the check.
+- A huge `<style>` sheet can no longer stall the server.
 - Safe Browsing: a link it did not check is never cached as clean, a
   scan sends it at most 30 links, and its key stays out of the logs.
-- HTML attachments: forms, frames and pages inside `data:` addresses are
-  read; 7z files are unpacked in memory.
+- Attachments: forms, frames and pages inside `data:` addresses are
+  read in HTML files; names that Windows runs as programs ("invoice.exe ."
+  or with a direction mark) are caught; 7z files are unpacked in memory.
 - Outlook: the sender's real address is used, and "internal" mail only
   gets the soft path.
 - Personal mailboxes and platforms that relay their users' messages

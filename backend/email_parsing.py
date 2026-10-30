@@ -18,15 +18,21 @@ from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
 
-from hidden_content import hidden_tags, shown_link, visible_text_first
+from hidden_content import generated_text, hidden_tags, shown_link, visible_text_first
+from link_alignment import browser_url
 from settings import MAX_EMAIL_URLS, MAX_LINK_URLS
 
-# http(s) URL written out in a text.
-URL_IN_TEXT_RE = re.compile(r"https?://[^\s\"'<>)]+")
+# http(s) URL written out in a text, in any case, or starting with
+# "www." (mail programs make both clickable).
+URL_IN_TEXT_RE = re.compile(r"(?:https?://|www\.)[^\s\"'<>)]+", re.IGNORECASE)
 
 
 def urls_in_text(text: str) -> list[str]:
-    return URL_IN_TEXT_RE.findall(text)
+    # Punctuation that ends the sentence is not part of the address.
+    return [
+        browser_url(u if u[:4].lower() != "www." else "http://" + u).rstrip(".,;:!?")
+        for u in URL_IN_TEXT_RE.findall(text)
+    ]
 
 
 def html_to_text(html_src: str) -> str:
@@ -39,9 +45,10 @@ def html_to_text(html_src: str) -> str:
     """
     soup = BeautifulSoup(without_inline_data(html_src)[:1_000_000], "html.parser")
     hidden = hidden_tags(soup)  # before the <style> sheets go
+    generated = generated_text(soup)
     for tag in soup(["style", "script", "head", "noscript", "title"]):
         tag.decompose()
-    text = visible_text_first(soup, hidden)
+    text = visible_text_first(soup, hidden, generated)
     # Collapse whitespace line by line (no regex: linear on any input).
     lines = (" ".join(line.split()) for line in text.splitlines())
     return "\n".join(line for line in lines if line)
@@ -70,11 +77,14 @@ def html_link_groups(html_src: str) -> tuple[list[str], list[str]]:
 
 
 def absolute_http(href: str) -> str:
-    """An http(s) URL from an href, or "": control characters and spaces
-    removed as browsers do, "//host/..." read as https."""
+    """An http(s) URL from an href, as a browser reads it, or "": control
+    characters and spaces removed, "//host/..." read as https, and the
+    forms browsers accept ("HTTPS:evil.tk", backslashes, an encoded host)
+    normalised (link_alignment.browser_url)."""
     href = "".join(c for c in str(href)[:2048] if c > " " and c != "\x7f")
-    if href.startswith("//"):
-        href = "https:" + href
+    if href.startswith(("//", "\\\\", "/\\", "\\/")):
+        href = "https://" + href.lstrip("/\\")
+    href = browser_url(href)
     return href if href[:8].lower().startswith(("http://", "https://")) else ""
 
 
@@ -128,25 +138,46 @@ def _attributes(inner: str, cut_off: bool = False) -> bool:
         while i < n and inner[i].isspace():
             i += 1
         if i < n and inner[i] == "=":
-            i += 1
-            while i < n and inner[i].isspace():
-                i += 1
-            if i < n and inner[i] in "\"'":
-                end = inner.find(inner[i], i + 1)
-                # Unclosed: a value cut with the text (a long data: URI
-                # has no spaces), not a sentence written after a quote.
-                if end < 0 and not cut_off and any(c.isspace() for c in inner[i:].strip()):
-                    return False
-                i = n if end < 0 else end + 1
-            else:
-                while i < n and not inner[i].isspace() and inner[i] not in "\"'=`":
-                    i += 1
+            i = _value_end(inner, i + 1, cut_off)
+            if i < 0:
+                return False
             pairs, bare = pairs + 1, 0
         else:
             bare += 1
             if bare > 3:
                 return False
     return pairs > 0
+
+
+def _value_end(inner: str, i: int, cut_off: bool) -> int:
+    """Where the attribute value starting at `i` ends, or -1 when it is
+    not one: a quoted sentence (_sentence), or a quote left open in a text
+    that was not cut there (a long data: URI has no spaces; a sentence
+    written after "<a x=" does)."""
+    n = len(inner)
+    while i < n and inner[i].isspace():
+        i += 1
+    if i < n and inner[i] in "\"'":
+        end = inner.find(inner[i], i + 1)
+        if _sentence(inner[i + 1 : n if end < 0 else end]):
+            return -1
+        if end < 0 and not cut_off and any(c.isspace() for c in inner[i:].strip()):
+            return -1
+        return n if end < 0 else end + 1
+    while i < n and not inner[i].isspace() and inner[i] not in "\"'=`":
+        i += 1
+    return i
+
+
+def _sentence(value: str) -> bool:
+    """A quoted value that reads as prose: more than eight words and no
+    ";" (a style has some), or an address after a space. Such a "tag" is
+    a sentence written after "<a x=", kept as words; a real one with a
+    long alt text is only kept as words too, which costs nothing."""
+    words = value.split()
+    return (len(words) > 8 and ";" not in value) or any(
+        w.lower().startswith(("http://", "https://")) for w in words[1:]
+    )
 
 
 def _markup(m: re.Match) -> str:
@@ -487,7 +518,8 @@ def client_links(extra: Any) -> list[str]:
         if not isinstance(u, str) or len(u) > 2048:
             continue
         u = u.strip()
-        if re.match(r"https?://", u, re.I) and u not in out:
+        u = browser_url(u)
+        if re.match(r"https?://", u) and u not in out:
             out.append(u)
     return out
 

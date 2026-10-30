@@ -32,6 +32,8 @@ httpx>=0.27,<1.0
 # HTML attachments.
 pdfplumber>=0.11.10,<1.0
 beautifulsoup4>=4.15.0,<5.0
+# CSS selectors for the email's own <style> rules (hidden_content.py)
+soupsieve>=2.5,<3.0
 
 # Rate limiting (v1.9+): protects the public backend from abuse (e.g.
 # burning through the 10 k/day GSB quota) without adding auth. In-memory

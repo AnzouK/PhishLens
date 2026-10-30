@@ -30,6 +30,7 @@ from __future__ import annotations
 import io
 import re
 import tempfile
+import unicodedata
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -119,8 +120,17 @@ DROPPER_FLAGS = {
 }
 
 
+# Characters that reorder how a name is shown: "invoice\u202efdp.exe" is
+# displayed "invoiceexe.pdf".
+_BIDI = frozenset("\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
+
+
 def _ext(name: str) -> str:
-    base = name.rsplit("/", 1)[-1]
+    """The extension Windows would run the file by: trailing spaces and
+    dots are dropped ("invoice.exe ." runs as .exe), letters compared in
+    compatibility form and lower case."""
+    base = unicodedata.normalize("NFKC", name.rsplit("/", 1)[-1].rsplit("\\", 1)[-1])
+    base = base.rstrip(" .\t")
     return base.rsplit(".", 1)[-1].lower() if "." in base else ""
 
 
@@ -145,7 +155,7 @@ def classify_names(names: list[str]) -> list[str]:
 
     for n in names:
         e = _ext(n)
-        if _double_extension(n):
+        if _double_extension(n) or _BIDI.intersection(n):
             add("double_extension")
         if e in EXECUTABLE_EXTS:
             add("executable_in_archive")

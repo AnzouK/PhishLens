@@ -366,3 +366,39 @@ test("a dark section whose paragraphs are white stays visible; its own dark text
     assert.deepEqual([...hidden.texts], [section]);
     assert.equal(PL.textOf(body, hidden), "Your statement is ready\nfiller");
 });
+
+test("a link whose only picture is invisible counts as hidden", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const decoy = doc.createElement("a");
+    decoy.href = "https://d0.example/";
+    const img = doc.createElement("img");
+    decoy.append(img);
+    const real = doc.createElement("a");
+    real.href = "https://evil.example/login";
+    real.append("Verify");
+    body.append(decoy, real);
+    const visible = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = (n) => (n === img ? { ...visible, visibility: "hidden" } : visible);
+    assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
+});
+
+test("file names that reorder text are shown with the reordering mark visible", () => {
+    const shared = require(path.join(EXT, "lib", "shared.js"));
+    assert.equal(shared.safeName("invoice‮fdp.exe"), "invoice␠fdp.exe");
+    assert.equal(shared.safeName("report.pdf"), "report.pdf");
+});
+
+test("words a style sheet writes with ::before are read", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const body = mailView(ctx.document).querySelector(".a3s");
+    const p = ctx.document.createElement("p");
+    p.append("Hello");
+    body.append(p);
+    const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible", content: "normal" };
+    ctx.getComputedStyle = (n, pseudo) => (n === p && pseudo === "::before" ? { ...plain, content: '"Verify your account now"' } : plain);
+    assert.equal(PL.textOf(body), "Hello\nVerify your account now");
+});
