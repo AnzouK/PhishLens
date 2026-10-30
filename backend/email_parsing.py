@@ -11,16 +11,21 @@ from __future__ import annotations
 
 import re
 import unicodedata
+import warnings
 from email import message_from_bytes, policy
 from email.utils import parseaddr
 from typing import Any
 from urllib.parse import urlsplit
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
 from hidden_content import generated_text, hidden_tags, shown_link, visible_text_first
 from link_alignment import browser_url
 from settings import MAX_EMAIL_URLS, MAX_LINK_URLS
+
+# An email that is only an address is still an email to read, not a
+# mistake to warn about (each warning went to the server log).
+warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
 # http(s) URL written out in a text, in any case, or starting with
 # "www." (mail programs make both clickable).
