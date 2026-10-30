@@ -721,7 +721,9 @@ _MAX_MERGES = 500_000
 
 # Tags, classes and ids named in a selector; attribute tests and
 # pseudo-classes are set aside first.
-_TOKEN_RE = re.compile(r"([.#]?)([a-z][a-z0-9_-]*)", re.IGNORECASE)
+_TOKEN_RE = re.compile(
+    r"([.#])(-?[a-z_][a-z0-9_-]*)|(?<![a-z0-9_.#-])()([a-z][a-z0-9-]*)", re.IGNORECASE
+)
 _ATTRS_RE = re.compile(r"\[[^\]]*\]|::?[a-z-]+(?:\([^)]*\))?", re.IGNORECASE)
 
 
@@ -752,7 +754,8 @@ class _Index:
             return matched
         if budget[0] <= 0 or time.monotonic() > budget[1]:
             return []
-        for kind, name in _TOKEN_RE.findall(_ATTRS_RE.sub("", selector)):
+        for mark, ident, _bare, tag_name in _TOKEN_RE.findall(_ATTRS_RE.sub("", selector)):
+            kind, name = (mark, ident) if mark else ("", tag_name)
             table = {"": self.by_tag, ".": self.by_class, "#": self.by_id}[kind]
             if name.lower() not in table:
                 return []
@@ -829,19 +832,19 @@ def generated_text(soup, hidden: list | None = None) -> str:
     """Words a <style> sheet writes on the page itself (::before and
     ::after content): the reader sees them, the document's text does not
     hold them, so a lure written there was out of the text model's reach.
-    Left out: rules whose content is hidden (display, size, visibility,
-    transparent colour), rules for elements not in the email or inside a
-    `hidden` part; selectors are matched within a work budget, 200 words
-    at most."""
+    Left out: content hidden by its own rule (display), unreadable as
+    drawn on its element (size, visibility and colour, its own or the
+    element's, against what is behind it; hidden_tags records them), or
+    for elements not in the email or inside a `hidden` part. Selectors
+    are matched within a work budget, 200 words at most."""
     hidden_ids = {id(t) for t in hidden or []}
+    states = getattr(soup, "pll_text_states", {})
     index, words, budget = None, [], [20_000, time.monotonic() + _SELECT_SECONDS]
     for selector, decl in _rules_of(soup):
         content = decl.get("content", "")
         if not _PSEUDO_RE.search(selector) or not _QUOTED_RE.search(content):
             continue
-        if _hides_box(decl) or _text_unreadable(
-            None, _ink(decl, _INK), _tiny(decl, False), _invisible(decl, False)
-        ):
+        if _hides_box(decl):
             continue
         index = index or _Index(soup)
         for part in selector.split(","):
@@ -850,6 +853,7 @@ def generated_text(soup, hidden: list | None = None) -> str:
                 t
                 for t in index.select(base, budget)
                 if not any(id(p) in hidden_ids for p in (t, *t.parents))
+                and _pseudo_readable(decl, states.get(id(t)))
             ]
             if shown:
                 words += [a or b for a, b in _QUOTED_RE.findall(content)]
@@ -857,6 +861,18 @@ def generated_text(soup, hidden: list | None = None) -> str:
         if len(words) >= 200:
             break
     return " ".join(w.replace("\\a", " ") for w in words)
+
+
+def _pseudo_readable(decl: Declarations, state: tuple | None) -> bool:
+    """A ::before or ::after drawn on an element in `state` (behind, ink,
+    tiny, invisible; the page and black ink when unknown) can be read."""
+    behind, ink, tiny, invisible = state or (PAGE, _INK, False, False)
+    return not _text_unreadable(
+        _behind(decl, behind),
+        _ink(decl, ink),
+        _tiny(decl, tiny),
+        _invisible(decl, invisible),
+    )
 
 
 def _cascade(soup) -> dict[int, Declarations]:
@@ -872,20 +888,29 @@ def _cascade(soup) -> dict[int, Declarations]:
     # colour, size or visibility, then the rest, so that junk rules placed
     # before them cannot spend the budget; all are then applied in their
     # own order.
-    order = sorted(range(len(rules)), key=lambda i: (_tier(rules[i][1]), i))
-    matches: dict[int, list] = {}
-    merges = _MAX_MERGES
-    for i in order:
-        found: list = []
-        for selector in dict.fromkeys(part.strip() for part in rules[i][0].split(",")):
-            found += index.select(selector, budget)
-        merges -= len(found)
+    # The elements of every rule, hiding rules first for the work budget
+    # of complex selectors (simple ones are free).
+    found: dict[int, list] = {}
+    for i in sorted(range(len(rules)), key=lambda i: (_tier(rules[i][1]), i)):
+        found[i] = [
+            tag
+            for selector in dict.fromkeys(part.strip() for part in rules[i][0].split(","))
+            for tag in index.select(selector, budget)
+        ]
+    # Applying them costs one step per element styled. Within that
+    # budget, hiding rules and the rules touching fewest elements come
+    # first: a hundred copies of "i{display:none}" over 5,000 <i> once
+    # used it up before ".h{display:none}" was reached. The rules kept are
+    # applied in their own order.
+    kept, merges = [], _MAX_MERGES
+    for i in sorted(found, key=lambda i: (_tier(rules[i][1]), len(found[i]), i)):
+        merges -= len(found[i])
         if merges < 0:
             break
-        matches[i] = found
+        kept.append(i)
     styles: dict[int, Declarations] = {}
-    for i in sorted(matches):
-        for tag in matches[i]:
+    for i in sorted(kept):
+        for tag in found[i]:
             styles[id(tag)] = styles.get(id(tag), Declarations()).then(rules[i][1])
     return styles
 
@@ -961,6 +986,8 @@ def hidden_tags(soup) -> list:
         elif own_text and _text_unreadable(behind, ink, tiny, invisible):
             for text in own_text:
                 add(text.wrap(soup.new_tag("span")))
+    # For generated_text: how each element's text is drawn.
+    soup.pll_text_states = state
     return hidden
 
 
@@ -978,13 +1005,36 @@ def _tiny_box(decl: dict[str, str], tag) -> bool:
     return False
 
 
-def shown_link(tag, hidden_ids: set[int]) -> bool:
+def shown_link(tag, hidden_ids: set[int], maps: frozenset[str] | None = None) -> bool:
     """A link the reader can see: outside every hidden part, and showing
-    something (an <area> always does). Fifty links whose only text was
-    transparent once filled the place of the real one."""
+    something. Fifty links whose only text was transparent once filled
+    the place of the real one. An <area> shows nothing of its own: it is
+    seen through the image whose usemap names its <map>, when that image
+    is shown (`maps`: shown_maps of the document, computed here if not
+    given)."""
     if any(id(p) in hidden_ids for p in (tag, *tag.parents)):
         return False
-    return tag.name == "area" or visible_content(tag, hidden_ids)
+    if tag.name != "area":
+        return visible_content(tag, hidden_ids)
+    area_map = tag.find_parent("map")
+    name = str((area_map.get("name") or area_map.get("id") or "") if area_map else "").lower()
+    if not name:
+        return False
+    if maps is None:
+        root = tag
+        while root.parent is not None:
+            root = root.parent
+        maps = shown_maps(root, hidden_ids)
+    return name in maps
+
+
+def shown_maps(soup, hidden_ids: set[int]) -> frozenset[str]:
+    """The <map> names that shown images use (usemap="#name")."""
+    return frozenset(
+        str(img.get("usemap", "")).lower().lstrip("#")
+        for img in soup.find_all(["img", "object"], usemap=True, limit=1000)
+        if not any(id(p) in hidden_ids for p in (img, *img.parents))
+    )
 
 
 def visible_content(tag, hidden_ids: set[int]) -> bool:

@@ -55,7 +55,7 @@ _DOTS = str.maketrans({"\u3002": ".", "\uff0e": ".", "\uff61": "."})
 
 # A host that contains one of these after decoding is not one a browser
 # opens ("evil.tk%40paypal.com"): it is left as written.
-_FORBIDDEN_IN_HOST = frozenset("/\\?#@[]% ")
+_FORBIDDEN_IN_HOST = frozenset("/\\?#@[]% :")
 
 
 def browser_url(url: str) -> str:
@@ -179,7 +179,10 @@ def link_profile(urls: list[str], from_header: str) -> dict[str, int]:
     counts = {"links": 0, "aligned": 0, "well_known": 0, "cloud": 0, "tracking": 0, "other": 0}
     for url in dict.fromkeys(urls):
         host = _host(url)
-        if not host or host in ASSET_HOSTS or url.split("?", 1)[0].lower().endswith(".css"):
+        # Only links reach here (<a>, <area>, addresses in the text): a
+        # path ending in ".css" was once skipped, and "#.css" after a
+        # phishing page hid it from the link rule.
+        if not host or host in ASSET_HOSTS:
             continue
         org = org_domain(host)
         counts["links"] += 1

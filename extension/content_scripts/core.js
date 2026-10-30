@@ -254,7 +254,7 @@ PL.hiddenParts = function hiddenParts(el) {
             continue;
         }
         if (ownText(n) && PL.textUnreadable(n, backgrounds)) out.texts.push(n);
-        else if (seen < MAX_PSEUDO) out.generated.push(...pseudoWords(n));
+        if (seen < MAX_PSEUDO) out.generated.push(...pseudoWords(n, backgrounds));
         stack.push(...[...n.children].reverse());
     }
     return out;
@@ -265,13 +265,19 @@ PL.hiddenParts = function hiddenParts(el) {
 // written there was out of the text model's reach. Looked for on the
 // first MAX_PSEUDO elements.
 const MAX_PSEUDO = 5000;
-function pseudoWords(n) {
+function pseudoWords(n, backgrounds) {
     const words = [];
     for (const pseudo of ["::before", "::after"]) {
         const st = getComputedStyle(n, pseudo) || {};
-        // Only what can be read: shown, opaque, not invisible, 2 px or more.
+        // Only what can be read: shown, opaque, not invisible, 2 px or
+        // more, and a colour that stands out from what is behind it.
         if (st.display === "none" || /hidden|collapse/.test(st.visibility || "") ||
             Number(st.opacity ?? 1) <= 0.05 || parseFloat(st.fontSize) < 2) continue;
+        const ink = rgba(st.color);
+        const own = rgba(st.backgroundColor);
+        let behind = backgroundBehind(n, backgrounds);
+        if (behind && own && own[3] > 0) behind = over(own, behind);
+        if (ink && (ink[3] <= 0.05 || (behind && contrast(over(ink, behind), behind) < 1.2))) continue;
         const content = st.content || "";
         for (const m of content.matchAll(/"((?:[^"\\]|\\.){0,500})"/g)) if (m[1].trim()) words.push(m[1]);
     }
@@ -349,12 +355,40 @@ function tinyLink(a) {
 // click, and showing something: text outside the hidden parts, or an
 // image or drawing of 2 px at least. Fifty links whose only text was
 // transparent once filled the place of the real one.
+// The <map> names that shown images use (usemap="#name"), once per scan
+// (keyed by that scan's set of hidden boxes).
+const mapsSeen = new WeakMap();
+function shownMaps(a, inBox, boxes) {
+    const root = a.getRootNode?.() || a.ownerDocument;
+    if (!root) return new Set();
+    if (!mapsSeen.has(boxes)) {
+        const names = new Set();
+        for (const img of root.querySelectorAll?.("img[usemap], object[usemap]") || []) {
+            const r = img.getBoundingClientRect?.();
+            if (inBox(img) || (r && (r.width < 2 || r.height < 2))) continue;
+            names.add((img.getAttribute("usemap") || "").toLowerCase().replace(/^#/, ""));
+        }
+        mapsSeen.set(boxes, names);
+    }
+    return mapsSeen.get(boxes);
+}
+
 function shownLink(a, hidden, boxes = new Set(hidden.boxes), unreadable = new Set(hidden.texts)) {
     // Inside a hidden box: walk up the ancestors (sets, not a scan of
     // every box for every link: 10,000 boxes and 20,000 links froze the tab).
-    for (let n = a; n; n = n.parentNode) if (boxes.has(n)) return false;
+    const inBox = (x) => {
+        for (let n = x; n; n = n.parentNode) if (boxes.has(n)) return true;
+        return false;
+    };
+    if (inBox(a)) return false;
+    // An <area> shows nothing of its own: it is seen through the image
+    // whose usemap names its <map>, when that image is shown.
+    if (a.tagName === "AREA") {
+        const map = a.closest?.("map");
+        const name = (map?.getAttribute("name") || map?.id || "").toLowerCase();
+        return !!name && shownMaps(a, inBox, boxes).has(name);
+    }
     if (tinyLink(a)) return false;
-    if (a.tagName === "AREA") return true;
     const walk = (n) => {
         for (const c of n.childNodes || []) {
             if (c.nodeType === 3 && c.data.trim() && !unreadable.has(n)) return true;

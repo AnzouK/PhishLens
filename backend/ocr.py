@@ -30,6 +30,8 @@ import re
 import shutil
 from typing import Any
 
+from link_alignment import browser_url
+
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
 OCR_MAX_PAGES = int(os.environ.get("OCR_MAX_PAGES", "3"))
@@ -202,9 +204,9 @@ def _qr_payload_to_url(payload: str) -> str | None:
     if not p or len(p) > 2048:
         return None
     if p.lower().startswith(("http://", "https://")):
-        return p
+        return browser_url(p)
     if _BARE_DOMAIN_RE.match(p):
-        return "http://" + p
+        return browser_url("http://" + p)
     return None
 
 

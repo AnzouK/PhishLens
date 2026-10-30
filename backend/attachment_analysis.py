@@ -34,7 +34,7 @@ import archive_analysis as archives
 import ocr
 import office_analysis as office
 from email_parsing import absolute_http, rank_links, urls_in_text
-from hidden_content import hidden_tags, shown_link, visible_text_first
+from hidden_content import generated_text, hidden_tags, shown_link, shown_maps, visible_text_first
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
@@ -166,14 +166,15 @@ def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> s
 # URL extraction: same regex the /analyse endpoint uses, plus we also
 # pick up bare-domain "click here" style links (missing scheme).
 # ---------------------------------------------------------------------
-_URL_RE = re.compile(r"https?://[^\s\"'<>)\]}]+", re.IGNORECASE)
 _URL_DEDUP_N = MAX_EXTRACTED_URLS
 
 
 def extract_urls(text: str) -> list[str]:
+    """The addresses written in an attachment's text, read like those of
+    an email (email_parsing.urls_in_text: any case, "www.", as a browser
+    reads them)."""
     seen, out = set(), []
-    for m in _URL_RE.finditer(text or ""):
-        u = m.group(0).rstrip(".,;)")
+    for u in urls_in_text(text[:2_000_000] if text else ""):
         if u in seen:
             continue
         seen.add(u)
@@ -253,8 +254,8 @@ def _add_uri_annotations(raw: bytes, urls: list[str]) -> None:
     """
     for m in re.finditer(rb"/URI\s*\(([^)]{1,2048})\)", raw):
         try:
-            u = m.group(1).decode("latin-1", errors="ignore").strip()
-            if u.lower().startswith(("http://", "https://")) and u not in urls:
+            u = absolute_http(m.group(1).decode("latin-1", errors="ignore").strip())
+            if u and u not in urls:
                 urls.append(u)
                 if len(urls) >= MAX_EXTRACTED_URLS:
                     break
@@ -425,7 +426,9 @@ def _inline_embedded(soup, depth: int = 3) -> None:
                 del tag[attr]
                 tag.append(BeautifulSoup(html[:500_000], "html.parser"))
                 found = True
-        for meta in soup.find_all("meta", attrs={"http-equiv": re.compile("^refresh$", re.I)}):
+        for meta in soup.find_all(
+            "meta", attrs={"http-equiv": re.compile(r"^\s*refresh\s*$", re.I)}
+        ):
             html = _data_html(_refresh_target(meta))
             if html is not None:
                 meta["content"] = "0"
@@ -456,18 +459,19 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
     # once pushed the form's target past the limit.
     hidden_parts = hidden_tags(soup)  # before the <style> sheets go
     hidden = {id(tag) for tag in hidden_parts}
+    maps = shown_maps(soup, hidden)
     sends, visible, unseen, assets = [], [], [], []
     for tag in soup.find_all(["form", "iframe", "frame", "object", "embed"], limit=20_000):
         sends.append(absolute_http(tag.get("action") or tag.get("src") or tag.get("data") or ""))
     # A submit button can send the form elsewhere (formaction).
     for tag in soup.find_all(["button", "input"], formaction=True, limit=20_000):
         sends.append(absolute_http(tag["formaction"]))
-    for meta in soup.find_all("meta", attrs={"http-equiv": re.compile("^refresh$", re.I)}):
+    for meta in soup.find_all("meta", attrs={"http-equiv": re.compile(r"^\s*refresh\s*$", re.I)}):
         sends.append(absolute_http(_refresh_target(meta)))
     for script in soup.find_all("script"):
         sends += urls_in_text(script.get_text()[:200_000])
     for tag in soup.find_all(["a", "area"], href=True, limit=20_000):
-        (visible if shown_link(tag, hidden) else unseen).append(absolute_http(tag["href"]))
+        (visible if shown_link(tag, hidden, maps) else unseen).append(absolute_http(tag["href"]))
     for tag in soup.find_all(["img", "link", "script"], limit=20_000):
         assets.append(absolute_http(tag.get("src") or tag.get("href") or ""))
     urls = rank_links(
@@ -488,22 +492,26 @@ def analyse_html(raw: bytes, filename: str) -> dict[str, Any]:
         for name, value in tag.attrs.items()
     )
 
-    # Strip noisy tags before extracting the text; hidden text goes last.
+    # Strip noisy tags before extracting the text; words the style sheets
+    # write are kept, hidden text goes last.
+    generated = generated_text(soup, hidden_parts)
     for tag in soup(["script", "style", "noscript"]):
         tag.decompose()
-    text = " ".join(visible_text_first(soup, hidden_parts).split())[:MAX_EXTRACTED_TEXT]
+    text = " ".join(visible_text_first(soup, hidden_parts, generated).split())[:MAX_EXTRACTED_TEXT]
 
     # Notable features
     flags = []
     if soup.find("form"):
         flags.append("contains_form")
-    if soup.find(["input"], attrs={"type": "password"}):
+    # Attribute values keep their case in the parser, browsers ignore it:
+    # type="PASSWORD" is a password field.
+    if soup.find("input", attrs={"type": re.compile(r"^\s*password\s*$", re.I)}):
         flags.append("contains_password_field")
     if has_script:
         flags.append("contains_javascript")
     if soup.find("iframe"):
         flags.append("contains_iframe")
-    if soup.find("meta", attrs={"http-equiv": re.compile("^refresh$", re.I)}):
+    if soup.find("meta", attrs={"http-equiv": re.compile(r"^\s*refresh\s*$", re.I)}):
         flags.append("meta_refresh_redirect")
 
     return {

@@ -110,7 +110,7 @@ def url_heuristic(urls: list[str]) -> float:
     for u in urls:
         score = 0.0
         host = _host(u)
-        if u.startswith("http://"):
+        if u.lower().startswith("http://"):
             score += 0.25
         if ip_host(host):
             score += 0.40

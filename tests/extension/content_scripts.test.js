@@ -433,3 +433,37 @@ test("display:contents shows its content", () => {
     ctx.getComputedStyle = (n) => (n === a ? { ...plain, display: "contents" } : plain);
     assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
 });
+
+test("an <area> counts only through a shown image that uses its map", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const loose = doc.createElement("area");
+    loose.href = "https://d0.example/";
+    const map = doc.createElement("map");
+    map.setAttribute("name", "m");
+    const inMap = doc.createElement("area");
+    inMap.href = "https://ok.example/";
+    map.append(inMap);
+    const img = doc.createElement("img");
+    img.setAttribute("usemap", "#m");
+    const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = (n) => (n === loose ? { ...plain, display: "contents" } : plain);
+    body.append(loose, map, img);
+    const groups = PL.linkGroupsOf(body);
+    assert.deepEqual([...groups.visible], ["https://ok.example/"]);
+    assert.deepEqual([...groups.hidden], ["https://d0.example/"]);
+});
+
+test("words written by ::before in the colour of the background are not read", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const body = mailView(ctx.document).querySelector(".a3s");
+    const p = ctx.document.createElement("p");
+    p.append("Hello");
+    body.append(p);
+    const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible", content: "normal" };
+    ctx.getComputedStyle = (n, pseudo) => (n === p && pseudo === "::before" ? { ...plain, color: "rgb(255, 255, 255)", content: '"filler words"' } : plain);
+    assert.equal(PL.textOf(body), "Hello");
+});

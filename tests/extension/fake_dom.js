@@ -68,6 +68,11 @@ class Element extends Node {
     // Laid out by default; a test hides an element by replacing these.
     getClientRects() { return [{ width: 10, height: 10 }]; }
     getBoundingClientRect() { return { width: 10, height: 10 }; }
+    getRootNode() {
+        let n = this;
+        while (n.parentNode) n = n.parentNode;
+        return n;
+    }
     contains(n) {
         for (; n; n = n.parentNode) if (n === this) return true;
         return false;

@@ -42,6 +42,8 @@ from typing import Any
 # expansion and external entities in untrusted Office XML.
 from defusedxml import ElementTree as ET
 
+from email_parsing import urls_in_text
+
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
 MAX_ZIP_ENTRIES = 3000
@@ -67,7 +69,6 @@ LEGACY_MIMES = {
     "application/x-ole-storage",
 }
 
-_URL_RE = re.compile(r"https?://[^\s\"'<>)\]}]{3,2048}", re.IGNORECASE)
 # Word field codes: HYPERLINK "https://..." and DDE / DDEAUTO
 _HYPERLINK_FIELD_RE = re.compile(r'HYPERLINK\s+"([^"]{1,2048})"', re.IGNORECASE)
 _DDE_FIELD_RE = re.compile(r"\bDDE(AUTO)?\b", re.IGNORECASE)
@@ -79,8 +80,9 @@ def _local(tag: str) -> str:
 
 
 def _urls_from(text: str, into: list[str]) -> None:
-    for m in _URL_RE.finditer(text or ""):
-        u = m.group(0).rstrip(".,;)")
+    """Addresses in a document's text, read like an email's
+    (email_parsing.urls_in_text)."""
+    for u in urls_in_text(text or ""):
         if u not in into:
             into.append(u)
             if len(into) >= MAX_URLS:

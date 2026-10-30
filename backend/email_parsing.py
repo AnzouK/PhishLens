@@ -19,7 +19,7 @@ from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
-from hidden_content import generated_text, hidden_tags, shown_link, visible_text_first
+from hidden_content import generated_text, hidden_tags, shown_link, shown_maps, visible_text_first
 from link_alignment import browser_url, link_host
 from settings import MAX_EMAIL_URLS, MAX_LINK_URLS
 
@@ -29,15 +29,19 @@ warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
 # http(s) URL written out in a text, in any case, or starting with
 # "www." (mail programs make both clickable).
-URL_IN_TEXT_RE = re.compile(r"(?:https?://|www\.)[^\s\"'<>)]+", re.IGNORECASE)
+URL_IN_TEXT_RE = re.compile(r"(?:https?://|www\.)[^\s\"'<>)\]}]+", re.IGNORECASE)
 
 
 def urls_in_text(text: str) -> list[str]:
     # Punctuation that ends the sentence is not part of the address.
-    return [
-        browser_url(u if u[:4].lower() != "www." else "http://" + u).rstrip(".,;:!?")
-        for u in URL_IN_TEXT_RE.findall(text)
-    ]
+    out = []
+    for u in URL_IN_TEXT_RE.findall(text or ""):
+        u = u.rstrip(".,;:!?")
+        out.append(browser_url(u if u[:4].lower() != "www." else "http://" + u))
+    return out
+
+
+_BLOCKS = ["p", "div", "tr", "li", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6", "table", "pre"]
 
 
 def html_to_text(html_src: str) -> str:
@@ -53,6 +57,13 @@ def html_to_text(html_src: str) -> str:
     generated = generated_text(soup, hidden)
     for tag in soup(["style", "script", "head", "noscript", "title"]):
         tag.decompose()
+    # Line breaks where the page breaks lines: a forward's marker line
+    # ("---------- Forwarded message ---------") must start a line for
+    # detect_forwarded, even when the HTML source has no newline at all.
+    for br in soup.find_all("br", limit=50_000):
+        br.replace_with("\n")
+    for block in soup.find_all(_BLOCKS, limit=50_000):
+        block.insert_after("\n")
     text = visible_text_first(soup, hidden, generated)
     # Collapse whitespace line by line (no regex: linear on any input).
     lines = (" ".join(line.split()) for line in text.splitlines())
@@ -73,11 +84,12 @@ def html_link_groups(html_src: str) -> tuple[list[str], list[str]]:
     that no hidden link can be ranked before a visible one."""
     soup = BeautifulSoup(without_inline_data(html_src)[:1_000_000], "html.parser")
     hidden_ids = {id(tag) for tag in hidden_tags(soup)}
+    maps = shown_maps(soup, hidden_ids)
     visible, hidden = [], []
     for tag in soup.find_all(["a", "area"], href=True, limit=20_000):
         url = absolute_http(tag["href"])
         if url:
-            (visible if shown_link(tag, hidden_ids) else hidden).append(url)
+            (visible if shown_link(tag, hidden_ids, maps) else hidden).append(url)
     return visible, hidden
 
 

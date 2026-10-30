@@ -294,7 +294,7 @@ def test_closed_details_and_templates_count_as_hidden():
         "<details><summary>More</summary><p>filler words</p></details>"
         "<template><p>template words</p></template><p>Verify your account</p>"
     )
-    assert text.startswith("More Verify your account")
+    assert " ".join(text.split()).startswith("More Verify your account")
     assert "filler words" in text and "template words" in text
 
 
@@ -869,7 +869,8 @@ def test_colours_parse(value, rgb):
 )
 def test_text_level_and_box_level_hiding(html, first):
     text = ep.html_to_text(html)
-    assert text.split("\n")[0] == first
+    # Lines now follow the page's blocks: compare the words in order.
+    assert " ".join(text.split()).startswith(first)
 
 
 def test_links_that_show_nothing_count_as_hidden():
@@ -946,7 +947,7 @@ def test_links_showing_nothing_visible_are_hidden(decoy):
     ],
 )
 def test_round_11_hiding_and_legitimate_styles(html, first):
-    assert ep.html_to_text(html).split("\n")[0] == first
+    assert " ".join(ep.html_to_text(html).split()).startswith(first)
 
 
 def test_a_quoted_sentence_is_not_an_attribute_even_with_a_closing_bracket():
@@ -1085,7 +1086,7 @@ def test_generated_text_skips_hidden_rules_and_hidden_elements():
         ".y::before{content:'shown words'} .z::before{content:'buried words'}</style>"
         '<p class="x">a</p><p class="y">b</p><div style="display:none"><p class="z">c</p></div>'
     )
-    assert text == "a b\nshown words\nc"
+    assert " ".join(text.split()) == "a b shown words c"
 
 
 def test_slow_selectors_are_bounded_by_the_clock():
@@ -1118,3 +1119,104 @@ def test_a_fake_extension_with_a_final_dot_or_full_width_letters(name):
     import archive_analysis as aa
 
     assert "double_extension" in aa.classify_names([name])
+
+
+# ---------------------------------------------------------------------
+# Round 13
+# ---------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "url", ["https://evil.example/login#.css", "https://evil.example/login.css?id=1"]
+)
+def test_a_css_looking_link_still_counts_for_the_link_rule(url):
+    counts = la.link_profile([url], "Bank <alerts@signed.example>")
+    assert counts["other"] == 1
+    assert la.links_elsewhere_only(counts)
+
+
+def test_brackets_around_an_address_in_text_are_not_part_of_it():
+    assert ep.urls_in_text("Verify at [https://evil.tk] or {https://e2.tk}.") == [
+        "https://evil.tk",
+        "https://e2.tk",
+    ]
+    assert la.link_host("https://evil.tk%3a80/") != "evil.tk"
+
+
+def test_attachment_texts_find_addresses_like_emails():
+    import attachment_analysis as aa
+    import office_analysis as oa
+
+    assert aa.extract_urls("see www.evil.tk/login and HTTP://192.168.1.1/x") == [
+        "http://www.evil.tk/login",
+        "http://192.168.1.1/x",
+    ]
+    found: list[str] = []
+    oa._urls_from("open WWW.evil.tk/doc", found)
+    assert found == ["http://www.evil.tk/doc"]
+
+
+@pytest.mark.parametrize("value", ["PASSWORD", "Password", " password "])
+def test_a_password_field_in_any_case(value):
+    import attachment_analysis as aa
+
+    html = f'<form action="https://attacker.example/post"><input type="{value}" name="p"></form>'
+    assert (
+        "contains_password_field"
+        in aa.analyse_html(html.encode(), "invoice.html")["notable_features"]
+    )
+
+
+def test_an_area_counts_only_through_a_shown_image():
+    visible, hidden = ep.html_link_groups(
+        '<area href="https://d0.example/" style="display:contents">'
+        '<map name="m"><area href="https://ok.example/" coords="0,0,10,10"></map>'
+        '<img src="x.png" usemap="#m">'
+        '<map name="n"><area href="https://hid.example/"></map>'
+        '<img usemap="#n" style="display:none">'
+        '<a href="https://evil.example/">Verify</a>'
+    )
+    assert visible == ["https://ok.example/", "https://evil.example/"]
+    assert hidden == ["https://d0.example/", "https://hid.example/"]
+
+
+def test_repeated_cheap_rules_do_not_hide_a_later_rule():
+    html = (
+        "<style>"
+        + "i{display:none}" * 101
+        + ".h{display:none}</style>"
+        + "<i></i>" * 5000
+        + '<div class="h">filler</div><p>Verify</p>'
+    )
+    assert ep.html_to_text(html).endswith("filler")
+
+
+@pytest.mark.parametrize("css", ["._h div{display:none}", "div .-hide{display:none}"])
+def test_selectors_with_underscore_or_dash_names(css):
+    cls = "_h" if "_h" in css else "-hide"
+    html = f'<style>{css}</style><div class="{cls}"><div>filler</div></div><div><span class="{cls}">x</span></div><p>Verify</p>'
+    first = "x Verify" if cls == "_h" else "filler Verify"
+    assert " ".join(ep.html_to_text(html).split()).startswith(first)
+
+
+def test_generated_text_inherits_unreadability():
+    text = ep.html_to_text(
+        '<style>.x::before{content:"filler1"} .y::before{content:"filler2";color:#fff}'
+        '.z::before{content:"shown"}</style>'
+        '<div style="font-size:0"><p class="x"></p></div><p class="y"></p><p class="z">a</p>'
+    )
+    assert " ".join(text.split()) == "a shown"
+
+
+def test_a_forward_without_newlines_in_its_html_is_detected():
+    body = ep.html_to_text(
+        "<p>FYI</p><div>---------- Forwarded message ---------<br>"
+        "From: alerts@gtbank-secure.xyz<br>Verify your account</div>"
+    )
+    found = ep.detect_forwarded(body)
+    assert found == {"detected": True, "original_sender": "alerts@gtbank-secure.xyz"}
+
+
+def test_invisible_characters_do_not_cut_words_for_the_text_model():
+    from text_model import without_invisible
+
+    assert without_invisible("V​e​r​ify your acc­ount") == "Verify your account"
+    assert without_invisible("मि‍त्र") == "मि‍त्र"
