@@ -95,25 +95,36 @@ _BASE64_RUN_RE = re.compile(r"[A-Za-z0-9+/=]{200,}")
 _TAG_RE = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]{0,20}(?P<inner>\s[^<>]{0,2000})?(?:/?>|\Z)")
 
 
-_ATTR_NAME = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_:.-@")
+_ATTR_START = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
+_ATTR_NAME = _ATTR_START | frozenset("0123456789:.-")
+# Page texts are cut at 4,000 characters (content_scripts/core.js): a tag
+# cut there may have lost its closing quote.
+_CUT_AT = 3900
 
 
-def _attributes(inner: str) -> bool:
-    """True when `inner` reads as HTML attributes (name="value", name=value,
-    a bare name), with at least one value: 'class="x" hidden' is, 'Urgent:
-    verify your account at https://x.example/?id=1' is not (a "/" in a
-    name). Linear: one pass, no regex."""
-    i, n, pairs = 0, len(inner), 0
+def _attributes(inner: str, cut_off: bool = False) -> bool:
+    """True when `inner` reads as HTML attributes, with at least one value:
+    'class="x" hidden' is; 'Urgent: verify your account at
+    https://x.example/?id=1' is not. A name starts with a letter and does
+    not end in ":" or "." (words of a sentence do), at most three names
+    without a value follow each other, and a quoted value is closed unless
+    the text was cut there (`cut_off`) or the value has no space. Linear:
+    one pass, no regex."""
+    i, n, pairs, bare = 0, len(inner), 0, 0
     while i < n:
         while i < n and inner[i].isspace():
             i += 1
-        if i < n and inner[i] == "/" and not inner[i + 1 :].strip():
+        if i >= n:
+            break
+        if inner[i] == "/" and not inner[i + 1 :].strip():
             break  # '<img src="x" />'
-        start = i
+        if inner[i] not in _ATTR_START:
+            return False
+
         while i < n and inner[i] in _ATTR_NAME:
             i += 1
-        if i == start:
-            return False if i < n else pairs > 0
+        if inner[i - 1] in ":." or (i < n and not inner[i].isspace() and inner[i] not in "=/"):
+            return False
         while i < n and inner[i].isspace():
             i += 1
         if i < n and inner[i] == "=":
@@ -122,13 +133,19 @@ def _attributes(inner: str) -> bool:
                 i += 1
             if i < n and inner[i] in "\"'":
                 end = inner.find(inner[i], i + 1)
-                i = n if end < 0 else end + 1  # an unclosed value: a cut-off page
+                # Unclosed: a value cut with the text (a long data: URI
+                # has no spaces), not a sentence written after a quote.
+                if end < 0 and not cut_off and any(c.isspace() for c in inner[i:].strip()):
+                    return False
+                i = n if end < 0 else end + 1
             else:
                 while i < n and not inner[i].isspace() and inner[i] not in "\"'=`":
                     i += 1
-            pairs += 1
-        elif i < n and inner[i] not in _ATTR_NAME:
-            return False
+            pairs, bare = pairs + 1, 0
+        else:
+            bare += 1
+            if bare > 3:
+                return False
     return pairs > 0
 
 
@@ -136,7 +153,8 @@ def _markup(m: re.Match) -> str:
     """The tag removed when it is markup: no attributes ("<p>", "</div>")
     or real ones; left as words otherwise."""
     inner = m.group("inner") or ""
-    return " " if inner.strip() in ("", "/") or _attributes(inner) else m.group(0)
+    cut_off = m.end() == len(m.string) and len(m.string) >= _CUT_AT
+    return " " if inner.strip() in ("", "/") or _attributes(inner, cut_off) else m.group(0)
 
 
 def without_inline_data(html_src: str) -> str:
@@ -172,9 +190,10 @@ def is_page_source(text: str) -> bool:
     text = text[:200_000]
     if not looks_like_source(text):
         return False
-    markup = sum(len(m.group(0)) for m in _TAG_RE.finditer(text) if _markup(m) == " ")
-    markup += sum(len(m.group(0)) for m in _DATA_URI_RE.finditer(text))
-    return markup >= 0.5 * len(text.strip())
+    tags = [len(m.group(0)) for m in _TAG_RE.finditer(text) if _markup(m) == " "]
+    data = [len(m.group(0)) for m in _DATA_URI_RE.finditer(text)]
+    # One long pseudo-tag is not a page: two pieces of markup at least.
+    return len(tags) + len(data) >= 2 and sum(tags) + sum(data) >= 0.5 * len(text.strip())
 
 
 def _body_text(msg, raw_bytes: bytes) -> str:

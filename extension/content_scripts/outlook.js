@@ -55,19 +55,17 @@ function isDraft(body) {
     return false;
 }
 
-// The sender's address in the From line: the one between angle brackets,
-// else the last one written. A display name can carry another address
-// ('"support@gtbank.com" <scam@attacker.example>'), and it comes first.
+// The sender's address in the From line: the last one between angle
+// brackets, else the last one written. A display name can carry another
+// address ('"support@gtbank.com" <scam@attacker.example>'), and it comes
+// first.
 PL.senderAddress = function senderAddress(texts) {
-    for (const x of texts) {
-        const m = /<\s*([\w.+-]+@[\w-]+(?:\.[\w-]+)+)\s*>/.exec(x);
-        if (m) return m[1];
-    }
-    for (const x of texts) {
-        const all = x.match(new RegExp(EMAIL_RE.source, "g"));
-        if (all) return all[all.length - 1];
-    }
-    return "";
+    // The last one between angle brackets, over every part of the line
+    // (a name can be '"PayPal <service@paypal.com>" <scam@...>').
+    const angled = texts.flatMap((x) => [...x.matchAll(/<\s*([\w.+-]+@[\w-]+(?:\.[\w-]+)+)\s*>/g)].map((m) => m[1]));
+    if (angled.length) return angled[angled.length - 1];
+    const all = texts.flatMap((x) => x.match(new RegExp(EMAIL_RE.source, "g")) || []);
+    return all.length ? all[all.length - 1] : "";
 };
 
 // The last expanded message of the conversation, drafts excluded, and
@@ -102,7 +100,7 @@ function currentMessage(pane) {
         foundFrom: !!from && !texts.some((x) => x.includes("@")),
         senderEmail: email.toLowerCase(),
         // "Name <address>" -> "Name"
-        senderName: fromText.split("<")[0].trim(),
+        senderName: fromText.replace(/<[^<>]*>\s*$/, "").trim(),
     };
 }
 

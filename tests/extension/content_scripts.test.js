@@ -313,3 +313,10 @@ test("thousands of anchors without an address do not hide the links after them",
     body.append(real);
     assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
 });
+
+test("Outlook takes the last address between angle brackets, over every part of the line", () => {
+    const entry = manifest.content_scripts.find((e) => !e.matches[0].includes("mail.google.com"));
+    const { PL } = load(entry);
+    assert.equal(PL.senderAddress(['"PayPal <service@paypal.com>" <scam@attacker.example>']), "scam@attacker.example");
+    assert.equal(PL.senderAddress(["support@gtbank.com", "Support", "scam@attacker.example"]), "scam@attacker.example");
+});

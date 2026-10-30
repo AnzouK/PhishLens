@@ -8,207 +8,47 @@ backend share one version number.
 ## [Unreleased]
 
 ### Security
-- The server applies the email's own <style> rules when it reads which
-  parts are hidden (backend/hidden_content.py), and treats text whose
-  colour is within 10 of what is drawn behind it (its background, a
-  parent's, or the white page) as hidden; the extension does the same
-  from the browser's computed styles.
-- Only real markup is removed from a text read as source: tags without
-  attributes or with well-formed ones. Words after an unclosed "<a"
-  stay words even when a link with "=" follows. A text counts as the
-  email's source only when tags and data: URIs make half of it.
-- Outlook: the sender's address is the one between angle brackets, else
-  the last one of the From line (a display name such as
-  "support@bank.example" no longer stands in for it).
-- The extension reads up to 20,000 anchors, as the server does: 2,000
-  "#" links no longer hide the ones after them; the message's own
-  visible links rank before the page's hidden ones.
-- Header values lose their invisible characters before being cut, and
-  a header longer than 1 MB proves nothing: padding can no longer cut
-  the second address of a From:.
-- data:text/html pages with spaces, a charset parameter or the XHTML
-  type are read in HTML attachments.
-- Hidden links can no longer pass a second visible link to the same
-  site: visible and hidden link targets are ranked as separate groups,
-  in the server and in the extension (which now sends them apart), and
-  Safe Browsing gets the first 30 in that order instead of ranking them
-  again.
-- A long base64 run in the page text no longer makes the server drop
-  it for the parsed message (which ignores style sheets); the page text
-  gives way only to real HTML source. Words after an unclosed "<a" stay
-  words: only tags without text or with attributes are markup.
-- The extension also treats text the colour of its own background, a
-  clip to nothing and a scale of 0 on one axis as hidden; the server and
-  the extension are checked against the same cases
-  (tests/fixtures/hidden_cases.json). Text written directly inside a
-  closed <details> is hidden too.
-- Header values are kept with their spaces collapsed, so 2,000 spaces no
-  longer push the real address of a From: past what the checks read; a
-  From: still longer than 8,000 characters proves nothing.
-- An email attached to another one (scanned from Gmail) is checked
-  without its Authentication-Results, which whoever attached it wrote.
-- HTML attachments: a button's formaction, and pages carried in
-  data:text/html addresses (frames, objects, embeds, meta refresh), are
-  read like the rest.
-- Addresses written in an email's text, hidden or not, can no longer
-  push its real links out: every link target comes before any address
-  written in the text, and within each, the first link of each host
-  before any second one (100 links per email at most). In the
-  extension, links too small to click (a 1 px image) rank with hidden
-  ones.
-- Impersonation: a brand's name now passes only under .com, .net, .org,
-  the country codes of the markets PhishLens serves, or a domain listed
-  in full (paypal.tk, paypal.vc, chronopost.us, gtbank.in and
-  gouv.com are caught). Every name and every address of a multi-address
-  From: is checked, and such a From: never proves the sender. Letters
-  with a stroke or without their dot (ł, ı), small capitals and long
-  invisible padding no longer hide a brand name.
-- Hidden text: a font size of 0 in any unit or too small in em or
-  percent, a transparent colour or one equal to the background, overflow
-  on one axis, a clip, an element placed far off the page, a negative
-  text indent, a zero scale on any axis, a closed <details> and a
-  <template> now count as hidden; the extension walks the whole message,
-  no longer skips one-letter parts, and leaves style sheets out of the
-  hidden text. Words after "data:...;base64," on separate lines stay
-  text (inline data needs lines of 40 base64 characters).
-- Outlook: the From line is taken from the same message as the body,
-  never from inside a body.
-- A known site's redirect to a protocol-relative address ("?q=//evil")
-  is not counted as a known link. HTML attachments list where they send
-  their reader first (form targets, frames, meta refresh, scripts), and
-  count event-handler attributes and javascript: addresses as scripts.
-  A page carried in an <iframe srcdoc> is read like the rest.
-- The link domain checked against Spamhaus no longer includes a port or
-  a "user@" part.
-- Authentication-Results is read clause by clause, without its comments
-  and quoted strings: a "dkim=pass header.i=@bank" written inside the
-  envelope address or a comment no longer counts as a result. Results
-  found only in ARC-Authentication-Results, and messages with two From:
-  headers, never prove the sender. The first From:, Subject:, Sender:
-  and Reply-To: of a message are the ones read, as mail programs show.
-- Gmail's "signed-by" and "mailed-by" are read only outside the email's
-  body and only when visible: an email could write its own.
-- Brand impersonation is also caught with a look-alike domain under the
-  brand's name (paypal.xyz, a shared-host subdomain such as
-  paypal.duckdns.org), with invisible characters or Cyrillic and Greek
-  letters in the name, behind long padding, and in a malformed From:
-  whose name parsing failed (a name ending in a backslash).
-- Text hidden by inline styles (display:none, zero font size, zero
-  opacity, clipped to nothing) is moved after the visible text, in the
-  server and in the extension: placed first, it filled what the text
-  model reads.
-- Links are read from the HTML as a browser reads them (spaces around
-  "=", HTML entities, "//host" links); the extension sends visible links
-  first, one per host before any second one, so fifty hidden decoys no
-  longer push the real link out.
-- Hosts are read with a URL parser in every link rule: `evil.tk?login`
-  keeps its suspicious TLD, numeric and hexadecimal IP addresses count
-  as IPs, and punycode or non-Latin host names are a strong link sign. A
-  large site's redirect to another address is no longer counted as a
-  link to a known site in the link rule.
-- "data:...;base64," followed by words no longer hides them from the
-  text model.
-- A clean link verdict is cached only when Google Safe Browsing actually
-  checked it: exhausting the quota no longer stores phishing links as
-  clean for a day. One scan sends at most 30 links to Safe Browsing,
-  one per host first, and a safe verdict on an email with links is
-  reused for an hour at most.
-- The Safe Browsing key travels in a header, and API errors are logged
-  without their URL, which could contain a key.
-- Outlook: the sender's address is looked for in every label of the From
-  line, a page that shows one is never "internal", and internal mail
-  only gets the soft path, never the allowlist's.
-- Personal mailbox domains (googlemail.com, icloud.com) and platforms
-  that send their users' own words (document shares, invoices,
-  signature envelopes, private messages: google.com, paypal.com,
-  docusign.net, dropbox.com, linkedin.com, facebookmail.com, github.com,
-  gitlab.com, x.com, twitter.com) left the allowlist; their signed mail
-  gets the DKIM-signed path and its link rule.
-- 7z members are extracted in memory, cut at the size limit, instead of
-  on disk; HTML attachments also report the addresses in scripts and
-  meta refreshes, and a script now counts as JavaScript.
-- Reports: no-break spaces and full-width digits no longer hide phone
-  and account numbers from redaction, the user's own name is read
-  outside email bodies only, and report fields other than the text
-  accept short identifiers only.
-- The service worker answers only messages from the extension itself;
-  a Gmail search "in:anywhere" is not treated as the inbox.
-- An email carrying two DKIM signatures, a failing one in a brand's name
-  and a passing one for the sender's own domain, could be read as "DKIM
-  pass for the brand" and get the softer trust path: each DKIM, SPF and
-  DMARC result is now read with the identity of its own clause, and an
-  aligned pass is preferred.
-- The sender's domain is read from the address of the From: header, not
-  from the first "@" of the line (a display name such as
-  "support@paypal.com" no longer counts), in the authentication check
-  and in the allowlist check alike.
-- A link such as `https://paypal.com:443@evil.example/` was read as a
-  link to paypal.com: a large known site, so the link checks and the
-  link rule skipped it. Links are now read with a URL parser.
-- On the DKIM-signed path, a link to a public file host now triggers
-  the link rule even next to a decoy link to the sender's own domain;
-  on the benchmark this changed no verdict.
-- A brand name over another domain's address is flagged even when the
-  email looks forwarded: a "TR:" in the subject no longer hides it.
-- The server refuses a request body sent without a length (chunked),
-  whose size could not be checked before reading it, and parses emails
-  off the event loop.
-- An attachment's file signature now wins over its name: a PDF or an
-  HTML login page renamed "invoice.txt" is analysed as what it is.
-- Files inside ZIP and RAR archives are read in bounded chunks whatever
-  size the archive declares, and 7z members without a size are not
-  extracted.
-- The extension downloads attachments only from Gmail's own address,
-  gives up on a server that does not answer within 60 seconds, and
-  refuses a server address that is not http(s).
-- The server refuses pickle (joblib) model files by default: they run
-  code when loaded. `AGENTS_ALLOW_PICKLE=1` still allows them, for an old
-  local copy of the agents never converted to skops.
-
-### Changed
-- A display name longer than 200 characters no longer fails the scan:
-  the extension cuts it after removing invisible characters, the server
-  accepts longer ones, and an automatic scan skips an email the server
-  refuses instead of stopping.
-- One Spamhaus DBL lookup, one sender-domain function and one
-  impersonation check serve every part of the server; the rule-based
-  sender score uses the full brand list.
-- `feature_extraction.py` keeps only what the trained agents read, with
-  the same outputs; the BeautifulSoup fallbacks are gone (it is a
-  required dependency).
-- Before the first scan with PhishLens Cloud, Gmail and Outlook show the
-  same privacy notice as the popup (where the email goes); the
-  automatic scan waits until it has been seen.
-- Scans saved at the same moment no longer overwrite each other in the
-  local history.
-- The explanation cache also keys on the subject, which the text model
-  reads with the body.
-- Outlook: Dutch drafts and the German, Italian and Dutch "From:"
-  prefixes are recognised.
-- The website leads with one figure and its confidence interval instead
-  of four, drops the numbered sections, and says who runs PhishLens and
-  why, in the 8 languages.
-- The documentation is shorter: each page keeps the reasons (decisions,
-  thresholds, what was measured and rejected) and drops descriptions of
-  the code; the README says who makes PhishLens.
+Fixes from several rounds of outside review; each bypass has a test in
+`backend/tests/test_bypasses.py`.
+- Sender checks: Authentication-Results is read clause by clause (no
+  more `dkim=pass` hidden in a comment or a quoted address), and a
+  second From:, a From: with several addresses or ARC results alone no
+  longer prove anything. Gmail's "signed-by" is only read outside the
+  email body.
+- Brand impersonation catches look-alike domains (`paypal.tk`,
+  `chronopost.us`), look-alike letters and padded or malformed names.
+- Hidden text and links (inline styles, `<style>` rules, near-invisible
+  colours, tiny links) go after the visible ones, on the server and in
+  the extension, which share their test cases.
+- Links are parsed like a browser does, and hidden or written-out links
+  can no longer push the real ones out of the check.
+- Safe Browsing: a link it did not check is never cached as clean, a
+  scan sends it at most 30 links, and its key stays out of the logs.
+- HTML attachments: forms, frames and pages inside `data:` addresses are
+  read; 7z files are unpacked in memory.
+- Outlook: the sender's real address is used, and "internal" mail only
+  gets the soft path.
+- Personal mailboxes and platforms that relay their users' messages
+  (Google, PayPal, DocuSign...) left the allowlist.
+- Pickle model files are refused unless `AGENTS_ALLOW_PICKLE=1`.
 
 ### Added
-- A Firefox build of the extension (Firefox 140 or later), attached to
-  each release next to the Chrome zip: the same files, with the
-  background run as an event page and the add-on id and data-collection
-  declaration Firefox requires (`scripts/build_extension.py`).
-- A test fails when a translation of the website carries other figures
-  than the English page.
+- A Firefox build (Firefox 140+), attached to each release.
+- A privacy notice in Gmail and Outlook before the first PhishLens Cloud
+  scan.
+
+### Changed
+- Long display names no longer break a scan, and the automatic scan
+  skips an email the server refuses instead of stopping.
+- Server cleanup: one Spamhaus lookup, one sender-domain function,
+  `feature_extraction.py` cut to what the models read (same outputs).
+- Website: one headline figure, and who runs PhishLens and why.
+- Shorter docs.
 
 ### Fixed
-- The website's live counters wait at most 6 seconds and are left out
-  when the server does not answer, instead of showing an error code;
-  `/reputation/stats` keeps its answer 30 seconds (counting the cache
-  took 2.5 seconds per visit).
-
-### Documentation
-- The self-hosting commands say that the downloaded model is the public
-  English one, while PhishLens Cloud runs the multilingual model.
+- Scans saved at the same moment no longer overwrite each other.
+- The website's live counters no longer show an error code when the
+  server is slow.
 
 ## [2.0.11] - 2026-10-28
 

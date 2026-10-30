@@ -723,3 +723,106 @@ def test_the_messages_visible_links_come_before_the_pages_hidden_ones():
     )
     _body, urls, _h, _raw = _resolve_email(req)
     assert urls[0] == "https://evil.example/login"
+
+
+# ---------------------------------------------------------------------
+# Round 9
+# ---------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("html", "first"),
+    [
+        # legitimate: never hidden
+        (
+            '<style>.btn{background-color:#0b57d0}</style><a class="btn" style="color:#ffffff">Open</a><p>Hi</p>',
+            "Open",
+        ),
+        (
+            '<table><tr><td bgcolor="#0b57d0" style="color:#ffffff">Statement</td></tr></table><p>Hi</p>',
+            "Statement",
+        ),
+        (
+            '<style>body{background:#111}</style><body><p style="color:#fff">Dark</p><p>Hi</p></body>',
+            "Dark",
+        ),
+        (
+            '<div style="background-color:rgba(0,0,0,0.06);color:#000">Grey box</div><p>Hi</p>',
+            "Grey box",
+        ),
+        # hiding: moved last
+        (
+            '<style>@charset "utf-8"; .h{display:none}</style><div class="h">filler</div><p>Hi</p>',
+            "Hi",
+        ),
+        ('<style>.h{color:#ffffff}</style><div class="h">filler</div><p>Hi</p>', "Hi"),
+        (
+            '<style>.h{max-height:0} .h{overflow:hidden}</style><div class="h">filler</div><p>Hi</p>',
+            "Hi",
+        ),
+        (
+            '<style>@media screen{.h{display:none}}</style><div class="h">filler</div><p>Hi</p>',
+            "Hi",
+        ),
+        ('<div style="background-color:rgba(0,0,0,0.06);color:#fff">filler</div><p>Hi</p>', "Hi"),
+        (
+            '<div style="color:#fff;background:#000"><span style="background:#fff">filler</span></div><p>Hi</p>',
+            "Hi",
+        ),
+    ],
+)
+def test_style_cascade_and_backgrounds(html, first):
+    assert ep.html_to_text(html).startswith(first)
+
+
+def test_a_phone_rule_is_not_applied():
+    text = ep.html_to_text(
+        '<style>@media (max-width:600px){.m{display:none}}</style><div class="m">Desktop</div><p>Hi</p>'
+    )
+    assert text.startswith("Desktop")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        'Hi <a x="Urgent: your bank account is suspended, verify at https://evil.example/login?id=1',
+        "Hi <a Urgent: your bank account is suspended. Verify your password at=https://evil.example/?id=1",
+    ],
+)
+def test_sentences_that_look_like_attributes_stay_words(text):
+    assert ep.strip_markup_noise(text) == text
+
+
+def test_one_long_pseudo_tag_does_not_make_a_text_source():
+    assert not ep.is_page_source("benign " * 5 + '<div a="' + "A" * 1990 + '">')
+
+
+def test_a_link_the_browser_saw_hidden_stays_hidden():
+    from extension_backend import AnalyseRequest, _resolve_email
+
+    eml = (
+        b"From: a@b.example\r\nContent-Type: text/html\r\n\r\n"
+        b'<a href="https://pixel.example/1"><img width=1 height=1></a>'
+        b'<a href="https://evil.example/login">Verify</a>'
+    )
+    req = AnalyseRequest(
+        raw_email_b64=base64.b64encode(eml).decode(),
+        client_context={
+            "link_urls": ["https://evil.example/login"],
+            "hidden_link_urls": ["https://pixel.example/1"],
+        },
+    )
+    _body, urls, _h, _raw = _resolve_email(req)
+    assert urls == ["https://evil.example/login", "https://pixel.example/1"]
+
+
+@pytest.mark.parametrize(
+    ("value", "rgb"),
+    [
+        ("rgb(100%, 100%, 100%)", (255, 255, 255)),
+        ("hsl(0, 0%, 100%)", (255, 255, 255)),
+        ("hsla(240, 100%, 50%, 0.5)", (0, 0, 255)),
+        ("rgb(0 0 0 / 0.5)", (0, 0, 0)),
+        ("#0b57d0", (11, 87, 208)),
+    ],
+)
+def test_colours_parse(value, rgb):
+    assert hc.parse_colour(value)[:3] == rgb

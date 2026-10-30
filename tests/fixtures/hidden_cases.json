@@ -735,6 +735,150 @@
     "clipPath": "none"
    },
    "hidden": false
+  },
+  {
+   "name": "black on a 6% grey box",
+   "style": "background-color:rgba(0,0,0,0.06);color:#000000",
+   "computed": {
+    "color": "rgb(0, 0, 0)",
+    "backgroundColor": "rgba(0, 0, 0, 0.06)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
+   },
+   "hidden": false
+  },
+  {
+   "name": "white on a 6% grey box",
+   "style": "background-color:rgba(0,0,0,0.06);color:#ffffff",
+   "computed": {
+    "color": "rgb(255, 255, 255)",
+    "backgroundColor": "rgba(0, 0, 0, 0.06)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
+   },
+   "hidden": true
+  },
+  {
+   "name": "white in hsl",
+   "style": "color:hsl(0, 0%, 100%)",
+   "computed": {
+    "color": "rgb(255, 255, 255)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
+   },
+   "hidden": true
+  },
+  {
+   "name": "white in rgb percentages",
+   "style": "color:rgb(100%, 100%, 100%)",
+   "computed": {
+    "color": "rgb(255, 255, 255)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
+   },
+   "hidden": true
+  },
+  {
+   "name": "white button on blue",
+   "style": "background-color:#0b57d0;color:#ffffff",
+   "computed": {
+    "color": "rgb(255, 255, 255)",
+    "backgroundColor": "rgb(11, 87, 208)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
+   },
+   "hidden": false
+  },
+  {
+   "name": "light grey footer",
+   "style": "color:#999999",
+   "computed": {
+    "color": "rgb(153, 153, 153)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "opacity": "1",
+    "fontSize": "14px",
+    "visibility": "visible",
+    "overflow": "visible",
+    "overflowX": "visible",
+    "overflowY": "visible",
+    "position": "static",
+    "left": "auto",
+    "top": "auto",
+    "right": "auto",
+    "bottom": "auto",
+    "textIndent": "0px",
+    "transform": "none",
+    "clip": "auto",
+    "clipPath": "none"
+   },
+   "hidden": false
   }
  ]
 }

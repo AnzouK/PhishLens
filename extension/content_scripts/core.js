@@ -131,11 +131,11 @@ PL.isHidden = function isHidden(el) {
     const st = getComputedStyle(el);
     if (st.visibility === "hidden" || Number(st.opacity) <= 0.05 || parseFloat(st.fontSize) < 2) return true;
     if (transparent(st.color)) return true;
-    // Text the colour of what is drawn behind it (closer than 10 on every
-    // channel, like backend/hidden_content.py).
-    const ink = rgb(st.color);
+    // Text with too little contrast against what is drawn behind it (a
+    // ratio under 1.2, like backend/hidden_content.py).
+    const ink = rgba(st.color);
     const behind = backgroundBehind(el);
-    if (ink && behind && ink.every((v, i) => Math.abs(v - behind[i]) <= 10)) return true;
+    if (ink && behind && contrast(over(ink, behind), behind) < 1.2) return true;
     if (/^rect\(0(?:px)?,? 0(?:px)?,? 0(?:px)?,? 0(?:px)?\)$/.test(st.clip || "")) return true;
     if (/^inset\((?:[5-9]\d|\d{3,})(?:\.\d+)?%|^circle\(0(?:px)?[ )]/.test(st.clipPath || "")) return true;
     if (/hidden|clip/.test(`${st.overflow} ${st.overflowX} ${st.overflowY}`)) {
@@ -157,22 +157,44 @@ function flattened(transform) {
     return Math.abs(a * d - b * c) < 1e-4;
 }
 
-// [r, g, b] of a computed colour ("rgb(1, 2, 3)", "rgba(1, 2, 3, 0.5)").
-function rgb(color) {
-    const m = /^rgba?\((\d+), (\d+), (\d+)/.exec(color || "");
-    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+// [r, g, b, alpha] of a computed colour ("rgb(1, 2, 3)", "rgba(1, 2, 3, 0.5)").
+function rgba(color) {
+    const m = /^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)$/.exec(color || "");
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3]), m[4] === undefined ? 1 : Number(m[4])] : null;
 }
 
-// The colour drawn behind an element: its own background or the nearest
-// ancestor's (backgrounds are not inherited, they show through), white
-// when none sets one; null when an image is drawn (unknown).
+// [r, g, b] of `top` (with its alpha) drawn over the opaque `bottom`.
+function over(top, bottom) {
+    const a = top[3];
+    return [0, 1, 2].map((i) => Math.round(a * top[i] + (1 - a) * bottom[i]));
+}
+
+// WCAG contrast ratio of two colours, 1 (same) to 21 (black on white).
+function contrast(a, b) {
+    const lum = (c) => {
+        const [r, g, b2] = c.map((v) => {
+            const x = v / 255;
+            return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b2;
+    };
+    const [lo, hi] = [lum(a), lum(b)].sort((x, y) => x - y);
+    return (hi + 0.05) / (lo + 0.05);
+}
+
+// The colour drawn behind an element: its background and its ancestors'
+// composed from the white page up, alpha included (backgrounds are not
+// inherited, they show through); null when an image is drawn (unknown).
 function backgroundBehind(el) {
+    const layers = [];
     for (let n = el, depth = 0; n && n.nodeType === 1 && depth < 40; n = n.parentNode, depth++) {
         const st = getComputedStyle(n);
         if (st.backgroundImage && st.backgroundImage !== "none") return null;
-        if (st.backgroundColor && !transparent(st.backgroundColor)) return rgb(st.backgroundColor);
+        const c = rgba(st.backgroundColor);
+        if (c && c[3] > 0) layers.push(c);
+        if (c && c[3] >= 1) break;
     }
-    return [255, 255, 255];
+    return layers.reverse().reduce((below, layer) => over(layer, below), [255, 255, 255]);
 }
 
 // "rgba(0, 0, 0, 0)" or "transparent": the computed colour of text drawn

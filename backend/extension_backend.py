@@ -53,6 +53,7 @@ import fusion
 import structured_agents
 import text_model
 from email_parsing import (
+    Ranked,
     client_links,
     detect_forwarded,
     detect_shared_links,
@@ -364,8 +365,11 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
             text_urls = urls_in_text(body)
     # Visible links of the page, then those of the message (its own
     # visible ones first), then the page's hidden ones.
+    # A link the browser saw hidden (a 1 px image, a rule for screens)
+    # stays with the hidden ones, wherever the message lists it.
     shown, unseen = _client_link_groups(ctx)
-    urls = rank_links(shown, urls, unseen, text_urls)
+    hidden_here = set(unseen)
+    urls = rank_links(shown, Ranked(u for u in urls if u not in hidden_here), unseen, text_urls)
     return body, urls, headers, raw_bytes
 
 
