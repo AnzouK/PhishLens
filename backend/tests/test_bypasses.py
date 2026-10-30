@@ -1220,3 +1220,95 @@ def test_invisible_characters_do_not_cut_words_for_the_text_model():
 
     assert without_invisible("V​e​r​ify your acc­ount") == "Verify your account"
     assert without_invisible("मि‍त्र") == "मि‍त्र"
+
+
+# ---------------------------------------------------------------------
+# Round 14
+# ---------------------------------------------------------------------
+def _zip(*names: str) -> bytes:
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name in names:
+            zf.writestr(name, "MZ" if name.endswith(".exe") else "")
+    return buf.getvalue()
+
+
+@pytest.mark.parametrize("filename", ["docs.zip", "report.docx"])
+def test_an_archive_dressed_as_a_word_file_still_shows_its_program(filename):
+    import attachment_analysis as aa
+
+    raw = _zip("[Content_Types].xml", "word/x", "invoice.pdf.exe")
+    out = aa.analyse_attachment(base64.b64encode(raw).decode(), filename=filename)
+    assert "executable_in_archive" in out["notable_features"]
+
+
+def test_a_real_word_file_is_still_read_as_one():
+    import attachment_analysis as aa
+
+    raw = _zip("[Content_Types].xml", "word/document.xml", "word/media/image1.png")
+    out = aa.analyse_attachment(base64.b64encode(raw).decode(), filename="report.docx")
+    assert out["kind"] == "docx"
+    assert out["notable_features"] == []
+
+
+@pytest.mark.parametrize(
+    "href", ["https://℅@evil.tk#@paypal.com", "https://℅@evil.tk?x=@paypal.com"]
+)
+def test_a_user_part_python_refuses_does_not_move_the_host(href):
+    assert la.link_host(href) == "evil.tk"
+    assert not la.well_known_link(href)
+    assert sa.strong_link_sign([href])
+
+
+def test_an_address_written_in_capitals_counts_as_written_in_the_text():
+    body = "Verify at HTTPS://Evil.Example/login now"
+    urls = ep.urls_in_text(body)
+    written = set(ep.urls_in_text(body))
+    assert urls[0] in written
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "V​‌e​‌r​‌i​‌f​‌y",
+        "V͏e͏r͏i͏f͏y",
+        "V️e️r️i️f️y",
+    ],
+)
+def test_more_invisible_marks_do_not_cut_words(text):
+    from unicode_text import without_invisible
+
+    assert without_invisible(text) == "Verify"
+
+
+def test_joiners_stay_inside_arabic_and_indic_words():
+    from unicode_text import without_invisible
+
+    persian = "می‌خواهم"
+    assert without_invisible(persian) == persian
+    assert without_invisible("П‌о") == "По"  # Cyrillic: no joiner needed
+
+
+def test_a_display_name_padded_with_invisible_marks_keeps_the_brand():
+    value = _from_value("x@evil.example", "͏" * 300 + "PayPal")
+    assert st.impersonated_brand(value) == "paypal"
+
+
+def test_an_address_with_an_invisible_character_reads_as_the_browser_opens_it():
+    assert ep.urls_in_text("go to https://evil​.tk/login") == ["https://evil.tk/login"]
+
+
+def test_hiding_rules_of_every_kind_survive_many_cheap_ones():
+    for rule in (".h{visibility:hidden}", ".h{font-size:0}", ".h{color:transparent}"):
+        html = (
+            "<style>"
+            + "i{display:none}" * 101
+            + rule
+            + "</style>"
+            + "<i></i>" * 5000
+            + '<div class="h">filler</div><p>Verify</p>'
+        )
+        assert ep.html_to_text(html).endswith("filler"), rule

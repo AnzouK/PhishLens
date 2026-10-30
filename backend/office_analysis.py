@@ -42,6 +42,7 @@ from typing import Any
 # expansion and external entities in untrusted Office XML.
 from defusedxml import ElementTree as ET
 
+import archive_analysis as archives
 from email_parsing import urls_in_text
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
@@ -257,6 +258,13 @@ def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
             )
 
         flags = _part_name_flags(names)
+        # What an Office file never holds (a program, a script, a disk
+        # image) or a part encrypted at the ZIP level.
+        for flag in archives.classify_names(names):
+            if flag not in flags:
+                flags.append(flag)
+        if any(i.flag_bits & 0x1 for i in infos) and "encrypted_document" not in flags:
+            flags.append("encrypted_document")
         texts: list[str] = []
         urls: list[str] = []
         parts, text_tags, block_tags = _text_parts(kind, names)

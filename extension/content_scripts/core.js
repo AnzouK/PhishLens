@@ -249,6 +249,13 @@ PL.hiddenParts = function hiddenParts(el) {
     const stack = [...el.children].reverse();       // popped in page order
     for (let seen = 0; stack.length && seen < MAX_WALK; seen++) {
         const n = stack.pop();
+        // <map> and <area> never draw a box of their own (area is
+        // display:none in every browser): they are judged through the
+        // image that uses the map (shownLink), not as hidden boxes.
+        if (n.tagName === "MAP" || n.tagName === "AREA") {
+            stack.push(...[...n.children].reverse());
+            continue;
+        }
         if (PL.isHiddenBox(n)) {
             out.boxes.push(n);
             continue;
@@ -365,7 +372,9 @@ function shownMaps(a, inBox, boxes) {
         const names = new Set();
         for (const img of root.querySelectorAll?.("img[usemap], object[usemap]") || []) {
             const r = img.getBoundingClientRect?.();
-            if (inBox(img) || (r && (r.width < 2 || r.height < 2))) continue;
+            const st = typeof getComputedStyle === "function" ? getComputedStyle(img) : {};
+            const invisible = /hidden|collapse/.test(st.visibility || "") || Number(st.opacity ?? 1) <= 0.05;
+            if (inBox(img) || invisible || (r && (r.width < 2 || r.height < 2))) continue;
             names.add((img.getAttribute("usemap") || "").toLowerCase().replace(/^#/, ""));
         }
         mapsSeen.set(boxes, names);
@@ -451,11 +460,16 @@ PL.linkTargetsOf = function linkTargetsOf(el, hidden = PL.hiddenParts(el)) {
     return [...visible, ...unseen];
 };
 
+// Characters that take no room on screen (same list as
+// backend/unicode_text.py): format characters, the combining grapheme
+// joiner, variation selectors, Hangul fillers.
+const INVISIBLE_RE = /[\p{Cf}\u034F\u115F\u1160\u3164\uFFA0\uFE00-\uFE0F\u{E0100}-\u{E01EF}]/gu;
+
 // A sender's display name as sent to the server: invisible characters
 // out, spaces collapsed, 200 characters at most (the name comes from the
 // email and can be any length).
 PL.senderName = function senderName(text) {
-    const name = String(text || "").replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").trim().slice(0, 200);
+    const name = String(text || "").replace(INVISIBLE_RE, "").replace(/\s+/g, " ").trim().slice(0, 200);
     return name || null;
 };
 

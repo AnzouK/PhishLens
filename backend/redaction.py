@@ -12,6 +12,8 @@ from __future__ import annotations
 import re
 import unicodedata
 
+from unicode_text import is_invisible
+
 _GREETING = (
     r"(?:Hi|Hello|Hey|Dear|Bonjour|Bonsoir|Salut|Cher|Chère|Olá|Ola|Oi|Hola|Estimado|Estimada|"
     r"Hallo|Liebe|Lieber|Ciao|Caro|Cara|Gentile|Beste|Querida|Querido|Prezado|Prezada|Sannu|Barka)"
@@ -87,7 +89,7 @@ def redact(text: str, terms: list[str] | None = None) -> str:
     # spaces, full-width digits plain ones: "06\u202f12\u202f34..." is a
     # phone number) and invisible characters removed, before any rule.
     t = unicodedata.normalize("NFKC", str(text or ""))
-    t = "".join(c for c in t if unicodedata.category(c) != "Cf")
+    t = "".join(c for c in t if not is_invisible(c))
     t = _mask_emails(t)
     t = _URL.sub(lambda m: f"<URL:{m.group(1).lower().removeprefix('www.')}>", t)
     t = _IBAN.sub("<NUMBER>", t)

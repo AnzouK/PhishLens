@@ -57,7 +57,10 @@ async function request() {
     if (!file) throw new Error(t("pick_first"));
     if (file.size > MAX_FILE_MB * 1024 * 1024) throw new Error(t("file_too_large"));
     const b64 = await fileToB64(file);
-    if (ATTACHMENT_EXTS.includes(fileExt(file.name))) {
+    // An email is an .eml (or a file with no extension); any other file is
+    // an attachment, so the server judges its type (an .exe is flagged).
+    const ext = fileExt(file.name);
+    if (ext && ext !== "eml") {
         return { source: "attachment", payload: { content_b64: b64, filename: file.name, mime_type: file.type || null } };
     }
     return { source: "file", payload: { raw_email_b64: b64 } };

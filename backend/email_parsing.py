@@ -10,7 +10,6 @@ attacker-controlled text) and caps what it reads.
 from __future__ import annotations
 
 import re
-import unicodedata
 import warnings
 from email import message_from_bytes, policy
 from email.utils import parseaddr
@@ -22,6 +21,7 @@ from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 from hidden_content import generated_text, hidden_tags, shown_link, shown_maps, visible_text_first
 from link_alignment import browser_url, link_host
 from settings import MAX_EMAIL_URLS, MAX_LINK_URLS
+from unicode_text import without_invisible
 
 # An email that is only an address is still an email to read, not a
 # mistake to warn about (each warning went to the server log).
@@ -34,8 +34,10 @@ URL_IN_TEXT_RE = re.compile(r"(?:https?://|www\.)[^\s\"'<>)\]}]+", re.IGNORECASE
 
 def urls_in_text(text: str) -> list[str]:
     # Punctuation that ends the sentence is not part of the address.
+    # Invisible characters out first: a browser drops a zero-width space
+    # from a host ("evil\u200b.tk" opens evil.tk), the match must too.
     out = []
-    for u in URL_IN_TEXT_RE.findall(text or ""):
+    for u in URL_IN_TEXT_RE.findall(without_invisible(text or "")):
         u = u.rstrip(".,;:!?")
         out.append(browser_url(u if u[:4].lower() != "www." else "http://" + u))
     return out
@@ -402,7 +404,7 @@ def header_dict(items) -> dict[str, str]:
         # lose its second address to it. A header too long to read whole
         # proves nothing.
         decoded = _decoded_header(raw[:_MAX_RAW_HEADER])
-        decoded = "".join(c for c in decoded if unicodedata.category(c) != "Cf")
+        decoded = without_invisible(decoded)
         value = " ".join(decoded.split())
         if len(value) > MAX_HEADER_CHARS or len(raw) > _MAX_RAW_HEADER:
             value = value[:MAX_HEADER_CHARS]

@@ -35,7 +35,6 @@ import base64
 import logging
 import os
 import time
-import unicodedata
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -98,6 +97,7 @@ from settings import (
     TRUSTED_META_CEILING,
     VERSION,
 )
+from unicode_text import without_invisible
 
 # uvicorn configures its own loggers only: without this, the
 # "phishlens.*" INFO messages would be dropped.
@@ -286,7 +286,7 @@ def _from_value(email: str, name: str | None, original: str = "") -> str:
     display = name or parseaddr(original)[0] or ""
     # Invisible characters out before the cut: 200 zero-width spaces used
     # to push the brand name past it.
-    display = "".join(c for c in display if unicodedata.category(c) != "Cf")
+    display = without_invisible(display)
     display = " ".join(display.split())[:200]
     # Quoted as RFC 5322 says: a name ending in a backslash escaped the
     # closing quote, and the name was lost (with the impersonation check).
@@ -333,7 +333,7 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         synth = synthesize_auth_results(ctx, req.sender_email)
         if synth:
             headers["authentication-results"] = synth
-        return body, urls, headers, None
+        return without_invisible(body), urls, headers, None
     if not req.raw_email_b64:
         raise HTTPException(400, "Provide either raw_email_b64 or raw_text.")
     try:
@@ -370,7 +370,9 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     shown, unseen = _client_link_groups(ctx)
     hidden_here = set(unseen)
     urls = rank_links(shown, Ranked(u for u in urls if u not in hidden_here), unseen, text_urls)
-    return body, urls, headers, raw_bytes
+    # Without invisible characters, as the reader sees it: for the text
+    # model, the forward and language checks alike.
+    return without_invisible(body), urls, headers, raw_bytes
 
 
 def _model_text(body: str, headers: dict[str, str], ctx: dict[str, Any]) -> str:
@@ -685,7 +687,7 @@ def _agents_block(
 ) -> dict[str, dict[str, Any]]:
     if not urls:
         url_source = "none"
-    elif structured_agents.url_model_ready() and any(u in body for u in urls):
+    elif structured_agents.url_model_ready() and set(urls) & set(urls_in_text(body)):
         url_source = "model"
     else:
         url_source = "rules"

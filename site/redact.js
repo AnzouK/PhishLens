@@ -27,7 +27,8 @@ const RE = {
     longNumber: /(?<![\p{L}\p{N}])\d(?:[ .-]?\d){5,}(?![\p{L}\p{N}])/gu,
     phone: /(?<![\p{L}\p{N}])\+\d[\d ().-]{6,}\d/gu,
     handle: /(?<![\p{L}\p{N}<])@[\p{L}\p{N}_.]{2,}/gu,
-    invisible: /\p{Cf}/gu,
+    // Same list as backend/unicode_text.py.
+    invisible: /[\p{Cf}\u034F\u115F\u1160\u3164\uFFA0\uFE00-\uFE0F\u{E0100}-\u{E01EF}]/gu,
 };
 
 function maskNames(words) {

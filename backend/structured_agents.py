@@ -16,8 +16,9 @@ import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from email_parsing import urls_in_text
 from known_domains import SUSPICIOUS_TLDS
-from link_alignment import ip_host, on_cloud_file_host, well_known_link
+from link_alignment import authority_of, browser_url, ip_host, on_cloud_file_host, well_known_link
 from link_alignment import link_host as _host
 from sender_trust import impersonated_brand, sender_domain
 from settings import AGENTS_ALLOW_PICKLE, HF_AGENTS_REPO, HF_AGENTS_REVISION
@@ -134,10 +135,11 @@ def url_heuristic(urls: list[str]) -> float:
 
 def _has_userinfo(url: str) -> bool:
     """A "name@" part before the host (https://paypal.com@evil.example)."""
+    url = browser_url(url)
     try:
         return "@" in urlsplit(url if "://" in url else "http://" + url).netloc
     except ValueError:
-        return "@" in url.split("://", 1)[-1].split("/", 1)[0]
+        return "@" in authority_of(url)
 
 
 def _lookalike_host(host: str) -> bool:
@@ -181,8 +183,11 @@ def url_agent(urls: list[str], body_text: str = "") -> float:
     # on an all-zero feature vector the RF outputs a high probability.
     if not urls:
         return 0.05
-    visible = [u for u in urls if u in body_text]
-    hidden = [u for u in urls if u not in body_text]
+    # Written in the text: compared as read (urls_in_text normalises
+    # "HTTPS://", "www.", a final dot), not character for character.
+    written = set(urls_in_text(body_text))
+    visible = [u for u in urls if u in written or u in body_text]
+    hidden = [u for u in urls if u not in visible]
 
     score = 0.05
     if visible:

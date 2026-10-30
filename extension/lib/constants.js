@@ -26,8 +26,10 @@ const SOURCE_LABELS = Object.freeze({
     spamhaus_dbl: "Spamhaus DBL",
 });
 
+// The extension a system would open the file by: compatibility form,
+// trailing dots and spaces dropped ("invoice.exe ." is an .exe).
 function fileExt(name) {
-    const parts = String(name || "").split(".");
+    const parts = String(name || "").normalize("NFKC").replace(/[.\s]+$/, "").split(".");
     return parts.length > 1 ? parts.pop().toLowerCase() : "";
 }
 

@@ -21,6 +21,7 @@ from typing import Any
 from auth_headers import SHARED_SUFFIXES, org_domain, sender_domain
 from known_domains import BRANDS, WELL_KNOWN
 from trusted_domains import TRUSTED_DOMAINS
+from unicode_text import without_invisible
 
 _ANGLE_ADDR_RE = re.compile(r"<\s*([^<>\s@]{1,200}@[^<>\s@]{1,253})\s*>")
 _HOST_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789-")
@@ -52,7 +53,7 @@ def _plain_words(text: str, lower: bool = True) -> str:
     character a space; padded so that whole words match. Dots are kept
     ("booking.com") and the same words are added with dots as spaces
     ("impots.gouv" also gives "impots gouv")."""
-    text = "".join(c for c in text if unicodedata.category(c) != "Cf")
+    text = without_invisible(text)
     folded = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", text))
     folded = "".join(c for c in folded if not unicodedata.combining(c)).translate(_CONFUSABLES)
     if lower:

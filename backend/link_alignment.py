@@ -19,7 +19,7 @@ import ipaddress
 import re
 import unicodedata
 from email.utils import parseaddr
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 from auth_headers import org_domain
 from known_domains import CLOUD_FILE_HOSTS, WELL_KNOWN
@@ -77,7 +77,10 @@ def browser_url(url: str) -> str:
             authority, extra = authority.split(mark, 1)
             tail, sep = mark + extra + sep + tail, ""
     userinfo, at, hostport = authority.rpartition("@")
-    userinfo = userinfo.replace("[", "%5B").replace("]", "%5D")
+    # Percent-encoded as browsers do: a character such as "\u2105" (c/o
+    # under NFKC) made Python refuse the address, and the fallback read
+    # the host after a later "@" ("https://\u2105@evil.tk#@paypal.com").
+    userinfo = quote(userinfo, safe="!$&'()*+,;=:%")
     host, port = _split_port(hostport)
     if not host.startswith("["):
         decoded = unicodedata.normalize("NFKC", unquote(host)).translate(_DOTS)
@@ -101,6 +104,12 @@ def _split_port(hostport: str) -> tuple[str, str]:
     return hostport, ""
 
 
+def authority_of(url: str) -> str:
+    """The "user@host:port" part of an address: up to the first "/", "?"
+    or "#" after the scheme."""
+    return re.split(r"[/\\?#]", url.split("://", 1)[-1], maxsplit=1)[0]
+
+
 def link_host(url: str) -> str:
     """Host name of a link as a browser reads it (browser_url), after any
     "user:password@" part: in https://paypal.com:443@evil.example/ the
@@ -112,7 +121,7 @@ def link_host(url: str) -> str:
     except ValueError:
         # Not a host Python accepts ("evil.tk\uff20paypal.com"): read it as
         # written, so the link still counts as one going somewhere unknown.
-        authority = url.split("://", 1)[-1].split("/", 1)[0]
+        authority = authority_of(url)
         host = _split_port(authority.rpartition("@")[2])[0]
     return host.lower().rstrip(".")
 

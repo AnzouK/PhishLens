@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import json
 import logging
-import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +43,7 @@ from settings import (
     MODEL_DTYPE,
 )
 from text_normalize import normalize_text
+from unicode_text import without_invisible
 
 LEGACY_REPO = "AnzouKiona/phishlens-distilbert"
 META_FILE = "phishlens_text_agent.json"
@@ -216,26 +216,6 @@ def override_threshold() -> float:
     return float(_meta()["override_threshold"])
 
 
-def without_invisible(text: str) -> str:
-    """The text without the characters that do not show (zero-width
-    spaces, soft hyphens, direction marks): "V\u200be\u200br\u200bify" is
-    "Verify" on screen, but cut the word in pieces for the tokenizer.
-    The joiners that shape Arabic and Indic scripts (U+200C, U+200D) are
-    kept between letters of those scripts and dropped elsewhere."""
-    if text.isascii():
-        return text
-    out = []
-    for i, c in enumerate(text):
-        if (
-            unicodedata.category(c) != "Cf"
-            or c in "\u200c\u200d"
-            and i
-            and not text[i - 1].isascii()
-        ):
-            out.append(c)
-    return "".join(out)
-
-
 def predict_proba_batch(texts: list[str]) -> np.ndarray:
     """N x 2 array of [P(safe), P(phishing)] (the shape LIME expects)."""
     import torch
@@ -272,7 +252,7 @@ def explain(body: str) -> list[dict[str, Any]]:
     thinly across many words.
     """
     exp = STATE["lime"].explain_instance(
-        body[:LIME_MAX_CHARS],
+        without_invisible(body)[:LIME_MAX_CHARS],
         predict_proba_batch,
         num_samples=LIME_NUM_SAMPLES,
         num_features=20,

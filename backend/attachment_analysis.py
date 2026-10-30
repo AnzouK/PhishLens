@@ -25,6 +25,7 @@ import binascii
 import io
 import logging
 import re
+import zipfile
 from typing import Any
 from urllib.parse import unquote
 
@@ -581,6 +582,16 @@ def _dangerous_type(raw: bytes, filename: str) -> dict[str, Any] | None:
     }
 
 
+def _plain_archive(raw: bytes, filename: str) -> bool:
+    if archives._ext(filename) in archives.ARCHIVE_EXTS:
+        return True
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+            return bool(archives.classify_names(zf.namelist()[: archives.MAX_ENTRIES]))
+    except (zipfile.BadZipFile, ValueError):
+        return False
+
+
 def dispatch_raw(
     raw: bytes, filename: str, mime_type: str | None = None, depth: int = 0
 ) -> dict[str, Any]:
@@ -606,7 +617,10 @@ def dispatch_raw(
 
     # Office documents: modern ones are ZIPs, legacy / encrypted ones OLE2.
     if mime == "application/zip":
-        if office.detect_ooxml_kind(raw) is None:
+        # Read as the archive it is when it says so (a .zip name) or when
+        # it holds what no Office file holds (a program, a script...): two
+        # empty parts named like a Word document once hid an .exe.
+        if office.detect_ooxml_kind(raw) is None or _plain_archive(raw, filename):
             if depth:
                 raise ValueError("Nested archive.")
             return archives.analyse_zip(

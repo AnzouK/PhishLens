@@ -15,9 +15,10 @@ const { SEL } = G;
 const MAX_PER_EMAIL = 15;
 // An attached email is scanned as an email, the rest as attachments.
 const SUPPORTED = new Set([...ATTACHMENT_EXTS, "eml"]);
-// Longest extensions first, so "html" wins over "htm".
+// Longest extensions first, so "html" wins over "htm". The name must end
+// there (or before the size): "notes.txt.exe" once became "notes.txt".
 const SUPPORTED_NAME_RE = new RegExp(
-    "([\\w \\-.()]+\\.(" + [...SUPPORTED].sort((a, b) => b.length - a.length).join("|") + "))", "i");
+    "([\\w \\-.()]+\\.(" + [...SUPPORTED].sort((a, b) => b.length - a.length).join("|") + "))(?=\\s|$)", "i");
 // Any "name.ext", to say a file PhishLens cannot read was not checked.
 const ANY_NAME_RE = /([\w \-.()]+\.([a-z0-9]{1,5}))(?=\s|$)/i;
 // Ways Gmail has marked an attachment tile, all looked up inside a strip

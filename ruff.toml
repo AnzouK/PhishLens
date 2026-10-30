@@ -34,5 +34,5 @@ known-first-party = [
     "metadata_agent", "ocr", "office_analysis", "reputation", "result_cache",
     "rf_agent", "sender_trust", "settings", "structured_agents", "text_model",
     "trusted_domains", "url_agent", "language", "redaction", "feedback", "text_normalize", "known_domains",
-    "link_alignment", "convert_agents_to_skops", "hidden_content",
+    "link_alignment", "convert_agents_to_skops", "hidden_content", "unicode_text",
 ]

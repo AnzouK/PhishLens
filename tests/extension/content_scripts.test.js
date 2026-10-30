@@ -446,6 +446,8 @@ test("an <area> counts only through a shown image that uses its map", () => {
     const inMap = doc.createElement("area");
     inMap.href = "https://ok.example/";
     map.append(inMap);
+    // As in a browser: <area> is display:none, <map> draws nothing.
+    for (const n of [loose, map, inMap]) n.getClientRects = () => [];
     const img = doc.createElement("img");
     img.setAttribute("usemap", "#m");
     const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
@@ -466,4 +468,30 @@ test("words written by ::before in the colour of the background are not read", (
     const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible", content: "normal" };
     ctx.getComputedStyle = (n, pseudo) => (n === p && pseudo === "::before" ? { ...plain, color: "rgb(255, 255, 255)", content: '"filler words"' } : plain);
     assert.equal(PL.textOf(body), "Hello");
+});
+
+test("an image map only counts through an image that can be seen", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const map = doc.createElement("map");
+    map.setAttribute("name", "m");
+    const area = doc.createElement("area");
+    area.href = "https://d0.example/";
+    map.append(area);
+    for (const n of [map, area]) n.getClientRects = () => [];
+    const img = doc.createElement("img");
+    img.setAttribute("usemap", "#m");
+    body.append(map, img);
+    const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = (n) => (n === img ? { ...plain, visibility: "hidden" } : plain);
+    assert.deepEqual([...PL.linkGroupsOf(body).visible], []);
+});
+
+test("a name cut after many invisible marks keeps the brand", () => {
+    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const { PL } = load(entry);
+    assert.equal(PL.senderName("\u034f".repeat(300) + "PayPal"), "PayPal");
+    assert.equal(PL.senderName("\ufe0f".repeat(300) + "PayPal"), "PayPal");
 });

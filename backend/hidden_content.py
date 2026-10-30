@@ -435,17 +435,21 @@ class Declarations(dict):
         self.important = set(important)
 
     def then(self, later: Declarations) -> Declarations:
-        """These declarations with `later` applied over them: a later value
-        wins unless this one is !important and the later one is not."""
+        """These declarations with `later` applied over them, as a copy."""
         out = Declarations(self, important=self.important)
+        out.apply(later)
+        return out
+
+    def apply(self, later: Declarations) -> None:
+        """`later` applied over these, in place: a later value wins unless
+        this one is !important and the later one is not."""
         for key, value in later.items():
             if key in self.important and key not in later.important:
                 continue
-            out.pop(key, None)  # moved last: the order says which came later
-            out[key] = value
+            self.pop(key, None)  # moved last: the order says which came later
+            self[key] = value
             if key in later.important:
-                out.important.add(key)
-        return out
+                self.important.add(key)
 
 
 _COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
@@ -716,7 +720,7 @@ _SELECT_BUDGET = 20_000
 _SELECT_SECONDS = 0.5
 # Styles given to elements, all rules together ("div" repeated in 5,000
 # rules over 5,000 elements is 25 million).
-_MAX_MERGES = 500_000
+_MAX_MERGES = 3_000_000
 
 
 # Tags, classes and ids named in a selector; attribute tests and
@@ -888,30 +892,41 @@ def _cascade(soup) -> dict[int, Declarations]:
     # colour, size or visibility, then the rest, so that junk rules placed
     # before them cannot spend the budget; all are then applied in their
     # own order.
-    # The elements of every rule, hiding rules first for the work budget
-    # of complex selectors (simple ones are free).
-    found: dict[int, list] = {}
-    for i in sorted(range(len(rules)), key=lambda i: (_tier(rules[i][1]), i)):
-        found[i] = [
-            tag
-            for selector in dict.fromkeys(part.strip() for part in rules[i][0].split(","))
-            for tag in index.select(selector, budget)
-        ]
-    # Applying them costs one step per element styled. Within that
-    # budget, hiding rules and the rules touching fewest elements come
-    # first: a hundred copies of "i{display:none}" over 5,000 <i> once
-    # used it up before ".h{display:none}" was reached. The rules kept are
-    # applied in their own order.
+    # The elements of every rule, rules that can hide first for the work
+    # budget of complex selectors (simple ones are free). A selector
+    # repeated in many rules is matched once.
+    memo: dict[str, list] = {}
+
+    def elements(selectors: str) -> list[list]:
+        out = []
+        for selector in dict.fromkeys(part.strip() for part in selectors.split(",")):
+            if selector not in memo:
+                memo[selector] = index.select(selector, budget)
+            out.append(memo[selector])
+        return out
+
+    found = {
+        i: elements(rules[i][0])
+        for i in sorted(range(len(rules)), key=lambda i: (_tier(rules[i][1]), i))
+    }
+    # Applying them costs one step per element styled (in place, cheap).
+    # Within _MAX_MERGES, the rules that can hide come first; those kept
+    # are applied in their own order.
     kept, merges = [], _MAX_MERGES
-    for i in sorted(found, key=lambda i: (_tier(rules[i][1]), len(found[i]), i)):
-        merges -= len(found[i])
+    for i in sorted(found, key=lambda i: (_tier(rules[i][1]), i)):
+        merges -= sum(len(group) for group in found[i])
         if merges < 0:
             break
         kept.append(i)
     styles: dict[int, Declarations] = {}
     for i in sorted(kept):
-        for tag in found[i]:
-            styles[id(tag)] = styles.get(id(tag), Declarations()).then(rules[i][1])
+        decl = rules[i][1]
+        for group in found[i]:
+            for tag in group:
+                own = styles.get(id(tag))
+                if own is None:
+                    styles[id(tag)] = own = Declarations()
+                own.apply(decl)
     return styles
 
 
@@ -926,9 +941,9 @@ def _last_compound(selector: str) -> str:
 
 
 def _tier(decl: Declarations) -> int:
-    if _hides_box(decl):
-        return 0
-    return 1 if _may_hide(decl) else 2
+    """0 for rules that can hide a box or make text unreadable (colour,
+    size, visibility, background), 1 for the rest."""
+    return 0 if _hides_box(decl) or _may_hide(decl) else 1
 
 
 def _may_hide(decl: Declarations) -> bool:
