@@ -173,6 +173,24 @@ _EMBEDDED_URL_RE = re.compile(
 )
 
 
+def browser_path(path: str) -> str:
+    """A URL path as the browser requests it: percent-encoded dots and
+    slashes read, backslashes as "/", "." and ".." segments resolved
+    ("/./url" and "/a/../url" are "/url")."""
+    path = unquote(path or "/").replace("\\", "/")
+    out: list[str] = []
+    for seg in path.split("/")[1:] if path.startswith("/") else path.split("/"):
+        if seg == ".":
+            continue
+        if seg == "..":
+            if out:
+                out.pop()
+            continue
+        out.append(seg)
+    trailing = "/" if path.endswith(("/.", "/..")) and out else ""
+    return "/" + "/".join(out) + trailing
+
+
 def well_known_link(url: str) -> bool:
     """The link goes to a large, known site and carries no other address
     (an open redirect such as ...?url=https://elsewhere is not known)."""
@@ -186,7 +204,7 @@ def well_known_link(url: str) -> bool:
         parts = urlsplit(url if "://" in url else "http://" + url)
     except ValueError:
         return False
-    rest = f"{parts.path}?{parts.query}#{parts.fragment}"
+    rest = f"{browser_path(parts.path)}?{parts.query}#{parts.fragment}"
     for _ in range(2):
         rest = unquote(rest)
     if _EMBEDDED_URL_RE.search(rest):

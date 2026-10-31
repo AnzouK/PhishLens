@@ -38,7 +38,7 @@ from bs4 import BeautifulSoup
 import archive_analysis as archives
 import ocr
 import office_analysis as office
-from email_parsing import absolute_http, rank_links, urls_in_text
+from email_parsing import _decoded_header, absolute_http, rank_links, urls_in_text
 from hidden_content import generated_text, hidden_tags, shown_link, shown_maps, visible_text_first
 from unicode_text import without_invisible
 
@@ -571,21 +571,49 @@ _WRITTEN_TAG_RE = re.compile(
 )
 
 
+def _js_strings(code: str) -> list[str]:
+    """The string literals of a script ("...", '...', `...`, escapes
+    allowed): where a page a script writes is, never the code around it
+    ("if (x > 0)" is not markup). One pass, linear on any input; an
+    unclosed literal ends at its line."""
+    out: list[str] = []
+    i, n = 0, len(code)
+    while i < n:
+        quote = code[i]
+        if quote not in "\"'`":
+            i += 1
+            continue
+        j = i + 1
+        while j < n and code[j] != quote and (code[j] != "\n" or quote == "`"):
+            j += 2 if code[j] == "\\" else 1
+        if j < n and code[j] == quote:
+            # Simple escapes as the script reads them (\" is ").
+            out.append(re.sub(r"\\(.)", r"\1", code[i + 1 : j]))
+        i = j + 1
+    return out
+
+
 def _inline_scripted(soup) -> None:
-    """Pages a script writes, decoded (atob, unescape, char codes,
-    escapes), parsed into the page next to the script, so that their forms
-    and password fields are read like the page's own (500 KB at most)."""
+    """Pages a script writes, parsed into the page next to the script, so
+    that their forms and password fields are read like the page's own:
+    markup found in the script's string literals (joined, escapes decoded)
+    and in what it decodes (atob, unescape, char codes), every one of
+    them, 500 KB at most."""
     budget = 500_000
     for script in soup.find_all("script", limit=1000):
-        for reading in _script_readings(script.get_text()[:200_000]):
-            m = _WRITTEN_TAG_RE.search(reading)
+        readings = _script_readings(script.get_text()[:200_000])
+        literals = _js_strings(readings[0]) if readings else []
+        for piece in literals + readings[1:]:
+            m = _WRITTEN_TAG_RE.search(piece)
             if not m or budget <= 0:
                 continue
-            start = reading.rfind("<", 0, m.start() + 1)
-            markup = reading[start : reading.rfind(">") + 1][:budget]
+            start = piece.rfind("<", 0, m.start() + 1)
+            end = piece.rfind(">")
+            if end <= start:
+                continue
+            markup = piece[start : end + 1][:budget]
             budget -= len(markup)
             script.insert_after(BeautifulSoup(markup, "html.parser"))
-            break
 
 
 def _page_flags(soup, has_script: bool, smuggles: bool) -> list[str]:
@@ -618,8 +646,9 @@ def analyse_html(raw: bytes, filename: str, location: str = "") -> dict[str, Any
     """
     try:
         soup = BeautifulSoup(raw, "html.parser")
-        _inline_embedded(soup)
+        # Script-written pages first: one can hold an <iframe srcdoc>.
         _inline_scripted(soup)
+        _inline_embedded(soup)
     except Exception as e:
         raise RuntimeError(f"HTML parse failed: {e}") from e
 
@@ -707,7 +736,8 @@ def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
         if part.is_multipart():
             continue
         kind = part.get_content_type()
-        fname = part.get_filename() or ""
+        # The name as a mail program shows it (encoded words decoded).
+        fname = _decoded_header(str(part.get_filename() or ""))
         if fname:
             names.append(fname)
         data = part.get_payload(decode=True)
@@ -915,8 +945,15 @@ def _read_zip(raw: bytes, filename: str, depth: int) -> dict[str, Any]:
         filename,
         inner=lambda data, name: dispatch_raw(data, name, None, depth + 1),
         skip=office.is_office_part,
+        later=office.office_extra,
     )
     listed = set(foreign)
+    # What Office added is reported only when it says something.
+    members["inner_files"] = [
+        f
+        for f in members.get("inner_files") or []
+        if f.get("filename") in listed or f.get("notable_features") or f.get("url_count")
+    ]
     members["entries"] = [n for n in members.get("entries") or [] if n in listed]
     members["_all_entries"] = [n for n in members.get("_all_entries") or [] if n in listed]
     members["entry_count"] = len(members["_all_entries"])

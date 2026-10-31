@@ -158,7 +158,9 @@ files an Office document inside an archive holds.
 HTML body is parsed (inline images left out); links past it are still
 read, the last ones first, but whether they show cannot be told, and a
 flood of more than a thousand links after the padding can still push
-some out of the check. Gmail clips such messages too.
+some out of the check. Gmail clips such messages too. Long HTML
+comments are dropped from the text; the links inside them (Outlook's
+own buttons) are checked as hidden links.
 
 ## Review triggers
 

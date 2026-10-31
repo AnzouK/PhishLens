@@ -555,7 +555,7 @@ test("an SVG link (SVGAnimatedString href) and a link after a flood of decoys ar
     const body = mailView(doc).querySelector(".a3s");
     const svgLink = doc.createElement("a");
     svgLink.setAttribute("href", "https://evil.example/svg");
-    Object.defineProperty(svgLink, "href", { value: { baseVal: "https://evil.example/svg", animVal: "https://evil.example/svg" } });
+    Object.defineProperty(svgLink, "href", { value: { baseVal: " HTTPS://EVIL.example/svg ", animVal: "" } });
     svgLink.append("Open");
     body.append(svgLink);
     for (let i = 0; i < 300; i++) {

@@ -20,7 +20,7 @@ from urllib.parse import urlsplit
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
 from hidden_content import generated_text, hidden_tags, shown_link, shown_maps, visible_text_first
-from link_alignment import browser_url, link_host
+from link_alignment import browser_path, browser_url, link_host
 from settings import MAX_EMAIL_URLS, MAX_LINK_URLS
 from unicode_text import without_invisible
 
@@ -117,8 +117,7 @@ def html_link_groups(html_src: str) -> tuple[list[str], list[str]]:
         dict.fromkeys(
             u
             for u in (
-                absolute_http(html_lib.unescape(m.group(1)))
-                for m in _LINK_ATTR_RE.finditer(cleaned, _MAX_PARSED)
+                absolute_http(_attr_value(m)) for m in _LINK_ATTR_RE.finditer(cleaned, _MAX_PARSED)
             )
             if u and u not in shown
         )
@@ -256,17 +255,47 @@ _INLINE_DATA_RE = re.compile(
 )
 # What is parsed of an HTML body; links past it are still read (_LINK_ATTR_RE).
 _MAX_PARSED = 1_000_000
+# A link's address in raw HTML: <a> or <area>, quoted or not, spaces
+# inside the quotes allowed (browsers drop them).
 _LINK_ATTR_RE = re.compile(
-    r"""\b(?:href|xlink:href)\s*=\s*["']?([^"'\s>]{1,2048})""", re.IGNORECASE
+    r"""<(?:a|area)\b[^<>]{0,2000}?\b(?:href|xlink:href)\s*=\s*"""
+    r"""(?:"([^"]{1,2048})"|'([^']{1,2048})'|([^\s"'<>]{1,2048}))""",
+    re.IGNORECASE,
 )
+
+
+def _attr_value(m: re.Match) -> str:
+    return html_lib.unescape(m.group(1) or m.group(2) or m.group(3) or "").strip()
 
 
 def without_inline_data(html_src: str) -> str:
     """HTML without its inline images (data: URIs, in any case and with
-    any parameters). A large one before the links pushed them past the
-    size the scan reads: a newsletter with a 600 KB inline banner showed
-    no link at all."""
-    return _INLINE_DATA_RE.sub("", html_src[:10_000_000])
+    any parameters) and its long comments. A large one before the links
+    pushed them past the size the scan reads: a newsletter with a 600 KB
+    inline banner showed no link at all. A long comment's links (Outlook's
+    "<!--[if mso]>" buttons) stay, as empty links: checked, never shown."""
+    return _without_long_comments(_INLINE_DATA_RE.sub("", html_src[:10_000_000]))
+
+
+def _without_long_comments(src: str) -> str:
+    out, pos = [], 0
+    while True:
+        start = src.find("<!--", pos)
+        if start < 0:
+            break
+        end = src.find("-->", start + 4)
+        end = len(src) if end < 0 else end + 3
+        if end - start > 500:
+            out.append(src[pos:start])
+            for m in _LINK_ATTR_RE.finditer(src, start, end):
+                url = _attr_value(m)
+                if url:
+                    out.append(f'<a href="{html_lib.escape(url)}"></a>')
+        else:
+            out.append(src[pos:end])
+        pos = end
+    out.append(src[pos:])
+    return "".join(out)
 
 
 def strip_markup_noise(text: str) -> str:
@@ -476,15 +505,29 @@ def header_dict(items) -> dict[str, str]:
 
 
 _ENCODED_WORD_RE = re.compile(r"=\?[^?\s]{1,40}\?[qQbB]\?[^?\s]{0,2000}\?=")
-# A run of encoded words, with the white space between them, and whether
-# it stands inside quotes.
+# A run of encoded words, with the white space between them.
 _ENCODED_RUN_RE = re.compile(
-    r'(?P<q>"?)(?P<run>=\?[^?\s]{1,40}\?[qQbB]\?[^?\s]{0,2000}\?='
-    r"(?:\s*=\?[^?\s]{1,40}\?[qQbB]\?[^?\s]{0,2000}\?=){0,50})(?P=q)"
+    r"=\?[^?\s]{1,40}\?[qQbB]\?[^?\s]{0,2000}\?="
+    r"(?:\s*=\?[^?\s]{1,40}\?[qQbB]\?[^?\s]{0,2000}\?=){0,50}"
 )
 _ADDRESS_HEADERS = frozenset({"from", "reply-to", "sender", "to", "cc", "return-path"})
 # Characters with a meaning in an address header (RFC 5322 specials).
 _SPECIALS = frozenset('()<>[]:;@\\,."')
+
+
+def _quoted_at(text: str) -> list[bool]:
+    """For each position of a header value, whether it is inside a quoted
+    string (escapes followed). Linear."""
+    out, quoted, escaped = [], False, False
+    for ch in text:
+        out.append(quoted)
+        if escaped:
+            escaped = False
+        elif ch == "\\" and quoted:
+            escaped = True
+        elif ch == '"':
+            quoted = not quoted
+    return out
 
 
 def _decoded_header(value: str, address: bool = False) -> str:
@@ -494,15 +537,19 @@ def _decoded_header(value: str, address: bool = False) -> str:
     between two of them dropped (RFC 2047; "=?..?UGF5?=" + line break +
     "=?..?UGFs?=" is "PayPal"). An undecodable word stays as written.
 
-    In an address header, an encoded name is a name, never an address: a
-    decoded name holding "<", "@" or "," ('André <andre@gmail.com> (via
-    Docs)', sent encoded by Google Docs) is put in quotes, so that what it
-    says is not read as a second sender."""
+    In an address header an encoded name stays a name. Inside quotes its
+    decoded quotes and backslashes are escaped ('"=?..?a"<x@paypal>"b?="'
+    cannot close the quotes). Outside quotes, before the address, a
+    decoded name holding "<", "@", "," ('André <andre@gmail.com> (via
+    Docs)', sent encoded by Google Docs) is put in quotes. After the last
+    address nothing is quoted: an address written encoded there is read
+    as one."""
     if "=?" not in value:
         return value
     from email.header import decode_header, make_header
 
     value = " ".join(value.split())
+    quoted = _quoted_at(value) if address else []
 
     def word(m: re.Match) -> str:
         try:
@@ -511,11 +558,15 @@ def _decoded_header(value: str, address: bool = False) -> str:
             return m.group(0)
 
     def run(m: re.Match) -> str:
-        quote = m.group("q")
-        text = _ENCODED_WORD_RE.sub(word, re.sub(r"(\?=)\s+(?==\?)", r"\1", m.group("run")))
-        if address and not quote and _SPECIALS.intersection(text):
-            return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
-        return f"{quote}{text}{quote}"
+        text = _ENCODED_WORD_RE.sub(word, re.sub(r"(\?=)\s+(?==\?)", r"\1", m.group(0)))
+        if not address:
+            return text
+        escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+        if quoted[m.start()]:
+            return escaped
+        if "@" in value[m.end() :] and _SPECIALS.intersection(text):
+            return f'"{escaped}"'
+        return text
 
     return _ENCODED_RUN_RE.sub(run, value)
 
@@ -606,7 +657,8 @@ def detect_shared_links(urls: list[str]) -> dict[str, Any]:
             continue
         host = link_host(u)
         for host_re, path_re, name in _SHARE_SERVICES:
-            if host_re.search(host) and (path_re is None or re.match(path_re, parts.path or "/")):
+            path = browser_path(parts.path)
+            if host_re.search(host) and (path_re is None or re.match(path_re, path)):
                 hits.append(u)
                 if name not in services:
                     services.append(name)

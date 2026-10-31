@@ -102,12 +102,16 @@ _FIELD_SWITCH_RE = re.compile(r'\\\w(?:\s+"[^"]*")?')
 # Excel formulas and DDE links that start a program: =cmd|'/c calc'!A1,
 # =MSEXCEL|'\..\..\Windows\System32\cmd.exe /c ...'!A1.
 # A formula is one line (one <f>, one run of a binary part): the
-# program name starts it or follows "=", "+", "-", "@", "(", "," or ";",
-# the topic stays on the line and a cell reference follows the "!".
+# program name starts it or follows "=", "+", "-", "@", "(", "," ";" or
+# "&" (spaces allowed), the topic stays on the line and a cell reference
+# follows the "!" ('A1' quoted too). Text in double quotes is a string,
+# not a formula, and is left out first (_DOUBLE_QUOTED_RE).
 _DDE_FORMULA_RE = re.compile(
-    r"(?:^|(?<=[=+\-@(,;&\s]))[\w.\\]{1,64}[ \t]*\|[ \t]*['\"]?[^|'\"\r\n]{0,300}['\"]?[ \t]*![$A-Za-z0-9_]",
+    r"(?:^|(?<=[=+\-@(,;&]))[ \t]*[\w.\\]{1,64}[ \t]*\|[ \t]*['\"]?[^|'\"\r\n]{0,300}['\"]?"
+    r"[ \t]*![ \t]*'?[$A-Za-z0-9_]",
     re.IGNORECASE | re.MULTILINE,
 )
+_DOUBLE_QUOTED_RE = re.compile(r'"[^"\r\n]*"')
 # PowerPoint "Run program" and macro actions on a click or mouse-over.
 _PIPE_RE = re.compile(rb"\||&#0*124;|&#x0*7c;", re.IGNORECASE)
 # Time for reading the parts: a document built to be slow to read is
@@ -221,9 +225,9 @@ def is_office_part(name: str) -> bool:
 # Files Office itself puts in a package: the SVG version of a picture or
 # an icon, and the workbook (or document) behind a chart or an embedded
 # object. Read as members (they can carry links or macros), not listed.
-_EXTRA_EMBEDDED = frozenset(
-    ["xlsx", "xlsm", "xlsb", "docx", "docm", "pptx", "pptm", "xls", "doc", "ppt", "pdf"]
-)
+# Macro-enabled or legacy files are not among them: Office writes charts
+# and embedded documents as .xlsx, .docx, .pptx (OLE objects as .bin).
+_EXTRA_EMBEDDED = frozenset(["xlsx", "docx", "pptx"])
 
 
 def office_extra(name: str) -> bool:
@@ -622,12 +626,18 @@ def _other_parts(
             if not data or data.startswith(OLE2_MAGIC):
                 continue
             strings = _binary_strings(data[:MAX_PART_BYTES])
-            if _DDE_FORMULA_RE.search(strings) or _LEGACY_DDE_RE.search(strings):
+            # The shared strings are the cells' text, not formulas.
+            if "sharedstrings" not in n and (
+                _DDE_FORMULA_RE.search(strings) or _LEGACY_DDE_RE.search(strings)
+            ):
                 _add(flags, "dde_field")
             _urls_from(strings, urls)
             if "sharedstrings" in n:
                 text.append(strings)
-        elif n.endswith(".vml"):
+        elif n.endswith((".vml", ".svg")):
+            # Drawings and SVG pictures: their links, read here so that a
+            # document inside an archive (whose members are not opened)
+            # still gives them.
             data = _read_part(zf, name, flags) or b""
             for m in _HREF_ATTR_RE.findall(data):
                 href = absolute_http(m.decode("utf-8", "ignore"))
@@ -655,7 +665,9 @@ def _active_content(kind: str, name: str, data: bytes, flags: list[str], urls: l
     elif kind == "xlsx":
         if part_name(name).startswith("xl/externallinks/") and b"ddeLink" in data:
             _add(flags, "dde_field")
-        if _PIPE_RE.search(data) and _DDE_FORMULA_RE.search(_text_from_xml(data, {"f"}, {"f"})):
+        if _PIPE_RE.search(data) and _DDE_FORMULA_RE.search(
+            _DOUBLE_QUOTED_RE.sub('""', _text_from_xml(data, {"f"}, {"f"}))
+        ):
             _add(flags, "dde_field")
 
 

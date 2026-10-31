@@ -17,7 +17,9 @@ Fixes from several rounds of outside review; each bypass has a test in
   not as Python's parser rebuilds it, encoded names are decoded wherever
   they stand, and an address inside a quoted display name no longer
   counts as a second sender (an encoded name stays a name, whatever it
-  says). Gmail's "signed-by" is only read
+  says, and keeps the quotes it stands in). Notifications from sharing
+  services (Google Docs, DocuSign, Dropbox...) that show their user's
+  own webmail address are no longer taken for impersonation. Gmail's "signed-by" is only read
   outside the email body.
 - Brand impersonation catches look-alike domains (`paypal.tk`,
   `chronopost.us`), look-alike letters and padded or malformed names.
@@ -33,6 +35,8 @@ Fixes from several rounds of outside review; each bypass has a test in
   count as links to a known site, nor do redirect pages. A huge inline
   image, comment or flood of decoy links before the real link no longer
   hides it, and links inside SVG drawings are read in the browser too.
+  Long comments are left out of the text (their links are still
+  checked), and "/./" in a path no longer hides a redirect.
 - A huge `<style>` sheet can no longer stall the server.
 - Zero-width spaces, soft hyphens and control characters inside a word
   no longer cut it in pieces for the text model, and can no longer hide

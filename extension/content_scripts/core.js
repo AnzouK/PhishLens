@@ -435,14 +435,22 @@ function shownLink(a, hidden, boxes = new Set(hidden.boxes), unreadable = new Se
 // an SVGAElement: its .href is an SVGAnimatedString ({ baseVal }), and the
 // address may be in xlink:href. Relative addresses are resolved.
 function linkHref(a) {
+    // An HTML link's .href is already the address as the browser reads it.
+    if (typeof a.href === "string" && /^https?:\/\//i.test(a.href)) return a.href;
     const raw = typeof a.href === "string"
         ? a.href
         : a.href?.baseVal || a.getAttribute?.("href") || a.getAttribute?.("xlink:href") || "";
-    if (!raw || /^https?:\/\//i.test(raw)) return raw || "";
+    if (!raw) return "";
+    // The rest (an SVG link's raw attribute: spaces, capitals, relative)
+    // is read the same way.
     try {
-        return new URL(raw, location.href).href;
+        return new URL(raw.trim(), location.href).href;
     } catch {
-        return "";
+        try {
+            return new URL(raw.trim()).href;
+        } catch {
+            return "";
+        }
     }
 }
 

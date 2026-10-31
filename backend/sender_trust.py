@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from email.utils import getaddresses, parseaddr
+from email.utils import getaddresses
 from typing import Any
 
 from auth_headers import SHARED_SUFFIXES, org_domain, sender_domain, sender_domains
@@ -145,28 +145,63 @@ def _brand_owns(brand_domains: frozenset[str], domain: str) -> bool:
     return org in WELL_KNOWN or org in TRUSTED_DOMAINS
 
 
-_COMMENT_RE = re.compile(r"\(([^()]{1,200})\)")
+# Services that send in a person's name ("Jane (jane@outlook.com) via
+# Google Docs" <drive-shares-dm-noreply@google.com>): their notifications
+# carry the person's own address in the display name. Not "known sites"
+# for links (their shared files are anyone's), only for this.
+_RELAY_SENDERS = frozenset(
+    [
+        "google.com",
+        "docusign.net",
+        "docusign.com",
+        "dropbox.com",
+        "dropboxmail.com",
+        "atlassian.net",
+        "github.com",
+        "gitlab.com",
+        "linkedin.com",
+        "slack.com",
+        "zoom.us",
+        "calendly.com",
+        "notion.so",
+        "figma.com",
+        "canva.com",
+        "box.com",
+        "wetransfer.com",
+        "microsoft.com",
+        "sharepointonline.com",
+    ]
+)
+
+
+def _comments(header: str) -> str:
+    """The text of every comment "(...)", nested ones included."""
+    out: list[str] = []
+    depth = 0
+    for ch in header:
+        if ch == "(":
+            depth += 1
+            out.append(" ")
+        elif ch == ")" and depth:
+            depth -= 1
+            out.append(" ")
+        elif depth:
+            out.append(ch)
+    return "".join(out)
 
 
 def _display_names(header: str) -> str:
-    """Every display name of a From: value. A header with several
-    addresses ('"Info" <x@evil.example>, "PayPal" <x@evil.example>') has
-    several names; a malformed one ('"PayPal\\" <x@evil.example>') parses
-    with none, while mail programs still show its text: then the text
-    before the last <address> is the name."""
+    """Every display name of a From: value, as mail programs show them: the
+    names the header parses into ('"Info" <x@evil.example>, "PayPal"
+    <x@evil.example>' has two), the text before its last "<" with the
+    addresses taken out (a malformed or unclosed header, '"PayPal\\"
+    <x@evil.example', 'Info <x@a>, PayPal <x@evil'), and its comments,
+    nested or not ('<x@evil.example> (PayPal (Support))')."""
     names = [name for name, _addr in getaddresses([header]) if name]
-    _name, addr = parseaddr(header)
-    if not names or " " in addr or "<" in addr:
-        angles = list(_ANGLE_ADDR_RE.finditer(header))
-        if angles:
-            names.append(header[: angles[-1].start()])
-        elif "<" in header:
-            # No closing ">" ('PayPal <scam@evil.example'): mail programs
-            # still show the text before the address.
-            names.append(header.rpartition("<")[0])
-    # The old form 'scam@evil.example (PayPal)' shows its comment as the
-    # name.
-    names += _COMMENT_RE.findall(header)
+    if "<" in header:
+        names.append(_ANGLE_ADDR_RE.sub(" ", header.rpartition("<")[0]))
+    if "(" in header:
+        names.append(_comments(header))
     return " ".join(names)
 
 
@@ -194,12 +229,15 @@ def impersonated_brand(from_header: str) -> str | None:
     # vouch for the other. The first is the one every other check reads.
     addresses = set(sender_domains(header)) or {""}
     # A person's webmail address next to their name, in a notification a
-    # large site sends ("Jane (jane@gmail.com) via GitHub"
+    # large site or a sharing service sends (_RELAY_SENDERS) ("Jane (jane@gmail.com) via GitHub"
     # <notifications@github.com>), does not claim to be the webmail: it is
     # left out when the sender is a known or allowlisted site and other
     # words remain. From anyone else ('"Security <security@gmail.com>"
     # <x@evil>') it is read like any other address in a name.
-    if all(org_domain(d) in WELL_KNOWN or is_trusted_domain(d) for d in addresses):
+    if all(
+        org_domain(d) in WELL_KNOWN or org_domain(d) in _RELAY_SENDERS or is_trusted_domain(d)
+        for d in addresses
+    ):
         rest = _WEBMAIL_IN_NAME_RE.sub(" ", name)
         if rest != name and re.search(r"[^\W\d_]{2}", rest):
             name = rest

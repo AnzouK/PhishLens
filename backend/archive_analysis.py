@@ -327,6 +327,7 @@ def _choose_inner(
     entries: list[_Entry],
     add: Callable[[str], None],
     skip: Callable[[str], bool] | None = None,
+    later: Callable[[str], bool] | None = None,
 ) -> list[str]:
     """Supported inner files within the size and ratio limits, the most
     telling kinds first (_INNER_ORDER), in archive order within a kind.
@@ -339,7 +340,9 @@ def _choose_inner(
         for e in entries
         if not e.is_dir and _ext(e.name) in _INNER_ORDER and not (skip and skip(e.name))
     ]
-    candidates.sort(key=lambda e: _INNER_ORDER[_ext(e.name)])
+    # `later(name)`: members read only when slots remain (what Office adds
+    # to its own files must not take the place of a page next to them).
+    candidates.sort(key=lambda e: (bool(later and later(e.name)), _INNER_ORDER[_ext(e.name)]))
     for e in candidates:
         if len(chosen) >= MAX_INNER_FILES:
             break
@@ -393,6 +396,7 @@ def _analyse_listing(
     inner: Callable[[bytes, str], dict[str, Any]] | None,
     flags: list[str] | None = None,
     skip: Callable[[str], bool] | None = None,
+    later: Callable[[str], bool] | None = None,
 ) -> dict[str, Any]:
     """Shared by ZIP, RAR and 7z: flag risky names, pick the supported
     inner files within the size limits, read them through `read(names)`
@@ -409,7 +413,9 @@ def _analyse_listing(
     if encrypted:
         add("encrypted_archive")
 
-    chosen = _choose_inner(raw, entries, add, skip) if inner and read and not encrypted else []
+    chosen = (
+        _choose_inner(raw, entries, add, skip, later) if inner and read and not encrypted else []
+    )
     texts: list[str] = []
     urls: list[str] = []
     inner_results: list[dict[str, Any]] = []
@@ -473,6 +479,7 @@ def analyse_zip(
     filename: str,
     inner: Callable[[bytes, str], dict[str, Any]] | None = None,
     skip: Callable[[str], bool] | None = None,
+    later: Callable[[str], bool] | None = None,
 ) -> dict[str, Any]:
     """List a ZIP archive, flag risky content, analyse supported files.
 
@@ -513,7 +520,9 @@ def analyse_zip(
                 continue
         return out
 
-    return _analyse_listing(raw, filename, "zip", entries, encrypted, read, inner, skip=skip)
+    return _analyse_listing(
+        raw, filename, "zip", entries, encrypted, read, inner, skip=skip, later=later
+    )
 
 
 def analyse_7z(
