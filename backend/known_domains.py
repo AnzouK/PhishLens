@@ -8,13 +8,20 @@ BRANDS            a name a sender may display ("Chronopost", "La Poste"),
 WELL_KNOWN        organisational domains of large sites; links that only
                   go there are not scored by the trained URL model, which
                   mistakes their long tracking links for phishing.
+SUSPICIOUS_TLDS   top-level domains mostly seen in abuse (free or
+                  near-free registration).
 CLOUD_FILE_HOSTS  hosts where anyone can publish a file or a page: a link
                   to them is a sign (phishing pages are often hosted
                   there), not a proof.
+USER_CONTENT_HOSTS  the parts of large known sites where anyone can
+                  publish a form or a document (forms.office.com...), or
+                  that only send the reader elsewhere (l.facebook.com).
 
 Names are matched as whole words, lower case, accents removed. A brand's
 domains are matched on the first label of the organisational domain
-("chronopost" for chronopost.fr or chronopost.com). Ambiguous words
+("chronopost" for chronopost.fr or chronopost.com) under .com, .net,
+.org or a home-market country code (sender_trust._brand_owns); a name
+with a dot is a whole organisational domain ("e.leclerc"). Ambiguous words
 (Orange, Free, Post...) are left out on purpose.
 """
 
@@ -28,15 +35,15 @@ BRANDS: dict[str, frozenset[str]] = {
         "apple": "apple icloud",
         "icloud": "apple icloud",
         "itunes": "apple",
-        "google": "google youtube googlemail",
-        "gmail": "google",
+        "google": "google youtube googlemail gmail",
+        "gmail": "google googlemail gmail",
         "youtube": "google youtube",
-        "microsoft": "microsoft microsoftonline office outlook live office365 sharepoint",
-        "office 365": "microsoft microsoftonline office office365",
+        "microsoft": "microsoft microsoftonline office outlook live office365 sharepoint sharepointonline onedrive",
+        "office 365": "microsoft microsoftonline office office365 sharepoint sharepointonline",
         "outlook": "microsoft outlook live office",
-        "onedrive": "microsoft live onedrive",
-        "sharepoint": "microsoft sharepoint",
-        "amazon": "amazon amazonaws aws primevideo",
+        "onedrive": "microsoft live onedrive sharepoint sharepointonline",
+        "sharepoint": "microsoft sharepoint sharepointonline onedrive",
+        "amazon": "amazon amazonaws aws primevideo amazonpay",
         "aws": "amazon amazonaws aws",
         "netflix": "netflix",
         "spotify": "spotify",
@@ -64,13 +71,13 @@ BRANDS: dict[str, frozenset[str]] = {
         "zoom": "zoom zoomgov",
         # France
         "chronopost": "chronopost",
-        "la poste": "laposte",
+        "la poste": "laposte colissimo",
         "colissimo": "laposte colissimo",
         "mondial relay": "mondialrelay",
         "ameli": "ameli assurance-maladie",
         "assurance maladie": "ameli assurance-maladie",
-        "impots": "gouv impots finances dgfip",
-        "antai": "gouv antai interieur",
+        "impots": "impots.gouv.fr finances.gouv.fr",
+        "antai": "antai.gouv.fr interieur.gouv.fr",
         "caf": "caf",
         "france travail": "francetravail",
         "edf": "edf",
@@ -78,20 +85,19 @@ BRANDS: dict[str, frozenset[str]] = {
         "sfr": "sfr",
         "bouygues": "bouyguestelecom bouygues",
         "credit agricole": "credit-agricole ca-paris ca-cib",
-        "bnp paribas": "bnpparibas mabanque",
-        "societe generale": "societegenerale sg",
+        "bnp paribas": "bnpparibas mabanque.bnpparibas",
+        "societe generale": "societegenerale sg.fr",
         "la banque postale": "labanquepostale",
         "boursorama": "boursorama boursobank",
         "vinted": "vinted",
         "leboncoin": "leboncoin",
-        # E.Leclerc also sends from its own top-level domain (e.leclerc),
-        # whose organisational domain starts with "e".
-        "leclerc": "e-leclerc leclerc mouvement-leclerc e",
+        # E.Leclerc also sends from its own top-level domain.
+        "leclerc": "e-leclerc leclerc mouvement-leclerc e.leclerc",
         # Elsewhere in Europe
         "correos": "correos",
         "ctt": "ctt",
         "deutsche post": "deutschepost dhl",
-        "poste italiane": "posteitaliane poste",
+        "poste italiane": "posteitaliane poste.it",
         "postnl": "postnl",
         "bpost": "bpost",
         "royal mail": "royalmail",
@@ -111,8 +117,8 @@ BRANDS: dict[str, frozenset[str]] = {
         "kuda": "kuda kudabank",
         "flutterwave": "flutterwave",
         "paystack": "paystack",
-        "firs": "gov firs",
-        "nimc": "gov nimc",
+        "firs": "firs.gov.ng",
+        "nimc": "nimc.gov.ng",
     }.items()
 }
 
@@ -141,3 +147,50 @@ _CLOUD_FILE_HOSTS_TEXT = """
     s3.amazonaws.com netlify.app vercel.app glitch.me github.io
 """
 CLOUD_FILE_HOSTS = frozenset(_CLOUD_FILE_HOSTS_TEXT.split())
+
+# Parts of large known sites where anyone can publish a form, a document
+# or a page: a link there is never "to a known site" (well_known_link),
+# though the rest of the site is.
+USER_CONTENT_HOSTS = frozenset(
+    [
+        "forms.office.com",
+        "l.facebook.com",
+        "lm.facebook.com",
+        "l.instagram.com",
+        "l.messenger.com",
+        "safelinks.protection.outlook.com",
+        "t.co",
+        "lnkd.in",
+        "forms.microsoft.com",
+        "forms.cloud.microsoft",
+        "sway.office.com",
+        "sway.cloud.microsoft",
+        "onedrive.live.com",
+        "1drv.ms",
+        "sharepoint.com",
+        "docs.google.com",
+        "drive.google.com",
+        "sites.google.com",
+        "forms.gle",
+        "script.google.com",
+    ]
+)
+
+SUSPICIOUS_TLDS = frozenset(
+    {
+        "zip",
+        "review",
+        "click",
+        "country",
+        "kim",
+        "cricket",
+        "science",
+        "work",
+        "party",
+        "gq",
+        "tk",
+        "ml",
+        "ga",
+        "cf",
+    }
+)

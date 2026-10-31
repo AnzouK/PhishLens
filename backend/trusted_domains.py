@@ -10,7 +10,14 @@ trust paths in docs/architecture.md).
 Criteria for adding a domain: an institution whose legitimate
 transactional mail ("verify", "statement", "alert") is often mistaken for
 phishing by the text model, and that only sends from its own domain.
-Personal mail providers (gmail.com, outlook.com...) are never listed.
+Personal mail providers (gmail.com, googlemail.com, icloud.com...) are
+never listed, nor platforms that send their users' own words under their
+domain: document shares, invoices and money requests, signature
+envelopes, private messages and notifications (google.com, paypal.com,
+docusign.net, dropbox.com, linkedin.com, facebookmail.com, github.com,
+x.com...). Their signed mail still gets the crypto_verified path, where
+links leading away from the platform with phishing-like wording are
+flagged; here, only a Safe Browsing hit would.
 
 The list started with Nigerian institutions and now also covers large
 European and international senders; a fork for another region should
@@ -61,24 +68,14 @@ TRUSTED_DOMAINS = frozenset(
         "lasuth.ng",
         "uithniseason.org",
         # International services whose support and billing mail comes from these domains
-        "google.com",
-        "googlemail.com",
         "microsoft.com",
         "outlook.office365.com",
         "apple.com",
-        "icloud.com",
         "amazon.com",
         "amazon.co.uk",
         "amazonpay.com",
-        "paypal.com",
         "stripe.com",
-        "github.com",
-        "gitlab.com",
-        "linkedin.com",
         "facebook.com",
-        "facebookmail.com",
-        "twitter.com",
-        "x.com",
         "anthropic.com",
         # International services, continued
         "netflix.com",
@@ -89,8 +86,6 @@ TRUSTED_DOMAINS = frozenset(
         "dhl.com",
         "ups.com",
         "fedex.com",
-        "docusign.net",
-        "dropbox.com",
         # France
         "laposte.fr",
         "chronopost.fr",

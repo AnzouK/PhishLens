@@ -105,8 +105,8 @@ async function scanRow(r) {
     }
     const data = await PhishLensApi.analyse({
         raw_email_b64: PL.utf8ToB64(original),
-        sender_email: r.sender || null,
-        sender_name: r.senderName || null,
+        sender_email: r.sender?.slice(0, 512) || null,
+        sender_name: PL.senderName(r.senderName),
         client_context: {
             origin: "gmail",
             subject: r.subject,
@@ -129,6 +129,11 @@ async function runAutoScan() {
     if (running || !PL.opts.autoScan || !PL.alive()) return;
     running = true;
     try {
+        // No automatic scan before the privacy notice was seen (it is shown
+        // in the popup, where the option is turned on, and before the
+        // first manual scan).
+        const notice = await new Promise((r) => chrome.storage.local.get(["privacy_notice_seen", "backend"], (v) => r(v || {})));
+        if (!notice.privacy_notice_seen && (!notice.backend || notice.backend === "cloud")) return;
         const cache = await cacheGet();
         cacheMem = cache;
         const todo = inboxRows().filter((r) => r.unread && !cache[r.id]).slice(0, MAX_PER_PASS);
@@ -140,6 +145,13 @@ async function runAutoScan() {
             try {
                 data = await scanRow(r);
             } catch (e) {
+                // Refused for this email only (a 4xx other than "too many
+                // requests"): skipped, and the pass goes on.
+                if (e?.status >= 400 && e.status < 500 && e.status !== 429) {
+                    debug("automatic scan skipped an email", e);
+                    await cachePut(r.id, { verdict: "skipped", ts: Date.now() });
+                    continue;
+                }
                 // Server down or rate-limited: stop this pass, retry on the next one.
                 debug("automatic scan stopped", e);
                 toast(t("auto_unreachable"), "warn", 6000);

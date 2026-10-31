@@ -87,8 +87,10 @@ MAX_TEXT_CHARS = 2_000_000
 MAX_ATTACHMENT_B64_CHARS = 15_000_000
 MAX_BODY_BYTES = 45_000_000
 
-# Link targets sent by the extension (client_context.link_urls).
+# Link targets sent by the extension (client_context.link_urls), and
+# links kept per email, all sources together.
 MAX_LINK_URLS = 50
+MAX_EMAIL_URLS = 100
 # Below this many words the text agent is left out of the fusion
 # (image-only emails, a bare link).
 MIN_TEXT_WORDS = 3

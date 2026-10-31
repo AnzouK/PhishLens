@@ -15,6 +15,12 @@ const { Node, makeDocument } = require("./fake_dom");
 const EXT = path.join(__dirname, "..", "..", "extension");
 const manifest = JSON.parse(fs.readFileSync(path.join(EXT, "manifest.json"), "utf8"));
 
+// The manifest entry whose first match pattern is for `host` (compared
+// as a host name, never as a substring of the pattern).
+function entryFor(host) {
+    return manifest.content_scripts.find((e) => new URL(e.matches[0].replaceAll("*", "")).hostname === host);
+}
+
 function load(entry, { sendMessage } = {}) {
     const host = new URL(entry.matches[0].replaceAll("*", "")).hostname;
     const document = makeDocument();
@@ -130,4 +136,449 @@ test("in automatic theme, the banner colours follow the mail page, not the syste
     assert.equal(theme(), "light");
     PL.applyTheme("dark");
     assert.equal(theme(), "dark");
+});
+
+test("before the first PhishLens Cloud scan, the page shows where the email goes", async () => {
+    const { PL, ctx } = load(manifest.content_scripts[0]);
+    const store = {};
+    ctx.chrome.storage.local = {
+        get: (keys, cb) => cb(Object.fromEntries(keys.filter((k) => k in store).map((k) => [k, store[k]]))),
+        set: (obj) => Object.assign(store, obj),
+    };
+    const view = mailView(ctx.document);
+    const answer = PL.confirmCloudUse(view);
+    await new Promise((r) => setTimeout(r, 0));
+    const banner = view.querySelector(".pll-banner");
+    assert.match(banner.textContent, /PhishLens Cloud/);
+    banner.querySelector(".pll-att-btn").dispatch("click");
+    assert.equal(await answer, true);
+    assert.equal(store.privacy_notice_seen, true);
+    assert.equal(view.querySelectorAll(".pll-banner").length, 0);
+    // Seen once: no notice any more, and none with a local server.
+    assert.equal(await PL.confirmCloudUse(view), true);
+    delete store.privacy_notice_seen;
+    store.backend = "local";
+    assert.equal(await PL.confirmCloudUse(view), true);
+});
+
+test("a signed-by line written in the email body is not taken for Gmail's", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const view = mailView(ctx.document);
+    const row = (parent, label, value) => {
+        const a = ctx.document.createElement("span");
+        a.textContent = label;
+        const b = ctx.document.createElement("span");
+        b.textContent = value;
+        parent.append(a, b);
+    };
+    row(view.querySelector(".a3s"), "signed-by:", "bank.example");
+    assert.equal(PL.extractGmailAuthSignals(view, view).signedBy, null);
+    row(view, "signed-by:", "real.example");
+    assert.equal(PL.extractGmailAuthSignals(view, view).signedBy, "real.example");
+});
+
+test("hidden text and hidden links come after what the reader sees", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const hidden = doc.createElement("div");
+    hidden.getClientRects = () => [];
+    hidden.append("meeting notes nobody sees");
+    const decoys = [];
+    for (let i = 0; i < 60; i++) {
+        const a = doc.createElement("a");
+        a.href = `https://big.example/${i}`;
+        decoys.push(a);
+    }
+    hidden.append(...decoys);
+    const p = doc.createElement("p");
+    p.append("Verify your account");
+    const link = doc.createElement("a");
+    link.href = "https://evil.example/login";
+    link.append("Verify");
+    body.append(hidden, p, link);
+    assert.equal(PL.textOf(body), "Verify your accountVerify\nmeeting notes nobody sees");
+    const links = PL.linkTargetsOf(body);
+    assert.equal(links[0], "https://evil.example/login");
+    assert.equal(links.length, 50);
+});
+
+test("hidden parts of one letter each are moved too", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    for (const letter of "abc") {
+        const span = doc.createElement("span");
+        span.getClientRects = () => [];
+        span.append(letter);
+        body.append(span);
+    }
+    const p = doc.createElement("p");
+    p.append("Verify your account");
+    body.append(p);
+    assert.equal(PL.textOf(body), "Verify your account\na\nb\nc");
+    // the marks are removed once the text is read
+    assert.equal(body.dump().includes("data-pll-hidden"), false);
+});
+
+test("a display name is sent without invisible characters and cut at 200", () => {
+    const entry = entryFor("mail.google.com");
+    const { PL } = load(entry);
+    assert.equal(PL.senderName("​".repeat(300) + "PayPal"), "PayPal");
+    assert.equal(PL.senderName("x".repeat(500)).length, 200);
+    assert.equal(PL.senderName("  "), null);
+});
+
+test("the style sheet of a hidden part is not read as words", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const hidden = doc.createElement("div");
+    hidden.getClientRects = () => [];
+    const style = doc.createElement("style");
+    style.append(".x { color: red }");
+    hidden.append(style, "minutes of the meeting");
+    const p = doc.createElement("p");
+    p.append("Verify your account");
+    body.append(hidden, p);
+    assert.equal(PL.textOf(body), "Verify your account\nminutes of the meeting");
+});
+
+test("text drawn in a transparent colour counts as hidden", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const el = ctx.document.createElement("span");
+    ctx.getComputedStyle = () => ({ color: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px" });
+    assert.equal(PL.isHidden(el), true);
+    ctx.getComputedStyle = () => ({ color: "rgb(0, 0, 0)", opacity: "1", fontSize: "14px", clipPath: "inset(100%)" });
+    assert.equal(PL.isHidden(el), true);
+    ctx.getComputedStyle = () => ({ color: "rgb(0, 0, 0)", opacity: "1", fontSize: "14px", clipPath: "none" });
+    assert.equal(PL.isHidden(el), false);
+});
+
+// The same cases as backend/tests/test_bypasses.py: the server reads the
+// inline style, the extension the computed one; both must agree.
+const HIDDEN_CASES = require(path.join(__dirname, "..", "fixtures", "hidden_cases.json")).cases;
+for (const c of HIDDEN_CASES) {
+    test(`hidden style case: ${c.name}`, () => {
+        const entry = entryFor("mail.google.com");
+        const { ctx, PL } = load(entry);
+        const parent = ctx.document.createElement("div");
+        const el = ctx.document.createElement("div");
+        parent.append(el);
+        el.getClientRects = () => (c.rects === 0 ? [] : [{ width: 300, height: 20 }]);
+        el.getBoundingClientRect = () => c.box || { width: 300, height: 20 };
+        const parentStyle = { backgroundColor: c.parentBackground || "rgba(0, 0, 0, 0)", backgroundImage: "none" };
+        ctx.getComputedStyle = (n) => (n === parent ? parentStyle : c.computed);
+        assert.equal(PL.isHidden(el), c.hidden);
+    });
+}
+
+test("visible and hidden links are sent apart, a second visible one first", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const link = (href) => {
+        const a = doc.createElement("a");
+        a.href = href;
+        a.append("link");
+        return a;
+    };
+    const hidden = doc.createElement("div");
+    hidden.getClientRects = () => [];
+    for (let i = 0; i < 60; i++) hidden.append(link(`https://d${i}.example/`));
+    body.append(link("https://docs.google.com/a"), link("https://docs.google.com/phish"), hidden);
+    const groups = PL.linkGroupsOf(body);
+    assert.deepEqual([...groups.visible], ["https://docs.google.com/a", "https://docs.google.com/phish"]);
+    assert.equal(groups.hidden.length, 48);
+});
+
+test("Outlook reads the sender's own address, not one in the display name", () => {
+    const entry = manifest.content_scripts.find((e) => e !== entryFor("mail.google.com"));
+    const { PL } = load(entry);
+    assert.equal(PL.senderAddress(['"support@gtbank.com" <scam@attacker.example>']), "scam@attacker.example");
+    assert.equal(PL.senderAddress(["support@gtbank.com scam@attacker.example"]), "scam@attacker.example");
+    assert.equal(PL.senderAddress(["Ana Silva"]), "");
+});
+
+test("thousands of anchors without an address do not hide the links after them", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    for (let i = 0; i < 2500; i++) {
+        const a = doc.createElement("a");
+        a.href = "#";
+        body.append(a);
+    }
+    const real = doc.createElement("a");
+    real.href = "https://evil.example/login";
+    real.append("Verify");
+    body.append(real);
+    assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
+});
+
+test("Outlook takes the last address between angle brackets, over every part of the line", () => {
+    const entry = manifest.content_scripts.find((e) => e !== entryFor("mail.google.com"));
+    const { PL } = load(entry);
+    assert.equal(PL.senderAddress(['"PayPal <service@paypal.com>" <scam@attacker.example>']), "scam@attacker.example");
+    assert.equal(PL.senderAddress(["support@gtbank.com", "Support", "scam@attacker.example"]), "scam@attacker.example");
+});
+
+test("a link whose only text is hidden counts as hidden", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const decoy = doc.createElement("a");
+    decoy.href = "https://d0.example/";
+    const span = doc.createElement("span");
+    span.getClientRects = () => [];
+    span.append("Click here");
+    decoy.append(span);
+    const empty = doc.createElement("a");
+    empty.href = "https://d1.example/";
+    const real = doc.createElement("a");
+    real.href = "https://evil.example/login";
+    real.append("Verify");
+    body.append(decoy, empty, real);
+    const groups = PL.linkGroupsOf(body);
+    assert.deepEqual([...groups.visible], ["https://evil.example/login"]);
+    assert.deepEqual([...groups.hidden], ["https://d0.example/", "https://d1.example/"]);
+});
+
+test("a dark section whose paragraphs are white stays visible; its own dark text does not", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const section = doc.createElement("div");
+    const p = doc.createElement("p");
+    p.append("Your statement is ready");
+    section.append("filler", p);
+    body.append(section);
+    const styles = new Map([
+        [section, { color: "rgb(0, 0, 0)", backgroundColor: "rgb(17, 17, 17)", opacity: "1", fontSize: "14px", visibility: "visible" }],
+        [p, { color: "rgb(255, 255, 255)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" }],
+    ]);
+    ctx.getComputedStyle = (n) => styles.get(n) || { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    const hidden = PL.hiddenParts(body);
+    assert.equal(hidden.boxes.length, 0);
+    assert.deepEqual([...hidden.texts], [section]);
+    assert.equal(PL.textOf(body, hidden), "Your statement is ready\nfiller");
+});
+
+test("a link whose only picture is invisible counts as hidden", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const decoy = doc.createElement("a");
+    decoy.href = "https://d0.example/";
+    const img = doc.createElement("img");
+    decoy.append(img);
+    const real = doc.createElement("a");
+    real.href = "https://evil.example/login";
+    real.append("Verify");
+    body.append(decoy, real);
+    const visible = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = (n) => (n === img ? { ...visible, visibility: "hidden" } : visible);
+    assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
+});
+
+test("file names that reorder text are shown with the reordering mark visible", () => {
+    const shared = require(path.join(EXT, "lib", "shared.js"));
+    assert.equal(shared.safeName("invoice‮fdp.exe"), "invoice␠fdp.exe");
+    assert.equal(shared.safeName("report.pdf"), "report.pdf");
+});
+
+test("words a style sheet writes with ::before are read", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const body = mailView(ctx.document).querySelector(".a3s");
+    const p = ctx.document.createElement("p");
+    p.append("Hello");
+    body.append(p);
+    const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible", content: "normal" };
+    ctx.getComputedStyle = (n, pseudo) => (n === p && pseudo === "::before" ? { ...plain, content: '"Verify your account now"' } : plain);
+    assert.equal(PL.textOf(body), "Hello\nVerify your account now");
+});
+
+test("unreadable text is emptied only for the reading, and put back", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const body = mailView(ctx.document).querySelector(".a3s");
+    const div = ctx.document.createElement("div");
+    const inner = ctx.document.createElement("span");
+    const deeper = ctx.document.createElement("span");
+    deeper.append("deep text");
+    inner.append(deeper);
+    div.append("filler", inner);
+    body.append(div);
+    const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = (n) => (n === div ? { ...plain, visibility: "hidden" } : plain);
+    assert.equal(PL.textOf(body), "deep text\nfiller");
+    assert.equal(div.textContent, "fillerdeep text");
+});
+
+test("display:contents shows its content", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const body = mailView(ctx.document).querySelector(".a3s");
+    const a = ctx.document.createElement("a");
+    a.href = "https://evil.example/login";
+    a.append("Sign in");
+    a.getClientRects = () => [];
+    body.append(a);
+    const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = (n) => (n === a ? { ...plain, display: "contents" } : plain);
+    assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
+});
+
+test("an <area> counts only through a shown image that uses its map", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const loose = doc.createElement("area");
+    loose.href = "https://d0.example/";
+    const map = doc.createElement("map");
+    map.setAttribute("name", "m");
+    const inMap = doc.createElement("area");
+    inMap.href = "https://ok.example/";
+    map.append(inMap);
+    // As in a browser: <area> is display:none, <map> draws nothing.
+    for (const n of [loose, map, inMap]) n.getClientRects = () => [];
+    const img = doc.createElement("img");
+    img.setAttribute("usemap", "#m");
+    const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = (n) => (n === loose ? { ...plain, display: "contents" } : plain);
+    body.append(loose, map, img);
+    const groups = PL.linkGroupsOf(body);
+    assert.deepEqual([...groups.visible], ["https://ok.example/"]);
+    assert.deepEqual([...groups.hidden], ["https://d0.example/"]);
+});
+
+test("words written by ::before in the colour of the background are not read", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const body = mailView(ctx.document).querySelector(".a3s");
+    const p = ctx.document.createElement("p");
+    p.append("Hello");
+    body.append(p);
+    const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible", content: "normal" };
+    ctx.getComputedStyle = (n, pseudo) => (n === p && pseudo === "::before" ? { ...plain, color: "rgb(255, 255, 255)", content: '"filler words"' } : plain);
+    assert.equal(PL.textOf(body), "Hello");
+});
+
+test("an image map only counts through an image that can be seen", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const map = doc.createElement("map");
+    map.setAttribute("name", "m");
+    const area = doc.createElement("area");
+    area.href = "https://d0.example/";
+    map.append(area);
+    for (const n of [map, area]) n.getClientRects = () => [];
+    const img = doc.createElement("img");
+    img.setAttribute("usemap", "#m");
+    body.append(map, img);
+    const plain = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = (n) => (n === img ? { ...plain, visibility: "hidden" } : plain);
+    assert.deepEqual([...PL.linkGroupsOf(body).visible], []);
+});
+
+test("a name cut after many invisible marks keeps the brand", () => {
+    const entry = entryFor("mail.google.com");
+    const { PL } = load(entry);
+    assert.equal(PL.senderName("\u034f".repeat(300) + "PayPal"), "PayPal");
+    assert.equal(PL.senderName("\ufe0f".repeat(300) + "PayPal"), "PayPal");
+});
+
+// The same cases as backend/tests/test_bypasses.py (unicode_text).
+const INVISIBLE_CASES = require(path.join(__dirname, "..", "fixtures", "invisible_cases.json")).cases;
+test("invisible characters are removed as on the server", () => {
+    const entry = entryFor("mail.google.com");
+    const { PL } = load(entry);
+    for (const c of INVISIBLE_CASES) assert.equal(PL.withoutInvisible(c.text), c.clean, JSON.stringify(c.text));
+});
+
+// The same cases as backend/tests/test_bypasses.py (archive_analysis._ext).
+const FILE_NAMES = require(path.join(__dirname, "..", "fixtures", "file_name_cases.json"));
+test("file extensions and Gmail tile names are read as on the server", () => {
+    const C = require(path.join(EXT, "lib", "constants.js"));
+    for (const c of FILE_NAMES.names) assert.equal(C.fileExt(c.name), c.ext, JSON.stringify(c.name));
+    const entry = entryFor("mail.google.com");
+    const { PL } = load(entry);
+    for (const c of FILE_NAMES.tiles) assert.equal(PL.tileName(c.text), c.name, JSON.stringify(c.text));
+});
+
+test("the Outlook sender is the address after the name, quoted or not", () => {
+    const entry = entryFor("outlook.office.com");
+    const { PL } = load(entry);
+    assert.equal(PL.senderAddress(['"PayPal <service@paypal.com>" <"scam"@attacker.example>']), "scam@attacker.example");
+    assert.equal(PL.senderAddress(['PayPal <service@paypal.com> <scam@attacker.example>']), "scam@attacker.example");
+    // A quoted local part can hold an "@": the domain is after the last one
+    // (the server reads it so: auth_headers.sender_domain).
+    assert.equal(PL.senderAddress(['PayPal <"service@paypal.com"@attacker.example>']), "service@paypal.com@attacker.example");
+    assert.equal(PL.senderAddress(['"support@gtbank.com" <scam@attacker.example>']), "scam@attacker.example");
+    assert.equal(PL.senderAddress(["jane@corp.example"]), "jane@corp.example");
+    assert.equal(PL.senderAddress(['"PayPal <service@paypal.com>"', "scam@attacker.example"]), "scam@attacker.example");
+    assert.equal(PL.senderAddress(['"Jane <jane@gmail.com> (via Docs)" <drive@google.com>']), "drive@google.com");
+    assert.equal(PL.senderAddress(['"support@gtbank.com"']), "support@gtbank.com");
+});
+
+test("a link around a drawn shape is shown, as on the server", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const svg = doc.createElement("svg");
+    const a = doc.createElement("a");
+    a.setAttribute("href", "https://evil.example/login");
+    a.href = "https://evil.example/login";
+    const rect = doc.createElement("rect");
+    rect.getBoundingClientRect = () => ({ width: 100, height: 30 });
+    a.append(rect);
+    svg.append(a);
+    body.append(svg);
+    const visible = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = () => visible;
+    assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
+});
+
+test("an SVG link (SVGAnimatedString href) and a link after a flood of decoys are read", () => {
+    const entry = entryFor("mail.google.com");
+    const { ctx, PL } = load(entry);
+    const doc = ctx.document;
+    const body = mailView(doc).querySelector(".a3s");
+    const svgLink = doc.createElement("a");
+    svgLink.setAttribute("href", "https://evil.example/svg");
+    Object.defineProperty(svgLink, "href", { value: { baseVal: " HTTPS://EVIL.example/svg ", animVal: "" } });
+    svgLink.append("Open");
+    body.append(svgLink);
+    for (let i = 0; i < 300; i++) {
+        const d = doc.createElement("a");
+        d.href = "https://decoy.example/";
+        d.append("d");
+        body.append(d);
+    }
+    const real = doc.createElement("a");
+    real.href = "https://evil.example/login";
+    real.append("Verify");
+    body.append(real);
+    const visible = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
+    ctx.getComputedStyle = () => visible;
+    const links = [...PL.linkGroupsOf(body).visible];
+    assert.deepEqual(links.filter((u) => u.startsWith("https://evil.example/")).sort(), [
+        "https://evil.example/login",
+        "https://evil.example/svg",
+    ]);
 });

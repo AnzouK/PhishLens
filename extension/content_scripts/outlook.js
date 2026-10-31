@@ -18,8 +18,9 @@ const SEL = Object.freeze({
     from: '[id^="MSG_"][id$="_FROM"]',
 });
 const EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
+const ANGLED_RE = /<\s*((?:"[^"<>]{0,200}"|[^<>\s"]{1,200})@[\w-]+(?:\.[\w-]+)+)\s*>/g;
 // Drafts sit in the conversation too, with an editor; never scanned.
-const DRAFT_RE = /\[(Draft|Brouillon|Borrador|Rascunho|Entwurf|Bozza)\]/i;
+const DRAFT_RE = /\[(Draft|Brouillon|Borrador|Rascunho|Entwurf|Bozza|Concept)\]/i;
 
 PL.olInject = function olInject() {
     if (!PL.alive()) return;
@@ -55,20 +56,59 @@ function isDraft(body) {
     return false;
 }
 
+// The sender's address in the From line: the last one between angle
+// brackets, else the last one written, never one inside a quoted display
+// name ('"PayPal <service@paypal.com>"' then "scam@attacker.example"). A
+// quoted local part ('<"scam"@...>', '<"service@paypal.com"@...>') counts,
+// quotes removed: the domain is the one after the last "@". Same reading
+// as backend/auth_headers.sender_domains.
+const QUOTED_NAME_RE = /"[^"]*"(?!\s*@)/g;
+PL.senderAddress = function senderAddress(texts) {
+    const parts = texts.map((x) => String(x || ""));
+    const bare = parts.map((x) => x.replace(QUOTED_NAME_RE, " "));
+    const angled = bare.flatMap((x) => [...x.matchAll(ANGLED_RE)].map((m) => m[1].replace(/["\s]/g, "")));
+    if (angled.length) return angled[angled.length - 1];
+    for (const list of [bare, parts]) {
+        const all = list.flatMap((x) => x.match(new RegExp(EMAIL_RE.source, "g")) || []);
+        if (all.length) return all[all.length - 1];
+    }
+    return "";
+};
+
 // The last expanded message of the conversation, drafts excluded, and
 // its sender: the last "From" line placed before its body.
 function currentMessage(pane) {
-    const bodies = [...pane.querySelectorAll(SEL.body)].filter((b) => !isDraft(b));
+    const all = [...pane.querySelectorAll(SEL.body)];
+    const bodies = all.filter((b) => !isDraft(b));
     const body = bodies[bodies.length - 1] || null;
+    // The From line of this message: before its body, after every other
+    // body (else it is an earlier message's), and not inside a body (an
+    // email can contain an element with that id).
+    const before = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     let from = null;
     for (const f of pane.querySelectorAll(SEL.from)) {
-        if (body && (f.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING)) from = f;
+        if (!body || PL.inMessageBody(f) || !before(f, body)) continue;
+        if (all.some((other) => other !== body && before(f, other) && before(other, body))) continue;
+        from = f;
     }
-    const fromText = (from?.querySelector("[aria-label]")?.getAttribute("aria-label") || from?.textContent || "")
-        .replace(/^\s*(De|From)\s*:\s*/i, "").trim();
-    const email = (fromText.match(EMAIL_RE) || [])[0] || "";
-    // "Name <address>" -> "Name"
-    return { body, count: bodies.length, senderEmail: email.toLowerCase(), senderName: fromText.split("<")[0].trim() };
+    // The address may be in the text or in a label or title of any part
+    // of the line (the first labelled part is often the avatar, with the
+    // name only): every one is read.
+    const texts = from ? [from.textContent || ""] : [];
+    for (const el of from?.querySelectorAll("[aria-label], [title]") || []) {
+        texts.push(el.getAttribute("aria-label") || "", el.getAttribute("title") || "");
+    }
+    const email = PL.senderAddress(texts);
+    const fromText = (from?.textContent || "").replace(/^\s*(From|De|Von|Da|Van)\s*:\s*/i, "").trim();
+    return {
+        body,
+        count: bodies.length,
+        // "Internal" only when there is a From line and no address in it.
+        foundFrom: !!from && !texts.some((x) => x.includes("@")),
+        senderEmail: email.toLowerCase(),
+        // "Name <address>" -> "Name"
+        senderName: fromText.replace(/<[^<>]*>\s*$/, "").trim(),
+    };
 }
 
 // Domain of the signed-in account, from the folder pane ("name@org").
@@ -99,30 +139,35 @@ function bannerSlot(pane) {
 }
 
 async function olScan(pane, btn) {
-    const { body: bodyEl, count, senderEmail, senderName } = currentMessage(pane);
+    const { body: bodyEl, count, senderEmail, senderName, foundFrom } = currentMessage(pane);
     const subjectEl = pane.querySelector(SEL.subject);
     const subject = subjectEl?.getAttribute("title") || subjectEl?.textContent?.trim() || "";
-    const body = PL.textOf(bodyEl);
-    const links = PL.linkTargetsOf(bodyEl);
+    const hidden = PL.hiddenParts(bodyEl);       // one walk for the text and the links
+    const body = PL.textOf(bodyEl, hidden);
+    const linkGroups = PL.linkGroupsOf(bodyEl, hidden);
+    const links = [...linkGroups.visible, ...linkGroups.hidden];
     const anchor = bannerSlot(pane);
 
     if ((!body || body.length < PL.MIN_BODY) && !links.length) {
         PL.showBanner(pane, { verdict: "error", title: t("nothing_title"), error: t("nothing_lead_outlook") }, anchor);
         return;
     }
+    if (!(await PL.confirmCloudUse(pane, anchor))) return;
 
     PL.setBtnLoading(btn, true);
     try {
         const payload = {
             raw_text: PL.rawText(subject, body),
-            sender_email: senderEmail || null,
-            sender_name: senderName || null,
+            sender_email: senderEmail.slice(0, 512) || null,
+            sender_name: PL.senderName(senderName),
             client_context: {
                 origin: "outlook",
                 subject,
-                // No address shown: a sender of the user's own organisation.
-                ...(senderEmail ? {} : { outlook_internal: true, org_domain: accountDomain() }),
-                link_urls: links,
+                // A From line without an address: a sender of the user's own
+                // organisation (soft path only, see docs/architecture.md).
+                ...(foundFrom && !senderEmail ? { outlook_internal: true, org_domain: accountDomain() } : {}),
+                link_urls: linkGroups.visible,
+                hidden_link_urls: linkGroups.hidden,
                 thread_messages: count,
             },
         };

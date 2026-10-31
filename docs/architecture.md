@@ -64,7 +64,7 @@ flowchart TD
 | Path | Text weight | Threshold | Decides on its own |
 | --- | --- | --- | --- |
 | `trusted_sender` | x0.5 | 0.65 | a Safe Browsing hit |
-| `crypto_verified` | x0.5 | 0.65 | a Safe Browsing hit; or every link leading away from the sender's domain with wording at 0.5 or more |
+| `crypto_verified` | x0.5 | 0.65 | a Safe Browsing hit; or, with wording at 0.5 or more, every link leading away from the sender's domain, or any link to a public file host |
 | `gmail_inbox_soft`, `outlook_internal` | x0.6 | 0.62 | a Safe Browsing hit |
 | `default` | x1.0 | 0.5 | text or sender at 0.85 or more; links at 0.85 only with a threat-intel hit or a strong link sign (raw IP, `@` before the host, suspicious TLD, file on a public cloud host) |
 
@@ -76,7 +76,8 @@ Why each rule exists:
 - **The discount needs proof.** A From: header can say anything; a DKIM
   signature aligned with it cannot be forged. The allowlist only adds
   to an authenticated sender, never replaces the authentication (until
-  2.0, a forged bank address got the softest path).
+  2.0, a forged bank address got the softest path), and leaves out
+  platforms that send their users' own words (shares, invoices).
 - **A signature proves the domain, not honesty.** Attackers sign mail
   from their own domains. On `crypto_verified`, a sender none of whose
   links go to its own domain, with phishing-like wording, is flagged
@@ -97,6 +98,9 @@ Why each rule exists:
   chains) near 1.0: 130 of 297 legitimate emails flagged in the 2.0.7
   benchmark. The sender score now comes from rules and the real SPF,
   DKIM and DMARC results.
+- **What the reader cannot see comes last.** The text model reads the
+  first 256 tokens; text and links hidden by their style are moved after
+  the visible ones, so invisible filler cannot push the message out.
 - **Too little text, no text verdict.** Under 3 words (image-only mail)
   the text agent is left out and links and sender share its weight.
 - **Safe Browsing always wins.** A blocklisted link from a trusted
@@ -128,6 +132,7 @@ little text, and the feature is the whole signal.
 | encrypted document, PDF auto-run, zip bomb | 0.30 | |
 | QR code | 0.20 | the link is invisible to text scanners |
 | image-only PDF, legacy Office format | 0.10 | evasion, but real scans exist too |
+| Office file not read to the end | 0.10 | built to be slow to read; also shown as "could not look inside" |
 
 Macros, remote templates, DDE, executables and scripts (directly or in
 an archive) and double extensions (`invoice.pdf.exe`) decide on their

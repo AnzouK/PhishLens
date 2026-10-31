@@ -10,6 +10,9 @@
 (function () {
 "use strict";
 
+// eslint-disable-next-line no-undef
+const { INVISIBLE_SOURCE } = globalThis.PhishLensShared || require("./shared.js");
+
 const GREETING = "(?:Hi|Hello|Hey|Dear|Bonjour|Bonsoir|Salut|Cher|Chère|Olá|Ola|Oi|Hola|Estimado|Estimada|" +
     "Hallo|Liebe|Lieber|Ciao|Caro|Cara|Gentile|Beste|Querida|Querido|Prezado|Prezada|Sannu|Barka)";
 const TITLE = "(?:M\\.|Mr\\.?|Mrs\\.?|Ms\\.?|Mme\\.?|Mlle\\.?|Dr\\.?|Madame|Monsieur|Mister|Miss|Sr\\.|Sra\\.|" +
@@ -27,7 +30,9 @@ const RE = {
     longNumber: /(?<![\p{L}\p{N}])\d(?:[ .-]?\d){5,}(?![\p{L}\p{N}])/gu,
     phone: /(?<![\p{L}\p{N}])\+\d[\d ().-]{6,}\d/gu,
     handle: /(?<![\p{L}\p{N}<])@[\p{L}\p{N}_.]{2,}/gu,
-    zeroWidth: /[\u200b-\u200d\u2060\ufeff]/g,
+    // Same rule as backend/unicode_text.py (lib/shared.js), every one
+    // removed, joiners included.
+    invisible: new RegExp(INVISIBLE_SOURCE, "gu"),
 };
 
 function maskNames(words) {
@@ -55,7 +60,10 @@ function termsFrom(...values) {
 }
 
 function redact(text, terms = []) {
-    let t = String(text || "").replace(RE.zeroWidth, "");
+    // Compatibility forms folded (no-break and narrow spaces become
+    // spaces, full-width digits plain ones) and invisible characters
+    // removed, before any rule. Same as backend/redaction.py.
+    let t = String(text || "").normalize("NFKC").replace(RE.invisible, "");
     t = t.replace(RE.email, "<EMAIL>");
     t = t.replace(RE.url, (_, host) => `<URL:${host.toLowerCase().replace(/^www\./, "")}>`);
     t = t.replace(RE.iban, "<NUMBER>");

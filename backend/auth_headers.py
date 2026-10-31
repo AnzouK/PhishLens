@@ -18,7 +18,7 @@ record there, it's a known spam / malware / phish source.
 
 Public API:
     parse_authentication_results(headers) -> AuthVerdict
-    check_spamhaus_dbl(domain)            -> Awaitable[bool]
+    spamhaus_dbl(domain)                  -> Awaitable[dict | None]
     build_metadata_auth_signal(headers)   -> dict   (ready for JSON output)
 """
 
@@ -29,7 +29,11 @@ import logging
 import re
 import socket
 from dataclasses import asdict, dataclass
+from email.utils import getaddresses
 from typing import Any
+
+# Set by email_parsing.header_dict when a message has several From: headers.
+FROM_UNPROVEN = "x-phishlens-from-unproven"
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
@@ -38,23 +42,65 @@ logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 # Authentication-Results parsing
 # =====================================================================
 
-# Matches things like:
-#   spf=pass smtp.mailfrom=service@paypal.com
-#   dkim=pass header.i=@paypal.com header.s=selector1
-#   dmarc=pass (p=REJECT sp=REJECT) header.from=paypal.com
-# We only care about the verdict token (pass / fail / softfail / neutral /
-# temperror / permerror / none / bestguesspass) and the identifier that
-# tells us which domain was authenticated.
-_METHOD_RE = re.compile(
-    r"\b(?P<method>spf|dkim|dmarc)=(?P<result>pass|fail|softfail|neutral|"
-    r"temperror|permerror|none|bestguesspass|policy)\b",
-    re.IGNORECASE,
-)
-
 # Extracts the authenticated identity for each method.
 _SPF_ID_RE = re.compile(r"smtp\.mailfrom=([^\s;]+)", re.IGNORECASE)
 _DKIM_ID_RE = re.compile(r"header\.(?:i|d)=@?([^\s;]+)", re.IGNORECASE)
 _DMARC_ID_RE = re.compile(r"header\.from=([^\s;]+)", re.IGNORECASE)
+_ID_RE = {"spf": _SPF_ID_RE, "dkim": _DKIM_ID_RE, "dmarc": _DMARC_ID_RE}
+
+
+def _without_comments(value: str) -> str:
+    """The value with its comments "(...)", nested or not, and the
+    contents of its quoted strings removed (RFC 5322). Both are free text
+    the sender can influence: a quoted local part in the envelope address
+    ('"dkim=pass header.i=@bank.example"@attacker.example') or a comment
+    the receiving server copies from the message must not read as a
+    result. Linear on any input."""
+    out: list[str] = []
+    depth, quoted, escaped = 0, False, False
+    for ch in value:
+        if escaped:
+            escaped = False
+            continue
+        if ch == "\\" and (quoted or depth):
+            escaped = True
+            continue
+        if quoted:
+            if ch == '"':
+                quoted = False
+                out.append('q"')
+            continue
+        if ch == '"' and not depth:
+            quoted = True
+            out.append('"')
+        elif ch == "(":
+            depth += 1
+        elif ch == ")" and depth:
+            depth -= 1
+            if not depth:
+                out.append(" ")
+        elif not depth:
+            out.append(ch)
+    return "".join(out)
+
+
+_CLAUSE_RE = re.compile(
+    r"\s*(?P<method>spf|dkim|dmarc)\s*=\s*(?P<result>pass|fail|softfail|neutral|"
+    r"temperror|permerror|none|bestguesspass|policy)\b",
+    re.IGNORECASE,
+)
+
+
+def _clauses(ar: str):
+    """(method, result, rest of the clause) for each result of an
+    Authentication-Results value: one result per ";"-separated clause,
+    each starting with its method (RFC 8601). The server's name comes
+    first (Microsoft 365 leaves it out); a "dkim=pass" anywhere else in a
+    clause is not a result."""
+    for segment in _without_comments(ar[:20_000]).split(";"):
+        m = _CLAUSE_RE.match(segment)
+        if m:
+            yield m.group("method").lower(), m.group("result").lower(), segment[m.end() :]
 
 
 @dataclass
@@ -83,6 +129,64 @@ class AuthVerdict:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+_ANGLE_RE = re.compile(r"<([^<>]{1,500})>")
+_AT_DOMAIN_RE = re.compile(r"@([A-Za-z0-9.\-_]+)")
+
+
+def _address_domain(addr: str) -> str:
+    """The domain of one address: after its last "@", since a quoted local
+    part can hold another one ('"service@paypal.com"@evil.example' is
+    evil.example)."""
+    m = _AT_DOMAIN_RE.match("@" + addr.rsplit("@", 1)[-1].strip()) if "@" in addr else None
+    return m.group(1).lower().rstrip(".") if m else ""
+
+
+def sender_domains(value: str) -> list[str]:
+    """Every domain a From: value names, in order: the domain of each
+    address the header parses into, of each <...> block (two blocks with
+    no comma between them are two addresses, whatever the parser makes of
+    them), and, when nothing parses, of each "@" of the line. More than
+    one means the header does not name one sender."""
+    if not value:
+        return []
+    value = value[:8000]
+    # <...> blocks and stray "@" are looked for outside quoted names and
+    # comments: '"Jane <jane@gmail.com> (via Docs)" <drive@google.com>'
+    # names one sender, google.com.
+    bare = _without_comments(value)
+    addrs = [a for _n, a in getaddresses([value]) if "@" in a]
+    addrs += [a for a in _ANGLE_RE.findall(bare) if "@" in a]
+    found = []
+    for a in addrs:
+        # A quoted local part holding an address ('"ceo@victim.example"@
+        # evil.example') names that domain too: such a From: names two.
+        local = a.rpartition("@")[0]
+        found += [d.lower().rstrip(".") for d in _AT_DOMAIN_RE.findall(local)]
+        found.append(_address_domain(a))
+    if not any(found):
+        found = [d.lower().rstrip(".") for d in _AT_DOMAIN_RE.findall(bare)]
+    if not any(found):
+        found = [d.lower().rstrip(".") for d in _AT_DOMAIN_RE.findall(value)]
+    return list(dict.fromkeys(d for d in found if d))
+
+
+def sender_domain(value: str) -> str | None:
+    """Domain of a bare address or a 'Name <addr@domain>' header: the
+    address itself (after its last "@"), not the first "@" of the line,
+    since a display name can carry another one ('"support@gtbank.com"
+    <scam@attacker.example>'). When the header does not parse, the last
+    domain it names: the address part comes after the name. Every check
+    of the sender reads it from here; sender_domains gives them all."""
+    if not value:
+        return None
+    value = value[:8000]
+    parsed = [a for _n, a in getaddresses([value]) if "@" in a]
+    if parsed and _address_domain(parsed[0]):
+        return _address_domain(parsed[0])
+    domains = sender_domains(value)
+    return domains[-1] if domains else None
 
 
 def _domain_of(addr: str) -> str:
@@ -131,7 +235,7 @@ _GENERIC_SLDS = {
 }
 # Shared hosting suffixes where every customer gets a subdomain: the
 # customer label is the organisation, never the suffix itself.
-_SHARED_SUFFIXES = {
+SHARED_SUFFIXES = {
     "github.io",
     "herokuapp.com",
     "web.app",
@@ -169,7 +273,7 @@ def _org_domain(domain: str) -> str:
     if len(parts) <= 2:
         return ".".join(parts)
     tail2 = ".".join(parts[-2:])
-    if tail2 in _SHARED_SUFFIXES:
+    if tail2 in SHARED_SUFFIXES:
         return ".".join(parts[-3:])
     if len(parts[-1]) == 2 and parts[-2] in _GENERIC_SLDS:
         return ".".join(parts[-3:])
@@ -191,15 +295,17 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     """
     verdict = AuthVerdict()
 
-    # Pull out From: domain first: needed for the alignment check.
-    from_raw = headers.get("from", "")
-    m = re.search(r"@([^>\s,]+)", from_raw)
-    if m:
-        verdict.from_domain = _domain_of(m.group(1))
+    # From: domain first, needed for the alignment check. The address
+    # itself, not the first "@" of the line: a display name can carry
+    # another address ('"support@paypal.com" <scam@attacker.example>').
+    verdict.from_domain = sender_domain(headers.get("from", "")) or ""
 
     ar = headers.get("authentication-results", "") or ""
-    if not ar:
-        # Some providers use ARC-Authentication-Results as a fallback.
+    # Without Authentication-Results, the ARC copy is shown, but it proves
+    # nothing: no receiving server vouched for it, and a sender can write
+    # one in its own message.
+    arc_only = not ar
+    if arc_only:
         ar = headers.get("arc-authentication-results", "") or ""
     if not ar:
         return verdict
@@ -207,19 +313,24 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     verdict.header_present = True
     verdict.raw = ar[:500]  # cap for logging
 
-    # Extract per-method verdicts
-    for m in _METHOD_RE.finditer(ar):
-        method = m.group("method").lower()
-        result = m.group("result").lower()
+    # One result per method, each with the identity written in its own
+    # clause. An email can carry several DKIM signatures: a failing one in
+    # the brand's name next to a passing one for the sender's own domain
+    # must not combine into "pass for the brand". Per method, the result
+    # kept is an aligned pass, else any pass, else the first one listed.
+    fod = _org_domain(verdict.from_domain)
+    chosen: dict[str, tuple[int, str, str]] = {}
+    for method, result, clause in _clauses(ar):
+        idm = _ID_RE[method].search(clause)
+        domain = _domain_of(idm.group(1)) if idm else ""
+        rank = 0
+        if result == "pass":
+            rank = 2 if domain and _org_domain(domain) == fod else 1
+        if method not in chosen or rank > chosen[method][0]:
+            chosen[method] = (rank, result, domain)
+    for method, (_rank, result, domain) in chosen.items():
         setattr(verdict, method, result)
-
-    # Extract authenticated identifiers
-    if m := _SPF_ID_RE.search(ar):
-        verdict.spf_domain = _domain_of(m.group(1))
-    if m := _DKIM_ID_RE.search(ar):
-        verdict.dkim_domain = _domain_of(m.group(1))
-    if m := _DMARC_ID_RE.search(ar):
-        verdict.dmarc_domain = _domain_of(m.group(1))
+        setattr(verdict, f"{method}_domain", domain)
 
     # Compute derived signals
     verdict.all_pass = verdict.spf == "pass" and verdict.dkim == "pass" and verdict.dmarc == "pass"
@@ -230,7 +341,6 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     # this check just because their spoofed header.from=paypal.com happens
     # to appear in the DMARC identifier field (which is copied from From:,
     # not authenticated). Only "pass" verdicts count.
-    fod = _org_domain(verdict.from_domain)
     aligned_domains = []
     if verdict.spf == "pass" and verdict.spf_domain:
         aligned_domains.append(verdict.spf_domain)
@@ -238,7 +348,18 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
         aligned_domains.append(verdict.dkim_domain)
     if verdict.dmarc == "pass" and verdict.dmarc_domain:
         aligned_domains.append(verdict.dmarc_domain)
-    verdict.aligned = bool(fod) and any(_org_domain(d) == fod for d in aligned_domains)
+    # Two From: headers: a mail program shows one, the checks read the
+    # other. DMARC treats such a message as failing; so does PhishLens.
+    # A From: with several addresses is the same trick in one header.
+    from_value = headers.get("from", "")[:8000]
+    from_addresses = {a.lower() for _n, a in getaddresses([from_value]) if a}
+    proven = (
+        not arc_only
+        and not headers.get(FROM_UNPROVEN)
+        and len(from_addresses) <= 1
+        and len(sender_domains(from_value)) <= 1
+    )
+    verdict.aligned = proven and bool(fod) and any(_org_domain(d) == fod for d in aligned_domains)
 
     # Cryptographic verification requires DKIM (the only crypto method: SPF
     # is envelope-only, DMARC is a policy layer on top of the other two) to
@@ -246,7 +367,7 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     dkim_aligned = (
         verdict.dkim == "pass" and verdict.dkim_domain and _org_domain(verdict.dkim_domain) == fod
     )
-    verdict.cryptographically_verified = bool(dkim_aligned)
+    verdict.cryptographically_verified = proven and bool(dkim_aligned)
 
     return verdict
 
@@ -257,68 +378,58 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
 
 DBL_ZONE = "dbl.spamhaus.org"
 
-# Spamhaus DBL return codes.
-# See https://www.spamhaus.org/faq/section/Spamhaus%20DBL#291
+# Listing codes: (threat type, category).
+# https://www.spamhaus.org/faq/section/Spamhaus%20DBL#291
 _DBL_CODES = {
-    "127.0.1.2": "spam",
-    "127.0.1.4": "phish",
-    "127.0.1.5": "malware",
-    "127.0.1.6": "botnet_cc",
-    "127.0.1.102": "abused_legit_spam",
-    "127.0.1.103": "abused_legit_redirector",
-    "127.0.1.104": "abused_legit_phish",
-    "127.0.1.105": "abused_legit_malware",
-    "127.0.1.106": "abused_legit_botnet_cc",
-    "127.0.1.255": "test",  # used to verify the resolver actually queries the zone
+    "127.0.1.2": ("SPAM", "spam"),
+    "127.0.1.4": ("SOCIAL_ENGINEERING", "phish"),
+    "127.0.1.5": ("MALWARE", "malware"),
+    "127.0.1.6": ("BOTNET_CC", "botnet_cc"),
+    "127.0.1.102": ("SPAM", "abused_legit_spam"),
+    "127.0.1.103": ("SUSPICIOUS", "abused_legit_redirector"),
+    "127.0.1.104": ("SOCIAL_ENGINEERING", "abused_legit_phish"),
+    "127.0.1.105": ("MALWARE", "abused_legit_malware"),
+    "127.0.1.106": ("BOTNET_CC", "abused_legit_botnet_cc"),
 }
+_policy_logged = False
 
 
-async def check_spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any]:
+async def spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any] | None:
+    """The Spamhaus DBL listing of a domain: {"threat_type", "category",
+    "code"}, or None when it is not listed or the lookup gave no answer.
+    Used for the sender's domain here and for link domains in reputation.
+
+    127.255.255.x answers are not listings: Spamhaus refuses queries from
+    public or anonymous resolvers that way. Counting them would flag every
+    domain; they are logged once and treated as no answer.
     """
-    Look up a domain in the Spamhaus DBL zone.
-
-    Returns:
-      {"listed": bool, "category": str | None, "response": str | None}
-
-    A domain resolving to a 127.0.1.x code in dbl.spamhaus.org means
-    Spamhaus has flagged it. NXDOMAIN means clean.
-
-    IMPORTANT: 127.255.255.x codes are Spamhaus *policy errors*: the
-    query was rejected because the DNS resolver used by this host is
-    public/open, anonymous, or rate-limited. Those are NOT listings;
-    treating them as such would false-positive every domain we ever
-    query. We report them with error="policy_error" and listed=False.
-    """
-    result: dict[str, Any] = {"listed": False, "category": None, "response": None}
+    global _policy_logged
     domain = _domain_of(domain)
     if not domain or "." not in domain:
-        return result
-
-    query = f"{domain}.{DBL_ZONE}"
-
-    loop = asyncio.get_event_loop()
+        return None
     try:
-        # gethostbyname is blocking; push it to the default executor.
-        response = await asyncio.wait_for(
-            loop.run_in_executor(None, socket.gethostbyname, query),
+        code = await asyncio.wait_for(
+            asyncio.get_running_loop().run_in_executor(
+                None, socket.gethostbyname, f"{domain}.{DBL_ZONE}"
+            ),
             timeout=timeout,
         )
-        result["response"] = response
-        if response.startswith("127.255.255."):
-            # Policy response: DBL didn't answer. Treat as unavailable.
-            result["error"] = "policy_error"
-            result["category"] = "spamhaus_refused_query"
-        elif response.startswith("127.0.1."):
-            result["listed"] = True
-            result["category"] = _DBL_CODES.get(response, "listed_unknown_code")
-        # Any other response shape → not a documented DBL result, ignore
-    except (socket.gaierror, socket.herror):
-        pass  # NXDOMAIN -> clean
-    except asyncio.TimeoutError:
-        result["error"] = "dns_timeout"
-    except Exception as e:
-        result["error"] = f"dns_error:{type(e).__name__}"
-    return result
+    except Exception:  # NXDOMAIN (not listed), timeout, resolver error
+        return None
+    if code.startswith("127.255.255."):
+        if not _policy_logged:
+            logger.warning(
+                "Spamhaus DBL refused the query (%s): this host's DNS resolver is "
+                "public or blocked; DBL lookups count as unavailable. A private "
+                "recursive resolver or Spamhaus DQS enables them.",
+                code,
+            )
+            _policy_logged = True
+        return None
+    if not code.startswith("127.0.1."):
+        return None  # not a documented DBL answer
+    threat_type, category = _DBL_CODES.get(code, ("SUSPICIOUS", "listed_unknown_code"))
+    return {"threat_type": threat_type, "category": category, "code": code}
 
 
 # =====================================================================
@@ -347,9 +458,8 @@ async def build_metadata_auth_signal(
     """
     av = parse_authentication_results(headers)
 
-    dbl = {"listed": False, "category": None}
-    if enable_dbl and av.from_domain:
-        dbl = await check_spamhaus_dbl(av.from_domain)
+    listing = await spamhaus_dbl(av.from_domain) if enable_dbl and av.from_domain else None
+    dbl = {"listed": bool(listing), "category": listing["category"] if listing else None}
 
     delta = 0.0
     reasons: list[str] = []

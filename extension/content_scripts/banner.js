@@ -9,11 +9,16 @@ const { t } = PhishLensI18n;
 const { h, icon } = PhishLensDom;
 const { SOURCE_LABELS } = PhishLensConstants;
 
+// "None of its links lead to that domain": only when that is literally
+// true (the rule also fires on a file-host link next to a decoy link to
+// the sender's own domain).
+const allLinksElsewhere = (data) => data.links_elsewhere && !(data.link_alignment?.aligned > 0);
+
 // The line under the title. On a safe verdict with a high agent score,
 // it says why that score did not count: red meters under "looks safe"
 // would read as a contradiction.
 function bannerLead(data, phishing) {
-    if (phishing) return t(data.links_elsewhere ? "lead_links_elsewhere" : "lead_phishing");
+    if (phishing) return t(allLinksElsewhere(data) ? "lead_links_elsewhere" : "lead_phishing");
     if (data.forwarded?.detected) return t("lead_forwarded");
     if (data.shared_links?.count) return t("lead_shared", { services: (data.shared_links.services || []).join(", ") });
     if (data.text_agent_used === false) return t("lead_no_text");
@@ -209,6 +214,35 @@ PL.explainInBackground = async function explainInBackground(view, payload, data,
         const tokens = features.slice(0, 5).map((f) => ({ token: f.token || "", weight: f.weight || 0 }));
         PhishLensApi.history.attachTokens(historyId, tokens).catch((e) => PhishLensShared.debug("history tokens", e));
     }
+};
+
+// Before the first scan with PhishLens Cloud, the same notice as the
+// popup's: where the email goes. Resolves to true once the user has seen
+// it (now or earlier, in the page or in the popup), false if dismissed.
+const NOTICE_KEY = "privacy_notice_seen";
+PL.confirmCloudUse = async function confirmCloudUse(view, anchor = null) {
+    const s = await new Promise((resolve) => chrome.storage.local.get([NOTICE_KEY, "backend"], (v) => resolve(v || {})));
+    if (s[NOTICE_KEY] || (s.backend && s.backend !== "cloud")) return true;
+    return new Promise((resolve) => {
+        const banner = PL.showBanner(view, {
+            verdict: "error", title: t("privacy_notice_title"), error: t("privacy_notice_text"),
+        }, anchor);
+        const lang = PhishLensI18n.language();
+        const ok = h("button.pll-att-btn", {
+            type: "button",
+            onclick: () => {
+                chrome.storage.local.set({ [NOTICE_KEY]: true });
+                banner.remove();
+                resolve(true);
+            },
+        }, t("privacy_notice_ok"));
+        const policy = h("a.pll-notice-link", {
+            href: `https://phishlens.dev/${lang && lang !== "en" ? lang + "/" : ""}privacy.html`,
+            target: "_blank", rel: "noopener",
+        }, t("privacy_notice_link"));
+        banner.querySelector(".pll-banner__main").append(h("div.pll-notice-actions", null, ok, " ", policy));
+        banner.querySelector(".pll-banner__close").addEventListener("click", () => resolve(false));
+    });
 };
 
 // The error banner for a failed scan.

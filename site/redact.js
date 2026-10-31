@@ -27,7 +27,8 @@ const RE = {
     longNumber: /(?<![\p{L}\p{N}])\d(?:[ .-]?\d){5,}(?![\p{L}\p{N}])/gu,
     phone: /(?<![\p{L}\p{N}])\+\d[\d ().-]{6,}\d/gu,
     handle: /(?<![\p{L}\p{N}<])@[\p{L}\p{N}_.]{2,}/gu,
-    zeroWidth: /[\u200b-\u200d\u2060\ufeff]/g,
+    // Same list as backend/unicode_text.py.
+    invisible: /[\p{Cf}\u034F\u115F\u1160\u3164\uFFA0\uFE00-\uFE0F\u{E0100}-\u{E01EF}]/gu,
 };
 
 function maskNames(words) {
@@ -55,7 +56,10 @@ function termsFrom(...values) {
 }
 
 function redact(text, terms = []) {
-    let t = String(text || "").replace(RE.zeroWidth, "");
+    // Compatibility forms folded (no-break and narrow spaces become
+    // spaces, full-width digits plain ones) and invisible characters
+    // removed, before any rule. Same as backend/redaction.py.
+    let t = String(text || "").normalize("NFKC").replace(RE.invisible, "");
     t = t.replace(RE.email, "<EMAIL>");
     t = t.replace(RE.url, (_, host) => `<URL:${host.toLowerCase().replace(/^www\./, "")}>`);
     t = t.replace(RE.iban, "<NUMBER>");

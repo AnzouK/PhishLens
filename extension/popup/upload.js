@@ -23,7 +23,7 @@ function setFile(file) {
     $("drop-zone").classList.toggle("drop-zone--filled", !!file);
     $("drop-empty").hidden = !!file;
     $("drop-filled").hidden = !file;
-    $("drop-filename").textContent = file?.name || "";
+    $("drop-filename").textContent = window.PhishLensShared.safeName(file?.name);
     if (!file) fileInput.value = "";
     updateAnalyzeEnabled();
     if (file) hideStatus();
@@ -57,7 +57,10 @@ async function request() {
     if (!file) throw new Error(t("pick_first"));
     if (file.size > MAX_FILE_MB * 1024 * 1024) throw new Error(t("file_too_large"));
     const b64 = await fileToB64(file);
-    if (ATTACHMENT_EXTS.includes(fileExt(file.name))) {
+    // An email is an .eml (or a file with no extension); any other file is
+    // an attachment, so the server judges its type (an .exe is flagged).
+    const ext = fileExt(file.name);
+    if (ext && ext !== "eml") {
         return { source: "attachment", payload: { content_b64: b64, filename: file.name, mime_type: file.type || null } };
     }
     return { source: "file", payload: { raw_email_b64: b64 } };
@@ -129,7 +132,9 @@ export function initUpload() {
         const f = e.dataTransfer.files?.[0];
         if (!f) return;
         const ext = fileExt(f.name);
-        if (ext === "eml" || ATTACHMENT_EXTS.includes(ext)) setFile(f);
+        // Any file with an extension: an .eml is read as an email, any
+        // other one as an attachment (a program is flagged by type).
+        if (ext) setFile(f);
         else showStatus(t("drop_wrong_type"));
     });
 

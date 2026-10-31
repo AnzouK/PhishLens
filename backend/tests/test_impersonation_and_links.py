@@ -325,3 +325,58 @@ def test_a_large_inline_image_does_not_hide_the_links():
     body, urls, _ = parse_eml(raw)
     assert urls == ["https://claim-gift.example/x"]
     assert "Claim it" in body
+
+
+def test_userinfo_before_the_host_does_not_hide_it():
+    import structured_agents as sa_
+    from link_alignment import link_profile, links_elsewhere_only
+
+    url = "https://paypal.com:443@evil.example/login"
+    assert sa_._host(url) == "evil.example"
+    assert not sa_.well_known_link(url)
+    counts = link_profile([url], "PayPal <service@paypal.com>")
+    assert counts["aligned"] == 0 and links_elsewhere_only(counts)
+
+
+def test_an_address_in_the_display_name_is_not_the_sender_domain():
+    from sender_trust import sender_domain
+
+    assert sender_domain('"support@gtbank.com" <scam@attacker.example>') == "attacker.example"
+    assert sender_domain("alerts@gtbank.com") == "gtbank.com"
+
+
+def test_a_forward_marker_does_not_hide_impersonation(client):
+    j = client.post(
+        "/analyse",
+        json={
+            "raw_text": "TR: Votre colis\n---------- Message transféré ----------\nPayez les frais.",
+            "sender_email": "info@qdsoddsmn.us",
+            "sender_name": "Chronopost",
+        },
+    ).json()
+    assert j["sender_auth"]["impersonation"]["brand"] == "chronopost"
+    assert j["verdict"] == "phishing"
+
+
+def test_a_body_without_length_is_refused(client):
+    def chunks():
+        yield b'{"raw_text": "'
+        yield b"x" * 10
+        yield b'"}'
+
+    r = client.post("/analyse", content=chunks(), headers={"Content-Type": "application/json"})
+    assert r.status_code == 411
+
+
+def test_a_decoy_link_to_the_own_domain_does_not_hide_a_file_host():
+    from link_alignment import link_profile, links_elsewhere_only
+
+    counts = link_profile(
+        [
+            "https://news.attacker.example/unsubscribe",
+            "https://storage.googleapis.com/b/login.html",
+        ],
+        "News <hello@news.attacker.example>",
+    )
+    assert counts["aligned"] == 1 and counts["cloud"] == 1
+    assert links_elsewhere_only(counts)

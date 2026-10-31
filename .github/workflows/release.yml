@@ -37,10 +37,10 @@ jobs:
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
-      - name: Extension zip
+      - name: Extension zips (Chrome, Firefox)
         run: |
-          cd extension
-          zip -rq "../PhishLens-extension-$VERSION.zip" . -x "*.DS_Store"
+          python3 scripts/build_extension.py chrome "PhishLens-extension-$VERSION.zip"
+          python3 scripts/build_extension.py firefox "PhishLens-firefox-$VERSION.zip"
 
       - name: Release notes from the CHANGELOG
         run: |
@@ -56,19 +56,21 @@ jobs:
 
           Download `PhishLens-extension-VERSION.zip` below, unzip it, open `chrome://extensions`, turn on Developer mode and choose **Load unpacked** on the unzipped folder. Step by step: [user guide](https://github.com/AnzouK/PhishLens/wiki/Installation).
 
-          The zip holds only what Chrome loads; the tests and the lint configuration are in the repository ([Source and tests](https://github.com/AnzouK/PhishLens#source-and-tests)).
+          `PhishLens-firefox-VERSION.zip` is the same add-on for Firefox 140 or later (`about:debugging`, This Firefox, Load Temporary Add-on, until it is on addons.mozilla.org).
+
+          The zips hold only what the browser loads; the tests and the lint configuration are in the repository ([Source and tests](https://github.com/AnzouK/PhishLens#source-and-tests)).
           TXT
-          sed -i "s/VERSION\.zip/$VERSION.zip/; s/^          //" notes.md
+          sed -i "s/VERSION\.zip/$VERSION.zip/g; s/^          //" notes.md
 
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          zip="PhishLens-extension-$VERSION.zip"
+          zips="PhishLens-extension-$VERSION.zip PhishLens-firefox-$VERSION.zip"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$zip" --clobber
+            gh release upload "$TAG" $zips --clobber
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            gh release create "$TAG" "$zip" --title "PhishLens $VERSION" --notes-file notes.md --target "$GITHUB_SHA"
+            gh release create "$TAG" $zips --title "PhishLens $VERSION" --notes-file notes.md --target "$GITHUB_SHA"
           else
-            gh release create "$TAG" "$zip" --title "PhishLens $VERSION" --notes-file notes.md --verify-tag
+            gh release create "$TAG" $zips --title "PhishLens $VERSION" --notes-file notes.md --verify-tag
           fi

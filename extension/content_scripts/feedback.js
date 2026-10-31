@@ -14,6 +14,9 @@ function accountTerms() {
     const title = document.title.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/);
     if (title) found.push(title[0]);
     for (const el of document.querySelectorAll('a[aria-label*="@"], [role="tree"] [title*="@"]')) {
+        // An email's own links are the sender's, not the user's account:
+        // five of them used to fill the list before the real one.
+        if (PL.inMessageBody(el)) continue;
         found.push(el.getAttribute("aria-label") || el.getAttribute("title") || "");
         if (found.length > 4) break;
     }

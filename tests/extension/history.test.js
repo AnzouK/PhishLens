@@ -147,3 +147,16 @@ test("shared statistics carry no subject, sender or text", async () => {
     assert.deepEqual(Object.keys(rows[0]).sort(),
         ["agents", "day", "label", "lang", "lang_user", "score", "source", "trusted", "verdict"]);
 });
+
+test("two scans saved at the same moment are both kept", async () => {
+    const store = installFakeChrome();
+    const get = chrome.storage.local.get;
+    // Storage answers later, as the real one does.
+    chrome.storage.local.get = (keys, cb) => setTimeout(() => get(keys, cb), 5);
+    const H = loadLib("history.js");
+    await Promise.all([
+        H.saveScan({ source: "gmail", verdict: "safe", score: 0.1 }),
+        H.saveScan({ source: "outlook", verdict: "phishing", score: 0.9 }),
+    ]);
+    assert.equal(store[H.STORAGE_KEY].length, 2);
+});

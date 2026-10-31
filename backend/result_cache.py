@@ -71,11 +71,13 @@ class ResultCache:
             self.hits += 1
             return copy.deepcopy(item[1])
 
-    def set(self, key: str, value: Any) -> None:
+    def set(self, key: str, value: Any, ttl: float | None = None) -> None:
+        """Keep `value` for the cache's TTL, or `ttl` seconds when shorter."""
         if not self.enabled:
             return
+        keep = self.ttl if ttl is None else min(self.ttl, ttl)
         with self._lock:
-            self._data[key] = (time.monotonic() + self.ttl, copy.deepcopy(value))
+            self._data[key] = (time.monotonic() + keep, copy.deepcopy(value))
             self._data.move_to_end(key)
             while len(self._data) > self.max_entries:
                 self._data.popitem(last=False)

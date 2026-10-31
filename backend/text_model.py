@@ -43,6 +43,7 @@ from settings import (
     MODEL_DTYPE,
 )
 from text_normalize import normalize_text
+from unicode_text import without_invisible
 
 LEGACY_REPO = "AnzouKiona/phishlens-distilbert"
 META_FILE = "phishlens_text_agent.json"
@@ -222,7 +223,8 @@ def predict_proba_batch(texts: list[str]) -> np.ndarray:
 
     tok, model, device = STATE["tokenizer"], STATE["model"], STATE["device"]
     meta = _meta()
-    texts = [normalize_text(t) for t in texts] if meta["normalize"] else list(texts)
+    texts = [without_invisible(t) for t in texts]
+    texts = [normalize_text(t) for t in texts] if meta["normalize"] else texts
     inputs = tok(
         texts,
         truncation=True,
@@ -250,7 +252,7 @@ def explain(body: str) -> list[dict[str, Any]]:
     thinly across many words.
     """
     exp = STATE["lime"].explain_instance(
-        body[:LIME_MAX_CHARS],
+        without_invisible(body)[:LIME_MAX_CHARS],
         predict_proba_batch,
         num_samples=LIME_NUM_SAMPLES,
         num_features=20,

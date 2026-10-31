@@ -4,15 +4,20 @@
 // content scripts of open mail tabs after an install or an update.
 // The server is only contacted when a scan or a report is requested.
 
-try {
-    importScripts(
-        "lib/locales/en.js", "lib/locales/fr.js", "lib/locales/pt.js", "lib/locales/es.js",
-        "lib/locales/de.js", "lib/locales/it.js", "lib/locales/nl.js", "lib/locales/ha.js",
-        "lib/i18n.js", "lib/shared.js", "lib/history.js", "lib/lime_cache.js");
-    self.PhishLensI18n.init();
-} catch (e) {
-    console.warn("[PhishLens] shared modules not loaded:", e);
+// Chrome runs this file as a service worker, which loads the libraries
+// here. Firefox runs it as an event page whose manifest lists the same
+// files before it (scripts/build_extension.py reads this list).
+if (typeof importScripts === "function") {
+    try {
+        importScripts(
+            "lib/locales/en.js", "lib/locales/fr.js", "lib/locales/pt.js", "lib/locales/es.js",
+            "lib/locales/de.js", "lib/locales/it.js", "lib/locales/nl.js", "lib/locales/ha.js",
+            "lib/i18n.js", "lib/shared.js", "lib/history.js", "lib/lime_cache.js");
+    } catch (e) {
+        console.warn("[PhishLens] shared modules not loaded:", e);
+    }
 }
+self.PhishLensI18n?.init();
 
 const text = (key, vars) => self.PhishLensI18n?.t(key, vars) ?? key;
 const { debug } = self.PhishLensShared;
@@ -73,6 +78,16 @@ function notify(msg, sender) {
 
 // One POST to the server; resolves to the JSON answer or throws an Error
 // with a message for the user.
+// An answer that takes longer is treated as no answer: an explanation
+// can take seconds on a busy server, a scan far less.
+const TIMEOUT_MS = 60_000;
+
+function networkError(e, key) {
+    if (e?.name === "TimeoutError" || e?.name === "AbortError") return new Error(text(key));
+    const message = String(e?.message || e);
+    return new Error(message.startsWith("Failed to fetch") || message.includes("NetworkError") ? text(key) : message);
+}
+
 async function post(base, endpoint, payload) {
     let resp;
     try {
@@ -80,18 +95,24 @@ async function post(base, endpoint, payload) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload || {}),
+            signal: AbortSignal.timeout(TIMEOUT_MS),
         });
     } catch (e) {
-        throw new Error(String(e?.message || e).startsWith("Failed to fetch") ? text("bg_unreachable") : String(e?.message || e));
+        throw networkError(e, "bg_unreachable");
     }
     const data = await resp.json().catch(() => null);
-    if (!resp.ok) throw new Error(self.PhishLensShared.apiErrorMessage(data, resp.status));
+    if (!resp.ok) {
+        const err = new Error(self.PhishLensShared.apiErrorMessage(data, resp.status));
+        err.status = resp.status;
+        throw err;
+    }
     return data;
 }
 
 async function serverBase() {
     const base = await self.PhishLensShared.getBackendBase();
     if (!base) throw new Error(text("no_server"));
+    if (!/^https?:\/\//.test(base)) throw new Error(text("url_scheme"));
     return base;
 }
 
@@ -109,12 +130,11 @@ async function explain(payload) {
 
 async function health() {
     const base = await serverBase();
-    if (!/^https?:\/\//.test(base)) throw new Error(text("url_scheme"));
     let resp;
     try {
-        resp = await fetch(`${base}/health`);
+        resp = await fetch(`${base}/health`, { signal: AbortSignal.timeout(10_000) });
     } catch (e) {
-        throw new Error(String(e?.message || e).startsWith("Failed to fetch") ? text("server_unreachable") : String(e?.message || e));
+        throw networkError(e, "server_unreachable");
     }
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     return (await resp.json().catch(() => null)) || {};
@@ -139,6 +159,9 @@ const HANDLERS = {
 };
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    // Only this extension's own pages and scripts (no page can message it
+    // without externally_connectable, but the check costs nothing).
+    if (sender?.id !== chrome.runtime.id) return false;
     if (msg?.type === "phishlens.notify") {
         try { notify(msg, sender); } catch (e) { debug("notification", e); }
         sendResponse({ ok: true });
@@ -149,6 +172,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     Promise.resolve()
         .then(() => handler(msg))
         .then((data) => sendResponse({ ok: true, data }))
-        .catch((e) => sendResponse({ ok: false, error: String(e?.message || e) }));
+        .catch((e) => sendResponse({ ok: false, error: String(e?.message || e), status: e?.status || null }));
     return true;        // the reply is sent asynchronously
 });

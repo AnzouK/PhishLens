@@ -38,13 +38,12 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from email.utils import parseaddr
+from email.utils import getaddresses, parseaddr
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from link_alignment import link_profile, links_elsewhere_only
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -53,21 +52,27 @@ import fusion
 import structured_agents
 import text_model
 from email_parsing import (
+    FROM_UNPROVEN,
+    Ranked,
+    client_links,
     detect_forwarded,
     detect_shared_links,
+    is_page_source,
     looks_like_source,
-    merge_link_urls,
     parse_eml,
+    rank_links,
     strip_markup_noise,
     urls_in_text,
 )
 from language import detect_language
+from link_alignment import link_profile, links_elsewhere_only
 from result_cache import ResultCache, make_key
 from sender_trust import (
     impersonated_brand,
     is_hostname,
     is_trusted_domain,
     sender_domain,
+    sender_domains,
     synthesize_auth_results,
 )
 from settings import (
@@ -94,6 +99,7 @@ from settings import (
     TRUSTED_META_CEILING,
     VERSION,
 )
+from unicode_text import without_invisible
 
 # uvicorn configures its own loggers only: without this, the
 # "phishlens.*" INFO messages would be dropped.
@@ -168,10 +174,14 @@ app.add_middleware(
 
 @app.middleware("http")
 async def _limit_body_size(request: Request, call_next):
-    """Refuse a declared body above MAX_BODY_BYTES before reading it."""
+    """Refuse a body above MAX_BODY_BYTES before reading it. A body sent
+    without a length (chunked) is refused too: its size could only be
+    known by reading it. Browsers and the extension always send one."""
     length = request.headers.get("content-length")
     if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
         return JSONResponse({"detail": "Request too large."}, status_code=413)
+    if request.method in ("POST", "PUT", "PATCH") and not length:
+        return JSONResponse({"detail": "Content-Length required."}, status_code=411)
     return await call_next(request)
 
 
@@ -226,8 +236,10 @@ def _count_verdict(endpoint: str, is_phishing: bool, trust_path: str) -> None:
         _VERDICTS.labels(endpoint, "phishing" if is_phishing else "safe", trust_path).inc()
 
 
-# Same request, same answer for 24 h (result_cache.py).
+# Same request, same answer for 24 h (result_cache.py), an hour for a safe
+# verdict on an email with links.
 _RESULT_CACHE = ResultCache()
+SAFE_WITH_LINKS_CACHE_TTL = 3600.0
 
 
 def _server_error(what: str) -> HTTPException:
@@ -253,15 +265,19 @@ class AnalyseRequest(BaseModel):
     sender_name the name the mail client shows for it.
     client_context carries hints from the mail client page, loosely typed
     so new hints need no API change. Gmail: origin, gmail_signed_by,
-    gmail_mailed_by, gmail_via, gmail_in_inbox, headers_source,
-    link_urls, subject. Outlook: origin, outlook_internal, org_domain.
+    gmail_mailed_by, gmail_via, gmail_in_inbox, headers_source
+    ("gmail_show_original", or "attachment" for an attached .eml),
+    link_urls, hidden_link_urls, subject. Outlook: origin,
+    outlook_internal, org_domain.
     These hints only affect the caller's own result.
     """
 
     raw_email_b64: str | None = Field(None, max_length=MAX_EMAIL_B64_CHARS)
     raw_text: str | None = Field(None, max_length=MAX_TEXT_CHARS)
     sender_email: str | None = Field(None, max_length=512)
-    sender_name: str | None = Field(None, max_length=200)
+    # Display names come from the email: a long one must not fail the scan
+    # (older extensions send it uncut); _from_value keeps 200 characters.
+    sender_name: str | None = Field(None, max_length=2000)
     client_context: dict[str, Any] | None = None
 
 
@@ -269,7 +285,14 @@ def _from_value(email: str, name: str | None, original: str = "") -> str:
     """From: built from the address the client sent and the name it shows
     (or the name of the original header), so that the name can be checked
     against the address (impersonation)."""
-    display = (name or parseaddr(original)[0] or "").replace('"', "'").strip()[:200]
+    display = name or parseaddr(original)[0] or ""
+    # Invisible characters out before the cut: 200 zero-width spaces used
+    # to push the brand name past it.
+    display = without_invisible(display)
+    display = " ".join(display.split())[:200]
+    # Quoted as RFC 5322 says: a name ending in a backslash escaped the
+    # closing quote, and the name was lost (with the impersonation check).
+    display = display.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{display}" <{email}>' if display else email
 
 
@@ -282,6 +305,13 @@ class AttachmentRequest(BaseModel):
     filename: str | None = Field(None, max_length=1024)
     mime_type: str | None = Field(None, max_length=255)
     parent_email: dict[str, Any] | None = None
+
+
+def _client_link_groups(ctx: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """Visible and hidden link targets the page sent, apart: no hidden one
+    is ranked before a visible one (older extensions send them all in
+    link_urls, visible first)."""
+    return client_links(ctx.get("link_urls")), client_links(ctx.get("hidden_link_urls"))
 
 
 def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str], bytes | None]:
@@ -298,14 +328,14 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         body = req.raw_text.strip()
         if looks_like_source(body):
             body = strip_markup_noise(body)
-        urls = merge_link_urls(urls_in_text(body), ctx.get("link_urls"))
+        urls = rank_links(*_client_link_groups(ctx), urls_in_text(body))
         headers: dict[str, str] = {}
         if req.sender_email:
             headers["from"] = _from_value(req.sender_email, req.sender_name)
         synth = synthesize_auth_results(ctx, req.sender_email)
         if synth:
             headers["authentication-results"] = synth
-        return body, urls, headers, None
+        return without_invisible(body), urls, headers, None
     if not req.raw_email_b64:
         raise HTTPException(400, "Provide either raw_email_b64 or raw_text.")
     try:
@@ -317,14 +347,47 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     except Exception as e:
         logger.info("EML parse error: %s", e)
         raise HTTPException(400, "Could not parse this email.") from e
+    if ctx.get("headers_source") == "attachment":
+        # An email attached to another one: its authentication results were
+        # written by whoever attached it, so they are not read at all.
+        for key in ("authentication-results", "arc-authentication-results"):
+            headers.pop(key, None)
     if req.sender_email:
-        headers["from"] = _from_value(req.sender_email, req.sender_name, headers.get("from", ""))
+        # The message's own From: is kept when the page's sender does not
+        # say all it says: several addresses (Gmail shows only the first),
+        # or another domain. Then it proves nothing either.
+        original = headers.get("from", "")
+        addresses = [a for _n, a in getaddresses([original]) if "@" in a]
+        domains = sender_domains(original)
+        if (
+            len(addresses) > 1
+            or len(domains) > 1
+            or (domains and domains[0] != sender_domain(req.sender_email))
+        ):
+            headers[FROM_UNPROVEN] = "1"
+        else:
+            headers["from"] = _from_value(req.sender_email, req.sender_name, original)
     # The page text, unless it is the email's source shown as text: then
-    # the text parsed from the original message is better.
-    if req.raw_text and req.raw_text.strip() and not looks_like_source(req.raw_text):
-        body = req.raw_text.strip()
-        urls = merge_link_urls(urls_in_text(body), urls)
-    return body, merge_link_urls(urls, ctx.get("link_urls")), headers, raw_bytes
+    # the text parsed from the original message is better. The page text
+    # reflects the styles the browser applied (hidden parts last), which
+    # the parsed message cannot.
+    text_urls: list[str] = []
+    page = (req.raw_text or "").strip()
+    if page and not is_page_source(page):
+        page = strip_markup_noise(page) if looks_like_source(page) else page
+        if len(page.split()) >= MIN_TEXT_WORDS:
+            body = page
+            text_urls = urls_in_text(body)
+    # Visible links of the page, then those of the message (its own
+    # visible ones first), then the page's hidden ones.
+    # A link the browser saw hidden (a 1 px image, a rule for screens)
+    # stays with the hidden ones, wherever the message lists it.
+    shown, unseen = _client_link_groups(ctx)
+    hidden_here = set(unseen)
+    urls = rank_links(shown, Ranked(u for u in urls if u not in hidden_here), unseen, text_urls)
+    # Without invisible characters, as the reader sees it: for the text
+    # model, the forward and language checks alike.
+    return without_invisible(body), urls, headers, raw_bytes
 
 
 def _model_text(body: str, headers: dict[str, str], ctx: dict[str, Any]) -> str:
@@ -560,6 +623,10 @@ async def _score(
         logger.warning("reputation check failed: %s", e)
         rep = fusion.summarize_reputation([])
         cacheable = False
+    # A link Safe Browsing could not check (quota, outage) is not known
+    # to be clean: the answer is not reused.
+    if rep.verdicts and not _reputation.fully_checked(rep.verdicts):
+        cacheable = False
 
     return _Scores(
         p_text=p_text,
@@ -583,22 +650,25 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
     # Outlook on the web shows only the name of senders from the user's own
     # organisation; that mail was authenticated by the organisation's
     # server, and the organisation's domain stands in for the sender's.
+    # Only when no sender address was found: a page that showed one is not
+    # internal mail, whatever the client says.
     outlook_internal = (
         ctx.get("origin") == "outlook"
         and ctx.get("outlook_internal") is True
         and not crypto_verified
+        and not domain
     )
-    if outlook_internal and not domain:
+    if outlook_internal:
         org = str(ctx.get("org_domain") or "").strip().lower()[:253]
         if is_hostname(org):
             domain = org
-            allowlisted = is_trusted_domain(org)
 
     subject = headers.get("subject") or ctx.get("subject")
     forwarded = detect_forwarded(body, subject if isinstance(subject, str) else None)
     # A brand's name over another domain's address: authentication only
-    # proves who the impostor is, so no softer path.
-    impersonation = None if forwarded["detected"] else impersonated_brand(headers.get("from", ""))
+    # proves who the impostor is, so no softer path. Checked on forwards
+    # too: a "TR:" in the subject must not hide it.
+    impersonation = impersonated_brand(headers.get("from", ""))
     if forwarded["detected"] or impersonation:
         # The sender vouches for the forward, not for the forwarded
         # content; an impostor's authentication proves nothing.
@@ -617,9 +687,10 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
         domain=domain,
         crypto_verified=crypto_verified,
         outlook_internal=outlook_internal,
-        # The allowlist counts only for an authenticated sender: the From:
-        # text alone can be forged.
-        trusted_sender=allowlisted and (crypto_verified or outlook_internal),
+        # The allowlist counts only for a sender proven by its signature:
+        # the From: text alone can be forged, and "internal" is only read
+        # from the page (no address shown), so it gets the soft path.
+        trusted_sender=allowlisted and crypto_verified,
         inbox_soft=inbox_soft,
         forwarded=forwarded,
         impersonation=impersonation,
@@ -631,7 +702,7 @@ def _agents_block(
 ) -> dict[str, dict[str, Any]]:
     if not urls:
         url_source = "none"
-    elif structured_agents.url_model_ready() and any(u in body for u in urls):
+    elif structured_agents.url_model_ready() and set(urls) & set(urls_in_text(body)):
         url_source = "model"
     else:
         url_source = "rules"
@@ -696,7 +767,8 @@ async def analyse(request: Request, req: AnalyseRequest):
         )
         return {**cached, "cached": True}
 
-    body, urls, headers, raw_bytes = _resolve_email(req)
+    # Decoding and parsing a large email takes CPU time: off the event loop.
+    body, urls, headers, raw_bytes = await run_in_threadpool(_resolve_email, req)
     if not body and raw_bytes:
         # Attachment-only email: the subject stands in for the text (too
         # short for the text agent, see MIN_TEXT_WORDS).
@@ -772,7 +844,10 @@ async def analyse(request: Request, req: AnalyseRequest):
         "cached": False,
     }
     if s.cacheable:
-        _RESULT_CACHE.set(cache_key, result)
+        # A safe verdict on an email with links is kept an hour at most:
+        # a link added to the blocklists later must reach the next scan.
+        ttl = SAFE_WITH_LINKS_CACHE_TTL if urls and not verdict.is_phishing else None
+        _RESULT_CACHE.set(cache_key, result, ttl=ttl)
     return result
 
 
@@ -802,7 +877,7 @@ def _archive_file_report(extracted: dict, reputation_verdicts: list[dict]) -> li
     intelligence. Most reasons first; at most 20."""
     bad_urls = {v.get("url") for v in reputation_verdicts if v.get("malicious")}
     report: dict[str, list[str]] = {}
-    for name in extracted.get("entries") or []:
+    for name in extracted.get("_all_entries") or extracted.get("entries") or []:
         reasons = _attachments.archives.entry_reasons(name)
         if reasons:
             report[name] = reasons
@@ -903,7 +978,12 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         "parent_trusted" if parent_trusted else "default",
     )
 
-    is_archive = extracted.get("kind") == "archive"
+    # Archives, and Office files that hold other files (read as members).
+    is_archive = (
+        extracted.get("kind") == "archive"
+        or bool(extracted.get("inner_files"))
+        or bool(extracted.get("_all_entries"))
+    )
     suspicious_files = (
         await run_in_threadpool(_archive_file_report, extracted, rep.verdicts) if is_archive else []
     )

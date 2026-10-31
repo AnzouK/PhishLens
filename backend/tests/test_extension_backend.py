@@ -328,7 +328,10 @@ class TestAnalyse:
 
         monkeypatch.setattr(eb, "_REPUTATION_AVAILABLE", True)
         monkeypatch.setattr(
-            eb, "_reputation", types.SimpleNamespace(check_urls=fake_check_urls), raising=False
+            eb,
+            "_reputation",
+            types.SimpleNamespace(check_urls=fake_check_urls, fully_checked=lambda v: True),
+            raising=False,
         )
         text_score(monkeypatch, 0.10)
         r = client.post(
@@ -419,6 +422,27 @@ NOTES_PAGE = b"<html><body><p>Minutes of the board meeting, action items below.<
 
 
 class TestAnalyseAttachment:
+    def test_an_office_file_holding_a_program_lists_it(self, client):
+        import io
+        import zipfile
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("[Content_Types].xml", "")
+            zf.writestr("word/document.xml", "<w:document/>")
+            zf.writestr("invoice.pdf.exe", "MZ")
+        r = client.post(
+            "/analyse_attachment",
+            json={"content_b64": b64(buf.getvalue()), "filename": "report.docx"},
+        )
+        att = r.json()["attachment"]
+        assert att["kind"] == "docx"
+        assert att["entries"] == ["invoice.pdf.exe"]
+        assert {"name": "invoice.pdf.exe", "reasons": ["fake extension", "program"]} in att[
+            "suspicious_files"
+        ]
+        assert "_all_entries" not in att
+
     def test_unsupported_type_is_400(self, client):
         r = client.post(
             "/analyse_attachment",
@@ -514,26 +538,26 @@ class TestMetrics:
 # Link targets sent by the Gmail extension (client_context.link_urls)
 # ---------------------------------------------------------------------
 class TestLinkUrls:
-    def test_merge_filters_and_dedupes(self):
-        out = ep.merge_link_urls(
+    def test_client_links_are_filtered_and_deduped(self):
+        out = ep.rank_links(
+            ep.client_links(
+                [
+                    "https://a.example/x",
+                    "javascript:alert(1)",
+                    "mailto:x@y.z",
+                    42,
+                    "http://b.example/" + "p" * 3000,
+                    " https://c.example/login ",
+                ]
+            ),
             ["https://a.example/x"],
-            [
-                "https://a.example/x",
-                "javascript:alert(1)",
-                "mailto:x@y.z",
-                42,
-                "http://b.example/" + "p" * 3000,
-                " https://c.example/login ",
-            ],
         )
         assert out == ["https://a.example/x", "https://c.example/login"]
 
-    def test_merge_caps_and_ignores_non_lists(self):
+    def test_client_links_are_capped_and_must_be_a_list(self):
         many = [f"https://h{i}.example/" for i in range(200)]
-        assert len(ep.merge_link_urls([], many)) == eb.MAX_LINK_URLS
-        assert ep.merge_link_urls(["https://a.example/"], "https://b.example/") == [
-            "https://a.example/"
-        ]
+        assert len(ep.client_links(many)) == eb.MAX_LINK_URLS
+        assert ep.client_links("https://b.example/") == []
 
     def test_hidden_link_reaches_url_agent(self, client, monkeypatch):
         seen = {}
@@ -785,7 +809,9 @@ class TestUrlOverrideNeedsConfirmation:
 class TestOutlookInternal:
     BODY = "Dear student, please find your attendance details below and have a fruitful day."
 
-    def test_internal_sender_from_trusted_org(self, client, monkeypatch):
+    def test_internal_sender_of_an_allowlisted_org_is_not_trusted_sender(self, client, monkeypatch):
+        # "Internal" is read from the page (no address shown), not proven:
+        # the soft path, never the allowlist's.
         text_score(monkeypatch, 0.99)
         j = client.post(
             "/analyse",
@@ -798,8 +824,21 @@ class TestOutlookInternal:
                 },
             },
         ).json()
-        assert j["trust_path"] == "trusted_sender"
-        assert j["verdict"] == "safe"
+        assert j["trust_path"] == "outlook_internal"
+        assert j["trusted_sender"] is False
+
+    def test_internal_claim_ignored_when_an_address_was_found(self, client, monkeypatch):
+        text_score(monkeypatch, 0.99)
+        j = client.post(
+            "/analyse",
+            json={
+                "raw_text": self.BODY,
+                "sender_email": "x@unknown.example",
+                "client_context": {"origin": "outlook", "outlook_internal": True},
+            },
+        ).json()
+        assert j["trust_path"] == "default"
+        assert j["verdict"] == "phishing"
 
     def test_internal_sender_soft_path(self, client, monkeypatch):
         text_score(monkeypatch, 0.99)

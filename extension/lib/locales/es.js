@@ -146,6 +146,7 @@
     "flag_flash_or_richmedia": "Flash o multimedia",
     "flag_image_only_pdf": "PDF escaneado (solo imagen)",
     "flag_inner_files_not_extracted": "archivos sin abrir",
+    "flag_document_not_fully_read": "no leído hasta el final",
     "flag_launch_external_action": "inicia un programa",
     "flag_legacy_office_format": "formato antiguo de Office",
     "flag_meta_refresh_redirect": "redirección automática",

@@ -45,7 +45,8 @@ B6: anyone can post a report to `/feedback`, not only the extension.
 
 | # | Threat | Boundary | Mitigation in place | Status |
 | --- | --- | --- | --- | --- |
-| S1 | **Spoofing** the sender: `From: paypal.com` sent from attacker infrastructure to borrow trust | B1 | Trust comes from DKIM alignment with the From: organisational domain, not from the header text. Misaligned `signed-by` stays on the strict path. A brand's name over another domain's address ("Chronopost <x@random.us>") cancels the softer paths and raises the sender score (`test_impersonation_and_links.py`). Tested in `test_auth_headers.py` and `test_extension_backend.py` | Mitigated |
+| S1 | **Spoofing** the sender: `From: paypal.com` sent from attacker infrastructure to borrow trust | B1 | Trust comes from DKIM alignment with the From: organisational domain, not from the header text. Misaligned `signed-by` stays on the strict path. A brand's name over another domain's address ("Chronopost <x@random.us>", "PayPal <x@paypal.xyz>"), look-alike letters and invisible characters included, cancels the softer paths and raises the sender score (`test_impersonation_and_links.py`). Authentication-Results is read clause by clause without comments or quoted strings; ARC results alone and a second From: never prove the sender. Tested in `test_auth_headers.py` and `test_extension_backend.py` | Mitigated |
+| S4 | An email imitating the mail service's own sender checks: a "signed-by: bank.com" line in its body, hidden or not | B1 | The extension reads these rows only outside every message body and only when visible; the server writes them into a header only when they are host names (`test_bypasses.py`, `content_scripts.test.js`) | Mitigated |
 | S2 | Spoofing the client context: a caller claims `gmail_in_inbox` or `gmail_delivered` to soften its own scan | B2 | The flags only soften the caller's own result, never shared state; a Safe Browsing hit still forces phishing; documented as a SECURITY NOTE in code | Accepted (limited impact) |
 | S3 | Trusted-domain abuse: a compromised account at an allowlisted bank sends phishing | B1 | A Safe Browsing hit forces phishing on every path, the allowlist included; allowlist is small and documented as a regional fallback | Partially mitigated |
 | T1 | **Tampering** with the model: a malicious joblib on Hugging Face (pickle executes code on load) | B4 | The agents load from skops files with a type allowlist (scikit-learn, NumPy, SciPy, builtins only); pickle is refused unless `AGENTS_ALLOW_PICKLE=1` | Mitigated |
@@ -53,14 +54,16 @@ B6: anyone can post a report to `/feedback`, not only the extension.
 | T4 | A tampered PhishTank feed, or a PhishTank entry on a shared host (`bit.ly`, `storage.googleapis.com`) flagging every link of that host | B3 | Feed downloaded over HTTPS only; on hosts that serve many unrelated users, only the exact URL matches, never the whole domain (`SHARED_PATH_HOSTS`) | Mitigated |
 | T5 | A replaced or wrong text model: `HF_MODEL_REPO` changed, a new revision pushed to the repository | B4 | Weights loaded through `transformers`, which prefers safetensors files (data only) when the repository provides them; one folder per repository so a switch never mixes models; `/health` reports the repository, revision, name and settings in use; `HF_MODEL_REVISION` and `HF_AGENTS_REVISION` pin the exact commits (a warning is logged when they are not set); only the maintainer can push to the repository | Mitigated when the revisions are pinned |
 | T3 | Adversarial text: wording crafted to push the text model towards "safe" | B1 | Three independent agents plus threat intel; a clean text score does not hide a blocklisted URL or failed DMARC | Partially mitigated |
+| T7 | Content hidden from the reader to steer the checks: invisible text before the message (the model reads 256 tokens), fifty hidden links before the real one | B1 | Text and links hidden by inline styles (server) or by the computed style (extension) are moved after the visible ones; links are deduplicated by host first; links are read with an HTML parser ; link targets are ranked before addresses written in the text, one per host first ; `<style>` rules are applied too (simple selectors from an index, others within a work and time budget, half a second), words written by `::before`/`::after` are read, and the server and the extension are checked against the same cases (`tests/fixtures/hidden_cases.json`) | Mitigated (rules for phones in `@media` with a width, and text on a background image, are not judged) |
 | R1 | **Repudiation**: no record of what was scanned | B2 | By design: the backend keeps no email content. Aggregate verdict counts only (`/metrics`) | Accepted |
 | I5 | A report carries personal data the redaction missed (a name without greeting, a street address) | B6 | Redaction in the browser and again on the server, preview with edit and confirmation before sending, no IP stored, private folder, two-year limit, deletion by reference, human review before any use | Partially mitigated (redaction is rule-based) |
 | T6 | Poisoning: fake reports pushing the next model towards wrong labels | B6 | Rate limit per IP, size and storage caps, strict validation; reports are never used for training without being read and relabelled by hand | Mitigated |
 | I1 | **Information disclosure**: users paste sensitive mail into the shared PhishLens Cloud test box | B2 | HTTPS only; no server-side storage of bodies; README warns not to send sensitive content to the demo; self-hosting is documented | Mitigated for transport, user choice otherwise |
 | I2 | Error messages leak internals | B2 | Errors return a one-line message with a short reference; the stack trace is logged on the server under that reference and never returned | Mitigated |
 | I3 | Secrets in the repository or its history | n/a | `.phishlens.env` and `.env` are git-ignored; the GSB key only lives on the VM; history rewritten once to remove personal data | Mitigated |
+| I6 | An API key written to the logs inside an error message (PhishTank's key is in its feed URL) | B3 | The Safe Browsing key travels in a header; errors from the intel clients are logged by type and status only | Mitigated |
 | I4 | `/metrics` and `/reputation/stats` reveal traffic and quota usage | B2 | Contain counts only; operations guide shows how to block `/metrics` at Caddy | Mitigated when proxy rule applied |
-| D1 | **Denial of service** by request flooding, or burning the 10k/day GSB quota | B2 | Per-IP rate limits (30/min analyse, 20/min attachments, 15/min explain); GSB quota tracked in process with a 500-request safety buffer; cache absorbs repeats | Mitigated |
+| D1 | **Denial of service** by request flooding, or burning the 10k/day GSB quota | B2 | Per-IP rate limits (30/min analyse, 20/min attachments, 15/min explain); at most 30 links per scan go to GSB; quota tracked in process with a 500-request safety buffer; a link GSB did not check is never cached as clean, so an exhausted quota degrades to the other sources without storing wrong verdicts | Partially mitigated (see R6) |
 | D6 | Oversized requests, or CPU-bound inference blocking the server for everyone | B2 | Bodies above 45 MB refused with 413 before parsing; every field has a maximum length; model inference and attachment parsing run in a worker thread so the event loop keeps serving `/health` and other requests | Mitigated |
 | D2 | Oversized or malformed attachments exhausting CPU or memory | B2 | 10 MB cap, magic-byte sniffing, page limit on PDFs, unsupported types rejected with 400; OCR limited to 3 pages with a 10 s timeout each, images downscaled and guarded against decompression bombs; Office files capped on part count, uncompressed size (zip bombs) and part size | Mitigated |
 | D5 | XML entity expansion or external entities in an Office file | B2 | Any XML part that declares a DOCTYPE is skipped and flagged `suspicious_xml_doctype`; parts are parsed with `defusedxml`, which refuses entity tricks | Mitigated |
@@ -89,8 +92,10 @@ DKIM proves who sent the email, not that the sender is honest. Treating
 signed senders like unsigned ones catches about 7 points more phishing
 but doubles the false alarms on real inbox mail. The compromise: a
 signed sender whose links all lead elsewhere, with phishing-like
-wording, is flagged anyway. Signed phishing that links to its own
-domain, sends no link, or goes through known click tracking still gets
+wording, is flagged anyway. A link to a public file host counts
+even next to a decoy link to the sender's own domain. Signed phishing
+that also links to its own domain while its lure is on an ordinary
+site, sends no link, or goes through known click tracking still gets
 the discount ([evaluation](evaluation.md#results)).
 
 **R4. The false-alarm rate rests on 414 legitimate emails.** One
@@ -101,13 +106,23 @@ languages may see more. User reports are how this gets measured.
 the effect is confined to that caller's own response.
 
 **R6. Shared open API.** No accounts: rate limits are per IP and in
-memory, reset on restart and can be spread over many addresses. With a
+memory, reset on restart and can be spread over many addresses; behind
+a reverse proxy they need the proxy's address in `FORWARDED_ALLOW_IPS`
+([operations](operations.md)), or every user shares one limit. The
+Safe Browsing quota is shared too: links sent from many addresses can
+exhaust it for the day. With a
 public store release, per-install keys or a shared limiter become
 worthwhile.
 
 **R7. The allowlist trusts authenticated domains, not messages.** A
 compromised account at a listed institution is caught only by threat
-intelligence or the link checks.
+intelligence or the link checks. Platforms that send their users' own
+words (document shares, invoices, signature requests) are kept off the
+list, but their signed mail still gets the DKIM-signed discount; large
+sites where anyone can publish a page (notion.so, medium.com,
+github.com) skip the trained link model and rely on threat
+intelligence. Forms and shared files on large sites (Microsoft Forms,
+OneDrive, SharePoint, Google Docs) never count as links to a known site.
 
 **R8. OCR and QR decoding are best effort.** Poor scans, stylised fonts
 or damaged QR codes defeat them; an image-only PDF still raises the
@@ -116,9 +131,42 @@ score a little.
 **R9. The Hausa interface is a draft translation**, marked for review by
 a native speaker; English stays available in Settings.
 
+**R10. A long visible preamble still fills the text model's window.**
+The model reads the first 256 tokens. Hidden text is moved after the
+visible text, but benign visible text placed before the lure is read
+first. Scoring the end of long emails too would need a benchmark run
+to measure its cost in false alarms.
+
+**R11. Only the topmost Authentication-Results is read.** A server that
+writes one per check (Postfix with OpenDKIM and OpenDMARC) loses the
+extra results: such mail misses a softer path, never gets a harsher one.
+Joining them is not safe, since on Gmail the sender's own headers come
+right after Gmail's. An uploaded .eml from a server that adds no
+Authentication-Results at all shows the sender's own, if it wrote one;
+an .eml attached to another email and scanned from Gmail is read
+without them.
+
+**R12. Attachments are read, never run.** Addresses a script writes
+plainly, with escapes, character codes, percent-encoding or base64 are
+found; one it computes at run time is not, though the script itself is
+flagged. An Office file that takes more than 4 seconds to read is
+reported as not read to the end, and files attached to a web archive
+or a saved email inside an archive are named, not opened, like the
+files an Office document inside an archive holds.
+
+**R13. Very large emails are read in part.** The first megabyte of an
+HTML body is parsed (inline images left out); links past it are still
+read, the last ones first, but whether they show cannot be told, and a
+flood of more than a thousand links after the padding can still push
+some out of the check. Gmail clips such messages too. Long HTML
+comments are dropped from the text; the links inside them (Outlook's
+own buttons) are checked as hidden links.
+
 ## Review triggers
 
 Revisit this document when an endpoint, an input type or an extension
 permission is added, when the text model changes, or when the
-deployment moves off a single server. Last review: 2.0.11 (pinned model
-revisions, no HTML built from strings in the extension).
+deployment moves off a single server. Last review: after 2.0.11, with
+five external audit rounds (authentication parsing, impersonation, hidden
+content, link parsing, Safe Browsing quota, Outlook sender, HTML
+attachments).

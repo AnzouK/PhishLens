@@ -83,7 +83,7 @@ function historyRow(e) {
     return h("div.history-item", { dataset: { verdict: e.verdict, id: e.id } },
         h("div.history-item__dot", null, spriteIcon(e.verdict === "phishing" ? "alert" : "shield-check")),
         h("div.history-item__main", null,
-            h("div.history-item__subject", null, e.subject || t("no_subject")),
+            h("div.history-item__subject", null, window.PhishLensShared.safeName(e.subject) || t("no_subject")),
             h("div.history-item__meta", null,
                 h("span", null, I18N.has(srcKey) ? t(srcKey) : e.source),
                 h("span", null, "·"),

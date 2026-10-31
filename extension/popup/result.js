@@ -35,7 +35,7 @@ function renderTrustPill(data) {
 
 function subline(data, isPhishing, caution, flags) {
     const flagText = flags.length ? t("found_flags", { flags: flags.map(I18N.flagLabel).join(", ") }) : "";
-    if (isPhishing) return t(data.links_elsewhere ? "lead_links_elsewhere" : "sub_phishing") + flagText;
+    if (isPhishing) return t(data.links_elsewhere && !(data.link_alignment?.aligned > 0) ? "lead_links_elsewhere" : "sub_phishing") + flagText;
     if (caution) return t("sub_caution") + flagText;
     if (data.forwarded?.detected) return t("sub_forwarded");
     if (data.shared_links?.count) return t("sub_shared", { services: (data.shared_links.services || []).join(", ") });
@@ -111,10 +111,11 @@ function renderMetaBadges(auth) {
 function renderArchiveFiles(att, isPhishing) {
     const box = $("archive-files");
     box.replaceChildren();
-    if (att?.kind === "archive") {
+    // Archives, and Office files that hold other files (read as members).
+    if (att?.kind === "archive" || Array.isArray(att?.entries)) {
         const risky = Array.isArray(att.suspicious_files) ? att.suspicious_files : [];
         const entries = Array.isArray(att.entries) ? att.entries : [];
-        const name = (n) => h("span.archive-files__name", { title: n }, n);
+        const name = (n) => h("span.archive-files__name", { title: window.PhishLensShared.safeName(n) }, window.PhishLensShared.safeName(n));
         if (risky.length) {
             box.append(h(`div.archive-files__risky.archive-files__risky--${isPhishing ? "bad" : "warn"}`, null,
                 h("div.archive-files__title", null, t(isPhishing ? "att_do_not_open" : "att_check_before")),

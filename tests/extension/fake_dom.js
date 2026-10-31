@@ -55,6 +55,28 @@ class Element extends Node {
     set id(v) { this.attributes.id = String(v); }
     get children() { return this.childNodes.filter((n) => n.nodeType === 1); }
     get childElementCount() { return this.children.length; }
+    get nextElementSibling() {
+        const siblings = this.parentNode?.children || [];
+        return siblings[siblings.indexOf(this) + 1] || null;
+    }
+    // Leaves out what banner.css hides ([data-pll-hidden]).
+    get innerText() {
+        if ("data-pll-hidden" in this.attributes) return "";
+        return this.childNodes.map((c) => (c.nodeType === 3 ? c.data : c.innerText)).join("");
+    }
+    removeAttribute(k) { delete this.attributes[k]; }
+    // Laid out by default; a test hides an element by replacing these.
+    getClientRects() { return [{ width: 10, height: 10 }]; }
+    getBoundingClientRect() { return { width: 10, height: 10 }; }
+    getRootNode() {
+        let n = this;
+        while (n.parentNode) n = n.parentNode;
+        return n;
+    }
+    contains(n) {
+        for (; n; n = n.parentNode) if (n === this) return true;
+        return false;
+    }
     setAttribute(k, v) { this.attributes[k] = String(v); }
     getAttribute(k) { return k in this.attributes ? this.attributes[k] : null; }
     addEventListener(type, fn) { (this.listeners[type] ||= []).push(fn); }
@@ -81,10 +103,14 @@ class Element extends Node {
     }
     get textContent() { return this.childNodes.map((c) => c.textContent).join(""); }
     set textContent(v) { this.replaceChildren(String(v)); }
-    // Selectors: "tag", ".class", "tag.class", "*", lists and descendant
-    // combinators only, enough for tests.
+    // Selectors: "tag", ".class", "tag.class", "tag[attr]", "*", lists and
+    // descendant combinators only, enough for tests.
     matchesCompound(one) {
         if (one === "*") return true;
+        // "a[href]": attribute presence (an attribute or a property set).
+        const attrs = [...one.matchAll(/\[([\w-]+)\]/g)].map((m) => m[1]);
+        if (attrs.some((a) => !(a in this.attributes) && this[a] == null)) return false;
+        one = one.replace(/\[[\w-]+\]/g, "");
         const [tag, ...classes] = one.split(".");
         return (!tag || this.tagName === tag.toUpperCase()) && classes.every((c) => this.classList.contains(c));
     }

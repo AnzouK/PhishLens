@@ -78,7 +78,7 @@ function nothingToScan(emailView, hasAttachments, attBtn) {
     }
 }
 
-async function buildPayload(emailView, msg, { body, subject, links, count, sender }) {
+async function buildPayload(emailView, msg, { body, subject, linkGroups, count, sender }) {
     const shortBody = !body || body.length < PL.MIN_BODY;
     // Gmail ran SPF/DKIM/DMARC before delivery; its results on the page
     // let the server trust a verified sender even without the headers.
@@ -93,8 +93,8 @@ async function buildPayload(emailView, msg, { body, subject, links, count, sende
         ...(original
             ? { raw_email_b64: PL.utf8ToB64(original), ...(shortBody ? {} : { raw_text: body.slice(0, 4000) }) }
             : { raw_text: PL.rawText(subject, body) }),
-        sender_email: sender.getAttribute?.("email") || null,
-        sender_name: sender.textContent?.trim() || null,
+        sender_email: sender.getAttribute?.("email")?.slice(0, 512) || null,
+        sender_name: PL.senderName(sender.textContent),
         client_context: {
             origin: "gmail",
             subject,
@@ -103,7 +103,8 @@ async function buildPayload(emailView, msg, { body, subject, links, count, sende
             gmail_mailed_by: gmailAuth.mailedBy,
             gmail_via: gmailAuth.via,
             gmail_in_inbox: gmailAuth.inInbox,
-            link_urls: links,
+            link_urls: linkGroups.visible,
+            hidden_link_urls: linkGroups.hidden,
             thread_messages: count,
         },
     };
@@ -113,10 +114,12 @@ async function buildPayload(emailView, msg, { body, subject, links, count, sende
 async function runScan(emailView, btn) {
     const { msg, count } = currentMessage(emailView);
     const bodyEl = msg.querySelector(SEL.body);
-    const body = PL.textOf(bodyEl);
+    const hidden = PL.hiddenParts(bodyEl);       // one walk for the text and the links
+    const body = PL.textOf(bodyEl, hidden);
     const sender = msg.querySelector(SEL.sender) || emailView.querySelector(SEL.sender) || {};
     const subject = emailView.querySelector(SEL.subject)?.textContent?.trim() || "";
-    const links = PL.linkTargetsOf(bodyEl);
+    const linkGroups = PL.linkGroupsOf(bodyEl, hidden);
+    const links = [...linkGroups.visible, ...linkGroups.hidden];
     const hasAttachments = !!(msg.querySelector(SEL.attachmentStrip) || emailView.querySelector(SEL.attachmentStrip));
     const attBtn = emailView.querySelector(".pll-scan-btn--all");
     const shortBody = !body || body.length < PL.MIN_BODY;
@@ -125,13 +128,14 @@ async function runScan(emailView, btn) {
         nothingToScan(emailView, hasAttachments, attBtn);
         return;
     }
+    if (!(await PL.confirmCloudUse(emailView))) return;
     // Almost no text but some links (image-only emails): the links and the
     // sender are scored, and the attachments scanned too.
     if (shortBody && hasAttachments && attBtn && !attBtn.disabled) attBtn.click();
 
     PL.setBtnLoading(btn, true);
     try {
-        const { payload, fullHeaders } = await buildPayload(emailView, msg, { body, subject, links, count, sender });
+        const { payload, fullHeaders } = await buildPayload(emailView, msg, { body, subject, linkGroups, count, sender });
         const data = await PhishLensApi.analyse(payload);
         PL.showBanner(emailView, { ...data, _threadMessages: count, _fullHeaders: fullHeaders });
         const senderText = payload.sender_email || payload.sender_name || "";
@@ -193,20 +197,31 @@ function extractGmailAuthSignals(emailView, msg) {
     if (msg) scrapeAuthRows(msg, out);
     if (!out.signedBy && !out.mailedBy) scrapeAuthRows(document.body, out);
     for (const el of (msg || emailView).querySelectorAll("span")) {
+        if (!fromGmail(el)) continue;
         out.via = G.viaDomain(el.textContent);
         if (out.via) break;
     }
     return out;
 }
 
+// Written by Gmail, not by the sender: outside every message body (an
+// email can contain a "signed-by: bank.com" of its own, even hidden) and
+// visible.
+function fromGmail(el) {
+    return !PL.inMessageBody(el) && !PL.isHidden(el);
+}
+
+const HOST_RE = /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i;
+
 function scrapeAuthRows(root, out) {
     for (const el of root.querySelectorAll("td, span, div")) {
         const raw = el.textContent || "";
         if (!raw || raw.length > 40) continue;
         const kind = G.authRowKind(raw);
-        if (!kind) continue;
-        const value = el.nextElementSibling?.textContent?.trim();
-        if (value && /\./.test(value) && !/\s/.test(value)) out[kind] = value;
+        if (!kind || !fromGmail(el)) continue;
+        const next = el.nextElementSibling;
+        const value = next?.textContent?.trim();
+        if (value && HOST_RE.test(value) && fromGmail(next)) out[kind] = value;
     }
 }
 

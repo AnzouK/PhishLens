@@ -9,88 +9,307 @@ attacker-controlled text) and caps what it reads.
 
 from __future__ import annotations
 
+import html as html_lib
 import re
+import warnings
 from email import message_from_bytes, policy
 from email.utils import parseaddr
 from typing import Any
 from urllib.parse import urlsplit
 
-from settings import MAX_LINK_URLS
+from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
-# http(s) URL written out in a text.
-URL_IN_TEXT_RE = re.compile(r"https?://[^\s\"'<>)]+")
+from hidden_content import generated_text, hidden_tags, shown_link, shown_maps, visible_text_first
+from link_alignment import browser_path, browser_url, link_host
+from settings import MAX_EMAIL_URLS, MAX_LINK_URLS
+from unicode_text import without_invisible
+
+# An email that is only an address is still an email to read, not a
+# mistake to warn about (each warning went to the server log).
+warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
+
+# http(s) URL written out in a text, in any case, or starting with
+# "www." (mail programs make both clickable).
+URL_IN_TEXT_RE = re.compile(r"(?:https?://|www\.)[^\s\"'<>)\]}]+", re.IGNORECASE)
 
 
 def urls_in_text(text: str) -> list[str]:
-    return URL_IN_TEXT_RE.findall(text)
+    # Punctuation that ends the sentence is not part of the address.
+    # Invisible characters out first: a browser drops a zero-width space
+    # from a host ("evil\u200b.tk" opens evil.tk), the match must too.
+    out = []
+    for u in URL_IN_TEXT_RE.findall(without_invisible(text or "")):
+        u = u.rstrip(".,;:!?")
+        out.append(browser_url(u if u[:4].lower() != "www." else "http://" + u))
+    return out
+
+
+_BLOCKS = ["p", "div", "tr", "li", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6", "table", "pre"]
 
 
 def html_to_text(html_src: str) -> str:
-    """Visible text of an HTML email body, like the text Gmail shows.
+    """Visible text of an HTML email body, like the text Gmail shows, with
+    the text of hidden elements after it (visible_text_first).
 
     <style>, <script> and <head> contents are dropped: a plain tag strip
     kept the CSS ("25px", "roboto", "heading"...) and the text model read
-    it as words. BeautifulSoup when installed (it is in requirements.txt),
-    a linear find-based fallback otherwise.
+    it as words.
     """
-    html_src = without_inline_data(html_src)[:1_000_000]
-    try:
-        from bs4 import BeautifulSoup  # type: ignore
-
-        soup = BeautifulSoup(html_src, "html.parser")
-        for tag in soup(["style", "script", "head", "noscript", "title"]):
-            tag.decompose()
-        text = soup.get_text(separator=" ")
-    except Exception:
-        low = html_src.lower()
-        out, i = [], 0
-        while True:
-            j = min(
-                [k for k in (low.find("<style", i), low.find("<script", i)) if k >= 0], default=-1
-            )
-            if j < 0:
-                out.append(html_src[i:])
-                break
-            out.append(html_src[i:j])
-            end_tag = "</style>" if low.startswith("<style", j) else "</script>"
-            k = low.find(end_tag, j)
-            if k < 0:
-                break
-            i = k + len(end_tag)
-        stripped, depth = [], 0
-        for ch in "".join(out):
-            if ch == "<":
-                depth = 1
-                stripped.append(" ")
-            elif ch == ">" and depth:
-                depth = 0
-            elif not depth:
-                stripped.append(ch)
-        text = "".join(stripped)
-        import html as _html
-
-        text = _html.unescape(text)
+    soup = BeautifulSoup(without_inline_data(html_src)[:_MAX_PARSED], "html.parser")
+    hidden = hidden_tags(soup)  # before the <style> sheets go
+    generated = generated_text(soup, hidden)
+    for tag in soup(["style", "script", "head", "noscript", "title"]):
+        tag.decompose()
+    # Line breaks where the page breaks lines: a forward's marker line
+    # ("---------- Forwarded message ---------") must start a line for
+    # detect_forwarded, even when the HTML source has no newline at all.
+    for br in soup.find_all("br", limit=50_000):
+        br.replace_with("\n")
+    for block in soup.find_all(_BLOCKS, limit=50_000):
+        block.insert_after("\n")
+    text = visible_text_first(soup, hidden, generated)
     # Collapse whitespace line by line (no regex: linear on any input).
     lines = (" ".join(line.split()) for line in text.splitlines())
     return "\n".join(line for line in lines if line)
 
 
-# href="https://..." in an HTML part. Bounded class, no nested
-# quantifiers: linear on any input.
+def html_links(html_src: str, limit: int = 200) -> list[str]:
+    """http(s) targets of the links of an HTML document, as a browser reads
+    them (entities decoded, spaces around "=" allowed, protocol-relative
+    "//host" as https), visible links before hidden ones. A regex on
+    'href="https://' missed 'href = "...' and '&#104;ttps://'."""
+    visible, hidden = html_link_groups(html_src)
+    return rank_links(visible, hidden, limit=limit)
+
+
+def html_link_groups(html_src: str) -> tuple[list[str], list[str]]:
+    """(visible, hidden) link targets of an HTML document, kept apart so
+    that no hidden link can be ranked before a visible one."""
+    cleaned = without_inline_data(html_src)
+    soup = BeautifulSoup(cleaned[:_MAX_PARSED], "html.parser")
+    hidden_ids = {id(tag) for tag in hidden_tags(soup)}
+    maps = shown_maps(soup, hidden_ids)
+    visible, hidden, unknown = [], [], []
+    shown, checked = set(), 0
+    # Every link is looked at; at most 20,000 get the visibility check (a
+    # cap on links once let 20,000 copies of a decoy hide the one after).
+    for tag in soup.find_all(["a", "area"]):
+        # SVG links use xlink:href.
+        href = tag.get("href") or tag.get("xlink:href")
+        url = absolute_http(href) if href else ""
+        if not url or url in shown:
+            continue
+        checked += 1
+        if checked > 20_000:
+            unknown.append(url)
+        elif shown_link(tag, hidden_ids, maps):
+            shown.add(url)
+            visible.append(url)
+        else:
+            hidden.append(url)
+    # Past the part that is parsed (padding, a huge comment or attribute
+    # placed first), links are still read. Whether they show cannot be
+    # told: they go first among the hidden ones, so that a flood of hidden
+    # decoys before the padding cannot push them out of the check.
+    # The last ones first (padding goes before the lure), at most the
+    # last and the first 1,000. See R13 in docs/threat-model.md.
+    tail = list(
+        dict.fromkeys(
+            u
+            for u in (
+                absolute_http(_attr_value(m)) for m in _LINK_ATTR_RE.finditer(cleaned, _MAX_PARSED)
+            )
+            if u and u not in shown
+        )
+    )
+    unknown += tail[::-1] if len(tail) <= 2000 else tail[:-1001:-1] + tail[:1000]
+    return visible, list(dict.fromkeys([*unknown, *hidden]))
+
+
+def absolute_http(href: str) -> str:
+    """An http(s) URL from an href, as a browser reads it, or "": control
+    characters and spaces removed, "//host/..." read as https, and the
+    forms browsers accept ("HTTPS:evil.tk", backslashes, an encoded host)
+    normalised (link_alignment.browser_url)."""
+    href = "".join(c for c in str(href)[:2048] if c > " " and c != "\x7f")
+    if href.startswith(("//", "\\\\", "/\\", "\\/")):
+        href = "https://" + href.lstrip("/\\")
+    href = browser_url(href)
+    return href if href[:8].lower().startswith(("http://", "https://")) else ""
+
+
 # Source code shown as text: when a mail page cannot render an email
 # (Gmail gives up on very large HTML), its visible text is the HTML
 # itself, inline images included. The text model reads that as phishing.
-_DATA_URI_RE = re.compile(r"data:[\w/+.-]{1,100};base64,[A-Za-z0-9+/=\s]{1,8000000}")
+# Base64 only, in lines of 40 characters at least (a wrapped data URI
+# has 76): with any whitespace, or short lines, allowed, the words after
+# "data:text/plain;base64," were taken for inline data too. A short last
+# line stays as text: one meaningless word.
+_DATA_URI_RE = re.compile(
+    r"data:[\w/+.-]{1,100};base64,[A-Za-z0-9+/=]{40,8000000}(?:\r?\n[A-Za-z0-9+/=]{40,8000000})*"
+)
 _BASE64_RUN_RE = re.compile(r"[A-Za-z0-9+/=]{200,}")
-# A tag, or one cut off at the end of a truncated page text.
-_TAG_RE = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]{0,20}(?:\s[^<>]{0,2000})?(?:/?>|\Z)")
+# A tag, or one cut off at the end of a truncated page text. Only a tag
+# with nothing after its name or with attributes ("=") is markup (see
+# _markup): '<a Urgent: verify your account...' is words.
+_TAG_RE = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]{0,20}(?P<inner>\s[^<>]{0,2000})?(?:/?>|\Z)")
+
+
+_ATTR_START = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
+_ATTR_NAME = _ATTR_START | frozenset("0123456789:.-")
+# Page texts are cut at 4,000 characters (content_scripts/core.js): a tag
+# cut there may have lost its closing quote.
+_CUT_AT = 3900
+
+
+def _attributes(inner: str, cut_off: bool = False) -> bool:
+    """True when `inner` reads as HTML attributes, with at least one value:
+    'class="x" hidden' is; 'Urgent: verify your account at
+    https://x.example/?id=1' is not. A name starts with a letter and does
+    not end in ":" or "." (words of a sentence do), at most three names
+    without a value follow each other, and a quoted value is closed unless
+    the text was cut there (`cut_off`) or the value has no space. Linear:
+    one pass, no regex."""
+    i, n, pairs, bare = 0, len(inner), 0, 0
+    while i < n:
+        while i < n and inner[i].isspace():
+            i += 1
+        if i >= n:
+            break
+        if inner[i] == "/" and not inner[i + 1 :].strip():
+            break  # '<img src="x" />'
+        if inner[i] not in _ATTR_START:
+            return False
+
+        while i < n and inner[i] in _ATTR_NAME:
+            i += 1
+        if inner[i - 1] in ":." or (i < n and not inner[i].isspace() and inner[i] not in "=/"):
+            return False
+        while i < n and inner[i].isspace():
+            i += 1
+        if i < n and inner[i] == "=":
+            i = _value_end(inner, i + 1, cut_off)
+            if i < 0:
+                return False
+            pairs, bare = pairs + 1, 0
+        else:
+            bare += 1
+            if bare > 3:
+                return False
+    return pairs > 0
+
+
+def _value_end(inner: str, i: int, cut_off: bool) -> int:
+    """Where the attribute value starting at `i` ends, or -1 when it is
+    not one: a quoted sentence (_sentence), or a quote left open in a text
+    that was not cut there (a long data: URI has no spaces; a sentence
+    written after "<a x=" does)."""
+    n = len(inner)
+    while i < n and inner[i].isspace():
+        i += 1
+    if i < n and inner[i] in "\"'":
+        end = inner.find(inner[i], i + 1)
+        if _sentence(inner[i + 1 : n if end < 0 else end]):
+            return -1
+        if end < 0 and not cut_off and any(c.isspace() for c in inner[i:].strip()):
+            return -1
+        return n if end < 0 else end + 1
+    while i < n and not inner[i].isspace() and inner[i] not in "\"'=`":
+        i += 1
+    return i
+
+
+def _sentence(value: str) -> bool:
+    """A quoted value that reads as prose: more than eight words and no
+    ";" (a style has some), or an address after a space. Such a "tag" is
+    a sentence written after "<a x=", kept as words; a real one with a
+    long alt text is only kept as words too, which costs nothing."""
+    words = value.split()
+    return (len(words) > 8 and ";" not in value) or any(
+        w.lower().startswith(("http://", "https://")) for w in words[1:]
+    )
+
+
+def _markup(m: re.Match) -> str:
+    """The tag removed when it is markup: no attributes ("<p>", "</div>")
+    or real ones; left as words otherwise."""
+    inner = m.group("inner") or ""
+    cut_off = m.end() == len(m.string) and len(m.string) >= _CUT_AT
+    if not m.group(0).endswith(">") and not cut_off and not _short_cut_tag(inner):
+        return m.group(0)
+    return " " if inner.strip() in ("", "/") or _attributes(inner, cut_off) else m.group(0)
+
+
+def _short_cut_tag(inner: str) -> bool:
+    """A tag the text ends in without its ">": markup only when it is
+    short and carries no address (a source page cut inside an <img>), not
+    a sentence written after "<a x="."""
+    return len(inner.split()) <= 12 and "http" not in inner.lower()
+
+
+# Inline data in HTML, as browsers read it: any case ("DATA:...;BASE64,"),
+# parameters before base64 (";charset=utf-8"), white space inside.
+_INLINE_DATA_RE = re.compile(
+    r"data:[\w/+.-]{1,100}(?:;[\w.+-]{1,40}(?:=[\w.+\"-]{1,60})?){0,8};base64,[A-Za-z0-9+/=\s]{40,8000000}",
+    re.IGNORECASE,
+)
+# What is parsed of an HTML body; links past it are still read (_LINK_ATTR_RE).
+_MAX_PARSED = 1_000_000
+# A link's address in raw HTML: <a> or <area>, quoted or not, spaces
+# inside the quotes allowed (browsers drop them).
+_LINK_ATTR_RE = re.compile(
+    r"""<(?:a|area)\b[^<>]{0,2000}?(?<![\w.:-])(?:href|xlink:href)\s*=\s*"""
+    r"""(?:"([^"]{1,2048})"|'([^']{1,2048})'|([^\s"'<>]{1,2048}))""",
+    re.IGNORECASE,
+)
+
+
+def _attr_value(m: re.Match) -> str:
+    return html_lib.unescape(m.group(1) or m.group(2) or m.group(3) or "").strip()
 
 
 def without_inline_data(html_src: str) -> str:
-    """HTML without its inline images (data: URIs). A large one before the
-    links pushed them past the size the scan reads: a newsletter with a
-    600 KB inline banner showed no link at all."""
-    return _DATA_URI_RE.sub("", html_src[:10_000_000])
+    """HTML without its inline images (data: URIs, in any case and with
+    any parameters) and its long comments. A large one before the links
+    pushed them past the size the scan reads: a newsletter with a 600 KB
+    inline banner showed no link at all. A long comment's links (Outlook's
+    "<!--[if mso]>" buttons) stay, as empty links: checked, never shown."""
+    return _without_long_comments(_INLINE_DATA_RE.sub("", html_src[:10_000_000]))
+
+
+_STYLE_OPEN_RE = re.compile(r"<style\b", re.IGNORECASE)
+
+
+def _without_long_comments(src: str) -> str:
+    """Long comments out; "<!--" inside a <style> sheet is not a comment
+    for the browser (its rules apply) and stays, sheet and all."""
+    out, pos = [], 0
+    lower = src.lower()
+    while True:
+        start = src.find("<!--", pos)
+        if start < 0:
+            break
+        style = _STYLE_OPEN_RE.search(src, pos, start)
+        if style:
+            close = lower.find("</style", style.end())
+            close = len(src) if close < 0 else close
+            if close > start:
+                out.append(src[pos:close])
+                pos = close
+                continue
+        end = src.find("-->", start + 4)
+        end = len(src) if end < 0 else end + 3
+        if end - start > 500:
+            out.append(src[pos:start])
+            for m in _LINK_ATTR_RE.finditer(src, start, end):
+                url = _attr_value(m)
+                if url:
+                    out.append(f'<a href="{html_lib.escape(url)}"></a>')
+        else:
+            out.append(src[pos:end])
+        pos = end
+    out.append(src[pos:])
+    return "".join(out)
 
 
 def strip_markup_noise(text: str) -> str:
@@ -98,7 +317,7 @@ def strip_markup_noise(text: str) -> str:
     tags, for a page text that is really the email's source."""
     text = _DATA_URI_RE.sub(" ", text)
     text = _BASE64_RUN_RE.sub(" ", text)
-    text = _TAG_RE.sub(" ", text)
+    text = _TAG_RE.sub(_markup, text)
     return "\n".join(" ".join(line.split()) for line in text.splitlines() if line.strip())
 
 
@@ -110,7 +329,22 @@ def looks_like_source(text: str) -> bool:
     return len(strip_markup_noise(text)) < 0.5 * len(text.strip())
 
 
-_HREF_RE = re.compile(r"""href=["'](https?://[^"'\s<>]{1,2048})""", re.IGNORECASE)
+def is_page_source(text: str) -> bool:
+    """True when a page text is the email's HTML source shown as text
+    (Gmail gives up on very large HTML): half of it at least tags and
+    data: URIs. A text with a long base64 run, or a few tags written in
+    it, is a text with noise, not source. When it is source, the parsed
+    message replaces it, read with its <style> rules (hidden_content)."""
+    text = text[:200_000]
+    if not looks_like_source(text):
+        return False
+    if not text.lstrip().startswith("<"):
+        return False  # a page's source starts with its markup
+    tags = [len(m.group(0)) for m in _TAG_RE.finditer(text) if _markup(m) == " "]
+    data = [len(m.group(0)) for m in _DATA_URI_RE.finditer(text)]
+    # An inline image, or ten tags at least: a few written in a text are
+    # not a page.
+    return (bool(data) or len(tags) >= 10) and sum(tags) + sum(data) >= 0.5 * len(text.strip())
 
 
 def _body_text(msg, raw_bytes: bytes) -> str:
@@ -139,22 +373,36 @@ def _body_text(msg, raw_bytes: bytes) -> str:
 
 
 def _link_targets(msg, body: str) -> list[str]:
-    """URLs written in the text, then the real targets of the HTML part's
-    links (an HTML email shows "Click here", the address is in the href)."""
-    urls = urls_in_text(body)
+    """The real targets of the HTML part's links (an HTML email shows
+    "Click here", the address is in the href), then the URLs written in
+    the text."""
+    visible: list[str] = []
+    hidden: list[str] = []
     for part in msg.walk() if msg.is_multipart() else [msg]:
         if part.get_content_type() != "text/html":
             continue
         try:
-            html_src = part.get_content()
+            shown, unseen = html_link_groups(part.get_content())
         except Exception:
             continue
-        for m in _HREF_RE.finditer(without_inline_data(html_src)[:500_000]):
-            if m.group(1) not in urls:
-                urls.append(m.group(1))
-            if len(urls) >= 200:
-                break
-    return urls
+        visible += shown
+        hidden += unseen
+    return rank_links(visible, hidden, urls_in_text(body))
+
+
+def _raw_items(msg) -> list[tuple[str, str]]:
+    """The headers as written, not as the standard parser rebuilds them:
+    it drops what it cannot parse ('"PayPal" <service@paypal.com>
+    <scam@evil.example>' became '"PayPal" <service@paypal.com>'), and the
+    checks must read what mail programs read. 8-bit bytes are read as
+    UTF-8; encoded words are decoded by header_dict."""
+    items = []
+    for k, v in msg.raw_items():
+        value = str(v)
+        if any("\udc80" <= c <= "\udcff" for c in value):
+            value = value.encode("ascii", "surrogateescape").decode("utf-8", "replace")
+        items.append((k, value))
+    return items
 
 
 def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
@@ -166,7 +414,7 @@ def parse_eml(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
     try:
         msg = message_from_bytes(raw_bytes, policy=policy.default)
         body = _body_text(msg, raw_bytes)
-        return body.strip(), _link_targets(msg, body), header_dict(msg.items())
+        return body.strip(), _link_targets(msg, body), header_dict(_raw_items(msg))
     except Exception:
         return _parse_lenient(raw_bytes)
 
@@ -195,10 +443,7 @@ def _parse_lenient(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
                 texts[kind] = _decoded(part)
         html = html_to_text(texts["text/html"]) if texts["text/html"] else ""
         body = (html if html.strip() else texts["text/plain"]).strip()
-        urls = urls_in_text(body)
-        for m in _HREF_RE.finditer(without_inline_data(texts["text/html"])[:500_000]):
-            if m.group(1) not in urls and len(urls) < 200:
-                urls.append(m.group(1))
+        urls = rank_links(*html_link_groups(texts["text/html"]), urls_in_text(body))
         if body or urls:
             return body, urls, headers
     except Exception:
@@ -213,19 +458,131 @@ def _parse_lenient(raw_bytes: bytes) -> tuple[str, list[str], dict[str, str]]:
 # is the receiving provider's. Lower ones come from earlier hops (an
 # internal Microsoft 365 relay says "dkim=none") or from the sender, who
 # can write anything there.
-_TOPMOST_WINS = frozenset({"authentication-results", "arc-authentication-results"})
+# A message has one From:, Sender:, Reply-To: and Subject:; when a crafted
+# one repeats them, mail programs show the first, so the checks read it too.
+_TOPMOST_WINS = frozenset(
+    {
+        "authentication-results",
+        "arc-authentication-results",
+        "from",
+        "sender",
+        "reply-to",
+        "subject",
+    }
+)
+# Set when the From: cannot prove a sender: repeated, or longer than
+# MAX_HEADER_CHARS once its spaces are collapsed. Same name as
+# auth_headers.FROM_UNPROVEN (not imported: no cycle).
+FROM_UNPROVEN = "x-phishlens-from-unproven"
+# Every header value is kept with its runs of spaces collapsed, cut here:
+# 2,000 spaces in a From: used to push the real address past what the
+# checks read.
+MAX_HEADER_CHARS = 8000
+_MAX_RAW_HEADER = 1_000_000
 
 
 def header_dict(items) -> dict[str, str]:
     """Header name (lowercased) -> value. A repeated header keeps its last
-    value, except the authentication results, which keep the topmost."""
+    value, except the ones in _TOPMOST_WINS, which keep the first. A
+    repeated From:, or one cut at MAX_HEADER_CHARS, is recorded under
+    FROM_UNPROVEN. Values have their runs of spaces collapsed.
+
+    Only the topmost Authentication-Results is read, even from a server
+    that writes one per check (Postfix with OpenDKIM and OpenDMARC): the
+    receiving server's headers and the sender's cannot be told apart by
+    position (on Gmail, the sender's come right after Gmail's), so
+    joining a second one would let a sender add the result it wants. The
+    cost is a softer path missed on such mail, never a harder one."""
     headers: dict[str, str] = {}
     for k, v in items:
         key = k.lower()
-        if key in _TOPMOST_WINS and key in headers:
+        if key == FROM_UNPROVEN:
             continue
-        headers[key] = str(v)
+        if key in _TOPMOST_WINS and key in headers:
+            if key == "from":
+                headers[FROM_UNPROVEN] = "1"
+            continue
+        raw = str(v)
+        # Invisible characters out and spaces collapsed before any cut: a
+        # From: padded with 32,000 spaces or zero-width characters must not
+        # lose its second address to it. A header too long to read whole
+        # proves nothing.
+        decoded = _decoded_header(raw[:_MAX_RAW_HEADER], address=key in _ADDRESS_HEADERS)
+        decoded = without_invisible(decoded)
+        value = " ".join(decoded.split())
+        if len(value) > MAX_HEADER_CHARS or len(raw) > _MAX_RAW_HEADER:
+            value = value[:MAX_HEADER_CHARS]
+            if key == "from":
+                headers[FROM_UNPROVEN] = "1"
+        headers[key] = value
     return headers
+
+
+_ENCODED_WORD_RE = re.compile(r"=\?[^?\s]{1,40}\?[qQbB]\?[^?\s]{0,2000}\?=")
+# A run of encoded words, with the white space between them.
+_ENCODED_RUN_RE = re.compile(
+    r"=\?[^?\s]{1,40}\?[qQbB]\?[^?\s]{0,2000}\?="
+    r"(?:\s*=\?[^?\s]{1,40}\?[qQbB]\?[^?\s]{0,2000}\?=){0,50}"
+)
+_ADDRESS_HEADERS = frozenset({"from", "reply-to", "sender", "to", "cc", "return-path"})
+# Characters with a meaning in an address header (RFC 5322 specials).
+_SPECIALS = frozenset('()<>[]:;@\\,."')
+
+
+def _quoted_at(text: str) -> list[bool]:
+    """For each position of a header value, whether it is inside a quoted
+    string (escapes followed). Linear."""
+    out, quoted, escaped = [], False, False
+    for ch in text:
+        out.append(quoted)
+        if escaped:
+            escaped = False
+        elif ch == "\\" and quoted:
+            escaped = True
+        elif ch == '"':
+            quoted = not quoted
+    return out
+
+
+def _decoded_header(value: str, address: bool = False) -> str:
+    """Encoded words ("=?utf-8?b?UGF5UGFs?=") decoded, as a mail program
+    shows them: each one on its own, wherever it stands (inside quotes,
+    next to "<" or another word), lines unfolded first and the space
+    between two of them dropped (RFC 2047; "=?..?UGF5?=" + line break +
+    "=?..?UGFs?=" is "PayPal"). An undecodable word stays as written.
+
+    In an address header an encoded name stays a name. Inside quotes its
+    decoded quotes and backslashes are escaped ('"=?..?a"<x@paypal>"b?="'
+    cannot close the quotes). Outside quotes, before the address, a
+    decoded name holding "<", "@", "," ('André <andre@gmail.com> (via
+    Docs)', sent encoded by Google Docs) is put in quotes. After the last
+    address nothing is quoted: an address written encoded there is read
+    as one."""
+    if "=?" not in value:
+        return value
+    from email.header import decode_header, make_header
+
+    value = " ".join(value.split())
+    quoted = _quoted_at(value) if address else []
+
+    def word(m: re.Match) -> str:
+        try:
+            return str(make_header(decode_header(m.group(0))))
+        except Exception:
+            return m.group(0)
+
+    def run(m: re.Match) -> str:
+        text = _ENCODED_WORD_RE.sub(word, re.sub(r"(\?=)\s+(?==\?)", r"\1", m.group(0)))
+        if not address:
+            return text
+        escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+        if quoted[m.start()]:
+            return escaped
+        if "@" in value[m.end() :] and _SPECIALS.intersection(text):
+            return f'"{escaped}"'
+        return text
+
+    return _ENCODED_RUN_RE.sub(run, value)
 
 
 # ---------------------------------------------------------------------
@@ -309,12 +666,13 @@ def detect_shared_links(urls: list[str]) -> dict[str, Any]:
     hits: list[str] = []
     for u in urls:
         try:
-            parts = urlsplit(u)
+            parts = urlsplit(browser_url(u))
         except ValueError:
             continue
-        host = (parts.hostname or "").lower()
+        host = link_host(u)
         for host_re, path_re, name in _SHARE_SERVICES:
-            if host_re.search(host) and (path_re is None or re.match(path_re, parts.path or "/")):
+            path = browser_path(parts.path)
+            if host_re.search(host) and (path_re is None or re.match(path_re, path)):
                 hits.append(u)
                 if name not in services:
                     services.append(name)
@@ -322,24 +680,59 @@ def detect_shared_links(urls: list[str]) -> dict[str, Any]:
     return {"count": len(hits), "services": services, "urls": hits[:10]}
 
 
-def merge_link_urls(urls: list[str], extra: Any) -> list[str]:
-    """Add client-supplied link targets to the URLs found in the text.
+def client_links(extra: Any) -> list[str]:
+    """Link targets sent by the client (client_context.link_urls).
 
     Untrusted input: only http(s) strings under 2048 characters are kept,
-    at most MAX_LINK_URLS of them, and duplicates are dropped (order kept).
+    at most MAX_LINK_URLS of them, duplicates dropped (order kept).
     """
-    out = list(dict.fromkeys(urls))
     if not isinstance(extra, list):
-        return out
-    seen = set(out)
+        return []
+    out: list[str] = []
     for u in extra:
         if len(out) >= MAX_LINK_URLS:
             break
         if not isinstance(u, str) or len(u) > 2048:
             continue
         u = u.strip()
-        if not re.match(r"https?://", u, re.I) or u in seen:
-            continue
-        seen.add(u)
-        out.append(u)
+        u = browser_url(u)
+        if re.match(r"https?://", u) and u not in out:
+            out.append(u)
     return out
+
+
+class Ranked(list):
+    """A list of links already in rank order (rank_links' output): a later
+    rank_links keeps its order instead of ranking it again as one group,
+    which would put its hidden links before its second visible ones."""
+
+
+def rank_links(*groups: list[str], limit: int = MAX_EMAIL_URLS) -> Ranked:
+    """The links of an email, at most `limit`, group by group in the order
+    given (link targets before addresses written in the text): no link of
+    a later group can push out one of an earlier group. Within a group,
+    the first link of each host comes before any second one, so a pile of
+    links to one site cannot push the others out either."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for group in groups:
+        if isinstance(group, Ranked):
+            fresh = [u for u in group if u not in seen]
+            seen.update(fresh)
+            out += fresh
+            if len(out) >= limit:
+                break
+            continue
+        hosts: set[str] = set()
+        first, rest = [], []
+        for u in group:
+            if u in seen:
+                continue
+            seen.add(u)
+            host = link_host(u)
+            (rest if host in hosts else first).append(u)
+            hosts.add(host)
+        out += first + rest
+        if len(out) >= limit:
+            break
+    return Ranked(out[:limit])

@@ -120,8 +120,6 @@ jobs:
             --cov=. --cov-config=.coveragerc \
             --cov-report=term-missing:skip-covered
 
-  # Not required by branch protection yet: make it required once it has
-  # been green for a while.
   ui:
     name: Popup UI tests (Playwright)
     # Uses the Google Chrome preinstalled on the runner: downloading

@@ -10,6 +10,9 @@ client cannot store more than the current rules allow.
 from __future__ import annotations
 
 import re
+import unicodedata
+
+from unicode_text import is_invisible
 
 _GREETING = (
     r"(?:Hi|Hello|Hey|Dear|Bonjour|Bonsoir|Salut|Cher|Chère|Olá|Ola|Oi|Hola|Estimado|Estimada|"
@@ -40,7 +43,6 @@ _LONG_NUMBER = re.compile(r"(?<![^\W\d_])(?<!\d)\d(?:[ .-]?\d){5,}(?!\d)(?![^\W\
 _HANDLE = re.compile(r"(?<![\w<])@[\w.]{2,}")
 _PLACEHOLDER = re.compile(r"<(?:NAME|EMAIL|NUMBER|PHONE|URL)")
 _CORE = re.compile(r"\w(?:.*\w)?", re.S)
-_ZERO_WIDTH = re.compile("[\u200b-\u200d\u2060\ufeff]")
 _LEADS = [
     re.compile(r"(\b" + lead + r")(" + _NAME + r"(?:\s+" + _NAME + r"){0,2})")
     for lead in (_TITLE + r"\s+", _GREETING + r",?\s+")
@@ -83,7 +85,11 @@ def _username(token: str) -> bool:
 
 
 def redact(text: str, terms: list[str] | None = None) -> str:
-    t = _ZERO_WIDTH.sub("", str(text or ""))
+    # Compatibility forms folded (no-break and narrow spaces become
+    # spaces, full-width digits plain ones: "06\u202f12\u202f34..." is a
+    # phone number) and invisible characters removed, before any rule.
+    t = unicodedata.normalize("NFKC", str(text or ""))
+    t = "".join(c for c in t if not is_invisible(c))
     t = _mask_emails(t)
     t = _URL.sub(lambda m: f"<URL:{m.group(1).lower().removeprefix('www.')}>", t)
     t = _IBAN.sub("<NUMBER>", t)

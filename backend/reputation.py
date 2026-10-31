@@ -35,7 +35,6 @@ import json
 import logging
 import os
 import re
-import socket
 import sqlite3
 import time
 from collections.abc import Iterable
@@ -43,8 +42,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
+from auth_headers import spamhaus_dbl
+from link_alignment import link_host
 from settings import VERSION
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
@@ -64,6 +64,7 @@ except ImportError:
 GSB_API_KEY = os.environ.get("GSB_API_KEY", "").strip()
 GSB_DAILY_LIMIT = int(os.environ.get("GSB_DAILY_LIMIT", "10000"))
 GSB_SAFETY_BUFFER = int(os.environ.get("GSB_SAFETY_BUFFER", "500"))
+GSB_MAX_PER_SCAN = int(os.environ.get("GSB_MAX_PER_SCAN", "30"))
 # Per-user cache folder by default, not the shared /tmp.
 CACHE_DB_PATH = os.environ.get(
     "REPUTATION_CACHE_DB",
@@ -269,18 +270,21 @@ class GoogleSafeBrowsing:
         if self._client and not self._client.is_closed:
             await self._client.aclose()
 
-    async def check_batch(self, urls: list[str]) -> dict[str, dict[str, Any]]:
+    async def check_batch(self, urls: list[str]) -> dict[str, dict[str, Any]] | None:
         """
         Query GSB for a batch of URLs. Returns {url: verdict} for URLs that
-        matched a threat; URLs not in the dict are assumed clean.
+        matched a threat; URLs not in the dict were checked and are clean.
 
-        On quota exhaustion or transport error, returns an empty dict:
-        callers must treat that as "GSB unavailable, use fallbacks".
+        None when GSB did not answer (no key, quota exhausted, transport
+        error): those URLs were not checked, and must not be cached as
+        clean.
         """
-        if not self.api_key or not urls:
+        if not self.api_key:
+            return None
+        if not urls:
             return {}
         if not await self.quota.try_consume(len(urls)):
-            return {}
+            return None
 
         payload = {
             "client": {"clientId": "phishlens", "clientVersion": VERSION},
@@ -293,12 +297,16 @@ class GoogleSafeBrowsing:
         }
         try:
             client = await self._get_client()
-            r = await client.post(f"{self.ENDPOINT}?key={self.api_key}", json=payload)
+            # The key in a header, not in the URL: transport errors quote
+            # the URL, and they are logged.
+            r = await client.post(
+                self.ENDPOINT, json=payload, headers={"X-Goog-Api-Key": self.api_key}
+            )
             r.raise_for_status()
             body = r.json()
         except Exception as e:
-            logger.warning(f"GSB request failed: {e}")
-            return {}
+            logger.warning(f"GSB request failed: {_safe_error(e)}")
+            return None
 
         # Opt-in debug: set GSB_DEBUG=1 to log every GSB call and its
         # match count. Off by default in production; useful when you're
@@ -512,7 +520,7 @@ class PhishTank:
                 data = self._parse(r.content)
         except Exception as e:
             self._last_error = type(e).__name__
-            logger.warning(f"PhishTank refresh failed: {e}")
+            logger.warning(f"PhishTank refresh failed: {_safe_error(e)}")
             return 0
         n = self._load(data)
         self._last_refresh_ts = time.time()
@@ -527,12 +535,9 @@ class PhishTank:
             if not u:
                 continue
             urls.add(u)
-            try:
-                netloc = urlparse(u).netloc.lower()
-                if netloc and not is_shared_path_host(netloc):
-                    domains.add(netloc)
-            except Exception:
-                pass
+            host = link_host(u)
+            if host and not is_shared_path_host(host):
+                domains.add(host)
 
         self._urls = urls
         self._domains = domains
@@ -554,11 +559,10 @@ class PhishTank:
         """O(1) lookup: returns a verdict dict if listed, None otherwise."""
         if url in self._urls:
             return {"source": "phishtank", "match": "url", "threat_types": ["PHISHING"]}
-        try:
-            netloc = urlparse(url).netloc.lower()
-        except Exception:
-            return None
-        if netloc and netloc in self._domains and not is_shared_path_host(netloc):
+        # The host as a browser reads it: "user@", a port or a final dot
+        # around a listed domain no longer hide it (the netloc kept them).
+        host = link_host(url)
+        if host and host in self._domains and not is_shared_path_host(host):
             return {"source": "phishtank", "match": "domain", "threat_types": ["PHISHING"]}
         return None
 
@@ -617,93 +621,17 @@ class URLhaus:
         }
 
 
-# =====================================================================
-# Spamhaus DBL: domain-level DNS lookup.
-# =====================================================================
-async def _spamhaus_dbl(domain: str) -> dict[str, Any] | None:
-    """
-    Query domain.dbl.spamhaus.org. If it resolves to a 127.0.1.x code,
-    the domain is listed. NXDOMAIN = clean.
-
-    IMPORTANT: 127.255.255.x codes are NOT listings; they are Spamhaus
-    policy responses telling us the query was rejected (open/public
-    resolver, anonymous query, rate limit). If we see one of those, we
-    treat the check as "unavailable" and return None. Counting them as
-    listings would false-positive on every domain we ever query.
-
-    See https://www.spamhaus.org/faq/section/DNSBL%20Usage#365 for the
-    full code table.
-    """
-    # Real listings: dbl.spamhaus.org threat classifications.
-    _CODES = {
-        "127.0.1.2": ("SPAM", "spam"),
-        "127.0.1.4": ("SOCIAL_ENGINEERING", "phish"),
-        "127.0.1.5": ("MALWARE", "malware"),
-        "127.0.1.6": ("BOTNET_CC", "botnet_cc"),
-        "127.0.1.102": ("SPAM", "abused_legit_spam"),
-        "127.0.1.103": ("SUSPICIOUS", "abused_legit_redirector"),
-        "127.0.1.104": ("SOCIAL_ENGINEERING", "abused_legit_phish"),
-        "127.0.1.105": ("MALWARE", "abused_legit_malware"),
-        "127.0.1.106": ("BOTNET_CC", "abused_legit_botnet_cc"),
-    }
-    # Policy / error codes: the query was NOT answered. Treat as
-    # "check unavailable", NOT as "domain malicious".
-    _POLICY_ERROR_PREFIX = "127.255.255."
-
-    if not domain or "." not in domain:
+async def _spamhaus_dbl(host: str) -> dict[str, Any] | None:
+    """A link's domain in the Spamhaus DBL, as a reputation source."""
+    listing = await spamhaus_dbl(host)
+    if not listing:
         return None
-    query = f"{domain}.dbl.spamhaus.org"
-    loop = asyncio.get_event_loop()
-    try:
-        resp = await asyncio.wait_for(
-            loop.run_in_executor(None, socket.gethostbyname, query),
-            timeout=2.0,
-        )
-    except (socket.gaierror, socket.herror, asyncio.TimeoutError):
-        return None
-    except Exception:
-        return None
-
-    # Policy error: Spamhaus refused to answer (open resolver, rate
-    # limit, anonymous query). NOT a listing. Return None so the caller
-    # treats the tier as "no signal" rather than "malicious".
-    if resp.startswith(_POLICY_ERROR_PREFIX):
-        # Log once so we know DBL is effectively disabled on this host.
-        if not _spamhaus_policy_logged["done"]:
-            logger.warning(
-                f"Spamhaus DBL policy response ({resp}): the DNS resolver "
-                "used by this host is blocked by Spamhaus. DBL lookups will "
-                "be treated as unavailable. Use a private recursive resolver "
-                "or the Spamhaus DQS commercial feed to enable DBL."
-            )
-            _spamhaus_policy_logged["done"] = True
-        return None
-
-    # Real listing: 127.0.1.x range.
-    if resp not in _CODES:
-        # Unknown but 127.0.1.x-shaped response: probably a new threat
-        # code we don't map yet. Still treat as SUSPICIOUS.
-        if resp.startswith("127.0.1."):
-            return {
-                "source": "spamhaus_dbl",
-                "threat_types": ["SUSPICIOUS"],
-                "dbl_code": resp,
-                "category": "listed_unknown_code",
-            }
-        # Anything else is not a documented DBL response: ignore it.
-        return None
-
-    threat_type, category = _CODES[resp]
     return {
         "source": "spamhaus_dbl",
-        "threat_types": [threat_type],
-        "dbl_code": resp,
-        "category": category,
+        "threat_types": [listing["threat_type"]],
+        "dbl_code": listing["code"],
+        "category": listing["category"],
     }
-
-
-# Log the Spamhaus policy warning only once per process lifetime.
-_spamhaus_policy_logged = {"done": False}
 
 
 # =====================================================================
@@ -815,8 +743,8 @@ class ReputationEngine:
         u = v.url
         pt_result = self.phishtank.check(u) if self.phishtank else None
         uh_result_task = self.urlhaus.check(u) if self.urlhaus else None
-        netloc = urlparse(u).netloc
-        sh_task = _spamhaus_dbl(netloc) if netloc else None
+        host = link_host(u)
+        sh_task = _spamhaus_dbl(host) if host else None
 
         uh_result = await uh_result_task if uh_result_task else None
         sh_result = await sh_task if sh_task else None
@@ -874,23 +802,32 @@ class ReputationEngine:
             return [verdicts[u].to_dict() for u in norm]
 
         # ---- 2. Google Safe Browsing (batch) ----
+        # At most GSB_MAX_PER_SCAN URLs per scan, the first ones in the
+        # caller's rank order: the daily quota is shared by every user, and
+        # one request with hundreds of links must not spend it.
         gsb_hits: dict[str, dict[str, Any]] = {}
-        gsb_used = False
+        gsb_checked: set[str] = set()
         if self.gsb:
-            gsb_hits = await self.gsb.check_batch(uncached)
-            gsb_used = True  # even if empty result, we consumed the quota
+            batch = _gsb_batch(uncached, GSB_MAX_PER_SCAN)
+            answer = await self.gsb.check_batch(batch)
+            if answer is not None:
+                gsb_hits, gsb_checked = answer, set(batch)
 
         # ---- 3. Fallback cascade for URLs GSB didn't flag ----
         # (also for the case where GSB is disabled / quota exhausted)
-        need_fallback = _apply_gsb(verdicts, uncached, gsb_hits, gsb_used)
+        need_fallback = _apply_gsb(verdicts, uncached, gsb_hits, gsb_checked)
         if need_fallback:
             await asyncio.gather(
                 *(self._fallback(verdicts[u]) for u in need_fallback), return_exceptions=True
             )
 
         # ---- 4. Persist to cache ----
+        # A clean verdict is kept only when Safe Browsing (when configured)
+        # checked the URL: otherwise exhausting the quota with junk links,
+        # then sending a phishing link, would store it as clean for a day.
         for u in uncached:
-            await self.cache.put(u, verdicts[u].to_dict())
+            if verdicts[u].malicious or not self.gsb or u in gsb_checked:
+                await self.cache.put(u, verdicts[u].to_dict())
 
         return [verdicts[u].to_dict() for u in norm]
 
@@ -937,6 +874,13 @@ async def check_urls(urls: Iterable[str]) -> list[dict[str, Any]]:
     return await get_engine().check_urls(urls)
 
 
+def fully_checked(verdicts: list[dict[str, Any]]) -> bool:
+    """Every URL is flagged, or Safe Browsing (when configured) checked it."""
+    if not (_ENGINE and _ENGINE.gsb):
+        return True
+    return all(v.get("malicious") or "gsb_clean" in (v.get("tiers_run") or []) for v in verdicts)
+
+
 def stats() -> dict[str, Any]:
     return get_engine().stats() if _ENGINE else {"engine": "not_initialised"}
 
@@ -945,7 +889,7 @@ def _apply_gsb(
     verdicts: dict[str, UrlVerdict],
     uncached: list[str],
     gsb_hits: dict[str, dict[str, Any]],
-    gsb_used: bool,
+    gsb_checked: set[str],
 ) -> list[str]:
     """Mark Safe Browsing matches; return the URLs left for the fallback
     sources."""
@@ -960,7 +904,22 @@ def _apply_gsb(
             v.tiers_run.append("gsb")
             v.raw_matches.append(gsb_hits[u])
         else:
-            if gsb_used:
+            if u in gsb_checked:
                 verdicts[u].tiers_run.append("gsb_clean")
             need_fallback.append(u)
     return need_fallback
+
+
+def _gsb_batch(urls: list[str], limit: int) -> list[str]:
+    """The first `limit` URLs, in the order given: the caller ranks them
+    (extension_backend.rank_links: visible links first, one per host
+    first). Ranking them again here put hidden links on new hosts before
+    a second visible one."""
+    return list(urls)[:limit]
+
+
+def _safe_error(e: Exception) -> str:
+    """An error for the logs without the request URL, which can carry an
+    API key (PhishTank's is in the feed's path)."""
+    status = getattr(getattr(e, "response", None), "status_code", None)
+    return f"{type(e).__name__}" + (f" (HTTP {status})" if status else "")

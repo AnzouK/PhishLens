@@ -8,31 +8,79 @@ backend share one version number.
 ## [Unreleased]
 
 ### Security
-- The server refuses pickle (joblib) model files by default: they run
-  code when loaded. `AGENTS_ALLOW_PICKLE=1` still allows them, for an old
-  local copy of the agents never converted to skops.
-
-### Documentation
-- The self-hosting commands say that the downloaded model is the public
-  English one, while PhishLens Cloud runs the multilingual model.
-
-### Fixed
-- The website's live counters wait at most 6 seconds and are left out
-  when the server does not answer, instead of showing an error code;
-  `/reputation/stats` keeps its answer 30 seconds (counting the cache
-  took 2.5 seconds per visit).
+Fixes from several rounds of outside review; each bypass has a test in
+`backend/tests/test_bypasses.py`.
+- Sender checks: Authentication-Results is read clause by clause (no
+  more `dkim=pass` hidden in a comment or a quoted address), and a
+  second From:, a From: with several addresses or domains, or ARC
+  results alone no longer prove anything. The From: is read as written,
+  not as Python's parser rebuilds it, encoded names are decoded wherever
+  they stand, and an address inside a quoted display name no longer
+  counts as a second sender (an encoded name stays a name, whatever it
+  says, and keeps the quotes it stands in). Notifications from sharing
+  services (Google Docs, DocuSign, Dropbox...) that show their user's
+  own address are no longer taken for impersonation, nor are SharePoint
+  Online, Amazon Pay and Colissimo. Gmail's "signed-by" is only read
+  outside the email body.
+- Brand impersonation catches look-alike domains (`paypal.tk`,
+  `chronopost.us`), look-alike letters and padded or malformed names.
+- Hidden text and links (inline styles, `<style>` rules, near-invisible
+  colours, tiny links) go after the visible ones, on the server and in
+  the extension, which share their test cases; words a style sheet
+  writes with `::before` are read too.
+- Links are read like a browser reads them (`HTTPS:evil.tk`,
+  backslashes, encoded hosts, `www.` in plain text), and hidden or
+  written-out links can no longer push the real ones out of the check.
+  Forms and shared files on large sites (Microsoft Forms, OneDrive,
+  SharePoint, Google Docs) and redirects to `www.` addresses no longer
+  count as links to a known site, nor do redirect pages. A huge inline
+  image, comment or flood of decoy links before the real link no longer
+  hides it, and links inside SVG drawings are read in the browser too.
+  Long comments are left out of the text (their links are still
+  checked), style sheets written inside "<!-- -->" apply, and "/./" in a
+  path no longer hides a redirect.
+- A huge `<style>` sheet can no longer stall the server.
+- Zero-width spaces, soft hyphens and control characters inside a word
+  no longer cut it in pieces for the text model, and can no longer hide
+  a file's real extension.
+- Safe Browsing: a link it did not check is never cached as clean, a
+  scan sends it at most 30 links, and its key stays out of the logs.
+- Attachments: forms, frames and pages inside `data:` addresses are
+  read in HTML files, with addresses built by scripts; names that
+  Windows runs as programs ("invoice.exe ." or with a direction mark)
+  are caught; a ZIP is read by what it holds, whatever its name, and an
+  Office file stays an Office file whatever else its ZIP holds; Office
+  parts are read whatever their name or case, Word fields as Word
+  builds them, and templates, frames, "Run program" actions, Excel DDE
+  and programs packed in embedded objects are flagged (OLE files read
+  from their directory, in any case); .xlsb workbooks, drawings and
+  document properties are read for links; an Office file holding other
+  files lists them like an archive, though not the chart workbooks and
+  SVG pictures Office adds itself; SVG, web archives and HTML smuggling
+  are read; 7z files are unpacked in memory.
+- Outlook: the sender's real address is used, and "internal" mail only
+  gets the soft path.
+- Personal mailboxes and platforms that relay their users' messages
+  (Google, PayPal, DocuSign...) left the allowlist.
+- Pickle model files are refused unless `AGENTS_ALLOW_PICKLE=1`.
 
 ### Added
-- A test fails when a translation of the website carries other figures
-  than the English page.
+- A Firefox build (Firefox 140+), attached to each release.
+- A privacy notice in Gmail and Outlook before the first PhishLens Cloud
+  scan.
 
 ### Changed
-- The website leads with one figure and its confidence interval instead
-  of four, drops the numbered sections, and says who runs PhishLens and
-  why, in the 8 languages.
-- The documentation is shorter: each page keeps the reasons (decisions,
-  thresholds, what was measured and rejected) and drops descriptions of
-  the code; the README says who makes PhishLens.
+- Long display names no longer break a scan, and the automatic scan
+  skips an email the server refuses instead of stopping.
+- Server cleanup: one Spamhaus lookup, one sender-domain function,
+  `feature_extraction.py` cut to what the models read (same outputs).
+- Website: one headline figure, and who runs PhishLens and why.
+- Shorter docs.
+
+### Fixed
+- Scans saved at the same moment no longer overwrite each other.
+- The website's live counters no longer show an error code when the
+  server is slow.
 
 ## [2.0.11] - 2026-10-28
 
@@ -47,6 +95,10 @@ backend share one version number.
   scores), comparable with anyone's own run.
 - Every `/analyse` answer says which sign forced the verdict
   (`forced_by`).
+- The home page in each language describes PhishLens to search engines
+  with a schema.org `SoftwareApplication` block (JSON-LD): a free,
+  open-source security application for Chrome, its languages, licence,
+  download page and source code.
 
 ### Changed
 - The signs that force a verdict on each trust path are declared with
@@ -57,27 +109,6 @@ backend share one version number.
   (of the 22 the text model reads), and the false alarms as 1 of 414.
 - The changelog keeps one short entry per change; the measurements are
   in `docs/evaluation.md`.
-
-### Fixed
-- A large inline image (a `data:` URI) before an email's links pushed
-  them past the part of the HTML the scan reads: a bank's welcome email
-  with a 600 KB banner showed no link at all.
-- In Gmail, an email too large to display shows its HTML source as text;
-  that text was scored as the email's wording (99%, a false alarm on a
-  DKIM-signed bank email).
-- Transaction alerts sent through `email-messaging.com` click tracking
-  were taken for links "elsewhere" and flagged by the link rule.
-- A sender showing "E.Leclerc" or "Stanbic IBTC" from another domain is
-  now flagged as impersonation (a fake Leclerc prize email was rated
-  safe).
-
-### Added
-- The home page in each language describes PhishLens to search engines
-  with a schema.org `SoftwareApplication` block (JSON-LD): a free,
-  open-source security application for Chrome, its languages, licence,
-  download page and source code.
-
-### Changed
 - The website's results show the whole system as it runs, in the 8
   languages: 90.6% of 2,000 recent phishing emails nobody had looked at
   caught, and 1 of 414 legitimate emails flagged (0.2%), instead of the
@@ -91,6 +122,19 @@ backend share one version number.
   on `innerHTML`.
 - A failed word-level explanation in Gmail and Outlook now says so,
   instead of "Computing the explanation…" forever.
+
+### Fixed
+- A large inline image (a `data:` URI) before an email's links pushed
+  them past the part of the HTML the scan reads: a bank's welcome email
+  with a 600 KB banner showed no link at all.
+- In Gmail, an email too large to display shows its HTML source as text;
+  that text was scored as the email's wording (99%, a false alarm on a
+  DKIM-signed bank email).
+- Transaction alerts sent through `email-messaging.com` click tracking
+  were taken for links "elsewhere" and flagged by the link rule.
+- A sender showing "E.Leclerc" or "Stanbic IBTC" from another domain is
+  now flagged as impersonation (a fake Leclerc prize email was rated
+  safe).
 
 ### Documentation
 - The privacy policy and the terms, in the 8 languages, say who runs
@@ -131,7 +175,7 @@ backend share one version number.
 
 ### Documentation
 - The link rule, measured on the running server: 90.6% of 2,000 fresh
-  phishing emails caught (95% CI 89.2% to 91.8%.
+  phishing emails caught (95% CI 89.2% to 91.8%).
 - `docs/evaluation.md` and `docs/multilingual-model.md`: two changes
   measured and not shipped.
 
@@ -203,7 +247,8 @@ backend share one version number.
   0.9, which makes it phishing.
 - The release workflow can also be started by hand from the Actions tab:
   it tags `main` with the code's version and publishes the release.
-- Links to public cloud hosts
+- Links to public cloud hosts (Google Cloud Storage, Firebase, Azure
+  Blob, R2, Pages, IPFS gateways...) raise the link score.
 
 ### Changed
 - Links that only go to large known sites (Amazon, Coinbase, La
@@ -545,7 +590,7 @@ inbox (header and URL models on 2026 mail).
   `host_permissions`).
 - Trained URL model and hidden links: on real 2026 links the URL Random
   Forest scores almost any URL with a path at ~0.95
-  (`github.com/user/repo` 0.95, `wikipedia.org/wiki/...` 0.97.
+  (`github.com/user/repo` 0.95, `wikipedia.org/wiki/...` 0.97).
 - Text the text model reads: a scan with the full original sends the
   page text too, and the backend uses it for the text agent (a GitHub CI
   email scored 0.51 on the page text and 0.998 on its plain-text part,
