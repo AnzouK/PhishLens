@@ -132,6 +132,7 @@ little text, and the feature is the whole signal.
 | encrypted document, PDF auto-run, zip bomb | 0.30 | |
 | QR code | 0.20 | the link is invisible to text scanners |
 | image-only PDF, legacy Office format | 0.10 | evasion, but real scans exist too |
+| Office file not read to the end | 0.10 | built to be slow to read; also shown as "could not look inside" |
 
 Macros, remote templates, DDE, executables and scripts (directly or in
 an archive) and double extensions (`invoice.pdf.exe`) decide on their

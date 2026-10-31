@@ -154,6 +154,7 @@ class TestAttachments:
         many = ["contains_macros", "remote_template", "dde_field"]
         assert fusion.attachment_feature_bonus(many) == ATTACHMENT_FEATURE_BONUS_MAX
         assert fusion.attachment_feature_bonus(["unknown_flag"]) == 0.0
+        assert fusion.attachment_feature_bonus(["document_not_fully_read"]) == pytest.approx(0.10)
 
     def test_dropper_techniques(self):
         assert fusion.dropper_techniques(
