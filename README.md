@@ -85,12 +85,12 @@ the language. Measure it yourself with the public benchmark
 [multilingual-model.md](docs/multilingual-model.md); what can go wrong:
 [known limitations](docs/threat-model.md#residual-risks-and-known-limitations).
 
-The whole system (PhishLens Cloud, October 24, 2026), measured with the
+The whole system (PhishLens Cloud, November 1, 2026), measured with the
 public benchmark on real mail sent in 2026:
 
 | Mail | Result |
 | --- | --- |
-| Phishing nobody looked at while tuning (phishing_pot, Nazario) | 1,812 of 2,000 caught: 90.6% (95% CI 89.2% to 91.8%) |
+| Phishing nobody looked at while tuning (phishing_pot, Nazario) | 1,804 of 2,000 caught: 90.2% (95% CI 88.8% to 91.4%) |
 | Legitimate, public Apache mailing lists | 1 of 297 flagged: 0.3% (0.1% to 1.9%) |
 | Legitimate, real personal inboxes (bank, university and service notifications), received after the model's training mail | 0 of 117 flagged: 0.0% (0.0% to 3.2%) |
 

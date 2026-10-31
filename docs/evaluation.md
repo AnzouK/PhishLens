@@ -81,8 +81,20 @@ Apache mailing lists and 117 inbox emails, all sent from 2026-01-01.
 | 10-16 | 2.0.8 (link model needs a confirming sign) | 1 of 297: 0.3% (0.1% to 1.9%) | 436 of 500: 87.2% |
 | 10-23 | 2.0.9 | 1 of 297; inbox 0 of 117 | control sample: 1,707 of 1,997: 85.5% (83.9% to 87.0%) |
 | 10-24 | 2.0.10 (link rule) | 1 of 297; inbox 0 of 117 | fresh sample: 1,812 of 2,000: 90.6% (89.2% to 91.8%) |
+| 11-01 | 2.0.12 (whole bodies read, text read as shown and as written) | 1 of 297; inbox 0 of 117 | same fresh sample: 1,804 of 2,000: 90.2% (88.8% to 91.4%) |
 
 What each step taught:
+
+- **Reading the whole email cost some "phishing".** 2.0.10 read only the
+  subject of 74 HTML emails whose body it could not reach; 2.0.11 and
+  2.0.12 read them whole. Most were casino and insurance ads that
+  phishing_pot files as phishing: on the full text the model calls 45 of
+  them safe, and finds 29 others it had missed.
+- **Removing invisible characters also removed a sign.** The model
+  learned runs of zero-width and byte-order-mark characters as a mark of
+  dubious mail (0.98 with them, 0.05 without on the same email). The
+  text is now read both as shown and as written, the higher score kept:
+  1,797 caught without this, 1,804 with it, no new false alarm.
 
 - **The 92.2% was mostly an artefact.** In 2.0.7, 121 of the 130 false
   alarms were decided by the trained header model alone, which scored

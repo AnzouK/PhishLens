@@ -15,7 +15,7 @@ from pathlib import Path
 
 # Shared by the backend and the extension (extension/manifest.json);
 # the CI checks that both say the same.
-VERSION = "2.0.11"
+VERSION = "2.0.12"
 
 # ---------------------------------------------------------------------
 # Text model
