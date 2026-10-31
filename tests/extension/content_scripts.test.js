@@ -15,6 +15,12 @@ const { Node, makeDocument } = require("./fake_dom");
 const EXT = path.join(__dirname, "..", "..", "extension");
 const manifest = JSON.parse(fs.readFileSync(path.join(EXT, "manifest.json"), "utf8"));
 
+// The manifest entry whose first match pattern is for `host` (compared
+// as a host name, never as a substring of the pattern).
+function entryFor(host) {
+    return manifest.content_scripts.find((e) => new URL(e.matches[0].replaceAll("*", "")).hostname === host);
+}
+
 function load(entry, { sendMessage } = {}) {
     const host = new URL(entry.matches[0].replaceAll("*", "")).hostname;
     const document = makeDocument();
@@ -156,7 +162,7 @@ test("before the first PhishLens Cloud scan, the page shows where the email goes
 });
 
 test("a signed-by line written in the email body is not taken for Gmail's", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const view = mailView(ctx.document);
     const row = (parent, label, value) => {
@@ -173,7 +179,7 @@ test("a signed-by line written in the email body is not taken for Gmail's", () =
 });
 
 test("hidden text and hidden links come after what the reader sees", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
     const body = mailView(doc).querySelector(".a3s");
@@ -200,7 +206,7 @@ test("hidden text and hidden links come after what the reader sees", () => {
 });
 
 test("hidden parts of one letter each are moved too", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
     const body = mailView(doc).querySelector(".a3s");
@@ -219,7 +225,7 @@ test("hidden parts of one letter each are moved too", () => {
 });
 
 test("a display name is sent without invisible characters and cut at 200", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { PL } = load(entry);
     assert.equal(PL.senderName("​".repeat(300) + "PayPal"), "PayPal");
     assert.equal(PL.senderName("x".repeat(500)).length, 200);
@@ -227,7 +233,7 @@ test("a display name is sent without invisible characters and cut at 200", () =>
 });
 
 test("the style sheet of a hidden part is not read as words", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
     const body = mailView(doc).querySelector(".a3s");
@@ -243,7 +249,7 @@ test("the style sheet of a hidden part is not read as words", () => {
 });
 
 test("text drawn in a transparent colour counts as hidden", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const el = ctx.document.createElement("span");
     ctx.getComputedStyle = () => ({ color: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px" });
@@ -259,7 +265,7 @@ test("text drawn in a transparent colour counts as hidden", () => {
 const HIDDEN_CASES = require(path.join(__dirname, "..", "fixtures", "hidden_cases.json")).cases;
 for (const c of HIDDEN_CASES) {
     test(`hidden style case: ${c.name}`, () => {
-        const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+        const entry = entryFor("mail.google.com");
         const { ctx, PL } = load(entry);
         const parent = ctx.document.createElement("div");
         const el = ctx.document.createElement("div");
@@ -273,7 +279,7 @@ for (const c of HIDDEN_CASES) {
 }
 
 test("visible and hidden links are sent apart, a second visible one first", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
     const body = mailView(doc).querySelector(".a3s");
@@ -293,7 +299,7 @@ test("visible and hidden links are sent apart, a second visible one first", () =
 });
 
 test("Outlook reads the sender's own address, not one in the display name", () => {
-    const entry = manifest.content_scripts.find((e) => !e.matches[0].includes("mail.google.com"));
+    const entry = manifest.content_scripts.find((e) => e !== entryFor("mail.google.com"));
     const { PL } = load(entry);
     assert.equal(PL.senderAddress(['"support@gtbank.com" <scam@attacker.example>']), "scam@attacker.example");
     assert.equal(PL.senderAddress(["support@gtbank.com scam@attacker.example"]), "scam@attacker.example");
@@ -301,7 +307,7 @@ test("Outlook reads the sender's own address, not one in the display name", () =
 });
 
 test("thousands of anchors without an address do not hide the links after them", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
     const body = mailView(doc).querySelector(".a3s");
@@ -318,14 +324,14 @@ test("thousands of anchors without an address do not hide the links after them",
 });
 
 test("Outlook takes the last address between angle brackets, over every part of the line", () => {
-    const entry = manifest.content_scripts.find((e) => !e.matches[0].includes("mail.google.com"));
+    const entry = manifest.content_scripts.find((e) => e !== entryFor("mail.google.com"));
     const { PL } = load(entry);
     assert.equal(PL.senderAddress(['"PayPal <service@paypal.com>" <scam@attacker.example>']), "scam@attacker.example");
     assert.equal(PL.senderAddress(["support@gtbank.com", "Support", "scam@attacker.example"]), "scam@attacker.example");
 });
 
 test("a link whose only text is hidden counts as hidden", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
     const body = mailView(doc).querySelector(".a3s");
@@ -347,7 +353,7 @@ test("a link whose only text is hidden counts as hidden", () => {
 });
 
 test("a dark section whose paragraphs are white stays visible; its own dark text does not", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
     const body = mailView(doc).querySelector(".a3s");
@@ -368,7 +374,7 @@ test("a dark section whose paragraphs are white stays visible; its own dark text
 });
 
 test("a link whose only picture is invisible counts as hidden", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
     const body = mailView(doc).querySelector(".a3s");
@@ -392,7 +398,7 @@ test("file names that reorder text are shown with the reordering mark visible", 
 });
 
 test("words a style sheet writes with ::before are read", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const body = mailView(ctx.document).querySelector(".a3s");
     const p = ctx.document.createElement("p");
@@ -404,7 +410,7 @@ test("words a style sheet writes with ::before are read", () => {
 });
 
 test("unreadable text is emptied only for the reading, and put back", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const body = mailView(ctx.document).querySelector(".a3s");
     const div = ctx.document.createElement("div");
@@ -421,7 +427,7 @@ test("unreadable text is emptied only for the reading, and put back", () => {
 });
 
 test("display:contents shows its content", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const body = mailView(ctx.document).querySelector(".a3s");
     const a = ctx.document.createElement("a");
@@ -435,7 +441,7 @@ test("display:contents shows its content", () => {
 });
 
 test("an <area> counts only through a shown image that uses its map", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
     const body = mailView(doc).querySelector(".a3s");
@@ -459,7 +465,7 @@ test("an <area> counts only through a shown image that uses its map", () => {
 });
 
 test("words written by ::before in the colour of the background are not read", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const body = mailView(ctx.document).querySelector(".a3s");
     const p = ctx.document.createElement("p");
@@ -471,7 +477,7 @@ test("words written by ::before in the colour of the background are not read", (
 });
 
 test("an image map only counts through an image that can be seen", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
     const body = mailView(doc).querySelector(".a3s");
@@ -490,7 +496,7 @@ test("an image map only counts through an image that can be seen", () => {
 });
 
 test("a name cut after many invisible marks keeps the brand", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { PL } = load(entry);
     assert.equal(PL.senderName("\u034f".repeat(300) + "PayPal"), "PayPal");
     assert.equal(PL.senderName("\ufe0f".repeat(300) + "PayPal"), "PayPal");
@@ -499,7 +505,7 @@ test("a name cut after many invisible marks keeps the brand", () => {
 // The same cases as backend/tests/test_bypasses.py (unicode_text).
 const INVISIBLE_CASES = require(path.join(__dirname, "..", "fixtures", "invisible_cases.json")).cases;
 test("invisible characters are removed as on the server", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { PL } = load(entry);
     for (const c of INVISIBLE_CASES) assert.equal(PL.withoutInvisible(c.text), c.clean, JSON.stringify(c.text));
 });
@@ -509,13 +515,13 @@ const FILE_NAMES = require(path.join(__dirname, "..", "fixtures", "file_name_cas
 test("file extensions and Gmail tile names are read as on the server", () => {
     const C = require(path.join(EXT, "lib", "constants.js"));
     for (const c of FILE_NAMES.names) assert.equal(C.fileExt(c.name), c.ext, JSON.stringify(c.name));
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { PL } = load(entry);
     for (const c of FILE_NAMES.tiles) assert.equal(PL.tileName(c.text), c.name, JSON.stringify(c.text));
 });
 
 test("the Outlook sender is the address after the name, quoted or not", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("outlook"));
+    const entry = entryFor("outlook.office.com");
     const { PL } = load(entry);
     assert.equal(PL.senderAddress(['"PayPal <service@paypal.com>" <"scam"@attacker.example>']), "scam@attacker.example");
     assert.equal(PL.senderAddress(['PayPal <service@paypal.com> <scam@attacker.example>']), "scam@attacker.example");
@@ -530,7 +536,7 @@ test("the Outlook sender is the address after the name, quoted or not", () => {
 });
 
 test("a link around a drawn shape is shown, as on the server", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
     const body = mailView(doc).querySelector(".a3s");
@@ -549,7 +555,7 @@ test("a link around a drawn shape is shown, as on the server", () => {
 });
 
 test("an SVG link (SVGAnimatedString href) and a link after a flood of decoys are read", () => {
-    const entry = manifest.content_scripts.find((e) => e.matches[0].includes("mail.google.com"));
+    const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
     const body = mailView(doc).querySelector(".a3s");
@@ -571,6 +577,8 @@ test("an SVG link (SVGAnimatedString href) and a link after a flood of decoys ar
     const visible = { color: "rgb(0, 0, 0)", backgroundColor: "rgba(0, 0, 0, 0)", opacity: "1", fontSize: "14px", visibility: "visible" };
     ctx.getComputedStyle = () => visible;
     const links = [...PL.linkGroupsOf(body).visible];
-    assert.ok(links.includes("https://evil.example/svg"));
-    assert.ok(links.includes("https://evil.example/login"));
+    assert.deepEqual(links.filter((u) => u.startsWith("https://evil.example/")).sort(), [
+        "https://evil.example/login",
+        "https://evil.example/svg",
+    ]);
 });
