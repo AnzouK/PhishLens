@@ -81,9 +81,16 @@ function withoutInvisible(text) {
         (c, i) => ((c === "\u200C" || c === "\u200D") && joins(s, i) ? c : ""));
 }
 
+// Each run of invisible characters cut to its first one: the page text as
+// written, for the server's text model (backend/unicode_text.
+// collapse_invisible), without letting a padding of them fill the text.
+function collapseInvisible(text) {
+    return String(text ?? "").replace(new RegExp(INVISIBLE_SOURCE + "+", "gu"), (run) => [...run][0]);
+}
+
 const PhishLensShared = Object.freeze({
     BACKEND_PRESETS, DEFAULT_BACKEND, resolveBackend, getBackendBase, apiErrorMessage, debug, safeName,
-    INVISIBLE_SOURCE, withoutInvisible,
+    INVISIBLE_SOURCE, withoutInvisible, collapseInvisible,
 });
 globalThis.PhishLensShared = PhishLensShared;
 

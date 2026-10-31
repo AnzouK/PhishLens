@@ -2649,3 +2649,42 @@ def test_empty_segments_do_not_absorb_dot_dot():
     assert la.browser_path("/a/%2f../redirect") == "/redirect"
     assert not la.well_known_link("https://www.youtube.com/a/%2f../redirect?q=evil.tk")
     assert ep.detect_shared_links(["https://docs.google.com//forms/d/e/x/viewform"])["count"] == 1
+
+
+# ---------------------------------------------------------------------
+# The text model reads the text as shown and as written
+# ---------------------------------------------------------------------
+_COLLAPSE_CASES = json.loads(
+    (
+        Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "invisible_cases.json"
+    ).read_text()
+)["collapse"]
+
+
+@pytest.mark.parametrize("case", _COLLAPSE_CASES, ids=[str(i) for i in range(len(_COLLAPSE_CASES))])
+def test_collapse_cases_shared_with_the_extension(case):
+    from unicode_text import collapse_invisible
+
+    assert collapse_invisible(case["text"]) == case["collapsed"]
+
+
+def test_the_text_model_keeps_the_higher_of_both_readings(monkeypatch):
+    import numpy as np
+
+    import text_model as tm
+
+    def fake(texts, clean=True):
+        # As shown scores low, as written (padding kept) scores high.
+        p = 0.1 if clean else 0.95
+        return np.array([[1 - p, p] for _ in texts])
+
+    monkeypatch.setattr(tm, "predict_proba_batch", fake)
+    assert tm.text_agent("Roofs ﻿﻿﻿ Metal") == pytest.approx(0.95)
+    calls = []
+    monkeypatch.setattr(
+        tm,
+        "predict_proba_batch",
+        lambda t, clean=True: calls.append(clean) or np.array([[0.5, 0.5]]),
+    )
+    tm.text_agent("plain text")
+    assert calls == [True]

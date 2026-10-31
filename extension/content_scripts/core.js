@@ -327,7 +327,9 @@ PL.textOf = function textOf(el, hidden = PL.hiddenParts(el)) {
     const generated = (hidden.generated || []).join(" ");
     // Without invisible characters, before anyone cuts the text to a
     // length: 4,000 zero-width spaces once filled what was sent.
-    return PL.withoutInvisible([text, generated, ...tail].filter(Boolean).join("\n"))
+    // Runs of invisible characters cut to one, not removed: the server
+    // reads the text both ways (as shown and as written).
+    return PL.collapseInvisible([text, generated, ...tail].filter(Boolean).join("\n"))
         .replace(/\s+\n/g, "\n").trim();
 };
 
@@ -487,6 +489,7 @@ PL.linkTargetsOf = function linkTargetsOf(el, hidden = PL.hiddenParts(el)) {
 // Persian and Indic writing uses them: lib/shared.js, the same rule as
 // backend/unicode_text.without_invisible.
 PL.withoutInvisible = PhishLensShared.withoutInvisible;
+PL.collapseInvisible = PhishLensShared.collapseInvisible;
 
 // A sender's display name as sent to the server: invisible characters
 // out, spaces collapsed, 200 characters at most (the name comes from the

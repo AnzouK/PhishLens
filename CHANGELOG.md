@@ -42,7 +42,9 @@ Fixes from several rounds of outside review; each bypass has a test in
 - A huge `<style>` sheet can no longer stall the server.
 - Zero-width spaces, soft hyphens and control characters inside a word
   no longer cut it in pieces for the text model, and can no longer hide
-  a file's real extension.
+  a file's real extension. The text model reads the text both as shown
+  and as written (padding runs kept, cut to one) and keeps the higher
+  score: removing the padding alone made it miss padded phishing.
 - Safe Browsing: a link it did not check is never cached as clean, a
   scan sends it at most 30 links, and its key stays out of the logs.
 - Attachments: forms, frames and pages inside `data:` addresses are
