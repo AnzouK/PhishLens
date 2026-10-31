@@ -227,14 +227,6 @@ function backgroundBehind(el, cache = new Map()) {
     return chain.length ? cache.get(el) : below;
 }
 
-// "rgba(0, 0, 0, 0)" or "transparent": the computed colour of text drawn
-// with no ink.
-function transparent(color) {
-    if (color === "transparent") return true;
-    const m = /^rgba\([^)]*,\s*([\d.]+)\)$/.exec(color || "");
-    return !!m && Number(m[1]) <= 0.05;
-}
-
 // What is hidden under `el`: { boxes, texts, generated }. `boxes` are the
 // outermost elements hidden whole (their subtrees are not walked); `texts`
 // the elements whose own text is unreadable while their children may not
