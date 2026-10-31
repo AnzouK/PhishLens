@@ -547,8 +547,9 @@ def _script_readings(code: str) -> list[str]:
     for m in _CHAR_CODES_RE.finditer(code):
         codes = [int(n, 0) for n in re.findall(r"0[xXoO][0-9a-fA-F]+|\d+", m.group(1))]
         out.append("".join(chr(n) for n in codes if n < 0x110000))
-    if "%" in code:
-        out.append(unquote(code))
+    # Percent-encoding undone in the string literals only: the code itself
+    # ("100%", "x % 2") is never read as a page.
+    out += [unquote(lit) for lit in _js_strings(code) if "%" in lit]
     # A string written backwards ("kt.live//:sptth".split("").reverse()).
     out += [lit[::-1] for lit in _LITERAL_RE.findall(code) if "//:" in lit]
     for m in _BASE64_LITERAL_RE.finditer(code):
@@ -561,7 +562,13 @@ def _script_readings(code: str) -> list[str]:
 
 
 def _script_strings(code: str) -> str:
-    return "\n".join(_script_readings(code))[:1_000_000]
+    """Every reading of a script, for its addresses (the code itself with
+    percent-encoding undone too: unescape("%68...") may be outside any
+    literal once joined)."""
+    readings = _script_readings(code)
+    if "%" in code:
+        readings.append(unquote(readings[0]))
+    return "\n".join(readings)[:1_000_000]
 
 
 # Markup a script writes into the page (document.write, innerHTML) once
@@ -579,6 +586,15 @@ def _js_strings(code: str) -> list[str]:
     out: list[str] = []
     i, n = 0, len(code)
     while i < n:
+        # Comments are skipped: "// don't" opens no string.
+        if code.startswith("//", i):
+            nl = code.find("\n", i + 2)
+            i = n if nl < 0 else nl + 1
+            continue
+        if code.startswith("/*", i):
+            end = code.find("*/", i + 2)
+            i = n if end < 0 else end + 2
+            continue
         quote = code[i]
         if quote not in "\"'`":
             i += 1

@@ -205,11 +205,10 @@ def _display_names(header: str) -> str:
     return " ".join(names)
 
 
-_WEBMAIL_IN_NAME_RE = re.compile(
-    r"[\w.+-]+@(?:gmail|googlemail|outlook|hotmail|live|yahoo|ymail|icloud|me|aol|proton|"
-    r"protonmail|gmx|mail|yandex)\.[a-z]{2,6}(?:\.[a-z]{2})?\b",
-    re.IGNORECASE,
-)
+# A person's address in a display name (any domain: a colleague at
+# microsoft.com shares a Google Doc too). Only left out for known,
+# relaying or allowlisted senders, and only when other words remain.
+_WEBMAIL_IN_NAME_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b", re.IGNORECASE)
 
 
 def impersonated_brand(from_header: str) -> str | None:

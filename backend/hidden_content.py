@@ -822,7 +822,11 @@ def _rules_of(soup) -> list[tuple[str, Declarations]]:
     for sheet in soup.find_all("style", limit=50):
         css = sheet.get_text()[:left]
         left -= len(css)
-        _sheet_rules(_COMMENT_RE.sub(" ", css), rules)
+        # "<!--" and "-->" around a sheet (common in email templates) are
+        # ignored by CSS (CDO / CDC tokens): they must not join the first
+        # selector ("<!-- .h").
+        css = _COMMENT_RE.sub(" ", css).replace("<!--", " ").replace("-->", " ")
+        _sheet_rules(css, rules)
         if left <= 0:
             break
     return rules

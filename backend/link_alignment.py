@@ -179,8 +179,9 @@ def browser_path(path: str) -> str:
     ("/./url" and "/a/../url" are "/url")."""
     path = unquote(path or "/").replace("\\", "/")
     out: list[str] = []
-    for seg in path.split("/")[1:] if path.startswith("/") else path.split("/"):
-        if seg == ".":
+    # Empty segments ("//", "%2f") are dropped: they must not absorb a "..".
+    for seg in path.split("/"):
+        if not seg or seg == ".":
             continue
         if seg == "..":
             if out:

@@ -258,7 +258,7 @@ _MAX_PARSED = 1_000_000
 # A link's address in raw HTML: <a> or <area>, quoted or not, spaces
 # inside the quotes allowed (browsers drop them).
 _LINK_ATTR_RE = re.compile(
-    r"""<(?:a|area)\b[^<>]{0,2000}?\b(?:href|xlink:href)\s*=\s*"""
+    r"""<(?:a|area)\b[^<>]{0,2000}?(?<![\w.:-])(?:href|xlink:href)\s*=\s*"""
     r"""(?:"([^"]{1,2048})"|'([^']{1,2048})'|([^\s"'<>]{1,2048}))""",
     re.IGNORECASE,
 )
@@ -277,12 +277,26 @@ def without_inline_data(html_src: str) -> str:
     return _without_long_comments(_INLINE_DATA_RE.sub("", html_src[:10_000_000]))
 
 
+_STYLE_OPEN_RE = re.compile(r"<style\b", re.IGNORECASE)
+
+
 def _without_long_comments(src: str) -> str:
+    """Long comments out; "<!--" inside a <style> sheet is not a comment
+    for the browser (its rules apply) and stays, sheet and all."""
     out, pos = [], 0
+    lower = src.lower()
     while True:
         start = src.find("<!--", pos)
         if start < 0:
             break
+        style = _STYLE_OPEN_RE.search(src, pos, start)
+        if style:
+            close = lower.find("</style", style.end())
+            close = len(src) if close < 0 else close
+            if close > start:
+                out.append(src[pos:close])
+                pos = close
+                continue
         end = src.find("-->", start + 4)
         end = len(src) if end < 0 else end + 3
         if end - start > 500:

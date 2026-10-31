@@ -2586,3 +2586,66 @@ def test_dot_segments_do_not_hide_a_redirect_path(url):
 
 def test_dot_segments_do_not_hide_a_shared_form():
     assert ep.detect_shared_links(["https://docs.google.com/./forms/d/e/x/viewform"])["count"] == 1
+
+
+# ---------------------------------------------------------------------
+# Round 20
+# ---------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("header", "brand"),
+    [
+        (
+            '"Jane Doe (jane@microsoft.com) (via Google Docs)" <drive-shares-dm-noreply@google.com>',
+            None,
+        ),
+        ('"Jane Doe (jane@amazon.com)" <dse@docusign.net>', None),
+        ('"Jane Doe (via SharePoint)" <no-reply@sharepointonline.com>', None),
+        ('"Amazon Pay" <no-reply@amazonpay.com>', None),
+        ('"La Poste Colissimo" <noreply@colissimo.fr>', None),
+        (
+            '"PayPal Security (attacker@gmail.com) (via Google Docs)" <drive-shares-dm-noreply@google.com>',
+            "paypal",
+        ),
+        ('"Jane (jane@microsoft.com)" <x@evil.example>', "microsoft"),
+    ],
+)
+def test_real_senders_and_their_users_addresses(header, brand):
+    assert st.impersonated_brand(header) == brand
+
+
+def test_percent_signs_and_comments_in_code_are_not_page_text():
+    import attachment_analysis as aa
+
+    script = 'var w="100%"; var i="<img src=x>"; // don\'t\nfunction f(x){if(x>0)return x%2;}'
+    assert (
+        aa.analyse_html(f"<script>{script}</script><p>Hello</p>".encode(), "a.html")[
+            "extracted_text"
+        ]
+        == "Hello"
+    )
+    written = '<script>document.write(unescape("%3Cform%20action%3D%22https%3A//evil.tk/p%22%3E%3Cinput%20type%3Dpassword%3E"))</script>'
+    assert (
+        "contains_password_field" in aa.analyse_html(written.encode(), "a.html")["notable_features"]
+    )
+
+
+@pytest.mark.parametrize("pad", ["", "/* x */ " * 80])
+def test_a_style_sheet_inside_comment_marks_applies(pad):
+    html = (
+        f'<style><!-- {pad}.h{{display:none}} --></style><div class="h">filler</div><p>Verify</p>'
+    )
+    assert ep.html_to_text(html).startswith("Verify")
+
+
+def test_a_data_attribute_does_not_hide_the_link_after_it():
+    pad = '<div title="' + "x" * 1_100_000 + '"></div>'
+    visible, hidden = ep.html_link_groups(
+        pad + '<a data-href="x" href="https://evil.tk/login">Go</a>'
+    )
+    assert "https://evil.tk/login" in hidden
+
+
+def test_empty_segments_do_not_absorb_dot_dot():
+    assert la.browser_path("/a/%2f../redirect") == "/redirect"
+    assert not la.well_known_link("https://www.youtube.com/a/%2f../redirect?q=evil.tk")
+    assert ep.detect_shared_links(["https://docs.google.com//forms/d/e/x/viewform"])["count"] == 1
