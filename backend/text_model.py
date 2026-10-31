@@ -43,7 +43,7 @@ from settings import (
     MODEL_DTYPE,
 )
 from text_normalize import normalize_text
-from unicode_text import without_invisible
+from unicode_text import collapse_invisible, without_invisible
 
 LEGACY_REPO = "AnzouKiona/phishlens-distilbert"
 META_FILE = "phishlens_text_agent.json"
@@ -216,14 +216,16 @@ def override_threshold() -> float:
     return float(_meta()["override_threshold"])
 
 
-def predict_proba_batch(texts: list[str]) -> np.ndarray:
-    """N x 2 array of [P(safe), P(phishing)] (the shape LIME expects)."""
+def predict_proba_batch(texts: list[str], clean: bool = True) -> np.ndarray:
+    """N x 2 array of [P(safe), P(phishing)] (the shape LIME expects).
+    `clean`: invisible characters removed first (the text as shown);
+    otherwise each run of them is cut to one (the text as written)."""
     import torch
     import torch.nn.functional as F
 
     tok, model, device = STATE["tokenizer"], STATE["model"], STATE["device"]
     meta = _meta()
-    texts = [without_invisible(t) for t in texts]
+    texts = [without_invisible(t) if clean else collapse_invisible(t) for t in texts]
     texts = [normalize_text(t) for t in texts] if meta["normalize"] else texts
     inputs = tok(
         texts,
@@ -240,8 +242,20 @@ def predict_proba_batch(texts: list[str]) -> np.ndarray:
 
 
 def text_agent(body: str) -> float:
-    """Phishing probability of the email text."""
-    return float(predict_proba_batch([body or ""])[0, 1])
+    """Phishing probability of the email text, read as shown and as
+    written, the higher kept. As shown (invisible characters removed),
+    "V" + zero-width space + "erify" is the word it looks like. As written,
+    the zero-width and byte-order-mark runs some mail is padded with stay:
+    the model learned them as a sign, and removing them alone took
+    padded phishing from 0.98 to 0.05 on the public benchmark. Neither
+    adding nor removing such characters can lower the score. One model
+    call when the two readings are the same (most mail)."""
+    body = body or ""
+    if without_invisible(body) == collapse_invisible(body):
+        return float(predict_proba_batch([body])[0, 1])
+    shown = float(predict_proba_batch([body], clean=True)[0, 1])
+    written = float(predict_proba_batch([body], clean=False)[0, 1])
+    return max(shown, written)
 
 
 def explain(body: str) -> list[dict[str, Any]]:

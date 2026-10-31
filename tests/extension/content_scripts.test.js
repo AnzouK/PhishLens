@@ -582,3 +582,9 @@ test("an SVG link (SVGAnimatedString href) and a link after a flood of decoys ar
         "https://evil.example/svg",
     ]);
 });
+
+const COLLAPSE_CASES = require(path.join(__dirname, "..", "fixtures", "invisible_cases.json")).collapse;
+test("runs of invisible characters are cut to one as on the server", () => {
+    const shared = require(path.join(EXT, "lib", "shared.js"));
+    for (const c of COLLAPSE_CASES) assert.equal(shared.collapseInvisible(c.text), c.collapsed, JSON.stringify(c.text));
+});

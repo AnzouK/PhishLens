@@ -99,7 +99,7 @@ from settings import (
     TRUSTED_META_CEILING,
     VERSION,
 )
-from unicode_text import without_invisible
+from unicode_text import collapse_invisible, without_invisible
 
 # uvicorn configures its own loggers only: without this, the
 # "phishlens.*" INFO messages would be dropped.
@@ -335,7 +335,7 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         synth = synthesize_auth_results(ctx, req.sender_email)
         if synth:
             headers["authentication-results"] = synth
-        return without_invisible(body), urls, headers, None
+        return collapse_invisible(body), urls, headers, None
     if not req.raw_email_b64:
         raise HTTPException(400, "Provide either raw_email_b64 or raw_text.")
     try:
@@ -387,7 +387,7 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     urls = rank_links(shown, Ranked(u for u in urls if u not in hidden_here), unseen, text_urls)
     # Without invisible characters, as the reader sees it: for the text
     # model, the forward and language checks alike.
-    return without_invisible(body), urls, headers, raw_bytes
+    return collapse_invisible(body), urls, headers, raw_bytes
 
 
 def _model_text(body: str, headers: dict[str, str], ctx: dict[str, Any]) -> str:

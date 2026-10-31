@@ -118,3 +118,13 @@ def without_invisible(text: str) -> str:
         return run if _joins(text, m.start()) else ""
 
     return _INVISIBLE_RUN_RE.sub(keep, text)
+
+
+def collapse_invisible(text: str) -> str:
+    """The text with each run of invisible characters cut to its first one.
+    What the text model reads "as written": the characters it learned as
+    a sign (preheader padding, zero-width runs) stay, a padding of 20,000
+    of them no longer pushes the words out of its window."""
+    if not text:
+        return ""
+    return _INVISIBLE_RUN_RE.sub(lambda m: m.group()[0], text)
