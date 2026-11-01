@@ -14,7 +14,9 @@ Output (in site/, deployed as is)
     index.html, privacy.html, terms.html, 404.html   English, at the root
     <lang>/index.html, privacy.html, terms.html      the other languages
     i18n/<lang>.js                                   texts used by app.js
-    redact.js                                        copy of extension/lib/redact.js
+    shared.js, redact.js                             copies of extension/lib/ (redact.js
+                                                     reads the invisible-character rule
+                                                     from shared.js)
     sitemap.xml                                      every page, with hreflang
 
 A {{key}} ending in _html is inserted as is; any other is HTML-escaped.
@@ -175,6 +177,7 @@ def head(
     if ld:
         out.append(jsonld(lang, s))
     if scripts:
+        out.append(f'<script src="{asset(base, "shared.js")}" defer></script>')
         out.append(f'<script src="{asset(base, "redact.js")}" defer></script>')
         out.append(f'<script src="{asset(base, "app.js")}" defer></script>')
     out += ["</head>", "<body>"]
@@ -189,12 +192,16 @@ def strings_digest() -> str:
     return h.hexdigest()[:10]
 
 
+# Files the site takes from the extension, in the order they load.
+_FROM_EXTENSION = ("shared.js", "redact.js")
+
+
 def asset(base: str, name: str) -> str:
     """URL of a site file with a short hash of its content, so a browser
     fetches it again as soon as it changes."""
     path = OUT / name
-    if name == "redact.js":
-        path = OUT.parent / "extension" / "lib" / "redact.js"
+    if name in _FROM_EXTENSION:
+        path = OUT.parent / "extension" / "lib" / name
     digest = hashlib.sha256(path.read_bytes()).hexdigest()[:10] if path.exists() else "0"
     return f"{base}{name}?v={digest}"
 
@@ -364,5 +371,6 @@ if __name__ == "__main__":
     build_404(strings)
     build_sitemap()
     # The site redacts reports with the extension's own rules.
-    shutil.copyfile(OUT.parent / "extension" / "lib" / "redact.js", OUT / "redact.js")
+    for name in _FROM_EXTENSION:
+        shutil.copyfile(OUT.parent / "extension" / "lib" / name, OUT / name)
     print(f"site built: {len(LANGS)} languages, {len(PAGES)} pages each")

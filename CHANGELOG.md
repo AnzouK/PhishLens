@@ -7,6 +7,8 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.0.12] - 2026-11-01
+
 ### Security
 Fixes from several rounds of outside review; each bypass has a test in
 `backend/tests/test_bypasses.py`.
@@ -72,6 +74,11 @@ Fixes from several rounds of outside review; each bypass has a test in
   scan.
 
 ### Changed
+- Public benchmark measured again on the same 2,000 phishing emails:
+  1,804 caught (90.2%, against 90.6%), still 1 of 414 legitimate emails
+  flagged. The difference is mostly ads that phishing_pot files as
+  phishing, now read whole instead of by their subject
+  (docs/evaluation.md).
 - Long display names no longer break a scan, and the automatic scan
   skips an email the server refuses instead of stopping.
 - Server cleanup: one Spamhaus lookup, one sender-domain function,

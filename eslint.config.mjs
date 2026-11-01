@@ -36,8 +36,9 @@ const hygieneRules = {
 };
 
 export default [
-  // Copy of extension/lib/redact.js written by scripts/build_site.py.
-  { ignores: ["site/redact.js"] },
+  // Copies of extension/lib/ written by scripts/build_site.py (linted as
+  // the extension's own files).
+  { ignores: ["site/redact.js", "site/shared.js"] },
   {
     files: ["extension/**/*.js"],
     languageOptions: {

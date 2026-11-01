@@ -31,7 +31,7 @@
 <link rel="icon" href="icon.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="style.css?v=876364fc54">
-<script src="i18n/en.js?v=4225bf455e" defer></script>
+<script src="i18n/en.js?v=94470bf9df" defer></script>
 <script src="lang.js?v=0eb2be978d" defer></script>
 <script src="nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -69,7 +69,8 @@
  ]
 }
 </script>
-<script src="redact.js?v=935df49b99" defer></script>
+<script src="shared.js?v=e55783863a" defer></script>
+<script src="redact.js?v=f9ef7a192a" defer></script>
 <script src="app.js?v=1ca3b08526" defer></script>
 </head>
 <body>
@@ -139,11 +140,11 @@
     <div class="wrap">
       <h2>Results</h2>
       <div class="headline">
-        <div class="big">90.6%</div>
-        <p class="lbl">phishing caught by the whole system, in recent emails nobody had looked at<span class="ci">95% confidence interval: 89.2% to 91.8%</span></p>
+        <div class="big">90.2%</div>
+        <p class="lbl">phishing caught by the whole system, in recent emails nobody had looked at<span class="ci">95% confidence interval: 88.8% to 91.4%</span></p>
       </div>
       <p class="facts">1 legitimate email of 414 flagged (0.2%) · about 190 ms per email on the server · checked on real phishing in 6 of the 22 languages the text model reads</p>
-      <p class="note">Measured on PhishLens Cloud on October 24, 2026 with the public benchmark: 1,812 of 2,000 recent phishing emails in several languages, drawn from those nobody looked at while tuning (95% confidence interval 89.2% to 91.8%), and 1 of 414 legitimate emails (297 from public mailing lists, 117 from real inboxes; 0.0% to 1.4%). The scan time is the median for a typical email (about 250 tokens); a short one takes about 65 ms. An order of magnitude, not a guarantee: see <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">how it was measured</a> and the <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">known limitations</a>.</p>
+      <p class="note">Measured on PhishLens Cloud on November 1, 2026 with the public benchmark: 1,804 of 2,000 recent phishing emails in several languages, drawn from those nobody looked at while tuning (95% confidence interval 88.8% to 91.4%), and 1 of 414 legitimate emails (297 from public mailing lists, 117 from real inboxes; 0.0% to 1.4%). The scan time is the median for a typical email (about 250 tokens); a short one takes about 65 ms. An order of magnitude, not a guarantee: see <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">how it was measured</a> and the <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">known limitations</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, right now</h3>
       <div class="strip" id="live" aria-live="polite">

@@ -77,7 +77,7 @@ B6: anyone can post a report to `/feedback`, not only the extension.
 ## Residual risks and known limitations
 
 **R1. False negatives are possible.** On 2,000 recent phishing emails
-nobody had looked at, the whole system caught 90.6%; new campaigns and
+nobody had looked at, the whole system caught 90.2%; new campaigns and
 wording written against it will do worse. PhishLens is an assistant,
 not a filter: the explanation is there so the user can judge.
 
@@ -166,7 +166,7 @@ own buttons) are checked as hidden links.
 
 Revisit this document when an endpoint, an input type or an extension
 permission is added, when the text model changes, or when the
-deployment moves off a single server. Last review: after 2.0.11, with
+deployment moves off a single server. Last review: after 2.0.12, with
 five external audit rounds (authentication parsing, impersonation, hidden
 content, link parsing, Safe Browsing quota, Outlook sender, HTML
 attachments).

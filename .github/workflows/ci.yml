@@ -84,9 +84,19 @@ jobs:
           cache: pip
 
       - name: System packages (Tesseract OCR)
+        # A stalled Ubuntu mirror once held this step for 15 minutes: each
+        # download times out after 30 s, the whole step is tried up to 3
+        # times, 2 minutes each.
+        timeout-minutes: 7
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends tesseract-ocr libarchive-tools
+          APT="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
+          for attempt in 1 2 3; do
+            sudo timeout 120 apt-get $APT update -q \
+              && sudo timeout 120 apt-get $APT install -y -q --no-install-recommends tesseract-ocr libarchive-tools \
+              && exit 0
+            echo "apt attempt $attempt failed, retrying"
+          done
+          exit 1
 
       - name: Install lint + test dependencies
         run: |

@@ -33,7 +33,7 @@ Nigeria (2025/2026); it is not published here.
 
 | Figure | Read it as |
 | --- | --- |
-| Whole system, public benchmark: 1,812 of 2,000 recent phishing caught (89.2% to 91.8%), 1 of 414 legitimate flagged (0.0% to 1.4%) | Real 2026 mail through the running server; the legitimate side is small ([evaluation](evaluation.md#results)) |
+| Whole system, public benchmark: 1,804 of 2,000 recent phishing caught (88.8% to 91.4%), 1 of 414 legitimate flagged (0.0% to 1.4%) | Real 2026 mail through the running server; the legitimate side is small ([evaluation](evaluation.md#results)) |
 | Text model alone, unseen real mail at 0.7: English 92.5% caught, 1 of 255 flagged; French 87.4%, 1 of 63 | One mailbox as the legitimate reference ([details](multilingual-model.md#confidence-intervals)) |
 | Original Random Forests, F1 0.991 and 0.999 | Upper bounds: phishing and legitimate samples came from different corpora and years. The header one flagged most modern legitimate mail and is off |
 
