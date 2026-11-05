@@ -14,25 +14,8 @@ export async function loadBackend() {
     if (typeof s.backend_custom_url === "string") backend.customUrl = s.backend_custom_url;
 }
 
-// http:// to a remote server would send emails in clear text. Local and
-// private-network addresses are fine: nothing leaves the home network.
-export function isPlainRemoteUrl(value) {
-    let u;
-    try {
-        u = new URL(value);
-    } catch {
-        return false;            // not a URL yet (still being typed)
-    }
-    if (u.protocol !== "http:") return false;
-    const host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-    if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host === "::1") return false;
-    const m = host.match(/^(\d+)\.(\d+)\.\d+\.\d+$/);
-    if (m) {
-        const a = Number(m[1]), b = Number(m[2]);
-        if (a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31)) return false;
-    }
-    return true;
-}
+// The rule is in lib/shared.js: the service worker applies it too.
+export const isPlainRemoteUrl = window.PhishLensShared.isPlainRemoteUrl;
 
 const customUrlInput = $("custom-url");
 const connStatus = $("conn-status");
@@ -69,6 +52,16 @@ async function testConnection() {
     }
 }
 
+// Optional host permissions, asked for during a click; a refusal changes
+// nothing that works (the server's CORS headers still apply).
+function requestOrigins(origins) {
+    try {
+        chrome.permissions?.request({ origins })?.catch?.(() => {});
+    } catch (e) {
+        console.debug("[PhishLens] permission not requested:", e?.message || e);
+    }
+}
+
 function fillLanguageMenu(choice) {
     const select = $("ui-lang");
     select.replaceChildren(new Option(t("language_auto"), "auto"),
@@ -84,18 +77,49 @@ export function initSettings() {
         r.addEventListener("change", () => {
             if (!r.checked) return;
             backend.choice = r.value;
+            // A local server is asked for in the choice itself (a user
+            // gesture): it is an optional permission. Without it the
+            // server's CORS headers still let the extension in.
+            if (backend.choice === "local") requestOrigins(["http://127.0.0.1:8000/*", "http://localhost:8000/*"]);
             customUrlInput.disabled = backend.choice !== "custom";
             STORAGE?.set({ backend: backend.choice });
             if (backend.choice === "custom" && !customUrlInput.value) customUrlInput.focus();
             updateCustomUrlWarn();
         });
     });
-    customUrlInput.addEventListener("input", () => {
-        backend.customUrl = customUrlInput.value.trim();
-        STORAGE?.set({ backend_custom_url: backend.customUrl });
+    // Saved when the address is complete (Enter or leaving the field), not
+    // at every key: a half-typed address was briefly the server. http://
+    // over the internet needs a confirmation, remembered for that address.
+    customUrlInput.addEventListener("input", updateCustomUrlWarn);
+    customUrlInput.addEventListener("change", () => {
+        const url = customUrlInput.value.trim();
+        if (url && !/^https?:\/\/[^/\s]+/i.test(url)) {
+            setConnStatus("err", t("url_scheme"));
+            return;
+        }
+        if (isPlainRemoteUrl(url)) {
+            if (!confirm(t("custom_url_http_confirm"))) {
+                customUrlInput.value = backend.customUrl;
+                updateCustomUrlWarn();
+                return;
+            }
+            STORAGE?.set({ backend_http_ok: url });
+        }
+        backend.customUrl = url;
+        STORAGE?.set({ backend_custom_url: url });
+        setConnStatus(null);
         updateCustomUrlWarn();
     });
-    $("test-conn-btn").addEventListener("click", testConnection);
+    $("test-conn-btn").addEventListener("click", () => {
+        if (backend.choice === "custom") {
+            try {
+                requestOrigins([new URL(backend.customUrl).origin + "/*"]);
+            } catch {
+                // Not a URL yet: the test below says so.
+            }
+        }
+        testConnection();
+    });
 
     const fullHeaders = $("opt-full-headers");
     const autoScan = $("opt-auto-scan");

@@ -29,7 +29,7 @@ export function renderResultFeedback(data, historyId, pasted, source) {
             code: data.language?.code,
             onChoice: (code) => {
                 extra.langUser = code;
-                if (historyId) HISTORY.updateScan(historyId, { lang_user: code });
+                if (historyId) API.history.update(historyId, { lang_user: code });
             },
         }),
         REPORT.reportButton({
@@ -37,7 +37,7 @@ export function renderResultFeedback(data, historyId, pasted, source) {
             getText: async () => (pasted ? REDACT.redact(pasted) : ""),
             redact: (x) => REDACT.redact(x),
             send: sender(data, extra),
-            onSent: (_k, reference) => historyId && HISTORY.updateScan(historyId, { label: "wrong", reported: reference }),
+            onSent: (_k, reference) => historyId && API.history.update(historyId, { label: "wrong", reported: reference }),
         })));
 }
 
@@ -48,7 +48,7 @@ export async function historyReportPanel(entry) {
         text: (await HISTORY.getDraft(entry.id)) || "",
         redact: (x) => REDACT.redact(x),
         send: sender(entryAsResult(entry), { source: entry.source, lang: entry.lang, langUser: entry.lang_user }),
-        onSent: (_k, reference) => HISTORY.updateScan(entry.id, { reported: reference }),
+        onSent: (_k, reference) => API.history.update(entry.id, { reported: reference }),
     });
 }
 
@@ -66,7 +66,8 @@ export function renderShareStats(list) {
             h("p.plr-report__intro", null, t("share_stats_intro", { count: rows.length })),
             h("textarea.plr-report__text", {
                 readOnly: true, rows: 6, "aria-label": t("fb_report_preview"),
-                value: JSON.stringify(rows.slice(0, 3), null, 1),
+                // Every row that is sent, not a sample of them.
+                value: JSON.stringify(rows, null, 1),
             }),
             h("div.plr-report__actions", null,
                 send,

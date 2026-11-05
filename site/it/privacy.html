@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=876364fc54">
-<script src="../i18n/it.js?v=be469f1892" defer></script>
+<script src="../i18n/it.js?v=a7f3a24374" defer></script>
 <script src="../lang.js?v=074b2a25f3" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 </head>
@@ -159,9 +159,9 @@
 <td>Finché non la cancelli (Statistiche, <strong>Cancella</strong>), al massimo le ultime 500 analisi</td>
 </tr>
 <tr class="even">
-<td>Cache delle spiegazioni</td>
+<td>Cache delle spiegazioni (le parole che spiegano un verdetto, indicizzate da un'impronta del testo)</td>
 <td>Il tuo browser</td>
-<td>Finché l'estensione non viene rimossa</td>
+<td>30 giorni, al massimo 200 voci; cancellata con la cronologia</td>
 </tr>
 <tr class="odd">
 <td>Testo anonimizzato delle analisi recenti di Gmail e Outlook, per le segnalazioni</td>
@@ -174,9 +174,9 @@
 <td>Al massimo due anni; cancellate su richiesta con il riferimento</td>
 </tr>
 <tr class="odd">
-<td>Risultati dell'analisi automatica (identificativo della conversazione, verdetto, punteggio)</td>
+<td>Risultati dell'analisi automatica (identificativo della conversazione, verdetto, punteggio, una breve impronta della riga della posta in arrivo)</td>
 <td>Il tuo browser</td>
-<td>Le ultime 500 email</td>
+<td>Le ultime 500 email; cancellati con la cronologia</td>
 </tr>
 <tr class="even">
 <td>Impostazioni</td>
@@ -238,8 +238,12 @@
 <td>Lo stesso, in Outlook (solo analisi manuali).</td>
 </tr>
 <tr class="even">
-<td>Accesso a <code>127.0.0.1:8000</code>, <code>localhost:8000</code>, <code>phishlens.dev</code></td>
-<td>Inviare le analisi al server che hai scelto.</td>
+<td>Accesso a <code>phishlens.dev</code></td>
+<td>Inviare le analisi a PhishLens Cloud, il server predefinito.</td>
+</tr>
+<tr class="odd">
+<td>Facoltativo: <code>127.0.0.1:8000</code>, <code>localhost:8000</code> o l'indirizzo del tuo server</td>
+<td>Richiesto solo quando scegli un server locale o personalizzato nelle impostazioni, e solo per quell'indirizzo.</td>
 </tr>
 </tbody>
 </table></div>

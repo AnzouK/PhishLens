@@ -103,10 +103,10 @@ jamais le navigateur, sauf si vous signalez cette analyse.
 | Donnée | Où | Durée |
 | --- | --- | --- |
 | Historique des analyses (objet, expéditeur, verdict, scores, principaux mots de l'explication, langue détectée et votre réponse) | Votre navigateur (`chrome.storage.local`) | Jusqu'à ce que vous l'effaciez (Statistiques, **Effacer**), au plus les 500 dernières analyses |
-| Cache des explications | Votre navigateur | Jusqu'à la suppression de l'extension |
+| Cache des explications (les mots qui expliquent un verdict, indexés par une empreinte du texte) | Votre navigateur | 30 jours, au plus 200 entrées ; effacé avec l'historique |
 | Texte anonymisé des analyses Gmail et Outlook récentes, pour les signalements | Votre navigateur | 7 jours, 50 e-mails au plus ; effacé avec l'historique |
 | Signalements que vous avez envoyés (texte anonymisé ou statistiques, voir plus haut) | PhishLens Cloud (Google Cloud Storage, États-Unis) | Au plus deux ans ; supprimés sur demande avec la référence |
-| Résultats de l'analyse automatique (identifiant de conversation, verdict, score) | Votre navigateur | Les 500 derniers e-mails |
+| Résultats de l'analyse automatique (identifiant de conversation, verdict, score, une courte empreinte de la ligne de la boîte de réception) | Votre navigateur | Les 500 derniers e-mails ; effacés avec l'historique |
 | Réglages | Votre navigateur | Jusqu'à leur modification |
 | Verdicts des liens (URL, verdict, source) | Cache du serveur (SQLite) | 24 heures |
 | Résultats renvoyés (verdict, scores, verdicts des liens, mots de l'explication), indexés par une empreinte de l'e-mail ; pas l'e-mail lui-même | Mémoire du serveur | 24 heures, ou jusqu'au redémarrage du serveur |
@@ -137,7 +137,8 @@ navigateur.
 | `scripting` | Après une mise à jour, installer la nouvelle version des boutons d'analyse dans les onglets Gmail et Outlook déjà ouverts, pour que vous n'ayez pas à les actualiser. |
 | Accès à `mail.google.com` | Ajouter les boutons d'analyse et les bannières à Gmail et lire l'e-mail que vous analysez. |
 | Accès à Outlook sur le web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | La même chose, dans Outlook (analyses manuelles seulement). |
-| Accès à `127.0.0.1:8000`, `localhost:8000`, `phishlens.dev` | Envoyer les analyses au serveur que vous avez choisi. |
+| Accès à `phishlens.dev` | Envoyer les analyses à PhishLens Cloud, le serveur par défaut. |
+| Facultatif : `127.0.0.1:8000`, `localhost:8000` ou l'adresse de votre propre serveur | Demandé seulement quand vous choisissez un serveur local ou personnalisé dans les réglages, pour cette seule adresse. |
 
 ## Vos choix
 

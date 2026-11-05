@@ -57,7 +57,7 @@ function liveEvaluation(live) {
 
 function reviewButtons(e) {
     const review = (label) => async () => {
-        await HISTORY.setLabel(e.id, e.label === label ? null : label);
+        await window.PhishLensApi.history.label(e.id, e.label === label ? null : label);
         renderInsights();
     };
     const button = (label, key, extra = "") => h(`button.review-btn${extra}${e.label === label ? ".review-btn--on" : ""}`,
@@ -142,14 +142,14 @@ export function initInsights() {
     });
     $("clear-history-btn").addEventListener("click", async () => {
         if (!confirm(t("confirm_clear"))) return;
-        await HISTORY.clearHistory();
+        await window.PhishLensApi.history.clear();
         await renderInsights();
     });
     // Shift-click on a row removes that scan.
     $("history-list").addEventListener("click", async (ev) => {
         const id = ev.shiftKey && ev.target.closest(".history-item")?.dataset.id;
         if (id && confirm(t("confirm_remove"))) {
-            await HISTORY.deleteScan(id);
+            await window.PhishLensApi.history.remove(id);
             await renderInsights();
         }
     });

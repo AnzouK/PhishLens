@@ -27,6 +27,31 @@ async function getBackendBase() {
     }
 }
 
+// http:// to a server outside the user's own machine or network: emails
+// would cross the internet unencrypted. Local and private addresses are
+// fine: loopback, .localhost / .local names, RFC 1918 and CGNAT ranges
+// (Tailscale: 100.64.0.0/10, *.ts.net), IPv6 loopback, unique-local
+// (fc00::/7) and link-local (fe80::/10).
+function isPlainRemoteUrl(value) {
+    let u;
+    try {
+        u = new URL(value);
+    } catch {
+        return false;            // not a URL yet (still being typed)
+    }
+    if (u.protocol !== "http:") return false;
+    const host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+    if (host === "localhost" || /\.(localhost|local|ts\.net)$/.test(host) || host === "::1") return false;
+    if (/^f[cd][0-9a-f]{0,2}:/.test(host) || /^fe[89ab][0-9a-f]?:/.test(host)) return false;
+    const m = host.match(/^(\d+)\.(\d+)\.\d+\.\d+$/);
+    if (m) {
+        const a = Number(m[1]), b = Number(m[2]);
+        if (a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31)) return false;
+        if (a === 100 && b >= 64 && b <= 127) return false;
+    }
+    return true;
+}
+
 // For failures that change nothing for the user (a cache miss, a page
 // element that is gone): visible with the console's "Verbose" level.
 function debug(where, err) {
@@ -90,7 +115,7 @@ function collapseInvisible(text) {
 
 const PhishLensShared = Object.freeze({
     BACKEND_PRESETS, DEFAULT_BACKEND, resolveBackend, getBackendBase, apiErrorMessage, debug, safeName,
-    INVISIBLE_SOURCE, withoutInvisible, collapseInvisible,
+    INVISIBLE_SOURCE, withoutInvisible, collapseInvisible, isPlainRemoteUrl,
 });
 globalThis.PhishLensShared = PhishLensShared;
 

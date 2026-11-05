@@ -95,10 +95,10 @@ most). It never leaves the browser unless you report that scan.
 | Data | Where | How long |
 | --- | --- | --- |
 | Scan history (subject, sender, verdict, scores, top explanation words, detected language and your answer) | Your browser (`chrome.storage.local`) | Until you clear it (Insights, **Clear**), up to the last 500 scans |
-| Explanation cache | Your browser | Until the extension is removed |
+| Explanation cache (the words that explain a verdict, keyed by a hash of the text) | Your browser | 30 days, 200 entries at most; cleared with the history |
 | Redacted text of recent Gmail and Outlook scans, for reporting | Your browser | 7 days, 50 emails at most; cleared with the history |
 | Reports you sent (redacted text or statistics, see above) | PhishLens Cloud (Google Cloud Storage, United States) | At most two years; deleted on request with the reference |
-| Automatic-scan results (thread id, verdict, score) | Your browser | Last 500 emails |
+| Automatic-scan results (thread id, verdict, score, a short print of the inbox row) | Your browser | Last 500 emails; cleared with the history |
 | Settings | Your browser | Until changed |
 | Link verdicts (URL, verdict, source) | Backend cache (SQLite) | 24 hours |
 | Results sent back (verdict, scores, link verdicts, explanation words), keyed by a hash of the email; not the email itself | Backend memory | 24 hours, or until the server restarts |
@@ -127,7 +127,8 @@ sees as a normal request from your browser.
 | `scripting` | After an update, put the new version of the scan buttons into Gmail and Outlook tabs that are already open, so you do not have to refresh them. |
 | Access to `mail.google.com` | Add the scan buttons and banners to Gmail and read the email you scan. |
 | Access to Outlook on the web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Same, in Outlook (manual scans only). |
-| Access to `127.0.0.1:8000`, `localhost:8000`, `phishlens.dev` | Send scans to the backend you chose. |
+| Access to `phishlens.dev` | Send scans to PhishLens Cloud, the default backend. |
+| Optional: `127.0.0.1:8000`, `localhost:8000`, or the address of your own server | Asked for only when you choose a local or custom backend in the settings, for that address alone. |
 
 ## Your choices
 

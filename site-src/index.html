@@ -38,7 +38,7 @@
     <div class="wrap">
       <h2>{{results_h}}</h2>
       <div class="headline">
-        <div class="big">90.2%</div>
+        <div class="big">{{r_caught_big}}</div>
         <p class="lbl">{{r_caught}}<span class="ci">{{r_caught_ci}}</span></p>
       </div>
       <p class="facts">{{r_facts}}</p>
@@ -187,7 +187,7 @@
             <li>{{backend_cloud_html}}</li>
             <li>{{backend_own_html}}</li>
           </ol>
-<pre># the public English text model; PhishLens Cloud runs the multilingual one
+<pre># {{install_cmd_comment}}
 huggingface-cli download AnzouKiona/phishlens-distilbert \
   --local-dir backend/model
 cd backend &amp;&amp; docker compose up --build</pre>

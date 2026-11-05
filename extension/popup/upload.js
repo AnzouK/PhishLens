@@ -94,7 +94,7 @@ async function analyze() {
 
     let historyId = null;
     try {
-        historyId = await window.PhishLensHistory.saveScan(window.PhishLensHistory.entryFrom(data, {
+        historyId = await API.history.save(window.PhishLensHistory.entryFrom(data, {
             source: req.source, subject: (state.file?.name || "").slice(0, 120), sender: data.sender_domain || "",
         }));
     } catch (e) {

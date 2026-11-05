@@ -18,6 +18,10 @@ function installFakeChrome() {
                     for (const [k, v] of Object.entries(obj)) store[k] = structuredClone(v);
                     if (cb) cb();
                 },
+                remove(keys, cb) {
+                    for (const k of [].concat(keys)) delete store[k];
+                    if (cb) cb();
+                },
             },
         },
     };

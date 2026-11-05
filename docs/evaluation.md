@@ -137,8 +137,36 @@ signed notice scored 0.56 where the current model stays below 0.5.
 ## Known gaps
 
 - 414 legitimate emails, one person's inboxes plus technical mailing
-  lists: another inbox may see more false alarms. The upper bound of
-  the interval, 1.4%, is the honest figure.
+  lists: another inbox may see more false alarms.
 - English (81.6%) and French (87.2%) are the weakest languages.
 - Only 6 languages are measured on real phishing; the text model reads
   22.
+- The 297 Apache emails were used while tuning (the 2.0.8 change was
+  made on them), so they are not an unseen set. The 117 inbox emails
+  are: 0 of 117 flagged, at most 3.2% at 95%. That is the figure to
+  expect on everyday mail, not the 0.2% of the two together.
+- The 2,000 phishing emails of the 2.0.12 run are the sample of the
+  2.0.10 run, measured again after looking at the emails whose verdict
+  changed (and one change, the text read as shown and as written, came
+  from that look). The next figure is measured on a fresh sample drawn
+  with `--exclude`, before any change is made on it.
+- The phishing labels come from phishing_pot and Nazario as published:
+  some are ads, not phishing. They are kept, as decided before the runs,
+  and the rate is read with that in mind.
+- One channel is measured: the raw message with its headers, as Gmail
+  gives it with "Read full headers" on. Not measured yet: Gmail without
+  the headers (visible text, links and Gmail's own signals) and Outlook
+  (visible text and links only: no SPF, DKIM or DMARC, so the softer
+  path for authenticated senders never applies there). A false alarm
+  rate per channel needs the same legitimate mail scanned both ways.
+- Rates per trust path: the misses are counted by path in each run
+  (122 by default, 74 on `crypto_verified` in 2.0.12), not yet published
+  as rates.
+- The multilingual text model's weights are not public: anyone can
+  rerun the benchmark against PhishLens Cloud and compare email by email
+  with the published runs (`docs/benchmark/`), but not rebuild the
+  model. A self-hosted server uses the public English model, which
+  flags more legitimate mail ([languages](languages.md#text-model)).
+- The text model reads the first 256 tokens: a long benign preamble can
+  push the lure out of its window (threat model, R10). The links and the
+  sender are checked whatever the length.

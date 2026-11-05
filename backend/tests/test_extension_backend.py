@@ -552,7 +552,12 @@ class TestLinkUrls:
             ),
             ["https://a.example/x"],
         )
-        assert out == ["https://a.example/x", "https://c.example/login"]
+        # A very long link is cut at 2048 characters, not dropped.
+        assert out == [
+            "https://a.example/x",
+            ("http://b.example/" + "p" * 3000)[:2048],
+            "https://c.example/login",
+        ]
 
     def test_client_links_are_capped_and_must_be_a_list(self):
         many = [f"https://h{i}.example/" for i in range(200)]

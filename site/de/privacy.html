@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=876364fc54">
-<script src="../i18n/de.js?v=be469f1892" defer></script>
+<script src="../i18n/de.js?v=a7f3a24374" defer></script>
 <script src="../lang.js?v=074b2a25f3" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 </head>
@@ -159,9 +159,9 @@
 <td>Bis Sie ihn löschen (Statistiken, <strong>Löschen</strong>), höchstens die letzten 500 Prüfungen</td>
 </tr>
 <tr class="even">
-<td>Zwischenspeicher der Erklärungen</td>
+<td>Zwischenspeicher der Erklärungen (die Wörter, die ein Urteil erklären, über einen Hash des Textes zugeordnet)</td>
 <td>Ihr Browser</td>
-<td>Bis die Erweiterung entfernt wird</td>
+<td>30 Tage, höchstens 200 Einträge; mit dem Verlauf gelöscht</td>
 </tr>
 <tr class="odd">
 <td>Anonymisierter Text der letzten Gmail- und Outlook-Prüfungen, für Meldungen</td>
@@ -174,9 +174,9 @@
 <td>Höchstens zwei Jahre; auf Anfrage mit der Referenz gelöscht</td>
 </tr>
 <tr class="odd">
-<td>Ergebnisse der automatischen Prüfung (Unterhaltungs-ID, Urteil, Wert)</td>
+<td>Ergebnisse der automatischen Prüfung (Unterhaltungs-ID, Urteil, Wert, ein kurzer Abdruck der Zeile im Posteingang)</td>
 <td>Ihr Browser</td>
-<td>Die letzten 500 E-Mails</td>
+<td>Die letzten 500 E-Mails; mit dem Verlauf gelöscht</td>
 </tr>
 <tr class="even">
 <td>Einstellungen</td>
@@ -238,8 +238,12 @@
 <td>Dasselbe in Outlook (nur manuelle Prüfungen).</td>
 </tr>
 <tr class="even">
-<td>Zugriff auf <code>127.0.0.1:8000</code>, <code>localhost:8000</code>, <code>phishlens.dev</code></td>
-<td>Prüfungen an den von Ihnen gewählten Server senden.</td>
+<td>Zugriff auf <code>phishlens.dev</code></td>
+<td>Prüfungen an PhishLens Cloud senden, den Standardserver.</td>
+</tr>
+<tr class="odd">
+<td>Optional: <code>127.0.0.1:8000</code>, <code>localhost:8000</code> oder die Adresse Ihres eigenen Servers</td>
+<td>Nur angefragt, wenn Sie in den Einstellungen einen lokalen oder eigenen Server wählen, und nur für diese Adresse.</td>
 </tr>
 </tbody>
 </table></div>

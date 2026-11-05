@@ -166,17 +166,25 @@ function bannerStack(tile, emailView) {
     return stack;
 }
 
-// The same file always gets the same card, updated on a new scan.
-function cardFor(filename, tile, emailView) {
-    const id = "pll-att-" + String(filename || "").replace(/[^a-z0-9]+/gi, "-").slice(0, 60).toLowerCase();
-    const stack = bannerStack(tile, emailView);
-    let card = stack.querySelector(`#${CSS.escape(id)}`);
-    if (!card) {
-        card = h("div.pll-att-banner", { id });
-        stack.appendChild(card);
+// One card per attachment tile (or per target when Gmail gave no tile),
+// updated on a new scan. Never keyed by the file name: "invoice.pdf" and
+// "invoice .pdf", or any two names in a non-Latin script, once shared a
+// card, and the last verdict replaced the other (a phishing result shown
+// as safe).
+const cards = new WeakMap();
+
+function cardFor(target) {
+    const { tile, emailView } = target;
+    const key = tile || target;
+    let card = cards.get(key);
+    if (!card || !card.isConnected) {
+        card = h("div.pll-att-banner");
+        bannerStack(tile, emailView).appendChild(card);
+        cards.set(key, card);
     }
     return card;
 }
+PL.attachmentCardFor = cardFor;
 
 function cardHead(iconName, title, filename, spin = false) {
     return h("div.pll-att-banner__row", null,
@@ -192,8 +200,9 @@ function setCard(card, state, ...children) {
 }
 
 // A file PhishLens cannot read: say it was not checked, not nothing.
-function renderNotice({ filename, tile, emailView }) {
-    const card = cardFor(filename, tile, emailView);
+function renderNotice(target) {
+    const { filename, tile } = target;
+    const card = cardFor(target);
     if (card.childElementCount) return;
     setCard(card, "error", cardHead("alert", t("att_not_checked"), filename),
         h("div.pll-att-banner__sub", null, t("att_not_checked_sub")));
@@ -217,6 +226,12 @@ async function download(anchor, tile) {
     if (new URL(url, location.href).origin !== location.origin) throw new Error(t("att_err_no_url"));
     const resp = await fetch(url, { credentials: "include" });
     if (!resp.ok) throw new Error(t("att_err_download", { status: resp.status }));
+    // Too large by its announced size: not downloaded at all.
+    const announced = Number(resp.headers?.get?.("content-length")) || 0;
+    if (announced > MAX_FILE_MB * 1024 * 1024) {
+        resp.body?.cancel?.().catch?.(() => {});
+        throw new Error(t("att_err_too_large", { size: (announced / 1024 / 1024).toFixed(1), max: MAX_FILE_MB }));
+    }
     const buf = await resp.arrayBuffer();
     if (buf.byteLength > MAX_FILE_MB * 1024 * 1024) {
         throw new Error(t("att_err_too_large", { size: (buf.byteLength / 1024 / 1024).toFixed(1), max: MAX_FILE_MB }));
@@ -230,7 +245,7 @@ async function scanAttachment(target) {
         renderNotice(target);
         return;
     }
-    const card = cardFor(filename, tile, emailView);
+    const card = cardFor(target);
     setCard(card, "loading", cardHead("spinner", t("scanning"), filename, true));
     try {
         const b64 = await download(anchor, tile);

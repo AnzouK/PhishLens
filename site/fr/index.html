@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=876364fc54">
-<script src="../i18n/fr.js?v=be469f1892" defer></script>
+<script src="../i18n/fr.js?v=a7f3a24374" defer></script>
 <script src="../lang.js?v=074b2a25f3" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -69,7 +69,7 @@
  ]
 }
 </script>
-<script src="../shared.js?v=e55783863a" defer></script>
+<script src="../shared.js?v=bfbc65fad6" defer></script>
 <script src="../redact.js?v=f9ef7a192a" defer></script>
 <script src="../app.js?v=1ca3b08526" defer></script>
 </head>
@@ -140,11 +140,11 @@
     <div class="wrap">
       <h2>Résultats</h2>
       <div class="headline">
-        <div class="big">90.2%</div>
-        <p class="lbl">des phishings détectés par le système complet, dans des e-mails récents que personne n'avait examinés<span class="ci">intervalle de confiance à 95 % : 88,8 % à 91,4 %</span></p>
+        <div class="big">90,2 %</div>
+        <p class="lbl">des phishings détectés par le système complet, dans de vrais e-mails récents<span class="ci">intervalle de confiance à 95 % : 88,8 % à 91,4 %</span></p>
       </div>
-      <p class="facts">1 e-mail légitime sur 414 signalé (0,2 %) · environ 190 ms par e-mail sur le serveur · vérifié sur du vrai phishing dans 6 des 22 langues que lit le modèle de texte</p>
-      <p class="note">Mesuré sur PhishLens Cloud le 1er novembre 2026 avec le benchmark public : 1 804 phishings récents sur 2 000, en plusieurs langues, tirés parmi ceux que personne n'avait examinés pendant les réglages (intervalle de confiance à 95 % : 88,8 % à 91,4 %), et 1 e-mail légitime sur 414 (297 de listes de diffusion publiques, 117 de vraies boîtes de réception ; 0,0 % à 1,4 %). La durée d'analyse est la médiane pour un e-mail ordinaire (environ 250 tokens) ; un e-mail court prend environ 65 ms. Un ordre de grandeur, pas une garantie : voir <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">comment c'est mesuré</a> et les <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limites connues</a>.</p>
+      <p class="facts">0 e-mail sur 117 de vraies boîtes signalé (au plus 3,2 %), 1 sur 297 de listes de diffusion · environ 190 ms par e-mail sur le serveur · vérifié sur du vrai phishing dans 6 des 22 langues que lit le modèle de texte</p>
+      <p class="note">Mesuré sur PhishLens Cloud le 1er novembre 2026 avec le benchmark public : 1 804 phishings récents sur 2 000, en plusieurs langues, tirés parmi ceux que personne n'avait examinés pendant les réglages (intervalle de confiance à 95 % : 88,8 % à 91,4 %), et 1 e-mail légitime sur 414 (297 de listes de diffusion publiques, 117 de vraies boîtes de réception ; 0,0 % à 1,4 %). La durée d'analyse est la médiane pour un e-mail ordinaire (environ 250 tokens) ; un e-mail court prend environ 65 ms. Les e-mails des listes de diffusion ont servi pendant les réglages, et les phishings ont été remesurés après les changements de la 2.0.12 : la prochaine mesure se fera sur un nouveau jeu. Un ordre de grandeur, pas une garantie : voir <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">comment c'est mesuré</a> et les <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limites connues</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, en ce moment</h3>
       <div class="strip" id="live" aria-live="polite">
@@ -162,7 +162,7 @@
         <ul class="rows">
           <li><svg class="ic"><use href="#i-text"/></svg><b>Texte</b><span>Un modèle multilingue (mmBERT-small, distillé d'un détecteur de phishing plus grand) note le texte dans 22 langues ; LIME montre les mots qui ont orienté le verdict.</span></li>
           <li><svg class="ic"><use href="#i-link"/></svg><b>Liens</b><span>Chaque vraie destination de lien, y compris celle cachée derrière « Cliquez ici », vérifiée auprès de Safe Browsing, PhishTank, URLhaus et Spamhaus.</span></li>
-          <li><svg class="ic"><use href="#i-key"/></svg><b>Expéditeur</b><span>SPF, DKIM et DMARC montrent qui l'a vraiment envoyé. Un e-mail transféré n'hérite pas de la confiance accordée à la personne qui l'a transféré.</span></li>
+          <li><svg class="ic"><use href="#i-key"/></svg><b>Expéditeur</b><span>Dans Gmail, SPF, DKIM et DMARC montrent qui l'a vraiment envoyé (Outlook ne donne à la page que le texte visible : on y vérifie la formulation, les liens et le nom). Un e-mail transféré n'hérite pas de la confiance accordée à la personne qui l'a transféré.</span></li>
           <li><svg class="ic"><use href="#i-clip"/></svg><b>Pièces jointes</b><span>PDF (y compris scannés, grâce à l'OCR), QR codes, macros et modèles distants Office, archives ZIP, RAR et 7z et invitations d'agenda.</span></li>
           <li><svg class="ic"><use href="#i-inbox"/></svg><b>Vraies boîtes de réception</b><span>Conversations, e-mails faits uniquement d'images et liens vers des fichiers partagés sur Drive, OneDrive ou Dropbox.</span></li>
         </ul>
@@ -189,7 +189,7 @@
         <li><svg class="ic"><use href="#i-bell"/></svg><div><b>Vérification automatique</b><span>En option : les nouveaux e-mails sont vérifiés à leur arrivée, marqués Sûr ou Phishing ? dans la liste, avec une notification.</span></div></li>
         <li><svg class="ic"><use href="#i-lock"/></svg><div><b>Confidentiel par conception</b><span>Aucun compte. Les e-mails sont analysés en mémoire et ne sont pas conservés ; votre historique reste dans votre navigateur. Avec votre propre serveur, aucun e-mail ne quitte votre ordinateur.</span></div></li>
         <li><svg class="ic"><use href="#i-chart"/></svg><div><b>Votre propre précision</b><span>Indiquez si chaque verdict était juste ou faux et voyez comment PhishLens se comporte sur vos vrais e-mails, avec un export CSV.</span></div></li>
-        <li><svg class="ic"><use href="#i-code"/></svg><div><b>Ouvert et testé</b><span>Licence GNU AGPL-3.0, avec un modèle de menaces, CodeQL et plus de 300 tests automatiques lancés à chaque modification.</span></div></li>
+        <li><svg class="ic"><use href="#i-code"/></svg><div><b>Ouvert et testé</b><span>Licence GNU AGPL-3.0, avec un modèle de menaces, CodeQL et plus de 1 000 tests automatiques lancés à chaque modification.</span></div></li>
       </ul>
     </div>
   </section>
@@ -289,7 +289,7 @@
             <li><b>PhishLens Cloud</b> (par défaut) : rien à faire.</li>
             <li><b>Le vôtre, privé :</b> lancez-le avec Docker, puis choisissez <b>Local</b> dans les réglages de l'extension.</li>
           </ol>
-<pre># the public English text model; PhishLens Cloud runs the multilingual one
+<pre># le modèle de texte anglais public ; PhishLens Cloud utilise le modèle multilingue
 huggingface-cli download AnzouKiona/phishlens-distilbert \
   --local-dir backend/model
 cd backend &amp;&amp; docker compose up --build</pre>

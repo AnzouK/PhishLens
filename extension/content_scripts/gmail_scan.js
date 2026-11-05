@@ -197,7 +197,9 @@ function extractGmailAuthSignals(emailView, msg) {
     if (msg) scrapeAuthRows(msg, out);
     if (!out.signedBy && !out.mailedBy) scrapeAuthRows(document.body, out);
     for (const el of (msg || emailView).querySelectorAll("span")) {
-        if (!fromGmail(el)) continue;
+        // Never the sender's own name: a display name "via paypal.com"
+        // would otherwise pass for Gmail's hint.
+        if (!fromGmail(el) || el.closest?.("[email], [name]")) continue;
         out.via = G.viaDomain(el.textContent);
         if (out.via) break;
     }

@@ -204,9 +204,16 @@ async function getHistory() {
     return (await _get(STORAGE_KEY)) || [];
 }
 
+// Everything PhishLens keeps about the emails seen: the history, the
+// report drafts, the cached explanations (lib/lime_cache.js) and the
+// automatic-scan verdicts (content_scripts/autoscan.js), current and
+// earlier versions. Settings stay.
+const EMAIL_DATA_KEYS = ["limeCache.v1", "limeCache.v2", "autoScanCache.v3", "autoScanCache.v4", "autoScanCache.v5"];
+
 const clearHistory = serial(async function clearHistory() {
     await _set(STORAGE_KEY, []);
     await _set(DRAFTS_KEY, {});
+    await new Promise((resolve) => chrome.storage.local.remove(EMAIL_DATA_KEYS, resolve));
 });
 
 const deleteScan = serial(async function deleteScan(id) {
@@ -328,7 +335,7 @@ async function exportCSV() {
 }
 
 const PhishLensHistory = {
-    saveScan, entryFrom, attachTokens, setLabel, updateScan, saveDraft, getDraft, statsRows,
+    saveScan, entryFrom, attachTokens, setLabel, updateScan, saveDraft, getDraft, statsRows, EMAIL_DATA_KEYS,
     liveEvaluation, getHistory, getStats, clearHistory, deleteScan, exportJSON, exportCSV,
     STORAGE_KEY, DRAFTS_KEY, MAX_ENTRIES,
 };

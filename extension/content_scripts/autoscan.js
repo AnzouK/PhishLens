@@ -3,7 +3,9 @@
 // seen are read through "Show original" (without opening them) and sent
 // to /analyse one at a time. A phishing verdict puts a "Phishing?" pill
 // on the row and raises a desktop notification. Verdicts are cached by
-// thread id, so an email is scanned once.
+// thread id with a print of the row: a new reply in the thread changes the
+// row, so the thread is scanned again and the old pill is taken down. An
+// email Gmail would not serve is retried later, three times at most.
 (function () {
 "use strict";
 
@@ -14,13 +16,16 @@ const { debug } = PhishLensShared;
 const G = PhishLensGmail;
 
 // The version changes with the scoring: older verdicts are not reused.
-const CACHE_KEY = "autoScanCache.v4";
+const CACHE_KEY = "autoScanCache.v5";
+const RETRY_MS = 30 * 60 * 1000;   // a skipped email is tried again after 30 min
+const MAX_TRIES = 3;
 const CACHE_MAX = 500;
 const MAX_PER_PASS = 10;     // well under the server's rate limit
 const DELAY_MS = 1500;       // between two emails
 let running = false;
 let timer = null;
 let cacheMem = null;
+let noticeToastShown = false;
 
 PL.scheduleAutoScan = function scheduleAutoScan() {
     if (!PL.isGmail || !PL.opts.autoScan || timer) return;
@@ -49,6 +54,25 @@ async function cachePut(id, entry) {
     cacheMem = cache;
 }
 
+// A short print of what a row shows (senders, subject, snippet, date),
+// our own pill left out: it changes when a reply arrives in the thread.
+function rowPrint(row) {
+    const badge = row.querySelector(".pll-row-badge")?.textContent || "";
+    let text = row.textContent || "";
+    if (badge) text = text.replace(badge, "");
+    let hash = 5381;
+    for (let i = 0; i < text.length; i++) hash = ((hash * 33) ^ text.charCodeAt(i)) >>> 0;
+    return hash.toString(36);
+}
+
+// What to do with a row: scan it (never seen, changed since, or a skip
+// whose wait is over), or leave it.
+function needsScan(r, hit, now = Date.now()) {
+    if (!hit || hit.print !== r.print) return true;
+    return hit.verdict === "skipped" && (hit.tries || 1) < MAX_TRIES && now - hit.ts > RETRY_MS;
+}
+PL.autoScanNeeds = needsScan;
+
 // Rows of the list on screen (Gmail keeps hidden copies of other views).
 function inboxRows() {
     const { SEL } = G;
@@ -59,6 +83,7 @@ function inboxRows() {
         sender: row.querySelector("span[email]")?.getAttribute("email") || "",
         senderName: row.querySelector("span[email]")?.getAttribute("name") || "",
         subject: (row.querySelector(SEL.rowSubject)?.textContent || "").trim(),
+        print: rowPrint(row),
     })).filter((r) => /^[0-9a-f]{8,20}$/.test(r.id));
 }
 
@@ -66,7 +91,12 @@ PL.paintAutoBadges = function paintAutoBadges() {
     if (!cacheMem || !PL.alive()) return;
     for (const r of inboxRows()) {
         const hit = cacheMem[r.id];
-        if (!hit || (hit.verdict !== "phishing" && hit.verdict !== "safe") || r.row.querySelector(".pll-row-badge")) continue;
+        const old = r.row.querySelector(".pll-row-badge");
+        // A pill only for the very row that was scanned: after a new
+        // reply, the old verdict says nothing about it.
+        const current = hit && hit.print === r.print && (hit.verdict === "phishing" || hit.verdict === "safe");
+        if (old && !current) old.remove();
+        if (!current || old) continue;
         const cell = r.row.querySelector(G.SEL.rowSubject)?.parentElement;
         if (!cell) continue;
         const bad = hit.verdict === "phishing";
@@ -97,10 +127,15 @@ function toast(text, kind = "info", hideAfterMs = 0) {
     if (hideAfterMs) box._pllTimer = setTimeout(() => box.remove(), hideAfterMs);
 }
 
+function skip(r) {
+    const tries = cacheMem?.[r.id]?.print === r.print ? (cacheMem[r.id].tries || 1) + 1 : 1;
+    return cachePut(r.id, { verdict: "skipped", print: r.print, tries, ts: Date.now() });
+}
+
 async function scanRow(r) {
     const original = await PL.fetchOriginalMessage({ thread: r.id });
     if (!original) {
-        await cachePut(r.id, { verdict: "skipped", ts: Date.now() });
+        await skip(r);
         return null;
     }
     const data = await PhishLensApi.analyse({
@@ -115,11 +150,12 @@ async function scanRow(r) {
             auto_scan: true,
         },
     });
-    await cachePut(r.id, { verdict: data.verdict, score: Number(data.fused_score) || 0, ts: Date.now() });
+    await cachePut(r.id, { verdict: data.verdict, score: Number(data.fused_score) || 0, print: r.print, ts: Date.now() });
     PL.saveScan(data, { source: "gmail-auto", subject: r.subject, sender: r.sender });
     PL.paintAutoBadges();
     if (data.verdict === "phishing") {
-        PhishLensApi.notify(t("notify_title"), `${r.sender || t("unknown_sender")}: ${r.subject || t("no_subject")}`)
+        // The sender only: a notification can show on a locked screen.
+        PhishLensApi.notify(t("notify_title"), r.sender || t("unknown_sender"))
             .catch((e) => debug("notification", e));
     }
     return data;
@@ -133,10 +169,15 @@ async function runAutoScan() {
         // in the popup, where the option is turned on, and before the
         // first manual scan).
         const notice = await new Promise((r) => chrome.storage.local.get(["privacy_notice_seen", "backend"], (v) => r(v || {})));
-        if (!notice.privacy_notice_seen && (!notice.backend || notice.backend === "cloud")) return;
+        if (!notice.privacy_notice_seen && (!notice.backend || notice.backend === "cloud")) {
+            // Said once per page, not left silent.
+            if (!noticeToastShown) toast(t("auto_waiting_notice"), "warn", 10000);
+            noticeToastShown = true;
+            return;
+        }
         const cache = await cacheGet();
         cacheMem = cache;
-        const todo = inboxRows().filter((r) => r.unread && !cache[r.id]).slice(0, MAX_PER_PASS);
+        const todo = inboxRows().filter((r) => r.unread && needsScan(r, cache[r.id])).slice(0, MAX_PER_PASS);
         let done = 0, flagged = 0;
         for (const r of todo) {
             if (!PL.opts.autoScan) break;
@@ -149,7 +190,7 @@ async function runAutoScan() {
                 // requests"): skipped, and the pass goes on.
                 if (e?.status >= 400 && e.status < 500 && e.status !== 429) {
                     debug("automatic scan skipped an email", e);
-                    await cachePut(r.id, { verdict: "skipped", ts: Date.now() });
+                    await skip(r);
                     continue;
                 }
                 // Server down or rate-limited: stop this pass, retry on the next one.

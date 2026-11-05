@@ -588,3 +588,44 @@ test("runs of invisible characters are cut to one as on the server", () => {
     const shared = require(path.join(EXT, "lib", "shared.js"));
     for (const c of COLLAPSE_CASES) assert.equal(shared.collapseInvisible(c.text), c.collapsed, JSON.stringify(c.text));
 });
+
+test("two attachments whose names look alike get a card each", () => {
+    const { ctx, PL } = load(entryFor("mail.google.com"));
+    const view = mailView(ctx.document);
+    const strip = ctx.document.createElement("div");
+    strip.className = "aQH";
+    view.append(strip);
+    const [a, b] = ["\u0441\u0447\u0451\u0442.pdf", "\u53d1\u7968.pdf"].map((filename) => {
+        const tile = ctx.document.createElement("div");
+        strip.append(tile);
+        return { filename, tile, emailView: view };
+    });
+    const cardA = PL.attachmentCardFor(a);
+    const cardB = PL.attachmentCardFor(b);
+    assert.notEqual(cardA, cardB);
+    assert.equal(PL.attachmentCardFor(a), cardA);
+    assert.equal(PL.attachmentCardFor({ ...b }), cardB);
+});
+
+test("the automatic scan looks again at a thread that changed, and retries a skip later", () => {
+    const { PL } = load(entryFor("mail.google.com"));
+    const now = 10 * 60 * 60 * 1000;
+    const row = { id: "abc123def", print: "p1" };
+    assert.equal(PL.autoScanNeeds(row, undefined, now), true);
+    assert.equal(PL.autoScanNeeds(row, { verdict: "safe", print: "p1", ts: now }, now), false);
+    assert.equal(PL.autoScanNeeds(row, { verdict: "safe", print: "p0", ts: now }, now), true);
+    assert.equal(PL.autoScanNeeds(row, { verdict: "skipped", print: "p1", tries: 1, ts: now - 60_000 }, now), false);
+    assert.equal(PL.autoScanNeeds(row, { verdict: "skipped", print: "p1", tries: 1, ts: now - 31 * 60_000 }, now), true);
+    assert.equal(PL.autoScanNeeds(row, { verdict: "skipped", print: "p1", tries: 3, ts: 0 }, now), false);
+});
+
+test("plain http:// is allowed only inside the user's machine or network", () => {
+    const shared = require(path.join(EXT, "lib", "shared.js"));
+    for (const u of ["http://localhost:8000", "http://127.0.0.1:8000", "http://192.168.1.5:8000", "http://100.101.102.103:8000",
+        "http://box.tail1234.ts.net:8000", "http://[fd12::1]:8000", "http://[fe80::1]:8000", "http://nas.local:8000", "https://example.com"]) {
+        assert.equal(shared.isPlainRemoteUrl(u), false, u);
+    }
+    for (const u of ["http://example.com", "http://8.8.8.8:8000", "http://[2001:db8::1]:8000", "http://100.128.0.1"]) {
+        assert.equal(shared.isPlainRemoteUrl(u), true, u);
+    }
+});

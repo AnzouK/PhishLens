@@ -35,6 +35,39 @@ backend share one version number.
   previous server sent: HSTS, a Content-Security-Policy that allows only
   the site's own files, the PhishLens API and the GitHub API, and
   no framing.
+- Localhost is an optional permission, asked for only when a local or
+  custom server is chosen, for that address alone.
+- A custom server address is saved when it is complete, and http:// to
+  a server outside the user's network needs a confirmation (Tailscale
+  and private IPv6 addresses count as the user's network).
+- Desktop notifications show the sender only, not the subject.
+- The automatic scan says it is waiting for the privacy notice instead
+  of staying silent, and "Share my statistics" shows every row it sends.
+- The privacy notice says that results are kept for 24 hours, and the
+  privacy policy gives the real lifetime of each local cache.
+- Website and README: SPF, DKIM and DMARC are named as Gmail checks, the
+  false-alarm figure leads with the real inboxes (0 of 117, at most
+  3.2%), the mailing-list set is said to have served for tuning, and the
+  big figure is written the local way.
+- docs/evaluation.md lists what is not measured yet: other channels,
+  rates per trust path, and the re-measured phishing sample.
+
+### Fixed
+- Gmail attachments: each file gets its own result card. Two names that
+  differ only in spaces or punctuation, or written in a non-Latin
+  script, shared one card, and the last verdict replaced the other.
+- Automatic scan: a thread is scanned again when a new reply arrives,
+  its old pill is taken down, and an email Gmail would not serve is
+  retried later (three times at most) instead of never.
+- A link longer than 2,048 characters is cut, not dropped from the
+  checks.
+- "Clear history" also clears the cached explanations and the automatic
+  scan's verdicts, as it says.
+- Popup changes to the history go through the service worker like every
+  other write, so two windows no longer write over each other.
+- A click on a notification brings back its Gmail tab even after the
+  service worker was stopped.
+- Gmail's "via" hint is never read from the sender's own name.
 
 ### Security
 - The backend refuses with 403 any request without the shared secret

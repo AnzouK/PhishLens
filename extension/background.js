@@ -7,15 +7,13 @@
 // Chrome runs this file as a service worker, which loads the libraries
 // here. Firefox runs it as an event page whose manifest lists the same
 // files before it (scripts/build_extension.py reads this list).
+// A missing file stops the worker with the browser's own error (shown on
+// the extensions page): nothing below works without these libraries.
 if (typeof importScripts === "function") {
-    try {
-        importScripts(
-            "lib/locales/en.js", "lib/locales/fr.js", "lib/locales/pt.js", "lib/locales/es.js",
-            "lib/locales/de.js", "lib/locales/it.js", "lib/locales/nl.js", "lib/locales/ha.js",
-            "lib/i18n.js", "lib/shared.js", "lib/history.js", "lib/lime_cache.js");
-    } catch (e) {
-        console.warn("[PhishLens] shared modules not loaded:", e);
-    }
+    importScripts(
+        "lib/locales/en.js", "lib/locales/fr.js", "lib/locales/pt.js", "lib/locales/es.js",
+        "lib/locales/de.js", "lib/locales/it.js", "lib/locales/nl.js", "lib/locales/ha.js",
+        "lib/i18n.js", "lib/shared.js", "lib/history.js", "lib/lime_cache.js");
 }
 self.PhishLensI18n?.init();
 
@@ -53,19 +51,25 @@ async function reinjectIntoOpenTabs() {
     }
 }
 
-// A click on a notification brings back the Gmail tab that raised it.
-const notificationTabs = new Map();
+// A click on a notification brings back the Gmail tab that raised it. The
+// tab and window are written in the notification's id: an idle worker is
+// stopped and its memory lost, the id is not.
+function notificationTab(id) {
+    const m = /^pll-(\d+)-(\d+)-/.exec(String(id));
+    return m ? { tabId: Number(m[1]), windowId: Number(m[2]) } : null;
+}
+
 chrome.notifications?.onClicked?.addListener((id) => {
-    const tab = notificationTabs.get(id);
+    const tab = notificationTab(id);
+    chrome.notifications.clear(id);
     if (!tab) return;
     chrome.tabs.update(tab.tabId, { active: true }).catch((e) => debug("focus tab", e));
     chrome.windows.update(tab.windowId, { focused: true }).catch((e) => debug("focus window", e));
-    chrome.notifications.clear(id);
-    notificationTabs.delete(id);
 });
 
 function notify(msg, sender) {
-    const id = "pll-" + Date.now();
+    const tab = sender?.tab;
+    const id = tab?.id != null ? `pll-${tab.id}-${tab.windowId ?? 0}-${Date.now()}` : `pll-x-${Date.now()}`;
     chrome.notifications?.create(id, {
         type: "basic",
         iconUrl: "icons/128.png",
@@ -73,7 +77,6 @@ function notify(msg, sender) {
         message: String(msg.message || "").slice(0, 300),
         priority: 2,
     });
-    if (sender?.tab?.id != null) notificationTabs.set(id, { tabId: sender.tab.id, windowId: sender.tab.windowId });
 }
 
 // One POST to the server; resolves to the JSON answer or throws an Error
@@ -113,6 +116,12 @@ async function serverBase() {
     const base = await self.PhishLensShared.getBackendBase();
     if (!base) throw new Error(text("no_server"));
     if (!/^https?:\/\//.test(base)) throw new Error(text("url_scheme"));
+    // http:// over the internet only once the user confirmed that very
+    // address in Settings.
+    if (self.PhishLensShared.isPlainRemoteUrl(base)) {
+        const ok = await new Promise((r) => chrome.storage.local.get(["backend_http_ok"], (s) => r(s?.backend_http_ok)));
+        if (ok !== base) throw new Error(text("err_http_remote"));
+    }
     return base;
 }
 
@@ -156,6 +165,9 @@ const HANDLERS = {
     "phishlens.history.update": (msg) => H().updateScan(msg.id, msg.patch),
     "phishlens.history.draft": (msg) => H().saveDraft(msg.id, msg.text),
     "phishlens.history.attachTokens": (msg) => H().attachTokens(msg.id, msg.tokens),
+    "phishlens.history.label": (msg) => H().setLabel(msg.id, msg.label),
+    "phishlens.history.remove": (msg) => H().deleteScan(msg.id),
+    "phishlens.history.clear": () => H().clearHistory(),
 };
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

@@ -52,6 +52,11 @@ function fakeChrome() {
                     if (cb) cb();
                     return Promise.resolve();
                 },
+                remove(keys, cb) {
+                    for (const k of [].concat(keys || [])) delete store[k];
+                    if (cb) cb();
+                    return Promise.resolve();
+                },
             },
         },
         runtime: {
@@ -60,6 +65,19 @@ function fakeChrome() {
             sendMessage: async (msg) => {
                 window.__sent = (window.__sent || []).concat([msg]);
                 if (msg?.type === "phishlens.feedback") return { ok: true, data: { reference: "a1b2c3d4e5f6" } };
+                // The history, kept by background.js in the extension: the
+                // same library, run here.
+                const H = window.PhishLensHistory;
+                const history = {
+                    "phishlens.history.save": () => H.saveScan(msg.entry),
+                    "phishlens.history.update": () => H.updateScan(msg.id, msg.patch),
+                    "phishlens.history.draft": () => H.saveDraft(msg.id, msg.text),
+                    "phishlens.history.attachTokens": () => H.attachTokens(msg.id, msg.tokens),
+                    "phishlens.history.label": () => H.setLabel(msg.id, msg.label),
+                    "phishlens.history.remove": () => H.deleteScan(msg.id),
+                    "phishlens.history.clear": () => H.clearHistory(),
+                }[msg?.type];
+                if (history) return { ok: true, data: await history() };
                 const endpoint = { "phishlens.analyse": "/analyse", "phishlens.analyse_attachment": "/analyse_attachment",
                     "phishlens.explain": "/explain" }[msg?.type];
                 if (!endpoint) return { ok: true, data: null };

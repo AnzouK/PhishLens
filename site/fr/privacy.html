@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=876364fc54">
-<script src="../i18n/fr.js?v=be469f1892" defer></script>
+<script src="../i18n/fr.js?v=a7f3a24374" defer></script>
 <script src="../lang.js?v=074b2a25f3" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 </head>
@@ -159,9 +159,9 @@
 <td>Jusqu'à ce que vous l'effaciez (Statistiques, <strong>Effacer</strong>), au plus les 500 dernières analyses</td>
 </tr>
 <tr class="even">
-<td>Cache des explications</td>
+<td>Cache des explications (les mots qui expliquent un verdict, indexés par une empreinte du texte)</td>
 <td>Votre navigateur</td>
-<td>Jusqu'à la suppression de l'extension</td>
+<td>30 jours, au plus 200 entrées ; effacé avec l'historique</td>
 </tr>
 <tr class="odd">
 <td>Texte anonymisé des analyses Gmail et Outlook récentes, pour les signalements</td>
@@ -174,9 +174,9 @@
 <td>Au plus deux ans ; supprimés sur demande avec la référence</td>
 </tr>
 <tr class="odd">
-<td>Résultats de l'analyse automatique (identifiant de conversation, verdict, score)</td>
+<td>Résultats de l'analyse automatique (identifiant de conversation, verdict, score, une courte empreinte de la ligne de la boîte de réception)</td>
 <td>Votre navigateur</td>
-<td>Les 500 derniers e-mails</td>
+<td>Les 500 derniers e-mails ; effacés avec l'historique</td>
 </tr>
 <tr class="even">
 <td>Réglages</td>
@@ -238,8 +238,12 @@
 <td>La même chose, dans Outlook (analyses manuelles seulement).</td>
 </tr>
 <tr class="even">
-<td>Accès à <code>127.0.0.1:8000</code>, <code>localhost:8000</code>, <code>phishlens.dev</code></td>
-<td>Envoyer les analyses au serveur que vous avez choisi.</td>
+<td>Accès à <code>phishlens.dev</code></td>
+<td>Envoyer les analyses à PhishLens Cloud, le serveur par défaut.</td>
+</tr>
+<tr class="odd">
+<td>Facultatif : <code>127.0.0.1:8000</code>, <code>localhost:8000</code> ou l'adresse de votre propre serveur</td>
+<td>Demandé seulement quand vous choisissez un serveur local ou personnalisé dans les réglages, pour cette seule adresse.</td>
 </tr>
 </tbody>
 </table></div>

@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=876364fc54">
-<script src="../i18n/ha.js?v=be469f1892" defer></script>
+<script src="../i18n/ha.js?v=a7f3a24374" defer></script>
 <script src="../lang.js?v=074b2a25f3" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -69,7 +69,7 @@
  ]
 }
 </script>
-<script src="../shared.js?v=e55783863a" defer></script>
+<script src="../shared.js?v=bfbc65fad6" defer></script>
 <script src="../redact.js?v=f9ef7a192a" defer></script>
 <script src="../app.js?v=1ca3b08526" defer></script>
 </head>
@@ -141,10 +141,10 @@
       <h2>Sakamako</h2>
       <div class="headline">
         <div class="big">90.2%</div>
-        <p class="lbl">na phishing da cikakken tsarin ya gano, a imel na baya-bayan nan da babu wanda ya duba<span class="ci">tazarar amincewa ta 95%: 88.8% zuwa 91.4%</span></p>
+        <p class="lbl">na phishing da cikakken tsarin ya gano, a imel na gaske na baya-bayan nan<span class="ci">tazarar amincewa ta 95%: 88.8% zuwa 91.4%</span></p>
       </div>
-      <p class="facts">imel na halal 1 cikin 414 aka yi wa alama (0.2%) · kusan 190 ms ga kowane imel a sabar · an gwada da phishing na gaske a harsuna 6 cikin 22 da samfurin rubutu ke karantawa</p>
-      <p class="note">An auna a PhishLens Cloud ranar 1 ga Nuwamba, 2026 da benchmark na jama'a: imel na phishing 1,804 daga cikin 2,000 na baya-bayan nan, a harsuna da dama, waɗanda babu wanda ya duba lokacin gyare-gyare (tazarar amincewa ta 95%: 88.8% zuwa 91.4%), da imel na halal 1 daga cikin 414 (297 daga jerin aikawa na jama'a, 117 daga akwatunan gaske; 0.0% zuwa 1.4%). Lokacin bincike shi ne matsakaici na imel na yau da kullum (kusan tokens 250); gajeren imel yana ɗaukar kusan 65 ms. Ƙiyasi ne, ba tabbaci ba: duba <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">yadda aka auna</a> da <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">iyakokin da aka sani</a>.</p>
+      <p class="facts">imel 0 cikin 117 daga akwatunan gaske aka yi wa alama (a mafi yawa 3.2%), 1 cikin 297 daga jerin aikawa · kusan 190 ms ga kowane imel a sabar · an gwada da phishing na gaske a harsuna 6 cikin 22 da samfurin rubutu ke karantawa</p>
+      <p class="note">An auna a PhishLens Cloud ranar 1 ga Nuwamba, 2026 da benchmark na jama'a: imel na phishing 1,804 daga cikin 2,000 na baya-bayan nan, a harsuna da dama, waɗanda babu wanda ya duba lokacin gyare-gyare (tazarar amincewa ta 95%: 88.8% zuwa 91.4%), da imel na halal 1 daga cikin 414 (297 daga jerin aikawa na jama'a, 117 daga akwatunan gaske; 0.0% zuwa 1.4%). Lokacin bincike shi ne matsakaici na imel na yau da kullum (kusan tokens 250); gajeren imel yana ɗaukar kusan 65 ms. An yi amfani da imel na jerin aikawa lokacin gyare-gyare, kuma an sake auna imel na phishing bayan sauye-sauyen 2.0.12: auna na gaba zai yi amfani da sabon rukuni. Ƙiyasi ne, ba tabbaci ba: duba <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">yadda aka auna</a> da <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">iyakokin da aka sani</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, a yanzu</h3>
       <div class="strip" id="live" aria-live="polite">
@@ -162,7 +162,7 @@
         <ul class="rows">
           <li><svg class="ic"><use href="#i-text"/></svg><b>Rubutu</b><span>Samfuri mai harsuna da yawa (mmBERT-small, an ciro shi daga babban mai gano phishing) yana ba rubutu maki a harsuna 22; LIME yana nuna kalmomin da suka karkatar da hukuncin.</span></li>
           <li><svg class="ic"><use href="#i-link"/></svg><b>Hanyoyin haɗi</b><span>Kowace ainihin hanyar haɗi, har da wadda ke bayan &quot;Danna nan&quot;, ana duba ta a Safe Browsing, PhishTank, URLhaus da Spamhaus.</span></li>
-          <li><svg class="ic"><use href="#i-key"/></svg><b>Mai aikawa</b><span>SPF, DKIM da DMARC suna nuna wanda ya aiko shi da gaske. Imel da aka tura ba ya ɗaukar amincewar wanda ya tura shi.</span></li>
+          <li><svg class="ic"><use href="#i-key"/></svg><b>Mai aikawa</b><span>A Gmail, SPF, DKIM da DMARC suna nuna wanda ya aiko shi da gaske (Outlook yana ba shafin rubutun da ake gani kawai: a can ana duba kalmomi, hanyoyin haɗi da suna). Imel da aka tura ba ya ɗaukar amincewar wanda ya tura shi.</span></li>
           <li><svg class="ic"><use href="#i-clip"/></svg><b>Haɗe-haɗe</b><span>PDF (har da waɗanda aka ɗauki hoto, ta OCR), lambobin QR, macros da samfuran nesa na Office, ma'ajiyar ZIP, RAR da 7z, da gayyatar kalanda.</span></li>
           <li><svg class="ic"><use href="#i-inbox"/></svg><b>Ainihin akwatunan saƙo</b><span>Tattaunawa, imel na hotuna kawai, da hanyoyin haɗi zuwa fayilolin da aka raba a Drive, OneDrive ko Dropbox.</span></li>
         </ul>
@@ -189,7 +189,7 @@
         <li><svg class="ic"><use href="#i-bell"/></svg><div><b>Bincike ta atomatik</b><span>Na zaɓi: ana duba sababbin imel idan sun iso, ana yi musu alamar Amintacce ko Phishing? a jerin, tare da sanarwa.</span></div></li>
         <li><svg class="ic"><use href="#i-lock"/></svg><div><b>Sirri tun daga tsari</b><span>Babu asusu. Ana duba imel a ƙwaƙwalwa kuma ba a ajiye su ba; tarihinka yana zama a burauzarka. Da sabarka ta kanka, babu imel da zai bar kwamfutarka.</span></div></li>
         <li><svg class="ic"><use href="#i-chart"/></svg><div><b>Daidaitonka na kanka</b><span>Nuna ko kowane hukunci daidai ne ko ba daidai ba, ka ga yadda PhishLens ke aiki a kan imel ɗinka na gaske, tare da fitarwa ta CSV.</span></div></li>
-        <li><svg class="ic"><use href="#i-code"/></svg><div><b>Buɗaɗɗe kuma an gwada shi</b><span>Lasisin GNU AGPL-3.0, tare da samfurin barazana, CodeQL da gwaje-gwaje na atomatik sama da 300 a kowane canji.</span></div></li>
+        <li><svg class="ic"><use href="#i-code"/></svg><div><b>Buɗaɗɗe kuma an gwada shi</b><span>Lasisin GNU AGPL-3.0, tare da samfurin barazana, CodeQL da gwaje-gwaje na atomatik sama da 1,000 a kowane canji.</span></div></li>
       </ul>
     </div>
   </section>
@@ -289,7 +289,7 @@
             <li><b>PhishLens Cloud</b> (na asali): babu abin yi.</li>
             <li><b>Taka ta kanka, ta sirri:</b> kunna ta da Docker, sannan ka zaɓi <b>Local</b> a saitunan ƙarin.</li>
           </ol>
-<pre># the public English text model; PhishLens Cloud runs the multilingual one
+<pre># samfurin rubutu na Turanci na jama'a; PhishLens Cloud yana amfani da na harsuna da yawa
 huggingface-cli download AnzouKiona/phishlens-distilbert \
   --local-dir backend/model
 cd backend &amp;&amp; docker compose up --build</pre>

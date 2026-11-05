@@ -98,10 +98,10 @@ sai idan ka ba da rahoton wannan bincike.
 | Bayani | Ina | Tsawon lokaci |
 | --- | --- | --- |
 | Tarihin bincike (jigo, mai aikawa, hukunci, maki, manyan kalmomin bayani, harshen da aka gano da amsarka) | Burauzarka (`chrome.storage.local`) | Har sai ka share shi (Ƙididdiga, **Share**), mafi yawa bincike 500 na ƙarshe |
-| Ajiyar bayani | Burauzarka | Har sai an cire ƙarin |
+| Ajiyar bayani (kalmomin da ke bayyana hukunci, an haɗa su da lambar tantance rubutun) | Burauzarka | Kwanaki 30, shigarwa 200 a mafi yawa; ana share su tare da tarihi |
 | Rubutun da aka cire wa bayanan sirri na binciken Gmail da Outlook na baya-bayan nan, don rahotanni | Burauzarka | Kwana 7, imel 50 mafi yawa; ana share shi tare da tarihi |
 | Rahotannin da ka aika (rubutu ba tare da bayanan sirri ba ko ƙididdiga, duba sama) | PhishLens Cloud (Google Cloud Storage, Amurka) | Shekara biyu mafi yawa; ana share su idan aka nema da lambar shaida |
-| Sakamakon bincike ta atomatik (lambar tattaunawa, hukunci, maki) | Burauzarka | Imel 500 na ƙarshe |
+| Sakamakon bincike ta atomatik (lambar tattaunawa, hukunci, maki, gajeriyar alamar layin akwatin saƙo) | Burauzarka | Imel 500 na ƙarshe; ana share su tare da tarihi |
 | Saituna | Burauzarka | Har sai an canza su |
 | Hukuncin hanyoyin haɗi (URL, hukunci, majiya) | Ajiyar sabar (SQLite) | Awa 24 |
 | Sakamakon da aka dawo (hukunci, maki, hukuncin hanyoyin haɗi, kalmomin bayani), an haɗa su da lambar tantance imel; ba imel ɗin kansa ba | Ƙwaƙwalwar sabar | Awa 24, ko har sabar ta sake farawa |
@@ -131,7 +131,8 @@ daga burauzarka.
 | `scripting` | Bayan sabuntawa, saka sabuwar sigar maɓallan bincike a shafukan Gmail da Outlook da ke buɗe, don kada ka sabunta su. |
 | Samun dama ga `mail.google.com` | Ƙara maɓallan bincike da tutoci a Gmail da karanta imel ɗin da kake dubawa. |
 | Samun dama ga Outlook a yanar gizo (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Haka nan, a Outlook (bincike da hannu kawai). |
-| Samun dama ga `127.0.0.1:8000`, `localhost:8000`, `phishlens.dev` | Aika bincike zuwa sabar da ka zaɓa. |
+| Samun dama ga `phishlens.dev` | Aika bincike zuwa PhishLens Cloud, sabar da aka saba. |
+| Na zaɓi: `127.0.0.1:8000`, `localhost:8000` ko adireshin sabarka | Ana nema ne kawai idan ka zaɓi sabar gida ko ta musamman a saituna, don wannan adireshin kaɗai. |
 
 ## Zaɓuɓɓukanka
 

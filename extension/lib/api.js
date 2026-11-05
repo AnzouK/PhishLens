@@ -45,13 +45,18 @@ const PhishLensApi = Object.freeze({
     health: () => call("phishlens.health"),
     // A report the user confirmed; resolves to its reference.
     feedback: (payload) => call("phishlens.feedback", payload).then((data) => data?.reference),
-    // The local history, kept by the service worker for the content
-    // scripts (lib/history.js has the details).
+    // The local history, kept by the service worker: every change, from
+    // the content scripts as from the popup, goes through it and its one
+    // queue (lib/history.js has the details), so two contexts never write
+    // over each other. Reads may be direct.
     history: Object.freeze({
         save: (entry) => call("phishlens.history.save", undefined, { entry }),
         update: (id, patch) => call("phishlens.history.update", undefined, { id, patch }),
         draft: (id, text) => call("phishlens.history.draft", undefined, { id, text }),
         attachTokens: (id, tokens) => call("phishlens.history.attachTokens", undefined, { id, tokens }),
+        label: (id, label) => call("phishlens.history.label", undefined, { id, label }),
+        remove: (id) => call("phishlens.history.remove", undefined, { id }),
+        clear: () => call("phishlens.history.clear", undefined, {}),
     }),
     notify: (title, message) => call("phishlens.notify", undefined, { title, message }),
     isContextLost,

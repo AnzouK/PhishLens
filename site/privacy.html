@@ -31,7 +31,7 @@
 <link rel="icon" href="icon.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="style.css?v=876364fc54">
-<script src="i18n/en.js?v=be469f1892" defer></script>
+<script src="i18n/en.js?v=a7f3a24374" defer></script>
 <script src="lang.js?v=074b2a25f3" defer></script>
 <script src="nav.js?v=a5d4bfcf41" defer></script>
 </head>
@@ -158,9 +158,9 @@
 <td>Until you clear it (Insights, <strong>Clear</strong>), up to the last 500 scans</td>
 </tr>
 <tr class="even">
-<td>Explanation cache</td>
+<td>Explanation cache (the words that explain a verdict, keyed by a hash of the text)</td>
 <td>Your browser</td>
-<td>Until the extension is removed</td>
+<td>30 days, 200 entries at most; cleared with the history</td>
 </tr>
 <tr class="odd">
 <td>Redacted text of recent Gmail and Outlook scans, for reporting</td>
@@ -173,9 +173,9 @@
 <td>At most two years; deleted on request with the reference</td>
 </tr>
 <tr class="odd">
-<td>Automatic-scan results (thread id, verdict, score)</td>
+<td>Automatic-scan results (thread id, verdict, score, a short print of the inbox row)</td>
 <td>Your browser</td>
-<td>Last 500 emails</td>
+<td>Last 500 emails; cleared with the history</td>
 </tr>
 <tr class="even">
 <td>Settings</td>
@@ -237,8 +237,12 @@
 <td>Same, in Outlook (manual scans only).</td>
 </tr>
 <tr class="even">
-<td>Access to <code>127.0.0.1:8000</code>, <code>localhost:8000</code>, <code>phishlens.dev</code></td>
-<td>Send scans to the backend you chose.</td>
+<td>Access to <code>phishlens.dev</code></td>
+<td>Send scans to PhishLens Cloud, the default backend.</td>
+</tr>
+<tr class="odd">
+<td>Optional: <code>127.0.0.1:8000</code>, <code>localhost:8000</code>, or the address of your own server</td>
+<td>Asked for only when you choose a local or custom backend in the settings, for that address alone.</td>
 </tr>
 </tbody>
 </table></div>

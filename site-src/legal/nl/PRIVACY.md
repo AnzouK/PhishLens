@@ -100,10 +100,10 @@ u die controle meldt.
 | Gegevens | Waar | Hoe lang |
 | --- | --- | --- |
 | Controlegeschiedenis (onderwerp, afzender, oordeel, scores, belangrijkste woorden van de uitleg, herkende taal en uw antwoord) | Uw browser (`chrome.storage.local`) | Tot u ze wist (Statistieken, **Wissen**), hooguit de laatste 500 controles |
-| Cache van uitleg | Uw browser | Tot de extensie wordt verwijderd |
+| Cache van uitleg (de woorden die een oordeel uitleggen, gekoppeld aan een hash van de tekst) | Uw browser | 30 dagen, hoogstens 200 items; gewist met de geschiedenis |
 | Geanonimiseerde tekst van recente Gmail- en Outlook-controles, voor meldingen | Uw browser | 7 dagen, hooguit 50 e-mails; gewist met de geschiedenis |
 | Meldingen die u hebt verstuurd (geanonimiseerde tekst of statistieken, zie hierboven) | PhishLens Cloud (Google Cloud Storage, Verenigde Staten) | Hooguit twee jaar; op verzoek verwijderd met de referentie |
-| Resultaten van de automatische controle (gespreks-ID, oordeel, score) | Uw browser | De laatste 500 e-mails |
+| Resultaten van de automatische controle (gespreks-ID, oordeel, score, een korte afdruk van de rij in de inbox) | Uw browser | De laatste 500 e-mails; gewist met de geschiedenis |
 | Instellingen | Uw browser | Tot ze gewijzigd worden |
 | Linkoordelen (URL, oordeel, bron) | Servercache (SQLite) | 24 uur |
 | Teruggestuurde resultaten (oordeel, scores, linkoordelen, woorden van de uitleg), gekoppeld aan een hash van de e-mail; niet de e-mail zelf | Geheugen van de server | 24 uur, of tot de server herstart |
@@ -133,7 +133,8 @@ verzoek van uw browser.
 | `scripting` | Na een update de nieuwe versie van de controleknoppen in al geopende Gmail- en Outlook-tabbladen zetten, zodat u ze niet hoeft te vernieuwen. |
 | Toegang tot `mail.google.com` | De controleknoppen en meldingen aan Gmail toevoegen en de e-mail lezen die u controleert. |
 | Toegang tot Outlook op het web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Hetzelfde, in Outlook (alleen handmatige controles). |
-| Toegang tot `127.0.0.1:8000`, `localhost:8000`, `phishlens.dev` | Controles naar de door u gekozen server sturen. |
+| Toegang tot `phishlens.dev` | Controles naar PhishLens Cloud sturen, de standaardserver. |
+| Optioneel: `127.0.0.1:8000`, `localhost:8000` of het adres van uw eigen server | Alleen gevraagd als u in de instellingen een lokale of eigen server kiest, en alleen voor dat adres. |
 
 ## Uw keuzes
 

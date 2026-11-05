@@ -183,7 +183,7 @@ const explanation = {
             this.features = result.features || [];
             if (historyId) {
                 const tokens = this.features.slice(0, 5).map((f) => ({ token: f.token || "", weight: f.weight || 0 }));
-                await window.PhishLensHistory.attachTokens(historyId, tokens);
+                await window.PhishLensApi.history.attachTokens(historyId, tokens);
             }
         } catch (e) {
             if (run !== this.run) return;

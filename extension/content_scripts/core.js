@@ -460,8 +460,12 @@ PL.linkGroupsOf = function linkGroupsOf(el, hidden = PL.hiddenParts(el)) {
     // anchors once let 20,000 copies of a decoy hide the link after them.
     let checked = 0;
     for (let i = 0; i < anchors.length; i++) {
-        const href = linkHref(anchors[i]);
-        if (!/^https?:\/\//i.test(href) || href.length > 2048 || seen.has(href)) continue;
+        let href = linkHref(anchors[i]);
+        // A very long address is cut, not dropped: its host is what the
+        // checks read, and a 3,000-character link once vanished from them.
+        if (!/^https?:\/\//i.test(href)) continue;
+        if (href.length > 2048) href = href.slice(0, 2048);
+        if (seen.has(href)) continue;
         let host;
         try {
             host = new URL(href).hostname;

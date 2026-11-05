@@ -683,8 +683,9 @@ def detect_shared_links(urls: list[str]) -> dict[str, Any]:
 def client_links(extra: Any) -> list[str]:
     """Link targets sent by the client (client_context.link_urls).
 
-    Untrusted input: only http(s) strings under 2048 characters are kept,
-    at most MAX_LINK_URLS of them, duplicates dropped (order kept).
+    Untrusted input: only http(s) strings are kept, cut at 2048 characters
+    (a longer link keeps its host, which is what the checks read), at most
+    MAX_LINK_URLS of them, duplicates dropped (order kept).
     """
     if not isinstance(extra, list):
         return []
@@ -692,9 +693,9 @@ def client_links(extra: Any) -> list[str]:
     for u in extra:
         if len(out) >= MAX_LINK_URLS:
             break
-        if not isinstance(u, str) or len(u) > 2048:
+        if not isinstance(u, str):
             continue
-        u = u.strip()
+        u = u[:20_000].strip()[:2048]
         u = browser_url(u)
         if re.match(r"https?://", u) and u not in out:
             out.append(u)

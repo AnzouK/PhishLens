@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=876364fc54">
-<script src="../i18n/es.js?v=be469f1892" defer></script>
+<script src="../i18n/es.js?v=a7f3a24374" defer></script>
 <script src="../lang.js?v=074b2a25f3" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 </head>
@@ -159,9 +159,9 @@
 <td>Hasta que lo borre (Estadísticas, <strong>Borrar</strong>), como máximo los últimos 500 análisis</td>
 </tr>
 <tr class="even">
-<td>Caché de explicaciones</td>
+<td>Caché de explicaciones (las palabras que explican un veredicto, indexadas por una huella del texto)</td>
 <td>Su navegador</td>
-<td>Hasta que se elimine la extensión</td>
+<td>30 días, como mucho 200 entradas; se borra con el historial</td>
 </tr>
 <tr class="odd">
 <td>Texto anonimizado de los análisis recientes de Gmail y Outlook, para los avisos</td>
@@ -174,9 +174,9 @@
 <td>Dos años como máximo; se borran a petición con la referencia</td>
 </tr>
 <tr class="odd">
-<td>Resultados del análisis automático (identificador de conversación, veredicto, puntuación)</td>
+<td>Resultados del análisis automático (identificador de conversación, veredicto, puntuación, una huella corta de la fila de la bandeja)</td>
 <td>Su navegador</td>
-<td>Los últimos 500 correos</td>
+<td>Los últimos 500 correos; se borran con el historial</td>
 </tr>
 <tr class="even">
 <td>Ajustes</td>
@@ -238,8 +238,12 @@
 <td>Lo mismo, en Outlook (solo análisis manuales).</td>
 </tr>
 <tr class="even">
-<td>Acceso a <code>127.0.0.1:8000</code>, <code>localhost:8000</code>, <code>phishlens.dev</code></td>
-<td>Enviar los análisis al servidor que eligió.</td>
+<td>Acceso a <code>phishlens.dev</code></td>
+<td>Enviar los análisis a PhishLens Cloud, el servidor por defecto.</td>
+</tr>
+<tr class="odd">
+<td>Opcional: <code>127.0.0.1:8000</code>, <code>localhost:8000</code> o la dirección de su propio servidor</td>
+<td>Solo se pide cuando elige un servidor local o personalizado en los ajustes, y solo para esa dirección.</td>
 </tr>
 </tbody>
 </table></div>

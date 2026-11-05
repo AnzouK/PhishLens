@@ -34,7 +34,7 @@ you can decide, and it can be wrong.
 | --- | --- |
 | Wording | A multilingual text model scores the email; LIME shows the words that weighed most |
 | Links | Every real link target, including the one behind "Click here", against Google Safe Browsing, PhishTank, URLhaus and Spamhaus, plus a link model |
-| Sender | SPF, DKIM and DMARC, read from Gmail's original headers; whether the name shown ("Chronopost", "PayPal") matches the address |
+| Sender | SPF, DKIM and DMARC, read from Gmail's original headers (Gmail only: Outlook gives the page the visible text alone); whether the name shown ("Chronopost", "PayPal") matches the address |
 | Attachments | PDFs (scanned ones through OCR), images, QR codes, Office files and their macros, archives, calendar invites |
 
 The text score alone would flag real bank and university emails, because
@@ -92,7 +92,7 @@ public benchmark on real mail sent in 2026:
 | Mail | Result |
 | --- | --- |
 | Phishing nobody looked at while tuning (phishing_pot, Nazario) | 1,804 of 2,000 caught: 90.2% (95% CI 88.8% to 91.4%) |
-| Legitimate, public Apache mailing lists | 1 of 297 flagged: 0.3% (0.1% to 1.9%) |
+| Legitimate, public Apache mailing lists (used while tuning) | 1 of 297 flagged: 0.3% (0.1% to 1.9%) |
 | Legitimate, real personal inboxes (bank, university and service notifications), received after the model's training mail | 0 of 117 flagged: 0.0% (0.0% to 3.2%) |
 
 English (81.6%) and French (87.2%) are the weakest languages, and some

@@ -90,6 +90,20 @@ class Element extends Node {
         }
     }
     appendChild(n) { this.append(n); return n; }
+    insertAdjacentElement(where, n) {
+        if (where !== "afterend" || !this.parentNode) return null;
+        const parent = this.parentNode;
+        parent.append(n);
+        const list = parent.childNodes;
+        list.splice(list.indexOf(this) + 1, 0, list.pop());
+        return n;
+    }
+    // In the document when an ancestor is a document's <body>.
+    get isConnected() {
+        let n = this;
+        while (n.parentNode) n = n.parentNode;
+        return n.tagName === "BODY";
+    }
     prepend(n) { this.append(n); this.childNodes.unshift(this.childNodes.pop()); }
     insertBefore(n, ref) {
         this.append(n);
