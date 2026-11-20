@@ -1,0 +1,15 @@
+# Response headers for Cloudflare Pages (https://developers.cloudflare.com/pages/configuration/headers/).
+# Not generated: scripts/build_site.py leaves this file alone.
+#
+# The site loads only its own files: no inline script or style, no third-party
+# asset. It calls the PhishLens API (same origin, or phishlens.dev from www)
+# and the GitHub API for the latest release number.
+
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://phishlens.dev https://api.github.com; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
