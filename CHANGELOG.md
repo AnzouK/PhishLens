@@ -7,6 +7,14 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Changed
+- The website is served by Cloudflare Pages. Page addresses no longer
+  end in `.html` (`/privacy`, `/fr/terms`); the old addresses redirect
+  to the new ones. `site/_headers` sets the security headers the
+  previous server sent: HSTS, a Content-Security-Policy that allows only
+  the site's own files, the PhishLens API and the GitHub API, and
+  no framing.
+
 ## [2.0.12] - 2026-11-01
 
 ### Security

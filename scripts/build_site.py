@@ -82,13 +82,19 @@ def prefix(lang: str) -> str:
     return "" if lang == "en" else f"{lang}/"
 
 
+def clean(page: str) -> str:
+    """Address of a page without ".html": Cloudflare Pages serves
+    privacy.html at /privacy and redirects the .html address there."""
+    return "" if page == "index.html" else page.removesuffix(".html")
+
+
 def url(lang: str, page: str) -> str:
-    return f"{SITE}/{prefix(lang)}{'' if page == 'index.html' else page}"
+    return f"{SITE}/{prefix(lang)}{clean(page)}"
 
 
 def link(base: str, lang: str, page: str) -> str:
     """Link from a page whose root is `base` to `page` in `lang`."""
-    target = base + prefix(lang) + ("" if page == "index.html" else page)
+    target = base + prefix(lang) + clean(page)
     return target or "./"
 
 
@@ -244,8 +250,8 @@ def footer(lang, s, *, base) -> str:
   <div class="wrap">
     <div>{esc(s["footer_text"])}</div>
     <nav aria-label="{esc(s["footer_aria"])}">
-      <a href="{here}privacy.html">{esc(s["f_privacy"])}</a>
-      <a href="{here}terms.html">{esc(s["f_terms"])}</a>
+      <a href="{here}privacy">{esc(s["f_privacy"])}</a>
+      <a href="{here}terms">{esc(s["f_terms"])}</a>
       <a href="https://github.com/AnzouK/PhishLens">GitHub</a>
       <a href="{GITHUB}docs/architecture.md">{esc(s["f_arch"])}</a>
       <a href="{GITHUB}SECURITY.md">{esc(s["f_security"])}</a>
@@ -262,8 +268,8 @@ def markdown(path: Path) -> str:
     out = subprocess.check_output(["pandoc", str(path), "-f", "gfm", "-t", "html5"]).decode()
     for name in ("CHANGELOG.md", "SECURITY.md", "LICENSE"):
         out = out.replace(f'href="{name}"', f'href="{GITHUB}{name}"')
-    out = out.replace('href="PRIVACY.md"', 'href="privacy.html"')
-    out = out.replace('href="TERMS.md"', 'href="terms.html"')
+    out = out.replace('href="PRIVACY.md"', 'href="privacy"')
+    out = out.replace('href="TERMS.md"', 'href="terms"')
     out = out.replace("<table>", '<div class="table-wrap"><table>').replace(
         "</table>", "</table></div>"
     )
@@ -303,7 +309,7 @@ def build_lang(lang: str, strings: dict[str, dict[str, str]]) -> None:
         source = ROOT / md if lang == "en" else SRC / "legal" / lang / md
         body = markdown(source)
         if lang != "en":
-            note = s["legal_note_html"].replace("{en_href}", f"{base}{name}")
+            note = s["legal_note_html"].replace("{en_href}", f"{base}{clean(name)}")
             body = f'<p class="legal-note">{note}</p>\n{body}'
         key = name.split(".")[0]
         write(

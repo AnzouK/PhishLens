@@ -9,12 +9,13 @@
     .map((l) => String(l).slice(0, 2).toLowerCase())
     .find((l) => l === "en" || SITE.langs[l]);
   if (!wanted || wanted === "en") return;
-  const page = location.pathname.split("/").pop();
+  // Pages serves privacy.html at /privacy: link to the address without .html
+  const page = location.pathname.split("/").pop().replace(/\.html$/, "");
   const bar = document.createElement("p");
   bar.className = "lang-suggest";
   bar.lang = wanted;
   const a = document.createElement("a");
-  a.href = SITE.langs[wanted].path + (page === "index.html" ? "" : page);
+  a.href = SITE.langs[wanted].path + (page === "index" ? "" : page);
   a.hreflang = wanted;
   a.textContent = SITE.suggest[wanted];
   bar.append(a);

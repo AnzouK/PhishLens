@@ -20,6 +20,8 @@ test.beforeAll(async () => {
     server = http.createServer((req, res) => {
         let rel = decodeURIComponent(new URL(req.url, "http://x").pathname);
         if (rel.endsWith("/")) rel += "index.html";
+        // Like Cloudflare Pages: /privacy serves privacy.html
+        else if (!path.extname(rel)) rel += ".html";
         const file = path.join(SITE, rel);
         if (!file.startsWith(SITE)) { res.writeHead(403); return res.end(); }
         fs.readFile(file, (err, data) => {
@@ -73,21 +75,21 @@ test("the French page shows a French verdict", async ({ page }) => {
 });
 
 test("the language menu leads to the same page in another language", async ({ page }) => {
-    await page.goto(`${base}/privacy.html`);
+    await page.goto(`${base}/privacy`);
     await page.click(".lang-menu summary");
     await page.click('.lang-menu a[hreflang="de"]');
-    await expect(page).toHaveURL(`${base}/de/privacy.html`);
+    await expect(page).toHaveURL(`${base}/de/privacy`);
     await expect(page.locator("h1")).toHaveText("Datenschutzerklärung von PhishLens");
-    await expect(page.locator(".legal-note a")).toHaveAttribute("href", "../privacy.html");
+    await expect(page.locator(".legal-note a")).toHaveAttribute("href", "../privacy");
 });
 
 test.describe("a French browser on an English page", () => {
     test.use({ locale: "fr-FR" });
     test("is offered the French version", async ({ page }) => {
-        await page.goto(`${base}/terms.html`);
+        await page.goto(`${base}/terms`);
         const link = page.locator(".lang-suggest a");
         await expect(link).toHaveText("Lire cette page en français");
-        await expect(link).toHaveAttribute("href", "fr/terms.html");
+        await expect(link).toHaveAttribute("href", "fr/terms");
     });
 });
 

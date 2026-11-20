@@ -109,7 +109,7 @@
   "nf_desc": "Diese Seite existiert nicht.",
   "nf_h1": "Seite nicht gefunden",
   "nf_p1": "Unter dieser Adresse gibt es nichts. Die Seite wurde vielleicht verschoben, oder der Link enthält einen Tippfehler.",
-  "nf_p2_html": "Sie können zur <a href=\"{home}\">Startseite</a> gehen, <a href=\"{home}#try\">eine E-Mail prüfen</a> oder die <a href=\"{b}privacy.html\">Datenschutzerklärung</a> lesen.",
+  "nf_p2_html": "Sie können zur <a href=\"{home}\">Startseite</a> gehen, <a href=\"{home}#try\">eine E-Mail prüfen</a> oder die <a href=\"{b}privacy\">Datenschutzerklärung</a> lesen.",
   "suggest": "Diese Seite auf Deutsch lesen",
   "js_online": "Server online",
   "js_offline": "Server gerade nicht erreichbar",

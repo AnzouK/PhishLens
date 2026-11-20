@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://phishlens.dev/</loc>
-    <lastmod>2026-11-01</lastmod>
+    <lastmod>2026-11-20</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/"/>
     <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/"/>
@@ -14,7 +14,7 @@
   </url>
   <url>
     <loc>https://phishlens.dev/fr/</loc>
-    <lastmod>2026-11-01</lastmod>
+    <lastmod>2026-11-20</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/"/>
     <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/"/>
@@ -26,7 +26,7 @@
   </url>
   <url>
     <loc>https://phishlens.dev/pt/</loc>
-    <lastmod>2026-11-01</lastmod>
+    <lastmod>2026-11-20</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/"/>
     <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/"/>
@@ -38,7 +38,7 @@
   </url>
   <url>
     <loc>https://phishlens.dev/es/</loc>
-    <lastmod>2026-11-01</lastmod>
+    <lastmod>2026-11-20</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/"/>
     <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/"/>
@@ -50,7 +50,7 @@
   </url>
   <url>
     <loc>https://phishlens.dev/de/</loc>
-    <lastmod>2026-11-01</lastmod>
+    <lastmod>2026-11-20</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/"/>
     <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/"/>
@@ -62,7 +62,7 @@
   </url>
   <url>
     <loc>https://phishlens.dev/it/</loc>
-    <lastmod>2026-11-01</lastmod>
+    <lastmod>2026-11-20</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/"/>
     <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/"/>
@@ -74,7 +74,7 @@
   </url>
   <url>
     <loc>https://phishlens.dev/nl/</loc>
-    <lastmod>2026-11-01</lastmod>
+    <lastmod>2026-11-20</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/"/>
     <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/"/>
@@ -86,7 +86,7 @@
   </url>
   <url>
     <loc>https://phishlens.dev/ha/</loc>
-    <lastmod>2026-11-01</lastmod>
+    <lastmod>2026-11-20</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/"/>
     <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/"/>
@@ -97,195 +97,195 @@
     <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/privacy.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy.html"/>
+    <loc>https://phishlens.dev/privacy</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/fr/privacy.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy.html"/>
+    <loc>https://phishlens.dev/fr/privacy</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/pt/privacy.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy.html"/>
+    <loc>https://phishlens.dev/pt/privacy</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/es/privacy.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy.html"/>
+    <loc>https://phishlens.dev/es/privacy</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/de/privacy.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy.html"/>
+    <loc>https://phishlens.dev/de/privacy</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/it/privacy.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy.html"/>
+    <loc>https://phishlens.dev/it/privacy</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/nl/privacy.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy.html"/>
+    <loc>https://phishlens.dev/nl/privacy</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/ha/privacy.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy.html"/>
+    <loc>https://phishlens.dev/ha/privacy</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/privacy"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/privacy"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/privacy"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/privacy"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/privacy"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/privacy"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/privacy"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/terms.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms.html"/>
+    <loc>https://phishlens.dev/terms</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/fr/terms.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms.html"/>
+    <loc>https://phishlens.dev/fr/terms</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/pt/terms.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms.html"/>
+    <loc>https://phishlens.dev/pt/terms</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/es/terms.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms.html"/>
+    <loc>https://phishlens.dev/es/terms</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/de/terms.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms.html"/>
+    <loc>https://phishlens.dev/de/terms</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/it/terms.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms.html"/>
+    <loc>https://phishlens.dev/it/terms</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/nl/terms.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms.html"/>
+    <loc>https://phishlens.dev/nl/terms</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms"/>
   </url>
   <url>
-    <loc>https://phishlens.dev/ha/terms.html</loc>
-    <lastmod>2026-11-01</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms.html"/>
-    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms.html"/>
+    <loc>https://phishlens.dev/ha/terms</loc>
+    <lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://phishlens.dev/terms"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://phishlens.dev/fr/terms"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://phishlens.dev/pt/terms"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://phishlens.dev/es/terms"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://phishlens.dev/de/terms"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://phishlens.dev/it/terms"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://phishlens.dev/nl/terms"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://phishlens.dev/ha/terms"/>
   </url>
 </urlset>

@@ -109,7 +109,7 @@
   "nf_desc": "This page does not exist.",
   "nf_h1": "Page not found",
   "nf_p1": "There is nothing at this address. It may have moved, or the link may have a typo.",
-  "nf_p2_html": "From here you can go to the <a href=\"{home}\">home page</a>, <a href=\"{home}#try\">check an email</a>, or read the <a href=\"{b}privacy.html\">privacy policy</a>.",
+  "nf_p2_html": "From here you can go to the <a href=\"{home}\">home page</a>, <a href=\"{home}#try\">check an email</a>, or read the <a href=\"{b}privacy\">privacy policy</a>.",
   "suggest": "Read this page in English",
   "js_online": "server online",
   "js_offline": "server unreachable right now",

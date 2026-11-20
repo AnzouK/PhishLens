@@ -109,7 +109,7 @@
   "nf_desc": "Esta página não existe.",
   "nf_h1": "Página não encontrada",
   "nf_p1": "Não há nada neste endereço. A página pode ter mudado de sítio, ou o link pode ter um erro.",
-  "nf_p2_html": "Pode ir para a <a href=\"{home}\">página inicial</a>, <a href=\"{home}#try\">verificar um e-mail</a> ou ler a <a href=\"{b}privacy.html\">política de privacidade</a>.",
+  "nf_p2_html": "Pode ir para a <a href=\"{home}\">página inicial</a>, <a href=\"{home}#try\">verificar um e-mail</a> ou ler a <a href=\"{b}privacy\">política de privacidade</a>.",
   "suggest": "Ler esta página em português",
   "js_online": "servidor online",
   "js_offline": "servidor inacessível de momento",
