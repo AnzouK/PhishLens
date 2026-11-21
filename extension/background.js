@@ -120,7 +120,7 @@ async function serverBase() {
     // address in Settings.
     if (self.PhishLensShared.isPlainRemoteUrl(base)) {
         const ok = await new Promise((r) => chrome.storage.local.get(["backend_http_ok"], (s) => r(s?.backend_http_ok)));
-        if (ok !== base) throw new Error(text("err_http_remote"));
+        if (self.PhishLensShared.normalizeBaseUrl(ok) !== base) throw new Error(text("err_http_remote"));
     }
     return base;
 }

@@ -132,7 +132,7 @@ daga burauzarka.
 | Samun dama ga `mail.google.com` | Ƙara maɓallan bincike da tutoci a Gmail da karanta imel ɗin da kake dubawa. |
 | Samun dama ga Outlook a yanar gizo (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Haka nan, a Outlook (bincike da hannu kawai). |
 | Samun dama ga `phishlens.dev` | Aika bincike zuwa PhishLens Cloud, sabar da aka saba. |
-| Na zaɓi: `127.0.0.1:8000`, `localhost:8000` ko adireshin sabarka | Ana nema ne kawai idan ka zaɓi sabar gida ko ta musamman a saituna, don wannan adireshin kaɗai. |
+| Na zaɓi: `127.0.0.1`, `localhost` ko adireshin sabarka | Ana nema ne kawai idan ka zaɓi sabar gida ko ta musamman a saituna, don wannan adireshin kaɗai. |
 
 ## Zaɓuɓɓukanka
 

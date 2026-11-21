@@ -128,7 +128,7 @@ sees as a normal request from your browser.
 | Access to `mail.google.com` | Add the scan buttons and banners to Gmail and read the email you scan. |
 | Access to Outlook on the web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Same, in Outlook (manual scans only). |
 | Access to `phishlens.dev` | Send scans to PhishLens Cloud, the default backend. |
-| Optional: `127.0.0.1:8000`, `localhost:8000`, or the address of your own server | Asked for only when you choose a local or custom backend in the settings, for that address alone. |
+| Optional: `127.0.0.1`, `localhost`, or the address of your own server | Asked for only when you choose a local or custom backend in the settings, for that address alone. |
 
 ## Your choices
 

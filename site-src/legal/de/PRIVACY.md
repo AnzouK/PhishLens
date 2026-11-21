@@ -135,7 +135,7 @@ was GitHub als normale Anfrage Ihres Browsers sieht.
 | Zugriff auf `mail.google.com` | Die Prüf-Schaltflächen und Hinweise in Gmail anzeigen und die geprüfte E-Mail lesen. |
 | Zugriff auf Outlook im Web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Dasselbe in Outlook (nur manuelle Prüfungen). |
 | Zugriff auf `phishlens.dev` | Prüfungen an PhishLens Cloud senden, den Standardserver. |
-| Optional: `127.0.0.1:8000`, `localhost:8000` oder die Adresse Ihres eigenen Servers | Nur angefragt, wenn Sie in den Einstellungen einen lokalen oder eigenen Server wählen, und nur für diese Adresse. |
+| Optional: `127.0.0.1`, `localhost` oder die Adresse Ihres eigenen Servers | Nur angefragt, wenn Sie in den Einstellungen einen lokalen oder eigenen Server wählen, und nur für diese Adresse. |
 
 ## Ihre Möglichkeiten
 

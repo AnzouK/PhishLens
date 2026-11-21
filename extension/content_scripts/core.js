@@ -508,8 +508,11 @@ PL.pct = (p) => (p == null ? null : Math.round(p * 100));
 // The text sent as raw_text: the body, or the subject and whatever text
 // there is when the body is almost empty (image-only emails).
 PL.MIN_BODY = 20;
+// The server reads the page text in place of the message's own when both
+// are sent: a shorter cut lost the end of long emails.
+PL.MAX_RAW_TEXT = 20000;
 PL.rawText = function rawText(subject, body) {
     const short = !body || body.length < PL.MIN_BODY;
-    return (short ? [subject, body].filter(Boolean).join("\n") || "(no text)" : body).slice(0, 4000);
+    return (short ? [subject, body].filter(Boolean).join("\n") || "(no text)" : body).slice(0, PL.MAX_RAW_TEXT);
 };
 })();

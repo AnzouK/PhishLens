@@ -7,10 +7,6 @@ import { initSettings, backend, loadBackend } from "./settings.js";
 
 const PRIVACY_NOTICE_KEY = "privacy_notice_seen";
 
-function privacyPolicyUrl(lang) {
-    return `https://phishlens.dev/${lang && lang !== "en" ? lang + "/" : ""}privacy.html`;
-}
-
 // Says where emails go before the first scan, while PhishLens Cloud is
 // the server; hidden for good once dismissed.
 async function initPrivacyNotice() {
@@ -18,7 +14,7 @@ async function initPrivacyNotice() {
     if (!STORAGE) return;
     const seen = Boolean((await storageGet([PRIVACY_NOTICE_KEY]))[PRIVACY_NOTICE_KEY]);
     const link = $("privacy-notice-link");
-    const setLink = () => { link.href = privacyPolicyUrl(I18N.language()); };
+    const setLink = () => { link.href = window.PhishLensShared.privacyUrl(I18N.language()); };
     setLink();
     I18N.onChange(setLink);
     box.hidden = seen || backend.choice !== "cloud";

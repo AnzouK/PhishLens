@@ -66,6 +66,8 @@
     "meter_not_checked": "nicht geprüft",
     "meter_not_checked_title": "{label}: nicht geprüft, es gab keine Absenderangaben.",
     "meta_not_checked": "Nicht geprüft: keine Absenderangaben (eingefügter Text).",
+    "meter_text_not_checked_title": "{label}: nicht geprüft, die E-Mail enthält kaum Text.",
+    "text_not_checked": "Nicht geprüft: Die E-Mail enthält kaum Text.",
     "chip_dmarc_fail": "DMARC fehlgeschlagen",
     "chip_dmarc_fail_title": "DMARC fehlgeschlagen: Die Absenderdomain erlaubt diesen Versand nicht",
     "chip_dkim_fail": "DKIM fehlgeschlagen",

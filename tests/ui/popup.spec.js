@@ -279,7 +279,7 @@ test("first run: the privacy notice says where emails go until dismissed", async
     const notice = page.locator("#privacy-notice");
     await expect(notice).toBeVisible();
     await expect(notice).toContainText("PhishLens Cloud");
-    await expect(page.locator("#privacy-notice-link")).toHaveAttribute("href", "https://phishlens.dev/privacy.html");
+    await expect(page.locator("#privacy-notice-link")).toHaveAttribute("href", "https://phishlens.dev/privacy");
     await page.click("#privacy-notice-ok");
     await expect(notice).toBeHidden();
     const seen = await page.evaluate(() => window.chrome.storage.local.get(["privacy_notice_seen"]));

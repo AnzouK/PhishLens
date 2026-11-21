@@ -3,7 +3,7 @@
 // content scripts read it from there.
 import { $, I18N, t, STORAGE, storageGet, openView, goBack } from "./ui.js";
 
-const { DEFAULT_BACKEND } = window.PhishLensShared;
+const { DEFAULT_BACKEND, normalizeBaseUrl, hostPattern } = window.PhishLensShared;
 const BACKENDS = ["cloud", "local", "custom"];
 
 export const backend = { choice: DEFAULT_BACKEND, customUrl: "" };
@@ -55,6 +55,8 @@ async function testConnection() {
 // Optional host permissions, asked for during a click; a refusal changes
 // nothing that works (the server's CORS headers still apply).
 function requestOrigins(origins) {
+    origins = origins.filter(Boolean);
+    if (!origins.length) return;
     try {
         chrome.permissions?.request({ origins })?.catch?.(() => {});
     } catch (e) {
@@ -80,7 +82,7 @@ export function initSettings() {
             // A local server is asked for in the choice itself (a user
             // gesture): it is an optional permission. Without it the
             // server's CORS headers still let the extension in.
-            if (backend.choice === "local") requestOrigins(["http://127.0.0.1:8000/*", "http://localhost:8000/*"]);
+            if (backend.choice === "local") requestOrigins(["http://127.0.0.1/*", "http://localhost/*"]);
             customUrlInput.disabled = backend.choice !== "custom";
             STORAGE?.set({ backend: backend.choice });
             if (backend.choice === "custom" && !customUrlInput.value) customUrlInput.focus();
@@ -92,7 +94,7 @@ export function initSettings() {
     // over the internet needs a confirmation, remembered for that address.
     customUrlInput.addEventListener("input", updateCustomUrlWarn);
     customUrlInput.addEventListener("change", () => {
-        const url = customUrlInput.value.trim();
+        const url = normalizeBaseUrl(customUrlInput.value);
         if (url && !/^https?:\/\/[^/\s]+/i.test(url)) {
             setConnStatus("err", t("url_scheme"));
             return;
@@ -106,18 +108,15 @@ export function initSettings() {
             STORAGE?.set({ backend_http_ok: url });
         }
         backend.customUrl = url;
+        customUrlInput.value = url;
         STORAGE?.set({ backend_custom_url: url });
+        if (url) requestOrigins([hostPattern(url)]);
         setConnStatus(null);
         updateCustomUrlWarn();
     });
     $("test-conn-btn").addEventListener("click", () => {
-        if (backend.choice === "custom") {
-            try {
-                requestOrigins([new URL(backend.customUrl).origin + "/*"]);
-            } catch {
-                // Not a URL yet: the test below says so.
-            }
-        }
+        // Not a URL yet: no pattern, and the test below says so.
+        if (backend.choice === "custom") requestOrigins([hostPattern(backend.customUrl)]);
         testConnection();
     });
 

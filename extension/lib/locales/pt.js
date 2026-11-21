@@ -66,6 +66,8 @@
     "meter_not_checked": "não verificado",
     "meter_not_checked_title": "{label}: não verificado, não havia informação sobre o remetente.",
     "meta_not_checked": "Não verificado: não há informação sobre o remetente (texto colado).",
+    "meter_text_not_checked_title": "{label}: não verificado, o e-mail quase não tem texto.",
+    "text_not_checked": "Não verificado: o e-mail quase não tem texto.",
     "chip_dmarc_fail": "Falha DMARC",
     "chip_dmarc_fail_title": "O DMARC falhou: o domínio do remetente não autoriza este envio",
     "chip_dkim_fail": "Falha DKIM",

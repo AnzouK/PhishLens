@@ -134,7 +134,7 @@ verzoek van uw browser.
 | Toegang tot `mail.google.com` | De controleknoppen en meldingen aan Gmail toevoegen en de e-mail lezen die u controleert. |
 | Toegang tot Outlook op het web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Hetzelfde, in Outlook (alleen handmatige controles). |
 | Toegang tot `phishlens.dev` | Controles naar PhishLens Cloud sturen, de standaardserver. |
-| Optioneel: `127.0.0.1:8000`, `localhost:8000` of het adres van uw eigen server | Alleen gevraagd als u in de instellingen een lokale of eigen server kiest, en alleen voor dat adres. |
+| Optioneel: `127.0.0.1`, `localhost` of het adres van uw eigen server | Alleen gevraagd als u in de instellingen een lokale of eigen server kiest, en alleen voor dat adres. |
 
 ## Uw keuzes
 

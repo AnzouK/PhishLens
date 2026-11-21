@@ -67,6 +67,8 @@
     "meter_not_checked": "ba a duba ba",
     "meter_not_checked_title": "{label}: ba a duba ba, babu bayani game da mai aikawa.",
     "meta_not_checked": "Ba a duba ba: babu bayani game da mai aikawa (rubutun da aka liƙa).",
+    "meter_text_not_checked_title": "{label}: ba a duba ba, imel ɗin kusan ba shi da rubutu.",
+    "text_not_checked": "Ba a duba ba: imel ɗin kusan ba shi da rubutu.",
     "chip_dmarc_fail": "DMARC ya kasa",
     "chip_dmarc_fail_title": "DMARC ya kasa: yankin mai aikawa bai ba da izinin wannan aikawa ba",
     "chip_dkim_fail": "DKIM ya kasa",

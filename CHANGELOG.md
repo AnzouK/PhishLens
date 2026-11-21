@@ -68,6 +68,33 @@ backend share one version number.
 - A click on a notification brings back its Gmail tab even after the
   service worker was stopped.
 - Gmail's "via" hint is never read from the sender's own name.
+- The optional localhost permissions no longer name a port, which
+  Firefox does not accept in a match pattern: `http://127.0.0.1/*` and
+  `http://localhost/*`, and a custom server is asked for by host. The
+  permission is now asked for when a custom address is saved, not only
+  on "Test connection".
+- A custom server address is stored trimmed and without trailing
+  slashes, so a confirmed http:// address typed with a final "/" is no
+  longer refused by the service worker.
+- Automatic scan: the row print reads only the senders, the subject and
+  the snippet, and leaves the PhishLens pill out by element. A sender
+  named like the pill ("SafeBank") made the pill come and go, and the
+  date Gmail rewrites each day made a thread look changed.
+- Gmail attachments: tiles that load in two waves are all kept by the
+  "Scan attachments" button, with the right count.
+- Gmail and Outlook send up to 20,000 characters of the page text
+  instead of 4,000: with the original message, the server reads that
+  text in place of the message's own.
+- When the email has almost no text, the wording score shows "not
+  checked" in the banner and the popup, and the popup no longer asks
+  for an explanation the text model cannot give.
+- Pasted text is saved in the history under its first line, not under
+  the name of a file picked earlier.
+- Privacy policy links use the website's new addresses without
+  `.html`, and the popup's built-in notice text matches the current
+  wording.
+- Gmail's sender checks ("via", "signed-by", "mailed-by") are never read
+  from the subject, which the sender writes.
 
 ### Security
 - The backend refuses with 403 any request without the shared secret

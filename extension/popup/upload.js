@@ -95,13 +95,15 @@ async function analyze() {
     let historyId = null;
     try {
         historyId = await API.history.save(window.PhishLensHistory.entryFrom(data, {
-            source: req.source, subject: (state.file?.name || "").slice(0, 120), sender: data.sender_domain || "",
+            source: req.source, subject: req.source === "paste" ? window.PhishLensHistory.pasteSubject(req.payload.raw_text)
+                : (state.file?.name || "").slice(0, 120), sender: data.sender_domain || "",
         }));
     } catch (e) {
         console.warn("[PhishLens] scan not saved in the history:", e);
     }
     renderResultFeedback(data, historyId, req.payload.raw_text || "", req.source);
-    if (req.source !== "attachment") explain(req.payload, historyId);
+    // /explain reads the text model, which did not count for almost no text.
+    if (req.source !== "attachment" && data.text_agent_used !== false) explain(req.payload, historyId);
 }
 
 function switchTab(tab) {

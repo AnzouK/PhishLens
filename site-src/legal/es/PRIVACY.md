@@ -133,7 +133,7 @@ GitHub ve como una solicitud normal de su navegador.
 | Acceso a `mail.google.com` | Añadir los botones de análisis y los avisos a Gmail y leer el correo que analiza. |
 | Acceso a Outlook en la web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Lo mismo, en Outlook (solo análisis manuales). |
 | Acceso a `phishlens.dev` | Enviar los análisis a PhishLens Cloud, el servidor por defecto. |
-| Opcional: `127.0.0.1:8000`, `localhost:8000` o la dirección de su propio servidor | Solo se pide cuando elige un servidor local o personalizado en los ajustes, y solo para esa dirección. |
+| Opcional: `127.0.0.1`, `localhost` o la dirección de su propio servidor | Solo se pide cuando elige un servidor local o personalizado en los ajustes, y solo para esa dirección. |
 
 ## Sus opciones
 

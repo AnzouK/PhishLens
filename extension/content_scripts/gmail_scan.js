@@ -91,7 +91,7 @@ async function buildPayload(emailView, msg, { body, subject, linkGroups, count, 
         // one the page shows: plain-text parts spell URLs out and skew the
         // text model.
         ...(original
-            ? { raw_email_b64: PL.utf8ToB64(original), ...(shortBody ? {} : { raw_text: body.slice(0, 4000) }) }
+            ? { raw_email_b64: PL.utf8ToB64(original), ...(shortBody ? {} : { raw_text: body.slice(0, PL.MAX_RAW_TEXT) }) }
             : { raw_text: PL.rawText(subject, body) }),
         sender_email: sender.getAttribute?.("email")?.slice(0, 512) || null,
         sender_name: PL.senderName(sender.textContent),
@@ -207,10 +207,11 @@ function extractGmailAuthSignals(emailView, msg) {
 }
 
 // Written by Gmail, not by the sender: outside every message body (an
-// email can contain a "signed-by: bank.com" of its own, even hidden) and
+// email can contain a "signed-by: bank.com" of its own, even hidden),
+// outside the subject (the sender writes it too, "via paypal.com") and
 // visible.
 function fromGmail(el) {
-    return !PL.inMessageBody(el) && !PL.isHidden(el);
+    return !PL.inMessageBody(el) && !el.closest?.(G.SEL.subject) && !PL.isHidden(el);
 }
 
 const HOST_RE = /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i;

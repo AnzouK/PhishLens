@@ -66,6 +66,8 @@
     "meter_not_checked": "non verificato",
     "meter_not_checked_title": "{label}: non verificato, non c'erano informazioni sul mittente.",
     "meta_not_checked": "Non verificato: nessuna informazione sul mittente (testo incollato).",
+    "meter_text_not_checked_title": "{label}: non verificato, l'email non contiene quasi testo.",
+    "text_not_checked": "Non verificato: l'email non contiene quasi testo.",
     "chip_dmarc_fail": "DMARC non superato",
     "chip_dmarc_fail_title": "DMARC non superato: il dominio del mittente non autorizza questo invio",
     "chip_dkim_fail": "DKIM non superato",

@@ -66,6 +66,8 @@
     "meter_not_checked": "non vérifié",
     "meter_not_checked_title": "{label} : non vérifié, aucune information sur l'expéditeur à lire.",
     "meta_not_checked": "Non vérifié : aucune information sur l'expéditeur (texte collé).",
+    "meter_text_not_checked_title": "{label} : non vérifié, l'e-mail ne contient presque pas de texte.",
+    "text_not_checked": "Non vérifié : l'e-mail ne contient presque pas de texte.",
     "chip_dmarc_fail": "Échec DMARC",
     "chip_dmarc_fail_title": "Échec de DMARC : le domaine de l'expéditeur n'autorise pas cet envoi",
     "chip_dkim_fail": "Échec DKIM",

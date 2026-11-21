@@ -629,3 +629,114 @@ test("plain http:// is allowed only inside the user's machine or network", () =>
         assert.equal(shared.isPlainRemoteUrl(u), true, u);
     }
 });
+
+test("a subject reading \"via paypal.com\" is not taken for Gmail's via hint", () => {
+    const { ctx, PL } = load(entryFor("mail.google.com"));
+    const view = mailView(ctx.document);
+    const subject = ctx.document.createElement("h2");
+    subject.className = "hP";
+    const words = ctx.document.createElement("span");
+    words.textContent = "via paypal.com";
+    subject.append(words);
+    view.append(subject);
+    assert.equal(PL.extractGmailAuthSignals(view, null).via, null);
+    const hint = ctx.document.createElement("span");
+    hint.textContent = "via sendgrid.net";
+    view.append(hint);
+    assert.equal(PL.extractGmailAuthSignals(view, null).via, "sendgrid.net");
+});
+
+test("a row pill does not change the row print, even for a sender named SafeBank", async () => {
+    const { ctx, PL } = load(entryFor("mail.google.com"));
+    const doc = ctx.document;
+    const el = (tag, cls, text) => {
+        const n = doc.createElement(tag);
+        if (cls) n.className = cls;
+        if (text) n.append(text);
+        return n;
+    };
+    const row = el("tr", "zA zE");
+    const sender = el("span", "", "SafeBank");
+    sender.setAttribute("email", "news@safebank.example");
+    sender.setAttribute("name", "SafeBank");
+    const idHolder = el("span");
+    idHolder.setAttribute("data-legacy-thread-id", "18c0ffee12345678");
+    const cell = el("div", "y6");
+    cell.append(el("span", "bog", "Your statement"));
+    row.append(sender, idHolder, cell, el("span", "y2", "Your monthly statement is ready"), el("span", "xW", "10:32"));
+    doc.body.append(row);
+    const print = PL.autoRowPrint(row);
+    ctx.chrome.storage.local.get = (k, cb) => cb({ "autoScanCache.v5": {
+        "18c0ffee12345678": { verdict: "safe", score: 0.05, print, ts: 1 },
+    } });
+    await PL.loadAutoCache();
+    assert.equal(row.querySelectorAll(".pll-row-badge").length, 1);
+    assert.equal(PL.autoRowPrint(row), print);
+    PL.paintAutoBadges();
+    assert.equal(row.querySelectorAll(".pll-row-badge").length, 1);
+    // Gmail rewrites the date on its own: same print.
+    row.querySelector(".xW").textContent = "21 Nov";
+    assert.equal(PL.autoRowPrint(row), print);
+    // A reply changes the snippet: a new print.
+    row.querySelector(".y2").textContent = "Thanks, received";
+    assert.notEqual(PL.autoRowPrint(row), print);
+});
+
+test("attachment tiles loaded in two waves are all scanned by the one button", () => {
+    const { ctx, PL } = load(entryFor("mail.google.com"));
+    const doc = ctx.document;
+    const view = mailView(doc);
+    const head = doc.createElement("div");
+    const subject = doc.createElement("h2");
+    subject.className = "hP";
+    subject.append("Invoices");
+    head.append(subject);
+    view.append(head);
+    const strip = doc.createElement("div");
+    strip.className = "aQH";
+    view.append(strip);
+    const addTile = (name) => {
+        const tile = doc.createElement("div");
+        tile.className = "aZo";
+        tile.getBoundingClientRect = () => ({ width: 200, height: 150 });
+        const a = doc.createElement("a");
+        a.setAttribute("download", name);
+        a.setAttribute("href", "https://mail.google.com/mail/u/0/?view=att");
+        a.append(name);
+        tile.append(a);
+        strip.append(tile);
+    };
+    addTile("a.pdf");
+    PL.installAttachmentButtons(view);
+    addTile("b.pdf");
+    PL.installAttachmentButtons(view);
+    const buttons = view.querySelectorAll(".pll-scan-btn--all");
+    assert.equal(buttons.length, 1);
+    assert.deepEqual([...buttons[0]._pllTargets.map((f) => f.filename)], ["a.pdf", "b.pdf"]);
+    assert.equal(buttons[0].querySelector(".pll-scan-btn__label").textContent, "Scan 2 attachments");
+});
+
+test("without the text model the wording meter says not checked, not a figure", () => {
+    const { ctx, PL } = load(entryFor("mail.google.com"));
+    const view = mailView(ctx.document);
+    PL.showBanner(view, { ...PHISHING, verdict: "safe", text_agent_used: false });
+    const wording = view.querySelectorAll(".pll-meter")[0];
+    assert.equal(wording.querySelector(".pll-meter__off").textContent, "not checked");
+    assert.match(wording.getAttribute("title"), /almost no text/);
+    assert.equal(wording.querySelector(".pll-meter__v"), null);
+});
+
+test("the page text sent with the original keeps up to 20000 characters", () => {
+    const { PL } = load(entryFor("mail.google.com"));
+    assert.equal(PL.MAX_RAW_TEXT, 20000);
+    assert.equal(PL.rawText("Subject", "a".repeat(30000)).length, 20000);
+});
+
+test("privacy links use the website's address without .html", () => {
+    const shared = require(path.join(EXT, "lib", "shared.js"));
+    assert.equal(shared.privacyUrl("en"), "https://phishlens.dev/privacy");
+    assert.equal(shared.privacyUrl("fr"), "https://phishlens.dev/fr/privacy");
+    const html = fs.readFileSync(path.join(EXT, "popup", "popup.html"), "utf8");
+    const code = ["popup/popup.js", "content_scripts/banner.js"].map((f) => fs.readFileSync(path.join(EXT, f), "utf8")).join("\n");
+    assert.doesNotMatch(html + code, /privacy\.html/);
+});

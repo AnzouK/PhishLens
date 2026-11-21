@@ -114,9 +114,14 @@ function installScanAllButton(emailView, targets) {
         existing = null;
     }
     if (existing) {
-        // More tiles were lazy-loaded since: update the count.
-        if (!existing.disabled) existing.querySelector(".pll-scan-btn__label").textContent = scanLabel(targets.length);
-        existing._pllTargets = targets;
+        // More tiles were lazy-loaded since: added to the ones still on the
+        // page and not scanned yet (they are hooked, so not found again).
+        const kept = (existing._pllTargets || []).filter((f) =>
+            !targets.includes(f) && f.tile?.isConnected && f.tile.dataset.pllScanned !== "1");
+        existing._pllTargets = kept.concat(targets);
+        if (!existing.disabled) {
+            existing.querySelector(".pll-scan-btn__label").textContent = scanLabel(existing._pllTargets.length);
+        }
         return;
     }
     const wrap = emailView.querySelector(SEL.subject)?.parentElement;

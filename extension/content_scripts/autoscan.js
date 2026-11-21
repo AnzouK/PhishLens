@@ -54,16 +54,31 @@ async function cachePut(id, entry) {
     cacheMem = cache;
 }
 
-// A short print of what a row shows (senders, subject, snippet, date),
-// our own pill left out: it changes when a reply arrives in the thread.
+// Text of a row element, our own pill left out (by element, not by its
+// words: a sender called "SafeBank" holds the word "Safe").
+function textWithoutPill(node) {
+    if (!node) return "";
+    if (node.nodeType === 3) return node.data;
+    if (node.classList?.contains("pll-row-badge")) return "";
+    return [...node.childNodes].map(textWithoutPill).join("");
+}
+
+// A short print of what a row says (senders, subject, snippet): it changes
+// when a reply arrives in the thread. Not the date, which Gmail rewrites
+// on its own ("10:32", then "21 Nov" the next day).
 function rowPrint(row) {
-    const badge = row.querySelector(".pll-row-badge")?.textContent || "";
-    let text = row.textContent || "";
-    if (badge) text = text.replace(badge, "");
+    const { SEL } = G;
+    const senders = [...row.querySelectorAll(SEL.rowSender)]
+        .map((s) => `${s.getAttribute("email") || ""} ${s.getAttribute("name") || ""}`);
+    const fields = [textWithoutPill(row.querySelector(SEL.rowSubject)), textWithoutPill(row.querySelector(SEL.rowSnippet))];
+    // If Gmail renames those classes: the whole row, still without the pill.
+    if (!fields.join("").trim()) fields.push(textWithoutPill(row));
+    const text = [...senders, ...fields].join("\n");
     let hash = 5381;
     for (let i = 0; i < text.length; i++) hash = ((hash * 33) ^ text.charCodeAt(i)) >>> 0;
     return hash.toString(36);
 }
+PL.autoRowPrint = rowPrint;
 
 // What to do with a row: scan it (never seen, changed since, or a skip
 // whose wait is over), or leave it.
@@ -80,8 +95,8 @@ function inboxRows() {
         row,
         id: row.querySelector(SEL.rowThreadId)?.getAttribute("data-legacy-thread-id") || "",
         unread: row.classList.contains(SEL.unreadRowClass),
-        sender: row.querySelector("span[email]")?.getAttribute("email") || "",
-        senderName: row.querySelector("span[email]")?.getAttribute("name") || "",
+        sender: row.querySelector(SEL.rowSender)?.getAttribute("email") || "",
+        senderName: row.querySelector(SEL.rowSender)?.getAttribute("name") || "",
         subject: (row.querySelector(SEL.rowSubject)?.textContent || "").trim(),
         print: rowPrint(row),
     })).filter((r) => /^[0-9a-f]{8,20}$/.test(r.id));

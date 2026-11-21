@@ -66,6 +66,8 @@
     "meter_not_checked": "niet gecontroleerd",
     "meter_not_checked_title": "{label}: niet gecontroleerd, er was geen afzenderinformatie.",
     "meta_not_checked": "Niet gecontroleerd: geen afzenderinformatie (geplakte tekst).",
+    "meter_text_not_checked_title": "{label}: niet gecontroleerd, de e-mail bevat bijna geen tekst.",
+    "text_not_checked": "Niet gecontroleerd: de e-mail bevat bijna geen tekst.",
     "chip_dmarc_fail": "DMARC mislukt",
     "chip_dmarc_fail_title": "DMARC mislukt: het domein van de afzender staat deze verzending niet toe",
     "chip_dkim_fail": "DKIM mislukt",

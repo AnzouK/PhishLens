@@ -33,9 +33,9 @@ function bannerLead(data, phishing) {
 const brandName = (name) => String(name || "").replace(/(^|\s)\S/g, (c) => c.toUpperCase());
 
 // One meter per agent; value null: the agent had nothing to read.
-function meter(label, value) {
+function meter(label, value, offTitle = "meter_not_checked_title") {
     if (value === null) {
-        return h("div.pll-meter", { title: t("meter_not_checked_title", { label }) },
+        return h("div.pll-meter", { title: t(offTitle, { label }) },
             h("span.pll-meter__l", null, label),
             h("span.pll-meter__off", null, t("meter_not_checked")));
     }
@@ -119,6 +119,8 @@ function errorContent(data) {
 
 function verdictContent(data, phishing) {
     const meta = data.agents?.metadata?.checked === false ? null : PL.pct(data.agents?.metadata?.phishing_probability);
+    // Almost no text: the text model did not count, its figure means nothing.
+    const wording = data.text_agent_used === false ? null : PL.pct(data.agents?.text?.phishing_probability);
     return [
         h("span.pll-banner__icon", null, icon(phishing ? "alert" : "shieldCheck")),
         h("div.pll-banner__main", null,
@@ -127,7 +129,7 @@ function verdictContent(data, phishing) {
                 trustBadge(data)),
             h("div.pll-banner__lead", null, bannerLead(data, phishing)),
             h("div.pll-meters", null,
-                meter(t("meter_wording"), PL.pct(data.agents?.text?.phishing_probability)),
+                meter(t("meter_wording"), wording, "meter_text_not_checked_title"),
                 meter(t("meter_links"), PL.pct(data.agents?.url?.phishing_probability)),
                 meter(t("meter_sender"), meta)),
             signalChips(data),
@@ -237,7 +239,7 @@ PL.confirmCloudUse = async function confirmCloudUse(view, anchor = null) {
             },
         }, t("privacy_notice_ok"));
         const policy = h("a.pll-notice-link", {
-            href: `https://phishlens.dev/${lang && lang !== "en" ? lang + "/" : ""}privacy.html`,
+            href: PhishLensShared.privacyUrl(lang),
             target: "_blank", rel: "noopener",
         }, t("privacy_notice_link"));
         banner.querySelector(".pll-banner__main").append(h("div.pll-notice-actions", null, ok, " ", policy));

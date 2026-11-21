@@ -65,6 +65,12 @@ function serial(fn) {
     };
 }
 
+// The subject shown for pasted text: its first line that has any text.
+function pasteSubject(text) {
+    const line = String(text || "").split(/\r?\n/).find((l) => l.trim()) || "";
+    return line.trim().slice(0, 120);
+}
+
 // The history entry for an /analyse or /analyse_attachment answer.
 function entryFrom(data, { source, subject = "", sender = "" }) {
     const p = (agent) => Number(data?.agents?.[agent]?.phishing_probability) || 0;
@@ -335,7 +341,7 @@ async function exportCSV() {
 }
 
 const PhishLensHistory = {
-    saveScan, entryFrom, attachTokens, setLabel, updateScan, saveDraft, getDraft, statsRows, EMAIL_DATA_KEYS,
+    saveScan, entryFrom, pasteSubject, attachTokens, setLabel, updateScan, saveDraft, getDraft, statsRows, EMAIL_DATA_KEYS,
     liveEvaluation, getHistory, getStats, clearHistory, deleteScan, exportJSON, exportCSV,
     STORAGE_KEY, DRAFTS_KEY, MAX_ENTRIES,
 };

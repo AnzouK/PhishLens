@@ -138,7 +138,7 @@ browser.
 | Accesso a `mail.google.com` | Aggiungere i pulsanti di analisi e gli avvisi a Gmail e leggere l'email che analizzi. |
 | Accesso a Outlook sul web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Lo stesso, in Outlook (solo analisi manuali). |
 | Accesso a `phishlens.dev` | Inviare le analisi a PhishLens Cloud, il server predefinito. |
-| Facoltativo: `127.0.0.1:8000`, `localhost:8000` o l'indirizzo del tuo server | Richiesto solo quando scegli un server locale o personalizzato nelle impostazioni, e solo per quell'indirizzo. |
+| Facoltativo: `127.0.0.1`, `localhost` o l'indirizzo del tuo server | Richiesto solo quando scegli un server locale o personalizzato nelle impostazioni, e solo per quell'indirizzo. |
 
 ## Le tue scelte
 

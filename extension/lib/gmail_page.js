@@ -19,6 +19,8 @@ const SEL = Object.freeze({
     inboxRow: "tr.zA",                   // one row of the message list
     unreadRowClass: "zE",
     rowSubject: ".bog",
+    rowSnippet: ".y2",                   // start of the latest message, after the subject
+    rowSender: "span[email]",            // one sender of the thread, name in its "name" attribute
     rowThreadId: "[data-legacy-thread-id]",
 });
 

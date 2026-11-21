@@ -47,15 +47,18 @@ function subline(data, isPhishing, caution, flags) {
 // Element ids and hint keys of each agent card ("meta-score", "meta_high").
 const PREFIX = { text: "text", url: "url", metadata: "meta" };
 
-function fillAgent(key, agent) {
+function fillAgent(key, agent, data) {
     const prefix = PREFIX[key];
     const bar = $(`${prefix}-bar`);
     const card = bar.closest(".agent");
-    if (key === "metadata" && agent?.checked === false) {
+    // Not checked: no sender information, or almost no text to read.
+    const off = key === "metadata" && agent?.checked === false ? "meta_not_checked"
+        : key === "text" && data?.text_agent_used === false ? "text_not_checked" : null;
+    if (off) {
         $(`${prefix}-score`).textContent = "—";
         bar.style.width = "0%";
         card.dataset.flagged = "safe";
-        $(`${prefix}-hint`).textContent = t("meta_not_checked");
+        $(`${prefix}-hint`).textContent = t(off);
         return;
     }
     const p = Number(agent?.phishing_probability) || 0;
@@ -148,10 +151,11 @@ export function renderResult(data) {
     $("verdict-sub").textContent = subline(data, isPhishing, caution, flags);
     renderTrustPill(data);
     renderArchiveFiles(data.attachment, isPhishing);
-    for (const key of ["text", "url", "metadata"]) fillAgent(key, data.agents?.[key]);
+    for (const key of ["text", "url", "metadata"]) fillAgent(key, data.agents?.[key], data);
     renderUrlBadges(data.url_reputation);
     renderMetaBadges(data.sender_auth);
-    explanation.reset(!isAttachment);
+    // No words to explain without the text model (attachments, almost no text).
+    explanation.reset(!isAttachment && data.text_agent_used !== false);
 }
 
 // The words behind the text score, computed in the background while the

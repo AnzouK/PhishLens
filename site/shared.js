@@ -9,9 +9,33 @@ const BACKEND_PRESETS = Object.freeze({
 });
 const DEFAULT_BACKEND = "cloud";
 
+// A typed server address as stored and compared everywhere: trimmed,
+// without trailing slashes.
+function normalizeBaseUrl(value) {
+    return String(value || "").trim().replace(/\/+$/, "");
+}
+
+// Host permission pattern for a server address. No port: Firefox rejects
+// ports in match patterns, and without one Chrome matches every port.
+function hostPattern(value) {
+    try {
+        const u = new URL(normalizeBaseUrl(value));
+        if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+        return `${u.protocol}//${u.hostname}/*`;
+    } catch {
+        return null;
+    }
+}
+
+// The privacy policy on the website, in the interface language. The site
+// serves its pages without ".html" (Cloudflare Pages).
+function privacyUrl(lang) {
+    return `https://phishlens.dev/${lang && lang !== "en" ? lang + "/" : ""}privacy`;
+}
+
 // Base URL for a stored choice, without a trailing slash.
 function resolveBackend(choice, customUrl) {
-    if (choice === "custom") return String(customUrl || "").replace(/\/$/, "");
+    if (choice === "custom") return normalizeBaseUrl(customUrl);
     return BACKEND_PRESETS[choice] || BACKEND_PRESETS[DEFAULT_BACKEND];
 }
 
@@ -116,6 +140,7 @@ function collapseInvisible(text) {
 const PhishLensShared = Object.freeze({
     BACKEND_PRESETS, DEFAULT_BACKEND, resolveBackend, getBackendBase, apiErrorMessage, debug, safeName,
     INVISIBLE_SOURCE, withoutInvisible, collapseInvisible, isPlainRemoteUrl,
+    normalizeBaseUrl, hostPattern, privacyUrl,
 });
 globalThis.PhishLensShared = PhishLensShared;
 

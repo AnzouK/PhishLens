@@ -66,6 +66,8 @@
     "meter_not_checked": "not checked",
     "meter_not_checked_title": "{label}: not checked, there was no sender information to read.",
     "meta_not_checked": "Not checked: there is no sender information (pasted text).",
+    "meter_text_not_checked_title": "{label}: not checked, the email has almost no text to read.",
+    "text_not_checked": "Not checked: the email has almost no text.",
     "chip_dmarc_fail": "DMARC fail",
     "chip_dmarc_fail_title": "DMARC check failed: the From: domain does not authorise this sender",
     "chip_dkim_fail": "DKIM fail",
