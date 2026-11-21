@@ -1,0 +1,61 @@
+# =====================================================================
+# PhishLens backend image
+# =====================================================================
+# Builds backend/Dockerfile.cloud and publishes it to the GitHub
+# Container Registry as ghcr.io/anzouk/phishlens-backend, on a version
+# tag (v2.1.0...) or by hand from the Actions tab ("Run workflow").
+#
+# The image holds the backend code only (already public in this repo):
+# no key, no model. The text model is downloaded at start-up from
+# HF_MODEL_REPO, and the keys come from the host (Cloud Run reads them
+# from Secret Manager). Built for linux/amd64, the platform Cloud Run runs.
+# =====================================================================
+name: Backend image
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: backend-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/anzouk/phishlens-backend
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile.cloud
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
