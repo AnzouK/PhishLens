@@ -155,6 +155,7 @@ training mail is. The extension warns about it.
 | `AGENTS_ALLOW_PICKLE` | `0` | `1` also loads pickle (joblib) agents, which run code when loaded; only for an old local copy never converted to skops |
 | `RATE_LIMIT_ANALYSE` | `30/minute` | Per IP; also `RATE_LIMIT_ATTACHMENT`, `RATE_LIMIT_EXPLAIN`, `RATE_LIMIT_FEEDBACK` |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Read by uvicorn: the reverse proxy's address, whose `X-Forwarded-For` gives the client's. If the access log (`docker logs phishlens`) shows one private address for every request (the proxy's), set it to that address's Docker network (`172.18.0.0/16`: the container's address can change at restart), or the rate limits apply to all users together |
+| `PROXY_SECRET` | empty | Shared with the reverse proxy (the phishlens.dev Pages Function); when set, a request without the header `X-PhishLens-Proxy` carrying it gets 403, `/health` included, so the host's own address cannot be called directly with a forged `X-Forwarded-For`. Leave it empty on a self-hosted server |
 | `RESULT_CACHE_TTL` / `RESULT_CACHE_MAX` | `86400` / `2000` | Results kept in memory by request hash; `0` turns it off |
 | `LIME_NUM_SAMPLES` | `100` | Model runs per explanation |
 | `OCR_LANG` / `OCR_MAX_PAGES` / `OCR_TIMEOUT_S` | `auto` / `3` / `10` | [OCR](languages.md#ocr) |

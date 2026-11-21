@@ -29,6 +29,11 @@ export async function onRequest({ request, next, env }) {
   const client = request.headers.get("cf-connecting-ip");
   if (client) headers.set("x-forwarded-for", client);
   else headers.delete("x-forwarded-for");
+  // Shared secret that proves to the backend the request came through
+  // this function (PROXY_SECRET on both sides). A client-sent value is
+  // never forwarded.
+  headers.delete("x-phishlens-proxy");
+  if (env.PROXY_SECRET) headers.set("x-phishlens-proxy", env.PROXY_SECRET);
 
   const hasBody = !["GET", "HEAD"].includes(request.method);
   const response = await fetch(target, {
