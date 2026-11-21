@@ -3,7 +3,7 @@ PhishLens: loading the Random Forest agents without pickle.
 The URL and metadata agents used to be published as joblib files.
 joblib is pickle underneath, and unpickling runs whatever code the file
 asks for: a tampered file on Hugging Face would mean code execution on
-every backend that downloads it (threat model, risk R4).
+every backend that downloads it (threat model, risk T1).
 
 The skops format stores the same scikit-learn objects as data. Loading
 it never imports an arbitrary module: skops lists every type it would
