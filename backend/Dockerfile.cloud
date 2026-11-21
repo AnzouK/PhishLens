@@ -2,8 +2,8 @@
 # PhishLens backend: production image (PhishLens Cloud, any Docker host).
 # =====================================================================
 # Differences from Dockerfile.local:
-#   - listens on $PORT (7860 by default; scripts/redeploy.sh and the
-#     Caddy reverse proxy expect it)
+#   - listens on $PORT (7860 by default, which scripts/redeploy.sh
+#     expects on a self-hosted server; Cloud Run sets PORT itself)
 #   - runs as an unprivileged user (uid 1000)
 #   - the text model is not in the image: it is downloaded from the
 #     Hugging Face Hub on first start (HF_MODEL_REPO) into MODEL_DIR

@@ -15,7 +15,7 @@ Method: STRIDE per trust boundary, then a list of the risks we accept.
 | Backend availability | PhishLens Cloud is shared by every extension user on the Cloud setting |
 | Published models on Hugging Face | Loaded by every backend at startup; the text model decides the wording score |
 | Hugging Face read token (`HF_TOKEN`, only when the text model is in a private repository) | Read access to that repository |
-| The server and its secrets (`.phishlens.env`) | Host compromise exposes all of the above |
+| The server and its secrets (Secret Manager for PhishLens Cloud, `.phishlens.env` on a self-hosted server) | Compromise of the host or the cloud account exposes all of the above |
 | Reports users send (`FEEDBACK_DIR`) | Redacted email text: still private content, and future training data |
 
 ## Trust boundaries
@@ -23,14 +23,14 @@ Method: STRIDE per trust boundary, then a list of the risks we accept.
 ```mermaid
 flowchart LR
     U["Gmail page<br/>(untrusted content)"] -->|B1| E["Extension"]
-    E -->|B2 HTTPS| P["Caddy"] --> A["Backend API"]
+    E -->|B2 HTTPS| P["Cloudflare<br/>Pages Function"] --> A["Backend API<br/>(Cloud Run)"]
     X["Anyone on the internet"] -->|B2| P
     A -->|B3| I["Threat intel APIs<br/>and DNS"]
     H["Hugging Face Hub"] -->|B4| A
     A --- C[("SQLite URL cache")]
     E -->|B6 reports, redacted| P
     X -->|B6| P
-    A --- F[("Reports<br/>FEEDBACK_DIR")]
+    A --- F[("Reports<br/>FEEDBACK_DIR<br/>(Cloud Storage)")]
 ```
 
 B1: email content controlled by the attacker reaches the extension.
@@ -60,10 +60,10 @@ B6: anyone can post a report to `/feedback`, not only the extension.
 | T6 | Poisoning: fake reports pushing the next model towards wrong labels | B6 | Rate limit per IP, size and storage caps, strict validation; reports are never used for training without being read and relabelled by hand | Mitigated |
 | I1 | **Information disclosure**: users paste sensitive mail into the shared PhishLens Cloud test box | B2 | HTTPS only; no server-side storage of bodies; README warns not to send sensitive content to the demo; self-hosting is documented | Mitigated for transport, user choice otherwise |
 | I2 | Error messages leak internals | B2 | Errors return a one-line message with a short reference; the stack trace is logged on the server under that reference and never returned | Mitigated |
-| I3 | Secrets in the repository or its history | n/a | `.phishlens.env` and `.env` are git-ignored; the GSB key only lives on the VM; history rewritten once to remove personal data | Mitigated |
+| I3 | Secrets in the repository or its history | n/a | `.phishlens.env` and `.env` are git-ignored; the keys of PhishLens Cloud live only in Secret Manager; history rewritten once to remove personal data | Mitigated |
 | I6 | An API key written to the logs inside an error message (PhishTank's key is in its feed URL) | B3 | The Safe Browsing key travels in a header; errors from the intel clients are logged by type and status only | Mitigated |
-| I4 | `/metrics` and `/reputation/stats` reveal traffic and quota usage | B2 | Contain counts only; operations guide shows how to block `/metrics` at Caddy | Mitigated when proxy rule applied |
-| D1 | **Denial of service** by request flooding, or burning the 10k/day GSB quota | B2 | Per-IP rate limits (30/min analyse, 20/min attachments, 15/min explain); at most 30 links per scan go to GSB; quota tracked in process with a 500-request safety buffer; a link GSB did not check is never cached as clean, so an exhausted quota degrades to the other sources without storing wrong verdicts | Partially mitigated (see R6) |
+| I4 | `/metrics` and `/reputation/stats` reveal traffic and quota usage | B2 | Contain counts only; the Pages Function in front of PhishLens Cloud never forwards `/metrics`, and the operations guide shows the same rule for a self-hosted proxy; PhishLens Cloud also runs with `METRICS_ENABLED=0`, so its Cloud Run address does not serve `/metrics` either | Mitigated |
+| D1 | **Denial of service** by request flooding, or burning the 10k/day GSB quota | B2 | Per-IP rate limits (30/min analyse, 20/min attachments, 15/min explain); at most 30 links per scan go to GSB; quota tracked in process with a 500-request safety buffer (the count restarts with the instance, so after a scale to zero it can undercount that day's use); a link GSB did not check is never cached as clean, so an exhausted quota degrades to the other sources without storing wrong verdicts | Partially mitigated (see R6) |
 | D6 | Oversized requests, or CPU-bound inference blocking the server for everyone | B2 | Bodies above 45 MB refused with 413 before parsing; every field has a maximum length; model inference and attachment parsing run in a worker thread so the event loop keeps serving `/health` and other requests | Mitigated |
 | D2 | Oversized or malformed attachments exhausting CPU or memory | B2 | 10 MB cap, magic-byte sniffing, page limit on PDFs, unsupported types rejected with 400; OCR limited to 3 pages with a 10 s timeout each, images downscaled and guarded against decompression bombs; Office files capped on part count, uncompressed size (zip bombs) and part size | Mitigated |
 | D5 | XML entity expansion or external entities in an Office file | B2 | Any XML part that declares a DOCTYPE is skipped and flagged `suspicious_xml_doctype`; parts are parsed with `defusedxml`, which refuses entity tricks | Mitigated |
@@ -106,9 +106,12 @@ languages may see more. User reports are how this gets measured.
 the effect is confined to that caller's own response.
 
 **R6. Shared open API.** No accounts: rate limits are per IP and in
-memory, reset on restart and can be spread over many addresses; behind
-a reverse proxy they need the proxy's address in `FORWARDED_ALLOW_IPS`
+memory, reset on restart (on PhishLens Cloud, whenever the instance
+scales to zero) and can be spread over many addresses; behind a reverse
+proxy they need the proxy's address in `FORWARDED_ALLOW_IPS`
 ([operations](operations.md)), or every user shares one limit. The
+Pages Function in front of PhishLens Cloud replaces any client-sent
+`X-Forwarded-For` with the address Cloudflare saw. The
 Safe Browsing quota is shared too: links sent from many addresses can
 exhaust it for the day. With a
 public store release, per-install keys or a shared limiter become
@@ -166,7 +169,8 @@ own buttons) are checked as hidden links.
 
 Revisit this document when an endpoint, an input type or an extension
 permission is added, when the text model changes, or when the
-deployment moves off a single server. Last review: after 2.0.12, with
+deployment runs more than one instance (PhishLens Cloud is capped at
+one Cloud Run instance). Last review: after 2.0.12, with
 five external audit rounds (authentication parsing, impersonation, hidden
 content, link parsing, Safe Browsing quota, Outlook sender, HTML
 attachments).

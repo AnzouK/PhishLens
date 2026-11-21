@@ -203,9 +203,11 @@ class GsbQuota:
     """
     Simple daily counter, resets at 00:00 UTC.
 
-    Kept in-process (not Redis) because a single Oracle Cloud VM handles
-    all backend traffic. If we ever scale to N replicas, swap this for
-    a Redis INCR with EX=86400: same interface.
+    Kept in-process (not Redis) because a single instance handles all
+    backend traffic (PhishLens Cloud runs at most one Cloud Run
+    instance). The count starts again at zero when the instance
+    restarts. If we ever scale to N replicas, swap this for a Redis
+    INCR with EX=86400: same interface.
     """
 
     def __init__(self, limit: int, buffer: int):

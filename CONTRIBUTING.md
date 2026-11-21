@@ -56,7 +56,7 @@ extension/                Chrome MV3 extension (plain JS, no build step)
 site/                     website in 8 languages, generated from site-src/
 tests/                    extension unit tests (node:test), popup and website UI tests (Playwright)
 docs/                     architecture, threat model, operations, languages, model
-scripts/                  website build, redeploy and backup, load test,
+scripts/                  website build, self-hosted redeploy and backup, load test,
                           translation review, report deletion, version check
 ```
 

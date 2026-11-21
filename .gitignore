@@ -83,7 +83,7 @@ extension/dist/
 .env
 .env.local
 *.secret
-# holds GSB_API_KEY etc. on the Oracle VM, never commit it
+# holds GSB_API_KEY etc. on a self-hosted server, never commit it
 .phishlens.env
 **/.venv/
 **/.DS_Store

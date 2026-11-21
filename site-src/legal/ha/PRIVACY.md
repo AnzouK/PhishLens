@@ -1,6 +1,6 @@
 # Manufar sirri ta PhishLens
 
-An sabunta ta ƙarshe: 27 ga Oktoba, 2026.
+An sabunta ta ƙarshe: 21 ga Nuwamba, 2026.
 
 PhishLens ƙarin Chrome ne da ke duba ko imel phishing ne. Wannan shafin
 yana bayyana bayanan da yake sarrafawa, inda suke zuwa da abin da ake
@@ -50,7 +50,7 @@ saitunan ƙarin:
 | --- | --- |
 | Sabar ta gida | Kwamfutarka (`127.0.0.1:8000`). Babu abin da ke fita, sai binciken bayanan barazana da ke ƙasa. |
 | URL na musamman | Sabar da ka shigar. Manufar mai ita ce ke aiki. |
-| PhishLens Cloud | Sabar da marubucin PhishLens ke gudanarwa, a Oracle Cloud. Ba a ajiye komai (duba ƙasa). |
+| PhishLens Cloud | Sabar da marubucin PhishLens ke gudanarwa, a Google Cloud a Beljiyam, ana isa gare ta ta hanyar Cloudflare. Ba a ajiye komai (duba ƙasa). |
 
 Sabar tana duba hanyoyin haɗin da aka samu a imel a sabis na bayanan
 barazana. Don wannan, tana aika **adireshin hanyoyin haɗi kawai** (ba
@@ -78,12 +78,12 @@ ake aikawa har sai ka danna **Aika** bayan ka karanta abin da za a aika.
 Ana aika rahotanni zuwa PhishLens Cloud, ko wace sabar kake amfani da
 ita don bincike. Sabar tana sake cire bayanan sirri daga rubutun da
 ƙa'idoji iri ɗaya, tana ajiye rahoton ba tare da adireshin IP ɗinka ko
-wani bayanin buƙata ba (bayanan ayyukan sabar yanar gizo da aka bayyana
-a ƙasa suna ci gaba da rubuta buƙatar har kwana 30), sannan ta dawo da
-lambar shaida. Ana amfani da rahotanni ne kawai don auna da inganta
-PhishLens (misali, don horar da samfurin rubutu a kan imel na gaskiya da
-ya yi kuskure a kansu); ba a taɓa wallafa su ko raba su. Ana ajiye su
-har shekara biyu mafi yawa. Don a share rahoto, rubuta zuwa
+wani bayanin buƙata ba (bayanan ayyukan buƙatu da aka bayyana a ƙasa
+suna ci gaba da rubuta buƙatar har kwana 30), sannan ta dawo da lambar
+shaida. Ana amfani da rahotanni ne kawai don auna da inganta PhishLens
+(misali, don horar da samfurin rubutu a kan imel na gaskiya da ya yi
+kuskure a kansu); ba a taɓa wallafa su ko raba su. Ana ajiye su har
+shekara biyu mafi yawa. Don a share rahoto, rubuta zuwa
 privacy@phishlens.dev tare da lambar shaidarsa, ko buɗe batu a
 https://github.com/AnzouK/PhishLens/issues (lambar shaidar kaɗai ba ta
 bayyana komai game da rahoton).
@@ -100,13 +100,13 @@ sai idan ka ba da rahoton wannan bincike.
 | Tarihin bincike (jigo, mai aikawa, hukunci, maki, manyan kalmomin bayani, harshen da aka gano da amsarka) | Burauzarka (`chrome.storage.local`) | Har sai ka share shi (Ƙididdiga, **Share**), mafi yawa bincike 500 na ƙarshe |
 | Ajiyar bayani | Burauzarka | Har sai an cire ƙarin |
 | Rubutun da aka cire wa bayanan sirri na binciken Gmail da Outlook na baya-bayan nan, don rahotanni | Burauzarka | Kwana 7, imel 50 mafi yawa; ana share shi tare da tarihi |
-| Rahotannin da ka aika (rubutu ba tare da bayanan sirri ba ko ƙididdiga, duba sama) | PhishLens Cloud | Shekara biyu mafi yawa; ana share su idan aka nema da lambar shaida |
+| Rahotannin da ka aika (rubutu ba tare da bayanan sirri ba ko ƙididdiga, duba sama) | PhishLens Cloud (Google Cloud Storage, Amurka) | Shekara biyu mafi yawa; ana share su idan aka nema da lambar shaida |
 | Sakamakon bincike ta atomatik (lambar tattaunawa, hukunci, maki) | Burauzarka | Imel 500 na ƙarshe |
 | Saituna | Burauzarka | Har sai an canza su |
 | Hukuncin hanyoyin haɗi (URL, hukunci, majiya) | Ajiyar sabar (SQLite) | Awa 24 |
 | Sakamakon da aka dawo (hukunci, maki, hukuncin hanyoyin haɗi, kalmomin bayani), an haɗa su da lambar tantance imel; ba imel ɗin kansa ba | Ƙwaƙwalwar sabar | Awa 24, ko har sabar ta sake farawa |
 | Rubutu, kanun saƙo da haɗe-haɗen imel | Ƙwaƙwalwar sabar, yayin buƙatar | Ba a ajiye su |
-| Bayanan buƙatu (lokaci, hanya, matsayi, adireshin IP, burauza) | Bayanan ayyukan manhaja da sabar yanar gizo ta PhishLens Cloud | Kwana 30; ba a taɓa rubuta abin da ke cikin buƙatu |
+| Bayanan buƙatu (lokaci, hanya, matsayi, adireshin IP, burauza) | Bayanan ayyukan manhaja da na buƙatu na PhishLens Cloud (Google Cloud) | Kwana 30; ba a taɓa rubuta abin da ke cikin buƙatu |
 
 PhishLens Cloud kuma yana ƙidaya hukunce-hukunce bisa hanyar lissafi,
 don sa ido (ƙididdigar Prometheus). Lambobi ne kawai, babu bayanan imel.
@@ -114,12 +114,13 @@ don sa ido (ƙididdigar Prometheus). Lambobi ne kawai, babu bayanan imel.
 ## Wannan shafin yanar gizo
 
 `phishlens.dev` ba ya saka kukis kuma ba ya amfani da rubutun bin
-diddigi, don haka babu abin da za a amince da shi. Yawan ziyara yana
-fitowa daga bayanan ayyukan sabar yanar gizo (shafi, lokaci, shafin da
-aka fito, irin burauza, adireshin IP), ana karanta su da kayan aiki na
-kai; ana ajiye su kwana 30 kuma ba a taɓa raba su. Shafin yana tambayar
-API na jama'a na GitHub lambar sabuwar siga, wanda GitHub ke gani a
-matsayin buƙata ta al'ada daga burauzarka.
+diddigi, don haka babu abin da za a amince da shi. Cloudflare Pages ne
+ke ba da shafin: Cloudflare yana sarrafa kowace buƙata (shafi, lokaci,
+shafin da aka fito, irin burauza, adireshin IP) don isar da shi, kuma
+PhishLens yana ganin jimillar ƙididdigar ziyara ta Cloudflare kawai,
+wadda ba a taɓa raba ta. Shafin yana tambayar API na jama'a na GitHub
+lambar sabuwar siga, wanda GitHub ke gani a matsayin buƙata ta al'ada
+daga burauzarka.
 
 ## Izini
 
@@ -150,21 +151,30 @@ su da gangan.
 ## Wanda ke da alhaki
 
 PhishLens aiki ne na kai, ba na kasuwanci ba, wanda wani mutum ke kula
-da shi, kuma shi ke da alhakin PhishLens Cloud da wannan shafi.
-PhishLens Cloud yana aiki a kan Oracle Cloud Infrastructure (Oracle
-Corporation, Austin, Texas, Amurka), a cibiyar bayanansa da ke
-Frankfurt, Jamus. DNS na yankin yana bi ta Cloudflare (Cloudflare, Inc.,
-San Francisco, California, Amurka). Tuntuɓa: privacy@phishlens.dev.
+da shi, kuma shi ke da alhakin PhishLens Cloud da wannan shafi. Masu ba
+da sabis biyu ne ke sarrafa zirga-zirgar bayanai:
+
+- **Cloudflare** (Cloudflare, Inc., San Francisco, California, Amurka)
+  yana ba da wannan shafi, yana gudanar da DNS na yankin, kuma yana tura
+  buƙatun PhishLens Cloud da aka aika zuwa `phishlens.dev` zuwa sabar
+  bincike. Buƙata tana bi ta cibiyar bayanan Cloudflare mafi kusa da
+  kai.
+- **Google Cloud** (Google LLC, Mountain View, California, Amurka) yana
+  gudanar da binciken a kan Cloud Run, a shiyyarsa ta europe-west1 a
+  Beljiyam, inda ake bincika imel a ƙwaƙwalwa ba tare da ajiye su ba.
+  Ana ajiye rahotannin da ka zaɓi aikawa a cikin ma'ajiyar Google Cloud
+  Storage ta sirri a Amurka (shiyyar us-central1).
+
+Tuntuɓa: privacy@phishlens.dev.
 
 ## Haƙƙoƙinka
 
 Za ka iya tambayar abin da PhishLens Cloud ke ajiye wanda ya shafe ka,
 kuma a share shi: rahoton da ka aika (ka ba da lambar shaidarsa), ko
-layukan rajistar sabar yanar gizo na buƙatunka, waɗanda ake ajiye
-kwanaki 30 (ka ba da kwanan wata da adireshin IP ɗinka). Rubuta zuwa
-privacy@phishlens.dev; za ka sami amsa cikin kwanaki 30. PhishLens ba ta
-ajiye imel, asusu ko bayanin mutum, don haka yawanci babu wani abu da za
-a mayar ko a share.
+layukan rajistar buƙatunka, waɗanda ake ajiye kwanaki 30 (ka ba da
+kwanan wata da adireshin IP ɗinka). Rubuta zuwa privacy@phishlens.dev;
+za ka sami amsa cikin kwanaki 30. PhishLens ba ta ajiye imel, asusu ko
+bayanin mutum, don haka yawanci babu wani abu da za a mayar ko a share.
 
 ## Canje-canje da tuntuɓa
 

@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # =====================================================================
-# PhishLens: one-command redeploy on the VM.
+# PhishLens: one-command redeploy on a self-hosted Docker server.
 # =====================================================================
+# For a self-hosted Docker VM behind a reverse proxy (Caddy here). It
+# does not deploy PhishLens Cloud, which runs on Google Cloud Run: see
+# docs/operations.md.
+#
 #   ~/PhishLens/scripts/redeploy.sh             update to origin/main, rebuild, restart
 #   ~/PhishLens/scripts/redeploy.sh --no-pull   rebuild the current checkout
 #   ~/PhishLens/scripts/redeploy.sh --rollback  restart the previous image
