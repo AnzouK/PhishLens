@@ -36,6 +36,12 @@ backend share one version number.
   the site's own files, the PhishLens API and the GitHub API, and
   no framing.
 
+### Security
+- The backend refuses with 403 any request without the shared secret
+  (`PROXY_SECRET`, header `X-PhishLens-Proxy`) that the Pages Function
+  adds, so calling the Cloud Run address directly with a forged
+  `X-Forwarded-For` no longer dodges the rate limits. Off when unset.
+
 ## [2.0.12] - 2026-11-01
 
 ### Security

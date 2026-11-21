@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hmac
 import logging
 import os
 import time
@@ -90,6 +91,7 @@ from settings import (
     METADATA_MODEL_ENABLED,
     METRICS_ENABLED,
     MIN_TEXT_WORDS,
+    PROXY_SECRET,
     RATE_LIMIT_ANALYSE,
     RATE_LIMIT_ATTACHMENT,
     RATE_LIMIT_DEFAULT,
@@ -182,6 +184,20 @@ async def _limit_body_size(request: Request, call_next):
         return JSONResponse({"detail": "Request too large."}, status_code=413)
     if request.method in ("POST", "PUT", "PATCH") and not length:
         return JSONResponse({"detail": "Content-Length required."}, status_code=411)
+    return await call_next(request)
+
+
+# Added last, so it runs first: a request that did not come through the
+# proxy is refused before the size check and any route.
+@app.middleware("http")
+async def _require_proxy_secret(request: Request, call_next):
+    """With PROXY_SECRET set, only requests carrying it in the
+    X-PhishLens-Proxy header are served (constant-time comparison).
+    Neither the expected nor the received value is ever logged."""
+    if PROXY_SECRET:
+        sent = request.headers.get("x-phishlens-proxy", "")
+        if not hmac.compare_digest(sent.encode(), PROXY_SECRET.encode()):
+            return JSONResponse({"detail": "Forbidden."}, status_code=403)
     return await call_next(request)
 
 

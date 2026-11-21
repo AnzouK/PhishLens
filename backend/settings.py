@@ -55,6 +55,12 @@ PORT = int(os.environ.get("PORT", "8000"))
 # can restrict this.
 CORS_ALLOW_ORIGINS = os.environ.get("CORS_ALLOW_ORIGINS", "*").split(",")
 METRICS_ENABLED = os.environ.get("METRICS_ENABLED", "1") != "0"
+# Shared secret with the reverse proxy in front of the server (the
+# phishlens.dev Pages Function). When set, a request without the header
+# X-PhishLens-Proxy carrying this value is refused with 403, so calling
+# the host's own address directly (and forging X-Forwarded-For to dodge
+# the rate limits) no longer works. Empty: no check (self-hosted Docker).
+PROXY_SECRET = os.environ.get("PROXY_SECRET", "")
 ENABLE_DBL = os.environ.get("REPUTATION_ENABLE_DBL", "1") != "0"
 # The trained metadata Random Forest learned old corpora whose headers
 # differ from today's (ARC, long Received chains, mailing-list headers):
