@@ -47,7 +47,8 @@ to be malicious makes the verdict "phishing" whoever sent it. Details:
 
 To check an email, PhishLens sends its text, links and headers (and the
 attachment, if you scan one) to a server. By default that server is
-**PhishLens Cloud**, run by the author on Oracle Cloud:
+**PhishLens Cloud**, run by the author on Google Cloud Run in Belgium
+and reached through `phishlens.dev` on Cloudflare:
 
 - the email is analysed in memory and **not stored**; only the result is
   kept, for 24 hours, keyed by a hash of the email, so that a second scan

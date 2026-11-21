@@ -66,7 +66,7 @@
 <article class="prose">
 <p class="legal-note">Diese Übersetzung dient nur der leichteren Lesbarkeit. Weicht sie von der <a href="../privacy">englischen Fassung</a> ab, gilt die englische Fassung.</p>
 <h1 id="datenschutzerklärung-von-phishlens">Datenschutzerklärung von PhishLens</h1>
-<p>Zuletzt aktualisiert: 27. Oktober 2026.</p>
+<p>Zuletzt aktualisiert: 21. November 2026.</p>
 <p>PhishLens ist eine Chrome-Erweiterung, die E-Mails auf Phishing prüft. Diese Seite erklärt, welche Daten sie verarbeitet, wohin diese gehen und was gespeichert wird. Sie gilt für die Erweiterung und den gehosteten Server PhishLens Cloud unter <code>phishlens.dev</code>.</p>
 <h2 id="kurz-gesagt">Kurz gesagt</h2>
 <ul>
@@ -107,7 +107,7 @@
 </tr>
 <tr class="odd">
 <td>PhishLens Cloud</td>
-<td>Der gehostete Server des PhishLens-Autors bei Oracle Cloud. Nichts wird gespeichert (siehe unten).</td>
+<td>Der gehostete Server des PhishLens-Autors bei Google Cloud in Belgien, erreichbar über Cloudflare. Nichts wird gespeichert (siehe unten).</td>
 </tr>
 </tbody>
 </table></div>
@@ -141,7 +141,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>Meldungen gehen an PhishLens Cloud, egal welchen Server Sie für die Prüfungen nutzen. Der Server anonymisiert den Text ein zweites Mal mit denselben Regeln, speichert die Meldung ohne Ihre IP-Adresse oder andere Anfragedaten (das unten beschriebene Protokoll des Webservers erfasst die Anfrage dennoch 30 Tage lang) und gibt eine Referenz zurück. Meldungen dienen nur dazu, PhishLens zu messen und zu verbessern (zum Beispiel, um das Textmodell mit legitimen E-Mails zu trainieren, die es falsch beurteilt hat); sie werden nie veröffentlicht oder weitergegeben. Sie werden höchstens zwei Jahre aufbewahrt. Um eine Meldung löschen zu lassen, schreiben Sie an <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> mit ihrer Referenz oder eröffnen Sie ein Issue unter <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (die Referenz allein verrät nichts über die Meldung).</p>
+<p>Meldungen gehen an PhishLens Cloud, egal welchen Server Sie für die Prüfungen nutzen. Der Server anonymisiert den Text ein zweites Mal mit denselben Regeln, speichert die Meldung ohne Ihre IP-Adresse oder andere Anfragedaten (die unten beschriebenen Anfrageprotokolle erfassen die Anfrage dennoch 30 Tage lang) und gibt eine Referenz zurück. Meldungen dienen nur dazu, PhishLens zu messen und zu verbessern (zum Beispiel, um das Textmodell mit legitimen E-Mails zu trainieren, die es falsch beurteilt hat); sie werden nie veröffentlicht oder weitergegeben. Sie werden höchstens zwei Jahre aufbewahrt. Um eine Meldung löschen zu lassen, schreiben Sie an <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> mit ihrer Referenz oder eröffnen Sie ein Issue unter <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (die Referenz allein verrät nichts über die Meldung).</p>
 <p>Damit Sie auch aus der Ansicht Statistiken melden können, bleibt der anonymisierte Text Ihrer letzten Gmail- und Outlook-Prüfungen 7 Tage lang in Ihrem Browser (höchstens 50 E-Mails). Er verlässt den Browser nie, außer Sie melden diese Prüfung.</p>
 <h2 id="was-gespeichert-wird-und-wie-lange">Was gespeichert wird und wie lange</h2>
 <div class="table-wrap"><table>
@@ -170,7 +170,7 @@
 </tr>
 <tr class="even">
 <td>Von Ihnen gesendete Meldungen (anonymisierter Text oder Statistik, siehe oben)</td>
-<td>PhishLens Cloud</td>
+<td>PhishLens Cloud (Google Cloud Storage, USA)</td>
 <td>Höchstens zwei Jahre; auf Anfrage mit der Referenz gelöscht</td>
 </tr>
 <tr class="odd">
@@ -200,14 +200,14 @@
 </tr>
 <tr class="even">
 <td>Metadaten der Anfragen (Zeit, Pfad, Status, IP-Adresse, Browser)</td>
-<td>Anwendungs- und Webserver-Protokolle von PhishLens Cloud</td>
+<td>Anwendungs- und Anfrageprotokolle von PhishLens Cloud (Google Cloud)</td>
 <td>30 Tage; der Inhalt von Anfragen wird nie protokolliert</td>
 </tr>
 </tbody>
 </table></div>
 <p>PhishLens Cloud zählt außerdem Urteile pro Bewertungsweg für die Überwachung (Prometheus-Zähler). Das sind nur Zahlen, ohne E-Mail-Daten.</p>
 <h2 id="diese-website">Diese Website</h2>
-<p><code>phishlens.dev</code> setzt keine Cookies und verwendet keine Tracking-Skripte, daher gibt es nichts zuzustimmen. Besucherzahlen stammen aus den Protokollen des eigenen Webservers (Seite, Zeit, verweisende Seite, Browsertyp, IP-Adresse) und werden mit einem selbst betriebenen Werkzeug ausgewertet; sie werden 30 Tage aufbewahrt und nie weitergegeben. Die Seite fragt die öffentliche API von GitHub nach der neuesten Versionsnummer, was GitHub als normale Anfrage Ihres Browsers sieht.</p>
+<p><code>phishlens.dev</code> setzt keine Cookies und verwendet keine Tracking-Skripte, daher gibt es nichts zuzustimmen. Die Website wird von Cloudflare Pages ausgeliefert: Cloudflare verarbeitet jede Anfrage (Seite, Zeit, verweisende Seite, Browsertyp, IP-Adresse), um sie auszuliefern, und PhishLens sieht nur die zusammengefassten Besucherzahlen von Cloudflare, die nie weitergegeben werden. Die Seite fragt die öffentliche API von GitHub nach der neuesten Versionsnummer, was GitHub als normale Anfrage Ihres Browsers sieht.</p>
 <h2 id="berechtigungen">Berechtigungen</h2>
 <div class="table-wrap"><table>
 <thead>
@@ -253,9 +253,14 @@
 <h2 id="kinder">Kinder</h2>
 <p>PhishLens richtet sich nicht an Kinder und erhebt nicht wissentlich Daten über sie.</p>
 <h2 id="wer-verantwortlich-ist">Wer verantwortlich ist</h2>
-<p>PhishLens ist ein persönliches, nicht kommerzielles Projekt, betrieben von einer Privatperson, die für PhishLens Cloud und diese Website verantwortlich ist. PhishLens Cloud läuft auf Oracle Cloud Infrastructure (Oracle Corporation, Austin, Texas, USA) in deren Rechenzentrum in Frankfurt, Deutschland. Das DNS der Domain läuft über Cloudflare (Cloudflare, Inc., San Francisco, Kalifornien, USA). Kontakt: <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a>.</p>
+<p>PhishLens ist ein persönliches, nicht kommerzielles Projekt, betrieben von einer Privatperson, die für PhishLens Cloud und diese Website verantwortlich ist. Zwei Dienstleister verarbeiten den Datenverkehr:</p>
+<ul>
+<li><strong>Cloudflare</strong> (Cloudflare, Inc., San Francisco, Kalifornien, USA) liefert diese Website aus, betreibt das DNS der Domain und leitet die an <code>phishlens.dev</code> gerichteten Anfragen für PhishLens Cloud an den Analyseserver weiter. Eine Anfrage läuft über das Cloudflare-Rechenzentrum, das Ihnen am nächsten liegt.</li>
+<li><strong>Google Cloud</strong> (Google LLC, Mountain View, Kalifornien, USA) führt die Analyse auf Cloud Run aus, in der Region europe-west1 in Belgien; dort werden E-Mails im Arbeitsspeicher analysiert und nicht gespeichert. Die Meldungen, die Sie senden, werden in einem privaten Google-Cloud-Storage-Bucket in den USA aufbewahrt (Region us-central1).</li>
+</ul>
+<p>Kontakt: <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a>.</p>
 <h2 id="ihre-rechte">Ihre Rechte</h2>
-<p>Sie können erfragen, was PhishLens Cloud über Sie speichert, und es löschen lassen: eine Meldung, die Sie gesendet haben (nennen Sie ihre Referenz), oder die Einträge Ihrer Anfragen im Webserver-Protokoll, die 30 Tage aufbewahrt werden (nennen Sie Datum und IP-Adresse). Schreiben Sie an <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a>; Sie erhalten innerhalb von 30 Tagen eine Antwort. PhishLens speichert keine E-Mails, Konten oder Profile, daher gibt es in der Regel nichts weiter herauszugeben oder zu löschen.</p>
+<p>Sie können erfragen, was PhishLens Cloud über Sie speichert, und es löschen lassen: eine Meldung, die Sie gesendet haben (nennen Sie ihre Referenz), oder die Einträge Ihrer Anfragen in den Protokollen, die 30 Tage aufbewahrt werden (nennen Sie Datum und IP-Adresse). Schreiben Sie an <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a>; Sie erhalten innerhalb von 30 Tagen eine Antwort. PhishLens speichert keine E-Mails, Konten oder Profile, daher gibt es in der Regel nichts weiter herauszugeben oder zu löschen.</p>
 <h2 id="änderungen-und-kontakt">Änderungen und Kontakt</h2>
 <p>Änderungen dieser Erklärung sind im <a href="https://github.com/AnzouK/PhishLens/blob/main/CHANGELOG.md">Änderungsprotokoll</a> des Projekts aufgeführt. Fragen und Anliegen zu Ihren Daten: <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a>. Fehler und Vorschläge: eröffnen Sie ein Issue unter <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a>. Sicherheitsprobleme: melden Sie sie vertraulich wie in <a href="https://github.com/AnzouK/PhishLens/blob/main/SECURITY.md">SECURITY.md</a> beschrieben.</p>
 </article>

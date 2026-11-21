@@ -2,6 +2,10 @@
 # =====================================================================
 # PhishLens: weekly server backup to an rclone remote (run on the server).
 # =====================================================================
+# For a self-hosted Docker VM (env file, Caddy configuration, data
+# folder). PhishLens Cloud runs on Google Cloud Run and keeps no such
+# files: see docs/operations.md.
+#
 #   ~/PhishLens/scripts/backup.sh            back up now
 #   ~/PhishLens/scripts/backup.sh --list     list the backups on Drive
 #

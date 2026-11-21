@@ -1,6 +1,6 @@
 # Informativa sulla privacy di PhishLens
 
-Ultimo aggiornamento: 27 ottobre 2026.
+Ultimo aggiornamento: 21 novembre 2026.
 
 PhishLens è un'estensione di Chrome che controlla se le email sono
 phishing. Questa pagina spiega quali dati tratta, dove vanno e cosa
@@ -54,7 +54,7 @@ impostazioni dell'estensione:
 | --- | --- |
 | Server locale | Il tuo computer (`127.0.0.1:8000`). Non ne esce nulla, a parte i controlli di threat intelligence indicati sotto. |
 | URL personalizzato | Il server che hai inserito. Si applica l'informativa del suo proprietario. |
-| PhishLens Cloud | Il server ospitato gestito dall'autore di PhishLens, su Oracle Cloud. Non viene conservato nulla (vedi sotto). |
+| PhishLens Cloud | Il server ospitato gestito dall'autore di PhishLens, su Google Cloud in Belgio, raggiungibile tramite Cloudflare. Non viene conservato nulla (vedi sotto). |
 
 Il server verifica i link trovati in un'email con servizi di threat
 intelligence. Per farlo invia **solo gli indirizzi dei link** (mai il
@@ -83,7 +83,7 @@ aver letto cosa verrà inviato.
 Le segnalazioni vanno a PhishLens Cloud, qualunque server tu usi per le
 analisi. Il server anonimizza il testo una seconda volta con le stesse
 regole, salva la segnalazione senza il tuo indirizzo IP né altri dati
-della richiesta (il log del server web descritto più sotto registra
+della richiesta (i log delle richieste descritti più sotto registrano
 comunque la richiesta per 30 giorni) e restituisce un riferimento. Le
 segnalazioni servono solo a misurare e migliorare PhishLens (per esempio
 ad addestrare il modello del testo su email legittime giudicate male);
@@ -105,13 +105,13 @@ a meno che tu non segnali quell'analisi.
 | Cronologia delle analisi (oggetto, mittente, verdetto, punteggi, parole principali della spiegazione, lingua rilevata e la tua risposta) | Il tuo browser (`chrome.storage.local`) | Finché non la cancelli (Statistiche, **Cancella**), al massimo le ultime 500 analisi |
 | Cache delle spiegazioni | Il tuo browser | Finché l'estensione non viene rimossa |
 | Testo anonimizzato delle analisi recenti di Gmail e Outlook, per le segnalazioni | Il tuo browser | 7 giorni, al massimo 50 email; cancellato con la cronologia |
-| Segnalazioni che hai inviato (testo anonimizzato o statistiche, vedi sopra) | PhishLens Cloud | Al massimo due anni; cancellate su richiesta con il riferimento |
+| Segnalazioni che hai inviato (testo anonimizzato o statistiche, vedi sopra) | PhishLens Cloud (Google Cloud Storage, Stati Uniti) | Al massimo due anni; cancellate su richiesta con il riferimento |
 | Risultati dell'analisi automatica (identificativo della conversazione, verdetto, punteggio) | Il tuo browser | Le ultime 500 email |
 | Impostazioni | Il tuo browser | Finché non vengono modificate |
 | Verdetti dei link (URL, verdetto, fonte) | Cache del server (SQLite) | 24 ore |
 | Risultati restituiti (verdetto, punteggi, verdetti dei link, parole della spiegazione), indicizzati da un'impronta dell'email; non l'email stessa | Memoria del server | 24 ore, o fino al riavvio del server |
 | Testo, intestazioni e allegati delle email | Memoria del server, durante la richiesta | Non conservati |
-| Metadati delle richieste (ora, percorso, stato, indirizzo IP, browser) | Log dell'applicazione e del server web di PhishLens Cloud | 30 giorni; il contenuto delle richieste non viene mai registrato |
+| Metadati delle richieste (ora, percorso, stato, indirizzo IP, browser) | Log dell'applicazione e delle richieste di PhishLens Cloud (Google Cloud) | 30 giorni; il contenuto delle richieste non viene mai registrato |
 
 PhishLens Cloud conta anche i verdetti per modalità di calcolo, per il
 monitoraggio (contatori Prometheus). Sono solo numeri, senza dati delle
@@ -119,13 +119,14 @@ email.
 
 ## Questo sito
 
-`phishlens.dev` non imposta cookie e non usa script di
-tracciamento, quindi non c'è nulla da accettare. Il numero di visite
-proviene dai log del server web (pagina, ora, pagina di provenienza, tipo
-di browser, indirizzo IP), letti con uno strumento ospitato in proprio;
-sono conservati per 30 giorni e mai condivisi. La pagina chiede all'API
-pubblica di GitHub il numero dell'ultima versione, che GitHub vede come
-una normale richiesta del tuo browser.
+`phishlens.dev` non imposta cookie e non usa script di tracciamento,
+quindi non c'è nulla da accettare. Il sito è servito da Cloudflare
+Pages: Cloudflare tratta ogni richiesta (pagina, ora, pagina di
+provenienza, tipo di browser, indirizzo IP) per consegnarla, e PhishLens
+vede solo i conteggi aggregati delle visite forniti da Cloudflare, mai
+condivisi. La pagina chiede all'API pubblica di GitHub il numero
+dell'ultima versione, che GitHub vede come una normale richiesta del tuo
+browser.
 
 ## Autorizzazioni
 
@@ -157,21 +158,32 @@ che li riguardano.
 ## Chi è responsabile
 
 PhishLens è un progetto personale e non commerciale, gestito da un
-privato, responsabile di PhishLens Cloud e di questo sito. PhishLens
-Cloud funziona su Oracle Cloud Infrastructure (Oracle Corporation,
-Austin, Texas, Stati Uniti), nel suo data center di Francoforte, in
-Germania. Il DNS del dominio passa da Cloudflare (Cloudflare, Inc., San
-Francisco, California, Stati Uniti). Contatto: privacy@phishlens.dev.
+privato, responsabile di PhishLens Cloud e di questo sito. Due fornitori
+trattano il traffico:
+
+- **Cloudflare** (Cloudflare, Inc., San Francisco, California, Stati
+  Uniti) serve questo sito, gestisce il DNS del dominio e inoltra al
+  server di analisi le richieste a PhishLens Cloud inviate a
+  `phishlens.dev`. Ogni richiesta passa dal data center Cloudflare più
+  vicino a te.
+- **Google Cloud** (Google LLC, Mountain View, California, Stati Uniti)
+  esegue l'analisi su Cloud Run, nella sua regione europe-west1 in
+  Belgio, dove le email sono analizzate in memoria e non conservate. Le
+  segnalazioni che scegli di inviare sono conservate in un bucket
+  privato di Google Cloud Storage negli Stati Uniti (regione
+  us-central1).
+
+Contatto: privacy@phishlens.dev.
 
 ## I tuoi diritti
 
 Puoi chiedere che cosa PhishLens Cloud conserva su di te e farlo
 cancellare: una segnalazione che hai inviato (indica il suo
-riferimento), oppure le righe del registro del server web relative alle
-tue richieste, conservate 30 giorni (indica la data e il tuo indirizzo
-IP). Scrivi a privacy@phishlens.dev; riceverai una risposta entro 30
-giorni. PhishLens non conserva email, account né profili, quindi di
-solito non c'è altro da restituire o cancellare.
+riferimento), oppure le righe dei log relative alle tue richieste,
+conservate 30 giorni (indica la data e il tuo indirizzo IP). Scrivi a
+privacy@phishlens.dev; riceverai una risposta entro 30 giorni. PhishLens
+non conserva email, account né profili, quindi di solito non c'è altro
+da restituire o cancellare.
 
 ## Modifiche e contatti
 

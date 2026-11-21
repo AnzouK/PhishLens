@@ -1,6 +1,6 @@
 # Privacybeleid van PhishLens
 
-Laatst bijgewerkt: 27 oktober 2026.
+Laatst bijgewerkt: 21 november 2026.
 
 PhishLens is een Chrome-extensie die e-mails op phishing controleert.
 Deze pagina legt uit welke gegevens ze verwerkt, waar die naartoe gaan
@@ -51,7 +51,7 @@ van de extensie:
 | --- | --- |
 | Lokale server | Uw eigen computer (`127.0.0.1:8000`). Er verlaat niets uw computer, behalve de hieronder genoemde controles bij dreigingsinformatie. |
 | Eigen URL | De server die u hebt ingevoerd. Het beleid van de eigenaar geldt. |
-| PhishLens Cloud | De gehoste server van de auteur van PhishLens, bij Oracle Cloud. Er wordt niets opgeslagen (zie hieronder). |
+| PhishLens Cloud | De gehoste server van de auteur van PhishLens, bij Google Cloud in België, bereikbaar via Cloudflare. Er wordt niets opgeslagen (zie hieronder). |
 
 De server controleert de links in een e-mail bij diensten voor
 dreigingsinformatie. Daarvoor stuurt hij **alleen de linkadressen**
@@ -80,10 +80,10 @@ link voor controles die u als **Onjuist** hebt gemarkeerd, en een knop
 Meldingen gaan naar PhishLens Cloud, welke server u ook voor de
 controles gebruikt. De server anonimiseert de tekst een tweede keer met
 dezelfde regels, bewaart de melding zonder uw IP-adres of andere
-verzoekgegevens (het hieronder beschreven logboek van de webserver legt
-het verzoek wel 30 dagen vast) en geeft een referentie terug. Meldingen
-dienen alleen om PhishLens te meten en te verbeteren (bijvoorbeeld om
-het tekstmodel te trainen op legitieme e-mails die het verkeerd
+verzoekgegevens (de hieronder beschreven verzoeklogs leggen het verzoek
+wel 30 dagen vast) en geeft een referentie terug. Meldingen dienen
+alleen om PhishLens te meten en te verbeteren (bijvoorbeeld om het
+tekstmodel te trainen op legitieme e-mails die het verkeerd
 beoordeelde); ze worden nooit gepubliceerd of gedeeld. Ze worden hooguit
 twee jaar bewaard. Om een melding te laten verwijderen, schrijft u naar
 privacy@phishlens.dev met de referentie, of opent u een issue op
@@ -102,26 +102,27 @@ u die controle meldt.
 | Controlegeschiedenis (onderwerp, afzender, oordeel, scores, belangrijkste woorden van de uitleg, herkende taal en uw antwoord) | Uw browser (`chrome.storage.local`) | Tot u ze wist (Statistieken, **Wissen**), hooguit de laatste 500 controles |
 | Cache van uitleg | Uw browser | Tot de extensie wordt verwijderd |
 | Geanonimiseerde tekst van recente Gmail- en Outlook-controles, voor meldingen | Uw browser | 7 dagen, hooguit 50 e-mails; gewist met de geschiedenis |
-| Meldingen die u hebt verstuurd (geanonimiseerde tekst of statistieken, zie hierboven) | PhishLens Cloud | Hooguit twee jaar; op verzoek verwijderd met de referentie |
+| Meldingen die u hebt verstuurd (geanonimiseerde tekst of statistieken, zie hierboven) | PhishLens Cloud (Google Cloud Storage, Verenigde Staten) | Hooguit twee jaar; op verzoek verwijderd met de referentie |
 | Resultaten van de automatische controle (gespreks-ID, oordeel, score) | Uw browser | De laatste 500 e-mails |
 | Instellingen | Uw browser | Tot ze gewijzigd worden |
 | Linkoordelen (URL, oordeel, bron) | Servercache (SQLite) | 24 uur |
 | Teruggestuurde resultaten (oordeel, scores, linkoordelen, woorden van de uitleg), gekoppeld aan een hash van de e-mail; niet de e-mail zelf | Geheugen van de server | 24 uur, of tot de server herstart |
 | Tekst, headers en bijlagen van e-mails | Geheugen van de server, tijdens het verzoek | Niet opgeslagen |
-| Metagegevens van verzoeken (tijd, pad, status, IP-adres, browser) | Applicatie- en webserverlogs van PhishLens Cloud | 30 dagen; de inhoud van verzoeken wordt nooit gelogd |
+| Metagegevens van verzoeken (tijd, pad, status, IP-adres, browser) | Applicatie- en verzoeklogs van PhishLens Cloud (Google Cloud) | 30 dagen; de inhoud van verzoeken wordt nooit gelogd |
 
 PhishLens Cloud telt ook oordelen per beoordelingsroute voor monitoring
 (Prometheus-tellers). Dat zijn alleen getallen, zonder e-mailgegevens.
 
 ## Deze website
 
-`phishlens.dev` plaatst geen cookies en gebruikt geen
-trackingscripts, dus er is niets om mee in te stemmen. Bezoekersaantallen
-komen uit de logs van de eigen webserver (pagina, tijd, verwijzende
-pagina, browsertype, IP-adres), gelezen met een zelf gehost hulpmiddel;
-ze worden 30 dagen bewaard en nooit gedeeld. De pagina vraagt de
-openbare API van GitHub om het nummer van de nieuwste versie, wat GitHub
-ziet als een gewoon verzoek van uw browser.
+`phishlens.dev` plaatst geen cookies en gebruikt geen trackingscripts,
+dus er is niets om mee in te stemmen. De site wordt geleverd door
+Cloudflare Pages: Cloudflare verwerkt elk verzoek (pagina, tijd,
+verwijzende pagina, browsertype, IP-adres) om het af te leveren, en
+PhishLens ziet alleen de samengevatte bezoekersaantallen van Cloudflare,
+die nooit worden gedeeld. De pagina vraagt de openbare API van GitHub om
+het nummer van de nieuwste versie, wat GitHub ziet als een gewoon
+verzoek van uw browser.
 
 ## Rechten
 
@@ -153,21 +154,30 @@ over hen.
 
 PhishLens is een persoonlijk, niet-commercieel project, onderhouden door
 een particulier, die verantwoordelijk is voor PhishLens Cloud en deze
-website. PhishLens Cloud draait op Oracle Cloud Infrastructure (Oracle
-Corporation, Austin, Texas, Verenigde Staten), in het datacenter in
-Frankfurt, Duitsland. De DNS van het domein loopt via Cloudflare
-(Cloudflare, Inc., San Francisco, Californië, Verenigde Staten).
+website. Twee dienstverleners verwerken het verkeer:
+
+- **Cloudflare** (Cloudflare, Inc., San Francisco, Californië, Verenigde
+  Staten) levert deze website, beheert de DNS van het domein en stuurt
+  de verzoeken voor PhishLens Cloud die naar `phishlens.dev` gaan door
+  naar de analyseserver. Een verzoek loopt via het Cloudflare-datacenter
+  dat het dichtst bij u ligt.
+- **Google Cloud** (Google LLC, Mountain View, Californië, Verenigde
+  Staten) voert de analyse uit op Cloud Run, in de regio europe-west1 in
+  België, waar e-mails in het geheugen worden geanalyseerd en niet
+  worden opgeslagen. De meldingen die u zelf verstuurt, worden bewaard
+  in een privébucket van Google Cloud Storage in de Verenigde Staten
+  (regio us-central1).
+
 Contact: privacy@phishlens.dev.
 
 ## Uw rechten
 
 U kunt vragen wat PhishLens Cloud over u bewaart en het laten
 verwijderen: een melding die u stuurde (vermeld de referentie), of de
-regels van uw verzoeken in het webserverlogboek, 30 dagen bewaard
-(vermeld de datum en uw IP-adres). Schrijf naar privacy@phishlens.dev; u
-krijgt binnen 30 dagen antwoord. PhishLens bewaart geen e-mails,
-accounts of profielen, dus er is meestal niets anders te geven of te
-verwijderen.
+regels van uw verzoeken in de logs, 30 dagen bewaard (vermeld de datum
+en uw IP-adres). Schrijf naar privacy@phishlens.dev; u krijgt binnen 30
+dagen antwoord. PhishLens bewaart geen e-mails, accounts of profielen,
+dus er is meestal niets anders te geven of te verwijderen.
 
 ## Wijzigingen en contact
 

@@ -66,7 +66,7 @@
 <article class="prose">
 <p class="legal-note">Deze vertaling is bedoeld voor het gemak. Als ze afwijkt van de <a href="../privacy">Engelse versie</a>, geldt de Engelse versie.</p>
 <h1 id="privacybeleid-van-phishlens">Privacybeleid van PhishLens</h1>
-<p>Laatst bijgewerkt: 27 oktober 2026.</p>
+<p>Laatst bijgewerkt: 21 november 2026.</p>
 <p>PhishLens is een Chrome-extensie die e-mails op phishing controleert. Deze pagina legt uit welke gegevens ze verwerkt, waar die naartoe gaan en wat bewaard wordt. Ze geldt voor de extensie en voor de gehoste server, PhishLens Cloud, op <code>phishlens.dev</code>.</p>
 <h2 id="in-het-kort">In het kort</h2>
 <ul>
@@ -107,7 +107,7 @@
 </tr>
 <tr class="odd">
 <td>PhishLens Cloud</td>
-<td>De gehoste server van de auteur van PhishLens, bij Oracle Cloud. Er wordt niets opgeslagen (zie hieronder).</td>
+<td>De gehoste server van de auteur van PhishLens, bij Google Cloud in België, bereikbaar via Cloudflare. Er wordt niets opgeslagen (zie hieronder).</td>
 </tr>
 </tbody>
 </table></div>
@@ -141,7 +141,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>Meldingen gaan naar PhishLens Cloud, welke server u ook voor de controles gebruikt. De server anonimiseert de tekst een tweede keer met dezelfde regels, bewaart de melding zonder uw IP-adres of andere verzoekgegevens (het hieronder beschreven logboek van de webserver legt het verzoek wel 30 dagen vast) en geeft een referentie terug. Meldingen dienen alleen om PhishLens te meten en te verbeteren (bijvoorbeeld om het tekstmodel te trainen op legitieme e-mails die het verkeerd beoordeelde); ze worden nooit gepubliceerd of gedeeld. Ze worden hooguit twee jaar bewaard. Om een melding te laten verwijderen, schrijft u naar <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> met de referentie, of opent u een issue op <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (de referentie alleen zegt niets over de melding).</p>
+<p>Meldingen gaan naar PhishLens Cloud, welke server u ook voor de controles gebruikt. De server anonimiseert de tekst een tweede keer met dezelfde regels, bewaart de melding zonder uw IP-adres of andere verzoekgegevens (de hieronder beschreven verzoeklogs leggen het verzoek wel 30 dagen vast) en geeft een referentie terug. Meldingen dienen alleen om PhishLens te meten en te verbeteren (bijvoorbeeld om het tekstmodel te trainen op legitieme e-mails die het verkeerd beoordeelde); ze worden nooit gepubliceerd of gedeeld. Ze worden hooguit twee jaar bewaard. Om een melding te laten verwijderen, schrijft u naar <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> met de referentie, of opent u een issue op <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (de referentie alleen zegt niets over de melding).</p>
 <p>Om melden vanuit de weergave Statistieken mogelijk te maken, blijft de geanonimiseerde tekst van uw laatste Gmail- en Outlook-controles 7 dagen in uw browser (hooguit 50 e-mails). Die verlaat de browser nooit, tenzij u die controle meldt.</p>
 <h2 id="wat-bewaard-wordt-en-hoe-lang">Wat bewaard wordt, en hoe lang</h2>
 <div class="table-wrap"><table>
@@ -170,7 +170,7 @@
 </tr>
 <tr class="even">
 <td>Meldingen die u hebt verstuurd (geanonimiseerde tekst of statistieken, zie hierboven)</td>
-<td>PhishLens Cloud</td>
+<td>PhishLens Cloud (Google Cloud Storage, Verenigde Staten)</td>
 <td>Hooguit twee jaar; op verzoek verwijderd met de referentie</td>
 </tr>
 <tr class="odd">
@@ -200,14 +200,14 @@
 </tr>
 <tr class="even">
 <td>Metagegevens van verzoeken (tijd, pad, status, IP-adres, browser)</td>
-<td>Applicatie- en webserverlogs van PhishLens Cloud</td>
+<td>Applicatie- en verzoeklogs van PhishLens Cloud (Google Cloud)</td>
 <td>30 dagen; de inhoud van verzoeken wordt nooit gelogd</td>
 </tr>
 </tbody>
 </table></div>
 <p>PhishLens Cloud telt ook oordelen per beoordelingsroute voor monitoring (Prometheus-tellers). Dat zijn alleen getallen, zonder e-mailgegevens.</p>
 <h2 id="deze-website">Deze website</h2>
-<p><code>phishlens.dev</code> plaatst geen cookies en gebruikt geen trackingscripts, dus er is niets om mee in te stemmen. Bezoekersaantallen komen uit de logs van de eigen webserver (pagina, tijd, verwijzende pagina, browsertype, IP-adres), gelezen met een zelf gehost hulpmiddel; ze worden 30 dagen bewaard en nooit gedeeld. De pagina vraagt de openbare API van GitHub om het nummer van de nieuwste versie, wat GitHub ziet als een gewoon verzoek van uw browser.</p>
+<p><code>phishlens.dev</code> plaatst geen cookies en gebruikt geen trackingscripts, dus er is niets om mee in te stemmen. De site wordt geleverd door Cloudflare Pages: Cloudflare verwerkt elk verzoek (pagina, tijd, verwijzende pagina, browsertype, IP-adres) om het af te leveren, en PhishLens ziet alleen de samengevatte bezoekersaantallen van Cloudflare, die nooit worden gedeeld. De pagina vraagt de openbare API van GitHub om het nummer van de nieuwste versie, wat GitHub ziet als een gewoon verzoek van uw browser.</p>
 <h2 id="rechten">Rechten</h2>
 <div class="table-wrap"><table>
 <thead>
@@ -253,9 +253,14 @@
 <h2 id="kinderen">Kinderen</h2>
 <p>PhishLens is niet gericht op kinderen en verzamelt niet bewust gegevens over hen.</p>
 <h2 id="wie-verantwoordelijk-is">Wie verantwoordelijk is</h2>
-<p>PhishLens is een persoonlijk, niet-commercieel project, onderhouden door een particulier, die verantwoordelijk is voor PhishLens Cloud en deze website. PhishLens Cloud draait op Oracle Cloud Infrastructure (Oracle Corporation, Austin, Texas, Verenigde Staten), in het datacenter in Frankfurt, Duitsland. De DNS van het domein loopt via Cloudflare (Cloudflare, Inc., San Francisco, Californië, Verenigde Staten). Contact: <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a>.</p>
+<p>PhishLens is een persoonlijk, niet-commercieel project, onderhouden door een particulier, die verantwoordelijk is voor PhishLens Cloud en deze website. Twee dienstverleners verwerken het verkeer:</p>
+<ul>
+<li><strong>Cloudflare</strong> (Cloudflare, Inc., San Francisco, Californië, Verenigde Staten) levert deze website, beheert de DNS van het domein en stuurt de verzoeken voor PhishLens Cloud die naar <code>phishlens.dev</code> gaan door naar de analyseserver. Een verzoek loopt via het Cloudflare-datacenter dat het dichtst bij u ligt.</li>
+<li><strong>Google Cloud</strong> (Google LLC, Mountain View, Californië, Verenigde Staten) voert de analyse uit op Cloud Run, in de regio europe-west1 in België, waar e-mails in het geheugen worden geanalyseerd en niet worden opgeslagen. De meldingen die u zelf verstuurt, worden bewaard in een privébucket van Google Cloud Storage in de Verenigde Staten (regio us-central1).</li>
+</ul>
+<p>Contact: <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a>.</p>
 <h2 id="uw-rechten">Uw rechten</h2>
-<p>U kunt vragen wat PhishLens Cloud over u bewaart en het laten verwijderen: een melding die u stuurde (vermeld de referentie), of de regels van uw verzoeken in het webserverlogboek, 30 dagen bewaard (vermeld de datum en uw IP-adres). Schrijf naar <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a>; u krijgt binnen 30 dagen antwoord. PhishLens bewaart geen e-mails, accounts of profielen, dus er is meestal niets anders te geven of te verwijderen.</p>
+<p>U kunt vragen wat PhishLens Cloud over u bewaart en het laten verwijderen: een melding die u stuurde (vermeld de referentie), of de regels van uw verzoeken in de logs, 30 dagen bewaard (vermeld de datum en uw IP-adres). Schrijf naar <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a>; u krijgt binnen 30 dagen antwoord. PhishLens bewaart geen e-mails, accounts of profielen, dus er is meestal niets anders te geven of te verwijderen.</p>
 <h2 id="wijzigingen-en-contact">Wijzigingen en contact</h2>
 <p>Wijzigingen in dit beleid staan in het <a href="https://github.com/AnzouK/PhishLens/blob/main/CHANGELOG.md">wijzigingslogboek</a> van het project. Vragen en verzoeken over uw gegevens: <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a>. Fouten en suggesties: open een issue op <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a>. Beveiligingsproblemen: meld ze vertrouwelijk zoals beschreven in <a href="https://github.com/AnzouK/PhishLens/blob/main/SECURITY.md">SECURITY.md</a>.</p>
 </article>

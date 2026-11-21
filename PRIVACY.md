@@ -1,6 +1,6 @@
 # PhishLens privacy policy
 
-Last updated: October 27, 2026.
+Last updated: November 21, 2026.
 
 PhishLens is a Chrome extension that checks emails for phishing. This
 page explains what data it handles, where that data goes and what is
@@ -49,7 +49,7 @@ settings:
 | --- | --- |
 | Local backend | Your own computer (`127.0.0.1:8000`). Nothing leaves it, except the threat-intelligence lookups below. |
 | Custom URL | The server you entered. Its owner's policy applies. |
-| PhishLens Cloud | The hosted server run by the PhishLens author, on Oracle Cloud. Nothing is stored (see below). |
+| PhishLens Cloud | The hosted server run by the PhishLens author, on Google Cloud in Belgium, reached through Cloudflare. Nothing is stored (see below). |
 
 The backend checks the links found in an email against
 threat-intelligence services. For this it sends the **link addresses
@@ -76,9 +76,9 @@ sent.
 
 Reports go to PhishLens Cloud whatever server you use for scanning. The
 server redacts the text again with the same rules, stores the report
-without your IP address or any other request data (the web server's
-access log described below still records the request for 30 days), and
-returns a reference. Reports are used only to measure and improve
+without your IP address or any other request data (the request logs
+described below still record the request for 30 days), and returns a
+reference. Reports are used only to measure and improve
 PhishLens (for example to train the text model on legitimate mail it got
 wrong); they are never published or shared. They are kept for at most
 two years. To have a report deleted, write to privacy@phishlens.dev with
@@ -97,13 +97,13 @@ most). It never leaves the browser unless you report that scan.
 | Scan history (subject, sender, verdict, scores, top explanation words, detected language and your answer) | Your browser (`chrome.storage.local`) | Until you clear it (Insights, **Clear**), up to the last 500 scans |
 | Explanation cache | Your browser | Until the extension is removed |
 | Redacted text of recent Gmail and Outlook scans, for reporting | Your browser | 7 days, 50 emails at most; cleared with the history |
-| Reports you sent (redacted text or statistics, see above) | PhishLens Cloud | At most two years; deleted on request with the reference |
+| Reports you sent (redacted text or statistics, see above) | PhishLens Cloud (Google Cloud Storage, United States) | At most two years; deleted on request with the reference |
 | Automatic-scan results (thread id, verdict, score) | Your browser | Last 500 emails |
 | Settings | Your browser | Until changed |
 | Link verdicts (URL, verdict, source) | Backend cache (SQLite) | 24 hours |
 | Results sent back (verdict, scores, link verdicts, explanation words), keyed by a hash of the email; not the email itself | Backend memory | 24 hours, or until the server restarts |
 | Email text, headers, attachments | Backend memory, during the request | Not stored |
-| Request metadata (time, path, status, IP address, browser) | PhishLens Cloud application and web-server logs | 30 days; request bodies are never logged |
+| Request metadata (time, path, status, IP address, browser) | PhishLens Cloud application and request logs (Google Cloud) | 30 days; request bodies are never logged |
 
 PhishLens Cloud also counts verdicts per scoring path for monitoring
 (Prometheus counters). These are numbers only, with no email data.
@@ -111,9 +111,10 @@ PhishLens Cloud also counts verdicts per scoring path for monitoring
 ## This website
 
 `phishlens.dev` sets no cookies and uses no tracking scripts, so
-there is nothing to consent to. Visit counts come from the web server's
-own logs (page, time, referrer, browser type, IP address), read with a
-self-hosted tool; they are kept for 30 days and never shared. The page
+there is nothing to consent to. The site is served by Cloudflare Pages:
+Cloudflare processes each request (page, time, referrer, browser type,
+IP address) to deliver it, and PhishLens sees only Cloudflare's
+aggregated visit counts, which are never shared. The page
 asks GitHub's public API for the latest version number, which GitHub
 sees as a normal request from your browser.
 
@@ -147,16 +148,26 @@ data about them.
 
 PhishLens is a personal, non-commercial project maintained by an
 individual, who is responsible for PhishLens Cloud and this website.
-PhishLens Cloud runs on Oracle Cloud Infrastructure (Oracle Corporation,
-Austin, Texas, United States), in its Frankfurt data centre in Germany.
-The domain's DNS goes through Cloudflare (Cloudflare, Inc., San
-Francisco, California, United States). Contact: privacy@phishlens.dev.
+Two service providers handle the traffic:
+
+- **Cloudflare** (Cloudflare, Inc., San Francisco, California, United
+  States) serves this website, runs the domain's DNS and forwards the
+  PhishLens Cloud requests sent to `phishlens.dev` to the analysis
+  server. A request goes through the Cloudflare data centre nearest to
+  you.
+- **Google Cloud** (Google LLC, Mountain View, California, United
+  States) runs the analysis on Cloud Run, in its europe-west1 region in
+  Belgium, where emails are analysed in memory and not stored. The
+  reports you choose to send are kept in a private Google Cloud Storage
+  bucket in the United States (us-central1 region).
+
+Contact: privacy@phishlens.dev.
 
 ## Your rights
 
 You can ask what PhishLens Cloud keeps that relates to you, and have it
-deleted: a report you sent (give its reference), or the web-server log
-entries of your requests, kept 30 days (give the date and your IP
+deleted: a report you sent (give its reference), or the log entries of
+your requests, kept 30 days (give the date and your IP
 address). Write to privacy@phishlens.dev; you get an answer within 30
 days. PhishLens keeps no email, no account and no profile, so there is
 usually nothing else to return or delete.

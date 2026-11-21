@@ -1,6 +1,6 @@
 # Termini di utilizzo di PhishLens
 
-Ultimo aggiornamento: 27 ottobre 2026.
+Ultimo aggiornamento: 21 novembre 2026.
 
 Questi termini riguardano l'estensione PhishLens per Chrome, il sito
 `phishlens.dev` e PhishLens Cloud, il server di analisi ospitato.
@@ -67,11 +67,14 @@ segnalata per errore.
 ## Chi gestisce PhishLens
 
 PhishLens è un progetto personale e non commerciale, gestito da un
-privato, responsabile di PhishLens Cloud e di questo sito. PhishLens
-Cloud funziona su Oracle Cloud Infrastructure (Oracle Corporation,
-Austin, Texas, Stati Uniti), nel suo data center di Francoforte, in
-Germania. Il DNS del dominio passa da Cloudflare (Cloudflare, Inc., San
-Francisco, California, Stati Uniti). Contatto: privacy@phishlens.dev.
+privato, responsabile di PhishLens Cloud e di questo sito. Il sito è
+servito da Cloudflare (Cloudflare, Inc., San Francisco, California,
+Stati Uniti), che gestisce anche il DNS del dominio e inoltra al server
+di analisi le richieste a PhishLens Cloud. PhishLens Cloud funziona su
+Google Cloud (Google LLC, Mountain View, California, Stati Uniti), su
+Cloud Run nella sua regione europe-west1 in Belgio; le segnalazioni che
+scegli di inviare sono conservate in Google Cloud Storage negli Stati
+Uniti. Contatto: privacy@phishlens.dev.
 
 ## Modifiche e contatti
 

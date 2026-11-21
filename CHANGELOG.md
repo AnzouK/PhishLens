@@ -20,6 +20,15 @@ backend share one version number.
   API paths of phishlens.dev to it, so the extension and the website
   keep the same address; `/metrics` stays private. The function replaces
   any client-sent `X-Forwarded-For` with the address Cloudflare saw.
+- The documentation and the legal pages describe the new hosting: the
+  website on Cloudflare Pages, PhishLens Cloud on Google Cloud Run in
+  Belgium (europe-west1), reports in Google Cloud Storage (United
+  States). The privacy policy and the terms name these providers in
+  every language, with a new "Last updated" date; the operations guide
+  covers the Cloud Run deployment (the public ghcr.io image pulled
+  directly, its settings with `/metrics` turned off, the reports bucket
+  mounted as a volume, the warm-up job), and `scripts/redeploy.sh` and
+  `scripts/backup.sh` are marked as being for a self-hosted server.
 - The website is served by Cloudflare Pages. Page addresses no longer
   end in `.html` (`/privacy`, `/fr/terms`); the old addresses redirect
   to the new ones. `site/_headers` sets the security headers the
