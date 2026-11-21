@@ -148,7 +148,7 @@ class TestOrgDomainPublicSuffixes:
         assert v.aligned is False and v.cryptographically_verified is False
 
 
-def test_a_failing_brand_signature_does_not_lend_its_domain_to_a_passing_one():
+def test_failing_brand_signature_lends_no_domain():
     from auth_headers import parse_authentication_results
 
     v = parse_authentication_results(

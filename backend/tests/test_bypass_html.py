@@ -610,3 +610,27 @@ def test_a_comment_in_a_second_style_sheet_stays():
     # "<style" inside a long comment opens no sheet.
     tricky = "<!--<style>" + "c" * 600 + "--><p>x</p>" + comment
     assert ep.without_inline_data(tricky) == "<p>x</p>"
+
+
+def test_dotted_capital_i_does_not_shift_the_sheet_end():
+    # "\u0130".lower() is two characters: a lowercased copy put the end
+    # of the sheet inside the comment that follows it.
+    html = "\u0130" * 2000 + "<style>p{}</style><!--" + "x" * 1_000_000 + "--><p>Hi</p>"
+    out = ep.without_inline_data(html)
+    assert "x" * 1000 not in out and out.endswith("<p>Hi</p>")
+    assert (
+        ep.without_inline_data("<STYLE>p{}</Style><!--" + "y" * 600 + "-->") == "<STYLE>p{}</Style>"
+    )
+
+
+@pytest.mark.parametrize("attr", ['title="<style>"', "title='<style>'", 'title="<!--"'])
+def test_markup_inside_an_attribute_opens_nothing(attr):
+    html = f"<div {attr}>Hi</div><!--" + "x" * 1_000_000 + "--><p>Verify</p>"
+    assert ep.without_inline_data(html) == f"<div {attr}>Hi</div><p>Verify</p>"
+
+
+def test_empty_comment_forms_hide_nothing():
+    text = "Your account is locked " * 30
+    for empty in ("<!-->", "<!--->"):
+        html = f"{empty}<p>{text}</p><!-- x -->"
+        assert ep.without_inline_data(html) == html

@@ -209,8 +209,8 @@ def part_name(name: str) -> str:
 
 
 def is_office_part(name: str) -> bool:
-    """The entry is one an Office package holds: under one of its folders,
-    with a part's extension, and no ".." in its path."""
+    """True when the entry is one an Office package holds. It is under one
+    of its folders, has a part's extension and no ".." in its path."""
     n = part_name(name)
     return (
         n.startswith(OOXML_ROOTS)
@@ -306,8 +306,9 @@ def _text_from_xml(data: bytes, text_tags: set[str] | None, block_tags: set[str]
 
 
 class _Fields:
-    """Word fields being read: one frame per open field, with its
-    instruction parts, its result parts and whether its separate was seen."""
+    """Tracks the Word fields being read. Each open field has one frame with
+    its instruction parts, its result parts and whether its separate was
+    seen."""
 
     def __init__(self) -> None:
         self.codes: list[str] = []
@@ -374,9 +375,9 @@ def _field_codes(data: bytes) -> str:
 
 
 def _field_urls(codes: str, urls: list[str]) -> None:
-    """Addresses of HYPERLINK / INCLUDEPICTURE / INCLUDETEXT fields: the
-    first argument that is not a switch, quoted or not, plus any address
-    written elsewhere in the codes."""
+    """Return the addresses of HYPERLINK / INCLUDEPICTURE / INCLUDETEXT
+    fields. That is the first argument that is not a switch, quoted or
+    not, plus any address written elsewhere in the codes."""
     for m in _LINK_FIELD_RE.finditer(codes):
         args = _FIELD_SWITCH_RE.sub(" ", m.group(1))
         for a in _FIELD_ARG_RE.finditer(args):
@@ -506,7 +507,7 @@ def _add(flags: list[str], flag: str) -> None:
 def _scan_relationships(
     zf: zipfile.ZipFile, names: list[str], flags: list[str], urls: list[str]
 ) -> None:
-    """Relationships: hyperlinks, remote templates and frames, external OLE
+    """Read the relationships: hyperlinks, remote templates and frames, external OLE
     links, macro projects whatever their part is named, and programs or
     shares a click or the opening reaches (a target that is not a web
     address: "\\\\host\\share", file:, ms-msdt:, mhtml:, or a program)."""
@@ -647,7 +648,7 @@ def _other_parts(
 
 
 def _active_content(kind: str, name: str, data: bytes, flags: list[str], urls: list[str]) -> None:
-    """What a part makes Office do: "Run program" actions, DDE fields and
+    """Find what a part makes Office do: "Run program" actions, DDE fields and
     formulas, and the addresses of link fields."""
     if _RUN_ACTION_RE.search(data):
         _add(flags, "launch_external_action")

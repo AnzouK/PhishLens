@@ -53,15 +53,19 @@ async function testConnection() {
     }
 }
 
+const LOCAL_ORIGINS = ["http://127.0.0.1/*", "http://localhost/*"];
+
 // Optional host permissions, requested during a click. A refusal breaks
-// nothing, since the server's CORS headers still apply.
+// nothing, since the server's CORS headers still apply. The promise
+// settles once the user has answered, never with an error.
 function requestOrigins(origins) {
     origins = origins.filter(Boolean);
-    if (!origins.length) return;
+    if (!origins.length || !chrome.permissions?.request) return Promise.resolve(false);
     try {
-        chrome.permissions?.request({ origins })?.catch?.(() => {});
+        return Promise.resolve(chrome.permissions.request({ origins })).catch(() => false);
     } catch (e) {
         console.debug("[PhishLens] permission not requested:", e?.message || e);
+        return Promise.resolve(false);
     }
 }
 
@@ -83,7 +87,7 @@ export function initSettings() {
             // The optional permission for a local server is requested
             // during the choice itself, which is a user gesture. Without it
             // the server's CORS headers still let the extension in.
-            if (backend.choice === "local") requestOrigins(["http://127.0.0.1/*", "http://localhost/*"]);
+            if (backend.choice === "local") requestOrigins(LOCAL_ORIGINS);
             customUrlInput.disabled = backend.choice !== "custom";
             STORAGE?.set({ backend: backend.choice });
             if (backend.choice === "custom" && !customUrlInput.value) customUrlInput.focus();
@@ -116,9 +120,12 @@ export function initSettings() {
         setConnStatus(null);
         updateCustomUrlWarn();
     });
-    $("test-conn-btn").addEventListener("click", () => {
-        // Not a URL yet, so there is no pattern and the test below says so.
-        if (backend.choice === "custom") requestOrigins([hostPattern(backend.customUrl)]);
+    $("test-conn-btn").addEventListener("click", async () => {
+        // Asked during the click, and answered before the test runs, so the
+        // test sees the permission. Not a URL yet: no pattern, and the test
+        // below says so.
+        if (backend.choice === "custom") await requestOrigins([hostPattern(backend.customUrl)]);
+        else if (backend.choice === "local") await requestOrigins(LOCAL_ORIGINS);
         testConnection();
     });
 

@@ -90,6 +90,7 @@ from settings import (
     MAX_LINK_URLS,
     MAX_PAGE_TEXT_CHARS,
     MAX_TEXT_CHARS,
+    MAX_URL_SCAN_CHARS,
     METADATA_MODEL_ENABLED,
     METRICS_ENABLED,
     MIN_TEXT_WORDS,
@@ -310,7 +311,7 @@ class AnalyseRequest(BaseModel):
 
 
 def _from_value(email: str, name: str | None, original: str = "") -> str:
-    """From: built from the address the client sent and the name it shows
+    """Build a From: value from the address the client sent and the name it shows
     (or the name of the original header), so that the name can be checked
     against the address (impersonation)."""
     display = name or parseaddr(original)[0] or ""
@@ -336,8 +337,8 @@ class AttachmentRequest(BaseModel):
 
 
 def _client_link_groups(ctx: dict[str, Any]) -> tuple[list[str], list[str]]:
-    """Visible and hidden link targets the page sent, apart: no hidden one
-    is ranked before a visible one (older extensions send them all in
+    """Return the visible and hidden link targets the page sent, apart, so
+    no hidden one is ranked before a visible one (older extensions send them all in
     link_urls, visible first)."""
     return client_links(ctx.get("link_urls")), client_links(ctx.get("hidden_link_urls"))
 
@@ -357,7 +358,8 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         if looks_like_source(full):
             full = strip_markup_noise(full)
         body = full[:MAX_PAGE_TEXT_CHARS]
-        urls = rank_links(*_client_link_groups(ctx), urls_in_text(body))
+        # The text model reads the start; links written further down count.
+        urls = rank_links(*_client_link_groups(ctx), urls_in_text(full[:MAX_URL_SCAN_CHARS]))
         headers: dict[str, str] = {}
         _keep_forward_marker(full, body, headers)
         if req.sender_email:
@@ -404,15 +406,15 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     text_urls: list[str] = []
     page = (req.raw_text or "").strip()
     if page and not is_page_source(page):
-        page = strip_markup_noise(page) if looks_like_source(page) else page
-        page = page[:MAX_PAGE_TEXT_CHARS]
+        page_full = strip_markup_noise(page) if looks_like_source(page) else page
+        page = page_full[:MAX_PAGE_TEXT_CHARS]
         if len(page.split()) >= MIN_TEXT_WORDS:
             # The page text can be shorter than the message (the client
             # sends at most MAX_PAGE_TEXT_CHARS): a forward marker further
             # down the message still counts.
             _keep_forward_marker(body, page, headers)
             body = page
-            text_urls = urls_in_text(body)
+            text_urls = urls_in_text(page_full[:MAX_URL_SCAN_CHARS])
     # Visible links of the page, then those of the message (its own
     # visible ones first), then the page's hidden ones.
     # A link the browser saw hidden (a 1 px image, a rule for screens)
@@ -481,11 +483,33 @@ def root():
     }
 
 
+_PURGE_EVERY_S = 3600.0
+_last_purge = 0.0
+
+
+def _purge_expired_caches() -> None:
+    """Expired cache entries out at most once an hour. /health is called
+    every 10 minutes by the warm-up job, so an instance that scans nothing
+    drops them too."""
+    global _last_purge
+    now = time.monotonic()
+    if _last_purge and now - _last_purge < _PURGE_EVERY_S:
+        return
+    _last_purge = now
+    _RESULT_CACHE.purge_expired()
+    if _REPUTATION_AVAILABLE:
+        try:
+            _reputation.purge_if_due()
+        except Exception as e:
+            logger.debug("reputation cache purge failed: %s", e)
+
+
 # HEAD too: uptime monitors (UptimeRobot's free plan) probe with HEAD.
 @app.api_route("/health", methods=["GET", "HEAD"])
 @_not_rate_limited
 def health():
     """Liveness, version, and which agents run a trained model."""
+    _purge_expired_caches()
     return {
         "status": "ok",
         "version": VERSION,
@@ -553,8 +577,8 @@ def send_feedback(request: Request, req: feedback.FeedbackRequest):
 @app.post("/explain")
 @_rate_limited(RATE_LIMIT_EXPLAIN)
 def explain(request: Request, req: AnalyseRequest):
-    """Top words behind the text agent's score (LIME). A sync endpoint:
-    FastAPI runs it in a worker thread."""
+    """Top words behind the text agent's score (LIME). The endpoint is sync,
+    so FastAPI runs it in a worker thread."""
     body, _, headers, _ = _resolve_email(req)
     if not body:
         raise HTTPException(400, "Could not extract any text from this email.")
@@ -684,8 +708,8 @@ async def _score(
 
 
 def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict) -> _Sender:
-    """Who the sender is and whether it is proven: the inputs of the
-    trust path."""
+    """Work out who the sender is and whether it is proven. These are the
+    inputs of the trust path."""
     domain = sender_domain(headers.get("from", ""))
     allowlisted = is_trusted_domain(domain)
     crypto_verified = bool(auth.get("cryptographically_verified"))
@@ -708,7 +732,9 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
     subject = headers.get("subject") or ctx.get("subject")
     forwarded = detect_forwarded(body, subject if isinstance(subject, str) else None)
     hint = headers.get(FORWARDED_ELSEWHERE)
-    if hint and not forwarded["detected"]:
+    # The hint also names the original sender when only the subject
+    # ("Fwd:") was seen in the scored text.
+    if hint and (not forwarded["detected"] or (not forwarded["original_sender"] and "@" in hint)):
         forwarded = {"detected": True, "original_sender": hint if "@" in hint else None}
     # A brand's name over another domain's address: authentication only
     # proves who the impostor is, so no softer path. Checked on forwards
@@ -793,7 +819,7 @@ def _sender_auth_block(s: _Scores, who: _Sender) -> dict[str, Any]:
 
 
 def _auth_source(headers: dict[str, str]) -> str:
-    """Where the sender checks came from: real headers, or the values
+    """Say where the sender checks came from: real headers, or the values
     Gmail shows (verified by Gmail, not here)."""
     auth_header = headers.get("authentication-results", "") or ""
     if auth_header.startswith("gmail-client-context"):
@@ -915,7 +941,7 @@ _INNER_REASONS = {
 
 
 def _archive_file_report(extracted: dict, reputation_verdicts: list[dict]) -> list[dict]:
-    """Members of an archive that explain the verdict: risky names,
+    """List the members of an archive that explain the verdict: risky names,
     risky inner documents, phishing wording, or a link flagged by threat
     intelligence. Most reasons first; at most 20."""
     bad_urls = {v.get("url") for v in reputation_verdicts if v.get("malicious")}

@@ -31,7 +31,8 @@ cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install pytest pytest-cov fastapi httpx prometheus-fastapi-instrumentator \
             numpy pandas beautifulsoup4 pdfplumber pypdfium2 pillow pytesseract \
-            opencv-python-headless reportlab scikit-learn joblib skops rarfile py7zr defusedxml
+            opencv-python-headless reportlab scikit-learn joblib skops rarfile py7zr defusedxml \
+            slowapi
 pytest -q --cov=. --cov-config=.coveragerc
 ```
 

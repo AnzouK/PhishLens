@@ -139,6 +139,15 @@ class TestCache:
         # until the next hourly one, and reads never return it.
         assert c.stats()["cache_entries"] == 3 and c._get_sync("http://c.tld") is None
 
+    def test_stats_purge_expired_rows_when_due(self, tmp_path, monkeypatch):
+        now = [1_000_000.0]
+        monkeypatch.setattr(rep.time, "time", lambda: now[0])
+        monkeypatch.setattr(rep, "CACHE_TTL_SEC", 24 * 3600)
+        c = rep.Cache(str(tmp_path / "c.db"))
+        c._put_sync("http://old.tld", {"score": 0.0})
+        now[0] += 24 * 3600 + 10
+        assert c.stats()["cache_entries"] == 0  # no write since, still purged
+
     def test_self_heals_if_table_dropped(self, tmp_path):
         import sqlite3
 

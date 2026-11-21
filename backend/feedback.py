@@ -21,6 +21,7 @@ import logging
 import os
 import secrets
 import threading
+import time
 import urllib.request
 from collections.abc import Iterator
 from datetime import datetime, timezone
@@ -85,8 +86,36 @@ def _report_files(folder: Path) -> list[Path]:
     return sorted(folder.glob("feedback-*.jsonl")) + sorted(folder.glob("[0-9]*-[0-9]*/*.json"))
 
 
+# Size of the stored reports. Listing and measuring every report on each
+# POST was slow on a Cloud Storage folder (one object per report), so
+# the folder is measured at most every _SIZE_REFRESH_S seconds and the
+# bytes written since are added to that figure.
+_SIZE_REFRESH_S = 300.0
+_size_lock = threading.Lock()
+_size: dict[str, Any] = {"folder": None, "bytes": 0, "at": 0.0}
+
+
+def _file_size(path: Path) -> int:
+    """0 for a report deleted between the listing and this call."""
+    try:
+        return path.stat().st_size
+    except OSError:
+        return 0
+
+
 def _dir_size_mb(folder: Path) -> float:
-    return sum(f.stat().st_size for f in _report_files(folder)) / 1_000_000
+    now = time.monotonic()
+    with _size_lock:
+        if _size["folder"] != str(folder) or now - _size["at"] >= _SIZE_REFRESH_S:
+            total = sum(_file_size(f) for f in _report_files(folder))
+            _size.update(folder=str(folder), bytes=total, at=now)
+        return _size["bytes"] / 1_000_000
+
+
+def _count_written(folder: Path, nbytes: int) -> None:
+    with _size_lock:
+        if _size["folder"] == str(folder):
+            _size["bytes"] += nbytes
 
 
 def read_all(folder: Path) -> Iterator[dict[str, Any]]:
@@ -143,7 +172,9 @@ def store(req: FeedbackRequest) -> str:
             "ui_lang": req.ui_lang,
             **body,
         }
-        if _create(month / f"{record['reference']}.json", record):
+        written = _create(month / f"{record['reference']}.json", record)
+        if written:
+            _count_written(folder, written)
             break
     else:
         raise OSError("no free reference")
@@ -151,15 +182,17 @@ def store(req: FeedbackRequest) -> str:
     return record["reference"]
 
 
-def _create(path: Path, record: dict[str, Any]) -> bool:
-    """Write a new file; False when one already has that name."""
+def _create(path: Path, record: dict[str, Any]) -> int:
+    """Write a new file and return its size; 0 when one already has that
+    name."""
+    data = (json.dumps(record, ensure_ascii=False) + "\n").encode("utf-8")
     try:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     except FileExistsError:
-        return False
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
-    return True
+        return 0
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(data)
+    return len(data)
 
 
 def notification_text(record: dict[str, Any]) -> str:

@@ -16,7 +16,7 @@ examples use Docker behind a reverse proxy, so adapt names and paths.
 | Settings | Environment variables of the service (below) |
 | Secrets | Secret Manager: `gsb-api-key` (`GSB_API_KEY`), `hf-token` (`HF_TOKEN`), `feedback-notify-url` (`FEEDBACK_NOTIFY_URL`), `proxy-secret` (`PROXY_SECRET`) |
 | Proxy guard | The same `proxy-secret` value is the Pages secret `PROXY_SECRET`: the function sends it in `X-PhishLens-Proxy` and the backend answers 403 to any request without it, so the Cloud Run address itself (`*.run.app`) answers nothing useful |
-| Identity | A dedicated service account that can read only those four secrets and write only to the reports bucket |
+| Identity | A dedicated service account that can read only those four secrets and, with `roles/storage.objectUser` on the reports bucket alone, list, read, create and delete the objects of that bucket (the backend lists the reports to keep their total under `FEEDBACK_MAX_MB`) |
 | Reports | `FEEDBACK_DIR=/feedback`, a private Cloud Storage bucket (`us-central1`, Standard class) mounted as a volume (Cloud Storage FUSE) |
 | Warm-up | A Cloud Scheduler job calls `https://phishlens.dev/health` every 10 minutes (through the function: the run.app address answers 403) |
 | Cost | A monthly spending cap on Cloud Run and a budget alert at 1 USD |

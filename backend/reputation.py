@@ -1,28 +1,26 @@
 """
-PhishLens: URL reputation cascade.
+URL reputation: several threat-intelligence sources are checked in
+turn, so no single one decides alone.
 
-Cascaded lookup against several threat-intel feeds, so no single source
-decides alone. Order:
+    1. Local SQLite cache (24 h TTL)
+    2. Google Safe Browsing v4 (10,000 lookups a day)
+    3. PhishTank verified phishing feed (in memory)
+    4. URLhaus (abuse.ch), malware URLs
+    5. Spamhaus DBL (DNS), domain level
 
-    1. Local SQLite cache (24h TTL)                  : sub-millisecond
-    2. Google Safe Browsing v4 (10,000 lookups/day)  : Google's flagship
-    3. PhishTank verified phishing feed (in-memory)  : community-verified
-    4. URLhaus (abuse.ch)                            : malware URLs
-    5. Spamhaus DBL (DNS)                            : domain-level
+When the Safe Browsing daily quota runs out, tiers 2 to 4 run in
+parallel and a URL flagged by any of them is flagged. The cache answers
+most repeat lookups, so a normal day stays well under the 10,000 limit.
 
-When the GSB daily quota runs out, tiers 2-4 all run in parallel and
-their verdicts are OR-fused. The cache absorbs the vast majority of
-repeat lookups so a real-world day rarely hits the 10k limit anyway.
-
-Every result is written back to the cache with a 24h TTL so the same
-URL isn't re-queried across scans, restarts, or between users of a
-shared backend.
+Every result is written back to the cache for 24 hours, so the same URL
+is not looked up again across scans, restarts or users of a shared
+backend.
 
 Public API:
     ReputationEngine
-        .startup()               : download PhishTank feed, warm cache
+        .startup()               : download the PhishTank feed, purge the cache
         .check_urls(urls) -> list: cascade lookup
-        .stats()                 : quota + cache hit rate for debug/health
+        .stats()                 : quota and cache hit rate (GET /reputation/stats)
 """
 
 from __future__ import annotations
@@ -90,8 +88,9 @@ USER_AGENT = f"PhishLens/{VERSION} (+https://github.com/AnzouK/PhishLens)"
 # SQLite cache: persistent across restarts, thread-safe via lock.
 class Cache:
     """Tiny SQLite cache with TTL. One row per URL. Expired rows are
-    deleted at startup and then by a write, at most once an hour, so none
-    is kept much past the TTL however long the instance runs."""
+    deleted at startup, then at most once an hour by a write, a stats()
+    call or /health, so none is kept much past the TTL however long the
+    instance runs, busy or idle."""
 
     PURGE_EVERY_SEC = 3600
 
@@ -173,6 +172,9 @@ class Cache:
                     )
             else:
                 raise
+        self.purge_if_due()
+
+    def purge_if_due(self) -> None:
         if time.time() - self._last_purge >= self.PURGE_EVERY_SEC:
             self._purge_sync()
 
@@ -193,6 +195,7 @@ class Cache:
                 raise
 
     def stats(self) -> dict[str, int]:
+        self.purge_if_due()
         with sqlite3.connect(self.path) as db:
             total = db.execute("SELECT COUNT(*) FROM reputation_cache").fetchone()[0]
         return {"cache_entries": total}
@@ -872,6 +875,12 @@ def fully_checked(verdicts: list[dict[str, Any]]) -> bool:
 
 def stats() -> dict[str, Any]:
     return get_engine().stats() if _ENGINE else {"engine": "not_initialised"}
+
+
+def purge_if_due() -> None:
+    """Expired cache rows out, at most once an hour (Cache.purge_if_due)."""
+    if _ENGINE:
+        _ENGINE.cache.purge_if_due()
 
 
 def _apply_gsb(

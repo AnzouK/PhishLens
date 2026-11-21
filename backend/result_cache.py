@@ -11,9 +11,10 @@ between two clicks, and saves Google Safe Browsing quota.
   cached for 24 hours by the reputation module).
 - Memory only: a restart or a redeploy empties it.
 - Entries expire after ``RESULT_CACHE_TTL`` seconds (default 86400, 24 h;
-  0 turns the cache off), are dropped at the next write once expired, and
-  the oldest go first past
-  ``RESULT_CACHE_MAX`` entries (default 2000).
+  0 turns the cache off). Expired ones are dropped at the next write, the
+  next stats() call or the hourly purge run from /health, so an idle
+  instance does not keep them either. Past ``RESULT_CACHE_MAX`` entries
+  (default 2000) the oldest go first.
 """
 
 from __future__ import annotations
@@ -81,12 +82,19 @@ class ResultCache:
         with self._lock:
             # Expired entries go on every write, not only when read again:
             # a result is never kept past its TTL.
-            for k in [k for k, (expires, _v) in self._data.items() if expires < now]:
-                del self._data[k]
+            self._drop_expired(now)
             self._data[key] = (now + keep, copy.deepcopy(value))
             self._data.move_to_end(key)
             while len(self._data) > self.max_entries:
                 self._data.popitem(last=False)
+
+    def _drop_expired(self, now: float) -> None:
+        for k in [k for k, (expires, _v) in self._data.items() if expires < now]:
+            del self._data[k]
+
+    def purge_expired(self) -> None:
+        with self._lock:
+            self._drop_expired(time.monotonic())
 
     def clear(self) -> None:
         with self._lock:
@@ -95,6 +103,7 @@ class ResultCache:
 
     def stats(self) -> dict:
         with self._lock:
+            self._drop_expired(time.monotonic())
             total = self.hits + self.misses
             return {
                 "enabled": self.enabled,

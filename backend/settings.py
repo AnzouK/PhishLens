@@ -87,6 +87,8 @@ MAX_TEXT_CHARS = 2_000_000
 # Page text actually read (raw_text), after markup noise is removed: the
 # extension sends at most this much; the text model reads far less.
 MAX_PAGE_TEXT_CHARS = 20_000
+# Addresses written in a longer page text are still looked for this far.
+MAX_URL_SCAN_CHARS = 200_000
 MAX_ATTACHMENT_B64_CHARS = 15_000_000
 MAX_BODY_BYTES = 45_000_000
 

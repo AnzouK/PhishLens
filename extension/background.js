@@ -114,7 +114,7 @@ async function post(base, endpoint, payload) {
 async function serverBase() {
     const base = await self.PhishLensShared.getBackendBase();
     if (!base) throw new Error(text("no_server"));
-    if (!/^https?:\/\//.test(base)) throw new Error(text("url_scheme"));
+    if (!/^https?:\/\//i.test(base)) throw new Error(text("url_scheme"));
     // Plain http:// over the internet is allowed only after the user has
     // confirmed that exact address in Settings.
     if (self.PhishLensShared.isPlainRemoteUrl(base)) {

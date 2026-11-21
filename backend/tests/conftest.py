@@ -28,6 +28,8 @@ import sys
 import types
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 SHARED_FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures"
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
@@ -109,3 +111,15 @@ def import_extension_backend():
 def shared_cases(name: str):
     """A JSON fixture shared with the extension's tests (tests/fixtures)."""
     return json.loads((SHARED_FIXTURES / name).read_text())
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """Each test starts with empty rate limit counters, whatever ran
+    before it: requests made by one test file must not use up the limit
+    of the next one."""
+    eb = sys.modules.get("extension_backend")
+    limiter = getattr(eb, "_limiter", None) if eb else None
+    if limiter is not None:
+        limiter.reset()
+    yield

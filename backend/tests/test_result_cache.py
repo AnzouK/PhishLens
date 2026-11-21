@@ -76,3 +76,16 @@ def test_a_shorter_ttl_wins(monkeypatch):
     cache.set("k", {"verdict": "safe"}, ttl=3600)
     now[0] += 3601
     assert cache.get("k") is None
+
+
+def test_stats_and_purge_drop_expired_entries(monkeypatch):
+    now = [1000.0]
+    monkeypatch.setattr(rc.time, "monotonic", lambda: now[0])
+    cache = rc.ResultCache(ttl=60, max_entries=10)
+    cache.set("a", 1)
+    cache.set("b", 2, ttl=10)
+    now[0] += 30
+    assert cache.stats()["entries"] == 1
+    now[0] += 31
+    cache.purge_expired()
+    assert len(cache._data) == 0

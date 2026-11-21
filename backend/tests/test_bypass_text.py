@@ -195,3 +195,11 @@ def test_text_model_keeps_higher_reading(monkeypatch):
     )
     tm.text_agent("plain text")
     assert calls == [True]
+
+
+def test_tag_cut_by_the_extension_limit_only():
+    tag = '<img src="https://cdn.example/a.png" alt="one two three'
+    cut = "w " * ((ep.MAX_PAGE_TEXT_CHARS - len(tag)) // 2) + tag
+    assert ep.strip_markup_noise(cut).endswith("w")
+    shorter = "w " * 5000 + tag
+    assert ep.strip_markup_noise(shorter).endswith("three")

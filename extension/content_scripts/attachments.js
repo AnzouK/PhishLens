@@ -150,10 +150,18 @@ async function scanAll(btn) {
     }
     btn.disabled = true;
     const label = btn.querySelector(".pll-scan-btn__label");
-    for (let i = 0; i < targets.length; i++) {
-        label.textContent = targets.length > 1 ? t("att_scanning_progress", { i: i + 1, n: targets.length }) : t("scanning");
+    // Read from btn._pllTargets at each step: tiles Gmail loads during the
+    // scan are added there (installScanAllButton) and scanned in the same
+    // run, up to MAX_PER_EMAIL in all.
+    const done = new Set();
+    for (;;) {
+        const pending = (btn._pllTargets || []).filter((f) => !done.has(f));
+        if (!pending.length || done.size >= MAX_PER_EMAIL) break;
+        const n = done.size + pending.length;
+        label.textContent = n > 1 ? t("att_scanning_progress", { i: done.size + 1, n }) : t("scanning");
+        done.add(pending[0]);
         // scanAttachment shows its own errors in the file's card.
-        await scanAttachment(targets[i]);
+        await scanAttachment(pending[0]);
     }
     label.textContent = t("att_done");
     setTimeout(() => btn.remove(), 2500);

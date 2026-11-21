@@ -13,9 +13,6 @@ backend share one version number.
   `ghcr.io/anzouk/phishlens-backend` on each version tag or by hand.
 
 ### Changed
-- Backend and extension comments, the README and the docs are written
-  more plainly, and the backend tests are reorganised, with no behaviour
-  change.
 - The API runs on Google Cloud Run behind a Pages Function
   (`functions/[[path]].js`) that forwards the API paths of
   phishlens.dev, so the extension and the website keep the same address.
@@ -105,6 +102,29 @@ backend share one version number.
   a comment and removed.
 - docs/project-overview.md gives the same false-alarm figures as the
   README.
+- CI installs slowapi (a runtime dependency) so the rate limit tests
+  run, and every backend test starts with empty rate limit counters,
+  whatever ran before it.
+- Report storage: a report deleted while the folder was measured no
+  longer turns POST /feedback into a 503, and the folder is measured at
+  most every 5 minutes, with the bytes written since added to that
+  figure, instead of on every report. docs/operations.md gives the role
+  the service account really has on the reports bucket.
+- Long comments in an HTML email are found as a browser finds them: a
+  dotted capital I before a `<style>` sheet, a `<style` or `<!--`
+  inside an attribute value, and the empty comments `<!-->` and
+  `<!--->` no longer let a long comment survive or hide text.
+- Links written past the first 20,000 characters of a long page text
+  are still checked (up to 200,000 characters), a "Fwd:" subject keeps
+  the original sender of a forward marker the scored text leaves out,
+  and a tag cut at the end of a page text is judged against the
+  extension's 20,000 character limit, not the old 4,000.
+- A custom server typed as `HTTPS://...` is stored with its scheme in
+  lower case, and "Test connection" waits for the server permission
+  answer (also asked for a local server) before testing.
+- Gmail attachments loaded while "Scan attachments" runs are scanned in
+  the same run, and expired cache entries are dropped on a stats call
+  and at most hourly from `/health`, so an idle instance keeps none.
 
 ### Security
 - The backend refuses with 403 any request without the shared secret
@@ -1041,7 +1061,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.11...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.12...HEAD
+[2.0.12]: https://github.com/AnzouK/PhishLens/compare/v2.0.11...v2.0.12
 [2.0.11]: https://github.com/AnzouK/PhishLens/compare/v2.0.10...v2.0.11
 [2.0.10]: https://github.com/AnzouK/PhishLens/compare/v2.0.9...v2.0.10
 [2.0.9]: https://github.com/AnzouK/PhishLens/compare/v2.0.8...v2.0.9

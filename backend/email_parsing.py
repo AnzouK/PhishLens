@@ -1,7 +1,7 @@
 """
-Reading an email: the visible text, the links and the headers of a raw
-.eml, plus the structural signals computed from them (forwarded emails,
-links to file-sharing services).
+Reads the visible text, the links and the headers of a raw .eml, and
+computes structural signals from them (forwarded emails, links to
+file-sharing services).
 
 Every parser here is linear on its input (no backtracking regex on
 attacker-controlled text) and caps what it reads.
@@ -21,7 +21,7 @@ from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
 from hidden_content import generated_text, hidden_tags, shown_link, shown_maps, visible_text_first
 from link_alignment import browser_path, browser_url, link_host
-from settings import MAX_EMAIL_URLS, MAX_LINK_URLS
+from settings import MAX_EMAIL_URLS, MAX_LINK_URLS, MAX_PAGE_TEXT_CHARS
 from unicode_text import without_invisible
 
 # A body that is only an address is still an email to read. Without this,
@@ -128,10 +128,10 @@ def html_link_groups(html_src: str) -> tuple[list[str], list[str]]:
 
 
 def absolute_http(href: str) -> str:
-    """An http(s) URL from an href, as a browser reads it, or "": control
-    characters and spaces removed, "//host/..." read as https, and the
-    forms browsers accept ("HTTPS:evil.tk", backslashes, an encoded host)
-    normalised (link_alignment.browser_url)."""
+    """Return the http(s) URL of an href as a browser reads it, or "".
+    Control characters and spaces are removed, "//host/..." is read as
+    https, and the forms browsers accept ("HTTPS:evil.tk", backslashes, an
+    encoded host) are normalised (link_alignment.browser_url)."""
     href = "".join(c for c in str(href)[:2048] if c > " " and c != "\x7f")
     if href.startswith(("//", "\\\\", "/\\", "\\/")):
         href = "https://" + href.lstrip("/\\")
@@ -158,9 +158,10 @@ _TAG_RE = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]{0,20}(?P<inner>\s[^<>]{0,2000})?(?
 
 _ATTR_START = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
 _ATTR_NAME = _ATTR_START | frozenset("0123456789:.-")
-# Page texts are cut at 4,000 characters (content_scripts/core.js): a tag
-# cut there may have lost its closing quote.
-_CUT_AT = 3900
+# Page texts are cut at MAX_PAGE_TEXT_CHARS (PL.MAX_RAW_TEXT in
+# content_scripts/core.js): a tag cut there may have lost its closing
+# quote.
+_CUT_AT = MAX_PAGE_TEXT_CHARS - 100
 
 
 def _attributes(inner: str, cut_off: bool = False) -> bool:
@@ -232,8 +233,8 @@ def _sentence(value: str) -> bool:
 
 
 def _markup(m: re.Match) -> str:
-    """The tag removed when it is markup: no attributes ("<p>", "</div>")
-    or real ones; left as words otherwise."""
+    """Remove the tag when it is markup, with no attributes ("<p>",
+    "</div>") or real ones. Anything else is left as words."""
     inner = m.group("inner") or ""
     cut_off = m.end() == len(m.string) and len(m.string) >= _CUT_AT
     if not m.group(0).endswith(">") and not cut_off and not _short_cut_tag(inner):
@@ -242,8 +243,8 @@ def _markup(m: re.Match) -> str:
 
 
 def _short_cut_tag(inner: str) -> bool:
-    """A tag the text ends in without its ">": markup only when it is
-    short and carries no address (a source page cut inside an <img>), not
+    """True when a tag the text ends in, without its ">", is markup. It is
+    when it is short and carries no address (a source page cut inside an <img>), not
     a sentence written after "<a x="."""
     return len(inner.split()) <= 12 and "http" not in inner.lower()
 
@@ -278,41 +279,66 @@ def without_inline_data(html_src: str) -> str:
     return _without_long_comments(_INLINE_DATA_RE.sub("", html_src[:10_000_000]))
 
 
-_STYLE_OPEN_RE = re.compile(r"<style\b", re.IGNORECASE)
+# Where markup starts, as a browser reads HTML: a comment, a start or
+# end tag, or "<!" / "<?" (read up to the next ">").
+_MARKUP_START_RE = re.compile(r"<(?:!--|[a-zA-Z]|/[a-zA-Z]|[!?])")
+_STYLE_OPEN_RE = re.compile(r"<style(?=[\s/>])", re.IGNORECASE)
+_STYLE_CLOSE_RE = re.compile(r"</style(?=[\s/>])", re.IGNORECASE)
+_TAG_STOP_RE = re.compile(r"[>\"']")
+
+
+def _tag_end(src: str, i: int) -> int:
+    """Where the tag starting at src[i] ends, just after its ">". A ">"
+    inside a quoted attribute value does not end it; a quote opens a
+    value only after "=". len(src) when it never ends."""
+    n, j = len(src), i + 1
+    while True:
+        m = _TAG_STOP_RE.search(src, j)
+        if not m:
+            return n
+        if m.group() == ">":
+            return m.end()
+        if src[j : m.start()].rstrip().endswith("="):
+            close = src.find(m.group(), m.end())
+            if close < 0:
+                return n
+            j = close + 1
+        else:
+            j = m.end()
 
 
 def _without_long_comments(src: str) -> str:
-    """Long comments out; "<!--" inside a <style> sheet is not a comment
-    for the browser (its rules apply) and stays, sheet and all. Sheets are
-    found in document order, each one from where the previous one (or the
-    previous comment) ended: a sheet that closed before a comment says
-    nothing about it, and a "<style" inside a comment opens nothing."""
-    out, pos = [], 0
-    lower = src.lower()
+    """Remove long comments. The HTML is read in order, as a browser does:
+    "<!--" inside a <style> sheet is not a comment (its rules apply), and
+    "<style" or "<!--" inside a tag's attribute value, or "<style" inside
+    a comment, opens nothing. One pass; the case of the original text is
+    searched as it is (a lowercased copy can be longer than the text)."""
+    out, pos, i, n = [], 0, 0, len(src)
     while True:
-        start = src.find("<!--", pos)
-        if start < 0:
+        m = _MARKUP_START_RE.search(src, i)
+        if not m:
             break
-        style = _STYLE_OPEN_RE.search(src, pos, start)
-        if style:
-            close = lower.find("</style", style.end())
-            close = len(src) if close < 0 else close
-            # Inside this sheet or not, nothing before its end is a
-            # comment to remove; the next sheet is looked for after it.
-            out.append(src[pos:close])
-            pos = close
-            continue
-        end = src.find("-->", start + 4)
-        end = len(src) if end < 0 else end + 3
-        if end - start > 500:
-            out.append(src[pos:start])
-            for m in _LINK_ATTR_RE.finditer(src, start, end):
-                url = _attr_value(m)
-                if url:
-                    out.append(f'<a href="{html_lib.escape(url)}"></a>')
+        start = m.start()
+        if m.group() == "<!--":
+            # "<!-->" and "<!--->" are whole (empty) comments for a browser.
+            end = src.find("-->", start + 2)
+            end = n if end < 0 else end + 3
+            if end - start > 500:
+                out.append(src[pos:start])
+                for link in _LINK_ATTR_RE.finditer(src, start, end):
+                    url = _attr_value(link)
+                    if url:
+                        out.append(f'<a href="{html_lib.escape(url)}"></a>')
+                pos = end
+            i = end
+        elif m.group() in ("<!", "<?"):
+            end = src.find(">", start)
+            i = n if end < 0 else end + 1
         else:
-            out.append(src[pos:end])
-        pos = end
+            i = _tag_end(src, start)
+            if _STYLE_OPEN_RE.match(src, start):
+                close = _STYLE_CLOSE_RE.search(src, i)
+                i = n if close is None else close.start()
     out.append(src[pos:])
     return "".join(out)
 
@@ -353,8 +379,8 @@ def is_page_source(text: str) -> bool:
 
 
 def _body_text(msg, raw_bytes: bytes) -> str:
-    """Visible text of the email: the rendered HTML part first, the plain
-    text part otherwise."""
+    """Return the visible text of the email, from the rendered HTML part
+    when there is one, from the plain text part otherwise."""
     if not msg.is_multipart():
         try:
             body = msg.get_content()
@@ -396,8 +422,8 @@ def _link_targets(msg, body: str) -> list[str]:
 
 
 def _raw_items(msg) -> list[tuple[str, str]]:
-    """The headers as written, not as the standard parser rebuilds them:
-    it drops what it cannot parse ('"PayPal" <service@paypal.com>
+    """Return the headers as written, not as the standard parser rebuilds
+    them. That parser drops what it cannot parse ('"PayPal" <service@paypal.com>
     <scam@evil.example>' became '"PayPal" <service@paypal.com>'), and the
     checks must read what mail programs read. 8-bit bytes are read as
     UTF-8; encoded words are decoded by header_dict."""

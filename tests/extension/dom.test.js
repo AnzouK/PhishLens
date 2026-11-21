@@ -9,7 +9,7 @@ globalThis.Node = Node;
 const { h, icon } = loadLib("dom.js");
 const C = loadLib("constants.js");
 
-test("h() builds elements with classes, attributes, styles and children", () => {
+test("h() builds elements: classes, attributes, styles, children", () => {
     let clicked = 0;
     const el = h("span.badge.badge--good", {
         class: "extra", title: "a \"title\"", dataset: { id: "7" }, style: { "--a": "0.30", width: "50%" },

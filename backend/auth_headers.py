@@ -1,20 +1,19 @@
 """
-Email authentication header parsing + Spamhaus DBL DNS lookup.
+Email authentication headers and the Spamhaus DBL lookup.
 
-Adds a real sender-authentication signal to the metadata pipeline.
-"paypal.com" in the From: line means nothing on its own, so this module reads
-the Authentication-Results header that Gmail (and most modern MTAs) adds to
-every message, and reports whether SPF / DKIM / DMARC actually passed.
+The domain in the From: line proves nothing by itself. This module reads
+the Authentication-Results header that Gmail (and most modern mail
+servers) adds to every message and reports whether SPF, DKIM and DMARC
+passed.
 
-A domain is only considered "cryptographically legitimate" when SPF passes,
-DKIM passes, AND the From: domain aligns with one of them (DMARC pass or
-aligned SPF/DKIM). That's the RFC-7489 alignment rule; it's what stops a
-spoofer from putting "From: paypal.com" on a message that was actually
-signed by attacker.tld.
+A domain counts as "cryptographically legitimate" only when SPF passes,
+DKIM passes and the From: domain aligns with one of them (DMARC pass, or
+aligned SPF or DKIM). This is the alignment rule of RFC 7489: a message
+signed by attacker.tld cannot pass as "From: paypal.com".
 
-It also offers a Spamhaus DBL (Domain Block List) lookup, a DNS query
-against dbl.spamhaus.org. If the sender domain (or any URL domain) has a
-record there, it's a known spam / malware / phish source.
+The Spamhaus DBL (Domain Block List) lookup is a DNS query against
+dbl.spamhaus.org. A sender or link domain listed there is a known spam,
+malware or phishing source.
 
 Public API:
     parse_authentication_results(headers) -> AuthVerdict

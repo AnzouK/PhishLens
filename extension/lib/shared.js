@@ -10,9 +10,11 @@ const BACKEND_PRESETS = Object.freeze({
 const DEFAULT_BACKEND = "cloud";
 
 // A typed server address as stored and compared everywhere: trimmed,
-// without trailing slashes.
+// scheme in lowercase ("HTTPS://" is accepted when typed), without
+// trailing slashes.
 function normalizeBaseUrl(value) {
-    return String(value || "").trim().replace(/\/+$/, "");
+    return String(value || "").trim().replace(/\/+$/, "")
+        .replace(/^[a-z][a-z0-9+.-]*:/i, (scheme) => scheme.toLowerCase());
 }
 
 // Host permission pattern for a server address. The port is left out

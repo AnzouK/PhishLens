@@ -104,8 +104,8 @@ def _split_port(hostport: str) -> tuple[str, str]:
 
 
 def authority_of(url: str) -> str:
-    """The "user@host:port" part of an address: up to the first "/", "?"
-    or "#" after the scheme."""
+    """Return the "user@host:port" part of an address, up to the first "/",
+    "?" or "#" after the scheme."""
     return re.split(r"[/\\?#]", url.split("://", 1)[-1], maxsplit=1)[0]
 
 
@@ -129,8 +129,8 @@ _host = link_host
 
 
 def ip_host(host: str) -> bool:
-    """An IP address as host, in any form a browser accepts: dotted,
-    IPv6, or a single number (http://3232235777/ is 192.168.1.1),
+    """Return the IP address used as host, in any form a browser accepts:
+    dotted, IPv6, or a single number (http://3232235777/ is 192.168.1.1),
     decimal, octal or hexadecimal."""
     if not host:
         return False
@@ -214,7 +214,7 @@ def well_known_link(url: str) -> bool:
 
 
 def link_profile(urls: list[str], from_header: str) -> dict[str, int]:
-    """Counts of distinct links: to the sender's own organisational domain
+    """Count the distinct links: to the sender's own organisational domain
     ("aligned"), to large known sites, to public file hosts, through
     click tracking, elsewhere."""
     domain = sender_domain(from_header or "")

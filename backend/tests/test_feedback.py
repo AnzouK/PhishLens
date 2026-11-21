@@ -179,3 +179,26 @@ def test_report_fields_besides_text_are_identifiers():
         feedback.FeedbackRequest(
             kind="false_negative", text="a b c", source="Call +234 800 000 0000"
         )
+
+
+def test_report_deleted_while_measuring_is_skipped(client, monkeypatch):
+    c, folder = client
+    listed = feedback._report_files
+    gone = folder / "2026-10" / "deleted0000.json"
+    monkeypatch.setattr(feedback, "_report_files", lambda f: [*listed(f), gone])
+    assert c.post("/feedback", json=REPORT).status_code == 200
+
+
+def test_folder_size_is_measured_once_then_counted(client, monkeypatch):
+    c, folder = client
+    calls = []
+    listed = feedback._report_files
+    monkeypatch.setattr(feedback, "_report_files", lambda f: calls.append(f) or listed(f))
+    for _ in range(3):
+        assert c.post("/feedback", json=REPORT).status_code == 200
+    assert len(calls) == 1
+    on_disk = sum(p.stat().st_size for p in listed(folder))
+    assert feedback._dir_size_mb(folder) == on_disk / 1_000_000
+    monkeypatch.setattr(feedback, "_SIZE_REFRESH_S", 0.0)
+    feedback._dir_size_mb(folder)
+    assert len(calls) == 2

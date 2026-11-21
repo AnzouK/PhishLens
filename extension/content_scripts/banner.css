@@ -1,10 +1,8 @@
-/* =====================================================================
-   PhishLens: Gmail-injected UI
+/* PhishLens: Gmail-injected UI
    Every selector is prefixed with pll- and every custom property with
    --pll- so nothing collides with Gmail's own CSS. Colours come from the
    variables below: light by default (Gmail's default theme), dark when
-   the OS is dark or when the popup toggle forces it.
-   ===================================================================== */
+   the OS is dark or when the popup toggle forces it. */
 
 html {
     --pll-font: "Google Sans", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -81,7 +79,7 @@ html[data-phishlens-theme="dark"] {
 /* subject row: flex so the buttons sit next to the subject */
 .pll-subject-wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-/* ---------- scan buttons (Gmail-style pill) ---------- */
+/* Scan buttons (Gmail-style pill) */
 .pll-scan-btn {
     appearance: none;
     display: inline-flex; align-items: center; gap: 6px;
@@ -100,7 +98,7 @@ html[data-phishlens-theme="dark"] {
 @keyframes pll-spin { to { transform: rotate(360deg); } }
 .pll-scan-btn.pll-scan-btn--all .pll-scan-btn__icon { color: var(--pll-text-2); }
 
-/* ---------- verdict banner ---------- */
+/* Verdict banner */
 .pll-banner {
     position: relative;
     display: flex; gap: 12px; align-items: flex-start;
@@ -185,11 +183,9 @@ html[data-phishlens-theme="dark"] {
 .pll-tok--safe     { color: var(--pll-good); background: rgba(19, 115, 51, var(--pll-a, .15)); border-color: rgba(19, 115, 51, .3); }
 .pll-cache-hint { align-self: center; font-size: 11px; color: var(--pll-text-2); margin-left: 4px; }
 
-/* =====================================================================
-   Attachments: one compact card per scanned attachment, in a grid under
+/* Attachments: one compact card per scanned attachment, in a grid under
    the attachment strip. Gmail forces fonts and colours inside that
-   area, hence the !important declarations.
-   ===================================================================== */
+   area, hence the !important declarations. */
 .pll-att-btn {
     display: inline-flex !important; align-items: center; gap: 4px;
     margin-top: 8px !important; padding: 4px 12px !important;

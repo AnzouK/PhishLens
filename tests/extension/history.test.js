@@ -161,7 +161,7 @@ test("two scans saved at the same moment are both kept", async () => {
     assert.equal(store[H.STORAGE_KEY].length, 2);
 });
 
-test("clearing the history removes every cache about emails, not the settings", async () => {
+test("clearing history removes email caches, not the settings", async () => {
     const store = installFakeChrome();
     const H = loadLib("history.js");
     Object.assign(store, {

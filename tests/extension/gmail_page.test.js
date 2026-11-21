@@ -30,7 +30,7 @@ test("the Show original URL names the account and the message", () => {
         "https://mail.google.com/mail/u/1/?ik=1a2b3c4d5e&view=om&th=ab");
 });
 
-test("the raw message is read from the Show original page, entities decoded", () => {
+test("the Show original page is read with entities decoded", () => {
     const { raw, reason } = G.parseShowOriginal(read("show_original.html"));
     assert.equal(reason, undefined);
     assert.match(raw, /^Delivered-To: reader@example.org/);
@@ -45,7 +45,7 @@ test("a message the user sent, or another page, is not used", () => {
     assert.match(G.parseShowOriginal('<pre id="raw_message_text">hello</pre>').reason, /not an email/);
 });
 
-test("Gmail's sender check labels are recognised in the supported languages", () => {
+test("Gmail's sender check labels are read in supported languages", () => {
     assert.equal(G.authRowKind("mailed-by:"), "mailedBy");
     assert.equal(G.authRowKind(" Signé par : "), "signedBy");
     assert.equal(G.authRowKind("ondertekend door"), "signedBy");

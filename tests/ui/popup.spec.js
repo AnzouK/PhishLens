@@ -293,6 +293,30 @@ test("first run: no privacy notice with a local server", async ({ page }) => {
     await expect(page.locator("#privacy-notice")).toBeHidden();
 });
 
+test("settings: the server permission is answered before the connection test", async ({ page }) => {
+    await page.addInitScript(() => {
+        window.chrome.storage.local.set({ backend: "local" });
+        window.__order = [];
+        window.chrome.permissions = {
+            request: ({ origins }) => new Promise((resolve) => setTimeout(() => {
+                window.__order.push(["permission", origins]);
+                resolve(true);
+            }, 100)),
+        };
+        const send = window.chrome.runtime.sendMessage;
+        window.chrome.runtime.sendMessage = (msg) => {
+            if (msg?.type === "phishlens.health") window.__order.push(["health"]);
+            return send(msg);
+        };
+    });
+    await page.goto(`${base}/popup/popup.html`);
+    await page.click("#settings-btn");
+    await page.click("#test-conn-btn");
+    await expect(page.locator("#conn-status")).toHaveClass(/conn-status--ok/);
+    const order = await page.evaluate(() => window.__order);
+    expect(order).toEqual([["permission", ["http://127.0.0.1/*", "http://localhost/*"]], ["health"]]);
+});
+
 test("a DKIM-signed sender flagged by its links says why", async ({ page }) => {
     const res = analyseResponse("phishing");
     res.trust_path = "crypto_verified";
