@@ -57,16 +57,26 @@ const LOCAL_ORIGINS = ["http://127.0.0.1/*", "http://localhost/*"];
 
 // Optional host permissions, requested during a click. A refusal breaks
 // nothing, since the server's CORS headers still apply. The promise
-// settles once the user has answered, never with an error.
-function requestOrigins(origins) {
+// settles once the user has answered, never with an error. Leaving the
+// address field by clicking "Test connection" asks twice at once (change,
+// then click): the second call gets the prompt already open.
+const pendingRequests = new Map();
+
+export function requestOrigins(origins) {
     origins = origins.filter(Boolean);
     if (!origins.length || !chrome.permissions?.request) return Promise.resolve(false);
+    const key = origins.join(" ");
+    if (pendingRequests.has(key)) return pendingRequests.get(key);
+    let request;
     try {
-        return Promise.resolve(chrome.permissions.request({ origins })).catch(() => false);
+        request = Promise.resolve(chrome.permissions.request({ origins })).catch(() => false);
     } catch (e) {
         console.debug("[PhishLens] permission not requested:", e?.message || e);
         return Promise.resolve(false);
     }
+    const shared = request.finally(() => pendingRequests.delete(key));
+    pendingRequests.set(key, shared);
+    return shared;
 }
 
 function fillLanguageMenu(choice) {

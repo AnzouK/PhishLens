@@ -420,8 +420,9 @@ def _luminance(c: Colour) -> float:
 
 
 def _same_colour(a: Colour, b: Colour) -> bool:
-    """Too little contrast to read: a WCAG contrast ratio under
-    _MIN_CONTRAST (white on #f0f0f0 is 1.1; body text needs 4.5)."""
+    """True when the two colours are too close to read, that is when
+    their WCAG contrast ratio is under _MIN_CONTRAST (white on #f0f0f0
+    is 1.1; body text needs 4.5)."""
     la, lb = sorted((_luminance(a), _luminance(b)))
     return (lb + 0.05) / (la + 0.05) < _MIN_CONTRAST
 
@@ -522,9 +523,10 @@ _BACKGROUND_KEYWORDS = frozenset(
 
 
 def _own_background(decl: dict[str, str], tag=None) -> tuple | str | None:
-    """The background an element paints: (r, g, b, alpha), "image"
-    (unknown colour), or None. From its style (the later of background
-    and background-color), else its bgcolor or background attribute."""
+    """Return the background an element paints, as (r, g, b, alpha),
+    "image" (unknown colour) or None. It comes from the style (the later
+    of background and background-color), else from the bgcolor or
+    background attribute."""
     if decl.get("background-image", "none") != "none":
         return "image"
     for key in reversed([k for k in decl if k in ("background", "background-color")]):
@@ -543,9 +545,9 @@ def _own_background(decl: dict[str, str], tag=None) -> tuple | str | None:
 
 
 def _behind(decl: dict[str, str], parent: Colour | None, tag=None) -> Colour | None:
-    """The colour behind an element's text: its own background over its
-    parent's. None when unknown (an image is drawn, and nothing opaque
-    covers it)."""
+    """Return the colour behind an element's text, which is its own
+    background over its parent's. None when unknown (an image is drawn,
+    and nothing opaque covers it)."""
     own = _own_background(decl, tag)
     if own == "image":
         return None
@@ -557,8 +559,9 @@ def _behind(decl: dict[str, str], parent: Colour | None, tag=None) -> Colour | N
 
 
 def _hides_box(decl: dict[str, str]) -> bool:
-    """The element and everything in it are out of view: display:none,
-    opacity near 0, clipped, off the page or scaled to nothing."""
+    """True when the element and everything in it are out of view
+    (display:none, opacity near 0, clipped, off the page or scaled to
+    nothing)."""
     if any(decl.get(key) in hiding for key, hiding in _HIDING_STYLES.items()):
         return True
     opacity = _length(decl.get("opacity", "1"))
@@ -566,8 +569,8 @@ def _hides_box(decl: dict[str, str]) -> bool:
 
 
 def _tiny(decl: dict[str, str], parent_tiny: bool) -> bool:
-    """The font is too small to read: set so here, or inherited (an em or
-    percent size of a tiny font stays tiny)."""
+    """True when the font is too small to read, set so here or inherited
+    (an em or percent size of a tiny font stays tiny)."""
     size = _length(decl.get("font-size", "")) if decl.get("font-size") else None
     if size is None:
         return parent_tiny
@@ -583,10 +586,10 @@ def _invisible(decl: dict[str, str], parent_invisible: bool) -> bool:
 
 
 def _ink(decl: dict[str, str], parent_ink: tuple, tag=None) -> tuple:
-    """The colour text is drawn in, (r, g, b, alpha), alpha kept
-    (transparent text stays transparent whatever is behind it): its own
-    (style, or <font color>), else inherited. An unknown colour is
-    inherited too."""
+    """Return the colour text is drawn in, as (r, g, b, alpha). Alpha is
+    kept, so transparent text stays transparent whatever is behind it.
+    The element's own colour (style, or <font color>) wins, else the
+    inherited one, which an unknown colour also falls back to."""
     value = decl.get("color") or (
         tag.get("color") if tag is not None and tag.name == "font" else ""
     )
@@ -644,8 +647,9 @@ def _out_of_sight(decl: dict[str, str]) -> bool:
 
 
 def _applies_on_screen(condition: str) -> bool:
-    """An @media block every screen reads: "@media screen", "@media all"
-    (no width or other feature: those are the phone copies)."""
+    """True for an @media block every screen reads, such as "@media
+    screen" or "@media all" with no width or other feature (those are the
+    phone copies)."""
     words = condition.lower().replace(",", " ").split()
     return bool(words) and words[0] == "@media" and set(words[1:]) <= {"screen", "all", "only"}
 
@@ -684,9 +688,10 @@ _RELEVANT = frozenset(
 
 
 def _sheet_rules(css: str, out: list[tuple[str, Declarations]]) -> None:
-    """(selectors, declarations) of the rules of a style sheet, in order:
-    top-level ones and those of @media blocks every screen reads.
-    Statements such as @charset and @import end at their ";"."""
+    """Append (selectors, declarations) for each rule of a style sheet to
+    `out`, in order. Top-level rules and those of @media blocks every
+    screen reads are kept. Statements such as @charset and @import end at
+    their ";"."""
     depth, start, head, body_start = 0, 0, "", 0
     for i, ch in enumerate(css):
         if len(out) >= _MAX_RULES:
@@ -1029,8 +1034,8 @@ def _tiny_box(decl: dict[str, str], tag) -> bool:
 
 
 def shown_link(tag, hidden_ids: set[int], maps: frozenset[str] | None = None) -> bool:
-    """A link the reader can see: outside every hidden part, and showing
-    something, so links with transparent text cannot stand in for the
+    """True for a link the reader can see. It is outside every hidden
+    part and shows something, so links with transparent text cannot stand in for the
     real one. An <area> shows nothing of its own: it is
     seen through the image whose usemap names its <map>, when that image
     is shown (`maps`: shown_maps of the document, computed here if not

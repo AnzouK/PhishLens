@@ -39,7 +39,7 @@ def urls_in_text(text: str) -> list[str]:
     # from a host ("evil\u200b.tk" opens evil.tk), the match must too.
     out = []
     for u in URL_IN_TEXT_RE.findall(without_invisible(text or "")):
-        u = u.rstrip(".,;:!?")
+        u = u[:2048].rstrip(".,;:!?")
         out.append(browser_url(u if u[:4].lower() != "www." else "http://" + u))
     return out
 
@@ -282,37 +282,62 @@ def without_inline_data(html_src: str) -> str:
 # Where markup starts, as a browser reads HTML: a comment, a start or
 # end tag, or "<!" / "<?" (read up to the next ">").
 _MARKUP_START_RE = re.compile(r"<(?:!--|[a-zA-Z]|/[a-zA-Z]|[!?])")
-_STYLE_OPEN_RE = re.compile(r"<style(?=[\s/>])", re.IGNORECASE)
-_STYLE_CLOSE_RE = re.compile(r"</style(?=[\s/>])", re.IGNORECASE)
-_TAG_STOP_RE = re.compile(r"[>\"']")
+# Elements whose content is text up to their end tag, for browsers and
+# for html.parser (which html_to_text uses): "<!--" or "<style" inside
+# opens nothing. <noscript> is not one of them: html.parser reads it as
+# markup (scripting off), and so does a mail reader, which runs no script.
+# <plaintext> makes the rest of the document text.
+_RAW_TEXT_OPEN_RE = re.compile(
+    r"<(style|script|title|textarea|xmp|iframe|noembed|noframes|plaintext)(?=[\t\n\f\r />])",
+    re.IGNORECASE | re.ASCII,
+)
+_RAW_TEXT_CLOSE_RE = {
+    name: re.compile(rf"</{name}(?=[\t\n\f\r />])", re.IGNORECASE | re.ASCII)
+    for name in ("style", "script", "title", "textarea", "xmp", "iframe", "noembed", "noframes")
+}
+# The rest of a tag after "<" or "</", as the HTML tokenizer reads it:
+# the tag name, then attributes, each a name with an optional "=" and a
+# value. Only a value that starts with a quote is quoted, so the "=" in
+# a=b=" is part of the value b=" and opens nothing. A quote left open
+# runs to the end of the text.
+_TAG_REST_RE = re.compile(
+    r"""[^\t\n\f\r />]*"""
+    r"""(?:[\t\n\f\r /]+"""
+    r"""|[^\t\n\f\r />][^\t\n\f\r />=]*"""
+    r"""(?:[\t\n\f\r ]*=[\t\n\f\r ]*(?:"[^"]*(?:"|\Z)|'[^']*(?:'|\Z)|[^\t\n\f\r >]*))?)*""",
+)
+# A comment ends at "-->" or "--!>"; "<!-->" and "<!--->" are whole
+# (empty) comments.
+_COMMENT_END_RE = re.compile(r"--!?>")
 
 
 def _tag_end(src: str, i: int) -> int:
     """Where the tag starting at src[i] ends, just after its ">". A ">"
-    inside a quoted attribute value does not end it; a quote opens a
-    value only after "=". len(src) when it never ends."""
-    n, j = len(src), i + 1
-    while True:
-        m = _TAG_STOP_RE.search(src, j)
-        if not m:
-            return n
-        if m.group() == ">":
-            return m.end()
-        if src[j : m.start()].rstrip().endswith("="):
-            close = src.find(m.group(), m.end())
-            if close < 0:
-                return n
-            j = close + 1
-        else:
-            j = m.end()
+    inside a quoted attribute value does not end it. len(src) when it
+    never ends."""
+    m = _TAG_REST_RE.match(src, i + 2 if src.startswith("</", i) else i + 1)
+    end = m.end()
+    return end + 1 if end < len(src) and src[end] == ">" else len(src)
+
+
+def _comment_end(src: str, start: int) -> int:
+    """Where the comment starting at src[start] ("<!--") ends, just after
+    its last character. len(src) when it never ends."""
+    if src.startswith(">", start + 4):
+        return start + 5
+    if src.startswith("->", start + 4):
+        return start + 6
+    m = _COMMENT_END_RE.search(src, start + 4)
+    return len(src) if m is None else m.end()
 
 
 def _without_long_comments(src: str) -> str:
     """Remove long comments. The HTML is read in order, as a browser does:
-    "<!--" inside a <style> sheet is not a comment (its rules apply), and
-    "<style" or "<!--" inside a tag's attribute value, or "<style" inside
-    a comment, opens nothing. One pass; the case of the original text is
-    searched as it is (a lowercased copy can be longer than the text)."""
+    "<!--" inside <style>, <script>, <title> and the other raw text
+    elements is not a comment (a sheet's rules apply), and "<style" or
+    "<!--" inside a tag's attribute value, or "<style" inside a comment,
+    opens nothing. One pass; the case of the original text is searched as
+    it is (a lowercased copy can be longer than the text)."""
     out, pos, i, n = [], 0, 0, len(src)
     while True:
         m = _MARKUP_START_RE.search(src, i)
@@ -320,9 +345,7 @@ def _without_long_comments(src: str) -> str:
             break
         start = m.start()
         if m.group() == "<!--":
-            # "<!-->" and "<!--->" are whole (empty) comments for a browser.
-            end = src.find("-->", start + 2)
-            end = n if end < 0 else end + 3
+            end = _comment_end(src, start)
             if end - start > 500:
                 out.append(src[pos:start])
                 for link in _LINK_ATTR_RE.finditer(src, start, end):
@@ -336,8 +359,12 @@ def _without_long_comments(src: str) -> str:
             i = n if end < 0 else end + 1
         else:
             i = _tag_end(src, start)
-            if _STYLE_OPEN_RE.match(src, start):
-                close = _STYLE_CLOSE_RE.search(src, i)
+            raw = _RAW_TEXT_OPEN_RE.match(src, start)
+            if raw:
+                name = raw.group(1).lower()
+                if name == "plaintext":
+                    break
+                close = _RAW_TEXT_CLOSE_RE[name].search(src, i)
                 i = n if close is None else close.start()
     out.append(src[pos:])
     return "".join(out)

@@ -167,24 +167,19 @@ training data only after a human has read them.
 
 ## Design decisions
 
-**No build step in the extension.** The code Chrome runs is the code in
-the repository, readable by store reviewers and users. The cost is a
-manual load order; each file is wrapped in a function, shares one
-namespace, and tests load them in manifest order.
-
-**Translations without `chrome.i18n`.** Chrome's mechanism only covers
-the languages Chrome supports, which leaves out Hausa.
-
-**LIME on demand.** An explanation costs about 100 model runs, so it is
-a second request, cached by the service worker.
-
-**Threat intel ordered by cost.** Local cache, then Google Safe Browsing
-(best coverage, daily quota), then PhishTank, URLhaus and Spamhaus,
-in parallel with the models.
-
-**Data formats that cannot run code.** Random Forests load from skops
-with a type allowlist instead of pickle. Office files are read as ZIP
-and XML with `defusedxml`, without libraries that interpret documents.
-
-**No accounts, no stored emails.** The server keeps URL verdicts only,
-and the scan history stays in the browser.
+- No build step in the extension. The code Chrome runs is the code in
+  the repository, readable by store reviewers and users. The cost is a
+  manual load order; each file is wrapped in a function, shares one
+  namespace, and tests load them in manifest order.
+- Translations without `chrome.i18n`. Chrome's mechanism only covers the
+  languages Chrome supports, which leaves out Hausa.
+- LIME on demand. An explanation costs about 100 model runs, so it is a
+  second request, cached by the service worker.
+- Threat intel ordered by cost: local cache, then Google Safe Browsing
+  (best coverage, daily quota), then PhishTank, URLhaus and Spamhaus, in
+  parallel with the models.
+- Data formats that cannot run code. Random Forests load from skops with
+  a type allowlist instead of pickle. Office files are read as ZIP and
+  XML with `defusedxml`, without libraries that interpret documents.
+- No accounts, no stored emails. The server keeps URL verdicts only, and
+  the scan history stays in the browser.

@@ -257,8 +257,8 @@ def _add_new(urls: list[str], more: list[str]) -> None:
 
 
 def _add_uri_annotations(raw: bytes, urls: list[str]) -> None:
-    """Link annotations the text layer misses (a clickable button with no
-    visible URL): grabs (/URI (https://...)).
+    """Add the link annotations the text layer misses (a clickable button
+    with no visible URL), read from (/URI (https://...)).
 
     The inner class is length-capped (2048 bytes) to close a
     polynomial-ReDoS surface that CodeQL flagged: a crafted PDF with a
@@ -436,10 +436,11 @@ _EMBEDDED_PAGES = (
 
 
 def _inline_embedded(soup, depth: int = 3) -> None:
-    """Pages an HTML attachment carries inside itself, parsed into it so
-    their forms, scripts and links are read like the rest: an <iframe
-    srcdoc="...">, a frame, object or embed whose address is
-    data:text/html, and a meta refresh to one (three levels, 500 KB each)."""
+    """Parse the pages an HTML attachment carries inside itself into it,
+    so their forms, scripts and links are read like the rest. Such a page
+    is an <iframe srcdoc="...">, a frame, object or embed whose address
+    is data:text/html, or a meta refresh to one (three levels, 500 KB
+    each)."""
     for _ in range(depth):
         found = False
         for name, attr in _EMBEDDED_PAGES:
@@ -560,9 +561,9 @@ _WRITTEN_TAG_RE = re.compile(
 
 
 def _js_strings(code: str) -> list[str]:
-    """The string literals of a script ("...", '...', `...`, escapes
-    allowed): where a page a script writes is, never the code around it
-    ("if (x > 0)" is not markup). One pass, linear on any input; an
+    """Return the string literals of a script ("...", '...', `...`,
+    escapes allowed). A page a script writes is in them, never in the
+    code around them ("if (x > 0)" is not markup). One pass, linear on any input; an
     unclosed literal ends at its line."""
     out: list[str] = []
     i, n = 0, len(code)
@@ -721,9 +722,9 @@ _MIME_PAGE_PARTS = ("text/html", "application/xhtml+xml", "image/svg+xml")
 
 
 def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
-    """A web archive (.mht) or a saved email (.eml) inside an archive: its
-    HTML parts read as pages (forms, scripts, links), its plain text as
-    text. Files attached to it are named, not opened."""
+    """Read a web archive (.mht) or a saved email (.eml) found inside an
+    archive. Its HTML parts are read as pages (forms, scripts, links) and
+    its plain text as text. Files attached to it are named, not opened."""
     msg = message_from_bytes(raw, policy=email_policy.compat32)
     pages: list[dict[str, Any]] = []
     plain: list[str] = []
@@ -843,8 +844,9 @@ _MAX_PICTURES = 3
 
 
 def _merge(doc: dict[str, Any], other: dict[str, Any]) -> dict[str, Any]:
-    """The Office reading of a package with what its other members say:
-    flags, links and text added, the members listed like an archive's."""
+    """Combine the Office reading of a package with what its other
+    members say. Their flags, links and text are added, and the members
+    are listed like an archive's."""
     out = dict(doc)
     out["notable_features"] = list(
         dict.fromkeys([*doc.get("notable_features", []), *other.get("notable_features", [])])

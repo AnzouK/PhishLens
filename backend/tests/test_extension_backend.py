@@ -38,13 +38,8 @@ def b64(data: bytes) -> str:
 @pytest.fixture(autouse=True)
 def _fresh_result_cache():
     """Each test patches the agents differently: never reuse a result.
-    The rate limiter is reset too, so a long run never hits 429."""
+    The rate limits are reset by conftest._fresh_rate_limits."""
     eb._RESULT_CACHE.clear()
-    if getattr(eb, "_RATE_LIMIT_OK", False):
-        try:
-            eb._limiter.reset()
-        except Exception:
-            pass
     yield
     eb._RESULT_CACHE.clear()
 

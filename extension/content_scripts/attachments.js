@@ -111,8 +111,11 @@ const scanLabel = (n) => (n > 1 ? t("att_scan_n", { count: n }) : t("att_scan_si
 
 function installScanAllButton(emailView, targets) {
     let existing = emailView.querySelector(".pll-scan-btn--all");
-    if (existing && existing.dataset.pllInstance !== PL.instance) {
-        existing.remove();          // left by an older copy of the scripts
+    // A button left by an older copy of the scripts, or one whose scan has
+    // ended (shown 2.5 s more, then removed), gets no new tiles: a new
+    // button takes them.
+    if (existing && (existing.dataset.pllInstance !== PL.instance || existing.dataset.pllDone === "1")) {
+        existing.remove();
         existing = null;
     }
     if (existing) {
@@ -163,6 +166,7 @@ async function scanAll(btn) {
         // scanAttachment shows its own errors in the file's card.
         await scanAttachment(pending[0]);
     }
+    btn.dataset.pllDone = "1";
     label.textContent = t("att_done");
     setTimeout(() => btn.remove(), 2500);
 }

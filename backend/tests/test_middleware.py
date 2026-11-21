@@ -23,9 +23,7 @@ ORIGIN = {"Origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop"}
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setattr(eb, "PROXY_SECRET", "")
-    eb._limiter.reset()
     yield TestClient(eb.app)
-    eb._limiter.reset()
 
 
 def test_too_large_answer_has_cors_headers(client):

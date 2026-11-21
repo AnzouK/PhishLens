@@ -125,6 +125,20 @@ backend share one version number.
 - Gmail attachments loaded while "Scan attachments" runs are scanned in
   the same run, and expired cache entries are dropped on a stats call
   and at most hourly from `/health`, so an idle instance keeps none.
+- The long comment scan skips the content of every raw text element
+  (`<script>`, `<title>`, `<textarea>`, `<xmp>`, `<iframe>`,
+  `<noembed>`, `<noframes>`, `<plaintext>`, besides `<style>`), so a
+  `<!--` there no longer removes the rest of the email, ends comments at
+  `--!>` too, and reads attribute values as the HTML tokenizer does (an
+  `=` inside an unquoted value opens no quote).
+- The reputation cache takes one thread lock for every database call,
+  including the stats and purge calls of `/health` and
+  `/reputation/stats`, and its stats re-create a deleted table.
+- Gmail attachments loaded in the 2.5 seconds after "Scan attachments"
+  has finished get a new button instead of being lost.
+- Leaving the server address field by clicking "Test connection" opens
+  one permission prompt, not two, and written URLs are cut at 2,048
+  characters like the other links.
 
 ### Security
 - The backend refuses with 403 any request without the shared secret

@@ -33,6 +33,7 @@ import logging
 import os
 import re
 import sqlite3
+import threading
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -90,14 +91,20 @@ class Cache:
     """Tiny SQLite cache with TTL. One row per URL. Expired rows are
     deleted at startup, then at most once an hour by a write, a stats()
     call or /health, so none is kept much past the TTL however long the
-    instance runs, busy or idle."""
+    instance runs, busy or idle.
+
+    One threading lock covers every database call: the async methods run
+    in worker threads (asyncio.to_thread), and /health and
+    /reputation/stats call stats() and purge_if_due() from the threads
+    of sync routes. Reentrant, as a write purges and a read can re-create
+    the table while holding it."""
 
     PURGE_EVERY_SEC = 3600
 
     def __init__(self, path: str):
         self.path = path
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self._lock = asyncio.Lock()
+        self._lock = threading.RLock()
         self._last_purge = 0.0
         self._init_db()
 
@@ -116,10 +123,13 @@ class Cache:
             """)
 
     async def get(self, url: str) -> dict[str, Any] | None:
-        async with self._lock:
-            return await asyncio.to_thread(self._get_sync, url)
+        return await asyncio.to_thread(self._get_sync, url)
 
     def _get_sync(self, url: str) -> dict[str, Any] | None:
+        with self._lock:
+            return self._get_locked(url)
+
+    def _get_locked(self, url: str) -> dict[str, Any] | None:
         cutoff = int(time.time()) - CACHE_TTL_SEC
         try:
             with sqlite3.connect(self.path) as db:
@@ -146,10 +156,13 @@ class Cache:
             return None
 
     async def put(self, url: str, verdict: dict[str, Any]):
-        async with self._lock:
-            await asyncio.to_thread(self._put_sync, url, verdict)
+        await asyncio.to_thread(self._put_sync, url, verdict)
 
     def _put_sync(self, url: str, verdict: dict[str, Any]):
+        with self._lock:
+            self._put_locked(url, verdict)
+
+    def _put_locked(self, url: str, verdict: dict[str, Any]):
         # Drop the cached markers so a re-stored verdict does not keep them.
         v = {k: val for k, val in verdict.items() if k not in ("cached", "cached_age_sec")}
         try:
@@ -175,14 +188,18 @@ class Cache:
         self.purge_if_due()
 
     def purge_if_due(self) -> None:
-        if time.time() - self._last_purge >= self.PURGE_EVERY_SEC:
-            self._purge_sync()
+        with self._lock:
+            if time.time() - self._last_purge >= self.PURGE_EVERY_SEC:
+                self._purge_sync()
 
     async def purge_expired(self):
-        async with self._lock:
-            await asyncio.to_thread(self._purge_sync)
+        await asyncio.to_thread(self._purge_sync)
 
     def _purge_sync(self):
+        with self._lock:
+            self._purge_locked()
+
+    def _purge_locked(self):
         self._last_purge = time.time()
         cutoff = int(time.time()) - CACHE_TTL_SEC
         try:
@@ -195,9 +212,16 @@ class Cache:
                 raise
 
     def stats(self) -> dict[str, int]:
-        self.purge_if_due()
-        with sqlite3.connect(self.path) as db:
-            total = db.execute("SELECT COUNT(*) FROM reputation_cache").fetchone()[0]
+        with self._lock:
+            self.purge_if_due()
+            try:
+                with sqlite3.connect(self.path) as db:
+                    total = db.execute("SELECT COUNT(*) FROM reputation_cache").fetchone()[0]
+            except sqlite3.OperationalError as e:
+                if "no such table" in str(e).lower():
+                    self._init_db()
+                    return {"cache_entries": 0}
+                raise
         return {"cache_entries": total}
 
 

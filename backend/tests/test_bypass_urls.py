@@ -265,3 +265,9 @@ def test_empty_segments_do_not_absorb_dot_dot():
     assert la.browser_path("/a/%2f../redirect") == "/redirect"
     assert not la.well_known_link("https://www.youtube.com/a/%2f../redirect?q=evil.tk")
     assert ep.detect_shared_links(["https://docs.google.com//forms/d/e/x/viewform"])["count"] == 1
+
+
+def test_written_urls_are_cut_at_2048_characters():
+    long_url = "https://evil.tk/" + "a" * 100_000
+    (u,) = ep.urls_in_text("see " + long_url)
+    assert len(u) <= 2048 and u.startswith("https://evil.tk/aaa")

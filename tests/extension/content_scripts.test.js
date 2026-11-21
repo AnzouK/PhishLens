@@ -767,6 +767,58 @@ test("a tile loaded during a scan is scanned in the same run", async () => {
     assert.deepEqual(sent, ["first.pdf", "late.pdf"]);
 });
 
+test("a tile loaded just after a scan gets a new button", async () => {
+    const sent = [];
+    const sendMessage = async (msg) => {
+        if (msg?.type === "phishlens.analyse_attachment") sent.push(msg.payload.filename);
+        return { ok: false, error: "x" };
+    };
+    const { ctx, PL } = load(entryFor("mail.google.com"), { sendMessage });
+    ctx.chrome.storage.local.get = (k, cb) => cb && cb({ backend: "local" });
+    ctx.fetch = async () => ({ ok: true, headers: { get: () => "3" }, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
+    const doc = ctx.document;
+    const view = mailView(doc);
+    const head = doc.createElement("div");
+    const subject = doc.createElement("h2");
+    subject.className = "hP";
+    subject.append("Invoices");
+    head.append(subject);
+    view.append(head);
+    const strip = doc.createElement("div");
+    strip.className = "aQH";
+    view.append(strip);
+    const addTile = (name) => {
+        const tile = doc.createElement("div");
+        tile.className = "aZo";
+        tile.getBoundingClientRect = () => ({ width: 200, height: 150 });
+        const a = doc.createElement("a");
+        a.setAttribute("download", name);
+        a.setAttribute("href", "https://mail.google.com/mail/u/0/?view=att");
+        a.href = "https://mail.google.com/mail/u/0/?view=att";
+        a.append(name);
+        tile.append(a);
+        strip.append(tile);
+    };
+    addTile("first.pdf");
+    PL.installAttachmentButtons(view);
+    const btn = view.querySelector(".pll-scan-btn--all");
+    btn.dispatch("click", { preventDefault() {}, stopPropagation() {} });
+    const label = btn.querySelector(".pll-scan-btn__label");
+    for (let i = 0; i < 100 && label.textContent !== "Attachments scanned"; i++) await new Promise((r) => setTimeout(r, 10));
+    assert.equal(btn.dataset.pllDone, "1");
+    // The finished button is still shown (removed 2.5 s later): the new
+    // tile must not be added to it.
+    addTile("late.pdf");
+    PL.installAttachmentButtons(view);
+    const buttons = view.querySelectorAll(".pll-scan-btn--all");
+    assert.equal(buttons.length, 1);
+    assert.notEqual(buttons[0], btn);
+    assert.ok(!buttons[0].disabled);
+    assert.deepEqual([...buttons[0]._pllTargets.map((f) => f.filename)], ["late.pdf"]);
+    assert.equal(buttons[0].querySelector(".pll-scan-btn__label").textContent, "Scan attachment");
+    assert.deepEqual(sent, ["first.pdf"]);
+});
+
 test("without the text model the wording meter says not checked", () => {
     const { ctx, PL } = load(entryFor("mail.google.com"));
     const view = mailView(ctx.document);

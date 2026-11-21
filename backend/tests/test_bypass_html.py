@@ -634,3 +634,66 @@ def test_empty_comment_forms_hide_nothing():
     for empty in ("<!-->", "<!--->"):
         html = f"{empty}<p>{text}</p><!-- x -->"
         assert ep.without_inline_data(html) == html
+
+
+_BIG = "<!--" + "x" * 1_000_000 + "-->"
+
+
+@pytest.mark.parametrize(
+    "tag", ["title", "textarea", "script", "xmp", "iframe", "noembed", "noframes"]
+)
+def test_a_comment_opener_in_raw_text_hides_nothing(tag):
+    # "<!--" inside these elements is text for browsers and html.parser:
+    # the rest of the email, its text and links, must stay.
+    body = "Your account is locked. " * 40
+    html = f'<{tag}><!--</{tag}><p>{body}</p><a href="https://evil.tk/login">Go</a>'
+    assert ep.without_inline_data(html) == html
+    visible, _ = ep.html_link_groups(html)
+    assert "https://evil.tk/login" in visible
+
+
+@pytest.mark.parametrize("tag", ["script", "title", "TEXTAREA", "Xmp"])
+def test_a_style_opener_in_raw_text_keeps_comment_removal(tag):
+    html = f"<{tag}><style></{tag.lower()} >{_BIG}<p>Verify</p>"
+    assert ep.without_inline_data(html) == f"<{tag}><style></{tag.lower()} ><p>Verify</p>"
+
+
+def test_raw_text_close_needs_a_tag_end():
+    # "</titlex>" does not close <title>: the comment stays inside it.
+    html = "<title></titlex><!--" + "x" * 600 + "--></title><p>Verify</p>"
+    assert ep.without_inline_data(html) == html
+
+
+def test_long_s_does_not_open_a_sheet():
+    # "ſ" matches "s" in a case-insensitive Unicode regex; a browser
+    # reads "<ſtyle>" as an unknown tag.
+    html = "<ſtyle>" + _BIG + "<p>Verify</p>"
+    assert ep.without_inline_data(html) == "<ſtyle><p>Verify</p>"
+
+
+def test_plaintext_makes_the_rest_text():
+    html = "<plaintext><!--" + "x" * 600 + "--><p>Verify</p>"
+    assert ep.without_inline_data(html) == html
+
+
+def test_noscript_is_parsed_as_markup():
+    # html.parser (scripting off) and Gmail read <noscript> content as markup.
+    html = "<noscript>" + _BIG + "</noscript><p>Verify</p>"
+    assert ep.without_inline_data(html) == "<noscript></noscript><p>Verify</p>"
+
+
+def test_bang_comment_end_closes_a_comment():
+    html = "<!--" + "x" * 1_000_000 + "--!><p>Verify</p>"
+    assert ep.without_inline_data(html) == "<p>Verify</p>"
+    assert ep.html_to_text(html) == "Verify"
+
+
+@pytest.mark.parametrize("tag", ['<div a=b=">', '<div a=b= ">', "<div a=b='>", '<div a= b="c>"d>'])
+def test_equals_inside_an_unquoted_value_opens_no_quote(tag):
+    html = tag + _BIG + "<p>Verify</p>"
+    assert ep.without_inline_data(html) == tag + "<p>Verify</p>"
+
+
+def test_quoted_values_still_hide_markup():
+    for tag in ['<div a = "x>">', "<div a='x>' b=\"y>\">", '<a href="x">', "</p a='>'>"]:
+        assert ep.without_inline_data(tag + _BIG + "<p>V</p>") == tag + "<p>V</p>"

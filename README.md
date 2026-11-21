@@ -55,13 +55,13 @@ attachment, if you scan one) to a server. By default that server is
 **PhishLens Cloud**, which the author runs on Google Cloud Run in
 Belgium, reached through `phishlens.dev` on Cloudflare.
 
-- The email is analysed in memory and **not stored**. Only the result is
+- The email is analysed in memory and not stored. Only the result is
   kept, for 24 hours, keyed by a hash of the email, so that a second
   scan answers at once.
-- Threat-intelligence services receive the **link addresses only**.
-- Your scan history stays **in your browser**.
-- Nothing else leaves your browser unless you choose to **report a wrong
-  verdict**. You then see the redacted text, and can edit it, before it
+- Threat-intelligence services receive the link addresses only.
+- Your scan history stays in your browser.
+- Nothing else leaves your browser unless you choose to report a wrong
+  verdict. You then see the redacted text, and can edit it, before it
   is sent.
 
 If you would rather no email leave your computer, run the backend

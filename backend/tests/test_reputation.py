@@ -159,6 +159,70 @@ class TestCache:
         c._put_sync("http://x.tld", {"score": 0.0})
         assert c.stats()["cache_entries"] == 1
 
+    def test_stats_self_heals_if_table_dropped(self, tmp_path):
+        import sqlite3
+
+        path = str(tmp_path / "c.db")
+        c = rep.Cache(path)
+        with sqlite3.connect(path) as db:
+            db.execute("DROP TABLE reputation_cache")
+        c._last_purge = rep.time.time()  # no purge to re-create it first
+        assert c.stats() == {"cache_entries": 0}
+        c._put_sync("http://x.tld", {"score": 0.0})
+        assert c.stats()["cache_entries"] == 1
+
+    def test_sync_and_async_calls_from_threads_do_not_collide(self, tmp_path, monkeypatch):
+        # /health and /reputation/stats run in worker threads while the
+        # event loop writes; every call must go through the same lock.
+        from concurrent.futures import ThreadPoolExecutor
+
+        c = rep.Cache(str(tmp_path / "c.db"))
+        monkeypatch.setattr(c, "PURGE_EVERY_SEC", 0)  # purge on every call
+        held = []
+        real_connect = rep.sqlite3.connect
+
+        def connect(*a, **kw):
+            # Only one connection open at a time: no "database is locked".
+            assert not held, "two connections at once"
+            held.append(1)
+            db = real_connect(*a, **kw)
+
+            class Guard:
+                def __enter__(self):
+                    return db.__enter__()
+
+                def __exit__(self, *exc):
+                    try:
+                        return db.__exit__(*exc)
+                    finally:
+                        db.close()
+                        held.pop()
+
+            return Guard()
+
+        monkeypatch.setattr(rep.sqlite3, "connect", connect)
+
+        def reads():
+            for _ in range(20):
+                c.stats()
+                c.purge_if_due()
+
+        async def writes(k):
+            for j in range(20):
+                await c.put(f"http://{k}-{j}.tld", {"score": 0.0})
+                await c.get(f"http://{k}-{j}.tld")
+
+        async def go():
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor(8) as pool:
+                await asyncio.gather(
+                    *(writes(k) for k in range(4)),
+                    *(loop.run_in_executor(pool, reads) for _ in range(8)),
+                )
+
+        asyncio.run(go())
+        assert c.stats()["cache_entries"] == 4 * 20
+
 
 # GSB quota
 class TestGsbQuota:
