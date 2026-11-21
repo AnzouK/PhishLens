@@ -7,6 +7,13 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Added
+- `.github/workflows/backend-image.yml` builds the backend image
+  (`backend/Dockerfile.cloud`, linux/amd64) and publishes it as
+  `ghcr.io/anzouk/phishlens-backend` on each version tag or by hand. The
+  image holds the code only: the model is downloaded at start-up and the
+  keys come from the host.
+
 ### Changed
 - The website is served by Cloudflare Pages. Page addresses no longer
   end in `.html` (`/privacy`, `/fr/terms`); the old addresses redirect
