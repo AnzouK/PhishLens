@@ -1,4 +1,4 @@
-// Test helpers: an in-memory stand-in for chrome.storage.local with the
+// Test helpers. An in-memory stand-in for chrome.storage.local with the
 // callback API the extension uses, and a loader that gives each test a
 // fresh copy of a library file.
 "use strict";

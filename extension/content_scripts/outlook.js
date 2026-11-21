@@ -1,5 +1,5 @@
-// Outlook on the web: the scan button and the verdict banner (banner.js).
-// What this file assumes about Outlook's page (2026):
+// Scan button and verdict banner (banner.js) for Outlook on the web.
+// Selectors this file relies on (Outlook, 2026):
 //   reading pane   [data-app-section="MailReadCompose"]
 //   subject        [role="heading"][id^="CONV_"][id$="_SUBJECT"]
 //   one message    body [id^="UniqueMessageBody"], sender [id^="MSG_"][id$="_FROM"]
@@ -19,7 +19,8 @@ const SEL = Object.freeze({
 });
 const EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
 const ANGLED_RE = /<\s*((?:"[^"<>]{0,200}"|[^<>\s"]{1,200})@[\w-]+(?:\.[\w-]+)+)\s*>/g;
-// Drafts sit in the conversation too, with an editor; never scanned.
+// Drafts sit in the conversation too, with an editor. They are never
+// scanned.
 const DRAFT_RE = /\[(Draft|Brouillon|Borrador|Rascunho|Entwurf|Bozza|Concept)\]/i;
 
 PL.olInject = function olInject() {
@@ -37,7 +38,8 @@ PL.olInject = function olInject() {
         title: t("scan_button_title"),
         onClick: (b) => olScan(pane, b),
     });
-    // Outlook listens to pointer events on the header: keep ours to us.
+    // Outlook listens to pointer events on the header, so ours do not
+    // propagate.
     for (const evt of ["pointerdown", "mousedown", "mouseup", "keydown"]) {
         btn.addEventListener(evt, (ev) => ev.stopPropagation());
     }
@@ -59,9 +61,9 @@ function isDraft(body) {
 // The sender's address in the From line: the last one between angle
 // brackets, else the last one written, never one inside a quoted display
 // name ('"PayPal <service@paypal.com>"' then "scam@attacker.example"). A
-// quoted local part ('<"scam"@...>', '<"service@paypal.com"@...>') counts,
-// quotes removed: the domain is the one after the last "@". Same reading
-// as backend/auth_headers.sender_domains.
+// quoted local part ('<"scam"@...>', '<"service@paypal.com"@...>') counts
+// with its quotes removed, and the domain is the one after the last "@".
+// Same reading as backend/auth_headers.sender_domains.
 const QUOTED_NAME_RE = /"[^"]*"(?!\s*@)/g;
 PL.senderAddress = function senderAddress(texts) {
     const parts = texts.map((x) => String(x || ""));
@@ -76,14 +78,14 @@ PL.senderAddress = function senderAddress(texts) {
 };
 
 // The last expanded message of the conversation, drafts excluded, and
-// its sender: the last "From" line placed before its body.
+// its sender, taken from the last "From" line before its body.
 function currentMessage(pane) {
     const all = [...pane.querySelectorAll(SEL.body)];
     const bodies = all.filter((b) => !isDraft(b));
     const body = bodies[bodies.length - 1] || null;
-    // The From line of this message: before its body, after every other
-    // body (else it is an earlier message's), and not inside a body (an
-    // email can contain an element with that id).
+    // This message's From line comes before its body and after every
+    // other body (otherwise it belongs to an earlier message). It must not
+    // be inside a body, since an email can contain an element with that id.
     const before = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     let from = null;
     for (const f of pane.querySelectorAll(SEL.from)) {
@@ -92,8 +94,8 @@ function currentMessage(pane) {
         from = f;
     }
     // The address may be in the text or in a label or title of any part
-    // of the line (the first labelled part is often the avatar, with the
-    // name only): every one is read.
+    // of the line. The first labelled part is often the avatar, which has
+    // only the name, so every part is read.
     const texts = from ? [from.textContent || ""] : [];
     for (const el of from?.querySelectorAll("[aria-label], [title]") || []) {
         texts.push(el.getAttribute("aria-label") || "", el.getAttribute("title") || "");
@@ -106,7 +108,7 @@ function currentMessage(pane) {
         // "Internal" only when there is a From line and no address in it.
         foundFrom: !!from && !texts.some((x) => x.includes("@")),
         senderEmail: email.toLowerCase(),
-        // "Name <address>" -> "Name"
+        // "Name <address>" becomes "Name".
         senderName: fromText.replace(/<[^<>]*>\s*$/, "").trim(),
     };
 }
@@ -120,11 +122,12 @@ function accountDomain() {
     return null;
 }
 
-// An empty holder right after the subject bar; the banner goes before it.
+// An empty holder right after the subject bar. The banner goes before it.
 function bannerSlot(pane) {
     let slot = pane.querySelector(".pll-ol-slot-anchor");
     if (slot) return slot;
-    // The bar: the highest ancestor of the subject without the messages.
+    // The bar is the highest ancestor of the subject that does not contain
+    // the messages.
     let bar = pane.querySelector(SEL.subject);
     while (bar?.parentElement && bar.parentElement !== pane && !bar.parentElement.querySelector(SEL.body)) {
         bar = bar.parentElement;
@@ -163,8 +166,9 @@ async function olScan(pane, btn) {
             client_context: {
                 origin: "outlook",
                 subject,
-                // A From line without an address: a sender of the user's own
-                // organisation (soft path only, see docs/architecture.md).
+                // A From line without an address means a sender in the
+                // user's own organisation (soft path only, see
+                // docs/architecture.md).
                 ...(foundFrom && !senderEmail ? { outlook_internal: true, org_domain: accountDomain() } : {}),
                 link_urls: linkGroups.visible,
                 hidden_link_urls: linkGroups.hidden,

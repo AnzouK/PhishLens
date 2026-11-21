@@ -29,8 +29,8 @@
 "use strict";
 
 const STORAGE_KEY = "scanHistory";
-// Function words carry no meaning in "Top phishing tokens" even when
-// LIME weights them; they stay in the stored history.
+// Function words carry no meaning in "Top phishing tokens" even when LIME
+// weights them. They stay in the stored history.
 const STOPWORDS = new Set(("the and for are but not you your yours our ours this that these those with from have has had " +
     "was were will would can could should been being into onto than then them they their there here what when where " +
     "which who whom why how all any each few more most other some such only own same too very just also its it's " +
@@ -53,9 +53,8 @@ function _set(key, value) {
     });
 }
 
-// Every change reads the list, edits it and writes it back: two changes
-// at once (two scans finishing together) would lose one. They run one
-// after the other instead.
+// Each change reads the list, edits it and writes it back, so two changes
+// at once (two scans finishing together) would lose one. They are queued.
 let _queue = Promise.resolve();
 function serial(fn) {
     return (...args) => {
@@ -65,13 +64,13 @@ function serial(fn) {
     };
 }
 
-// The subject shown for pasted text: its first line that has any text.
+// Subject shown for pasted text: its first non-empty line.
 function pasteSubject(text) {
     const line = String(text || "").split(/\r?\n/).find((l) => l.trim()) || "";
     return line.trim().slice(0, 120);
 }
 
-// The history entry for an /analyse or /analyse_attachment answer.
+// History entry for an /analyse or /analyse_attachment answer.
 function entryFrom(data, { source, subject = "", sender = "" }) {
     const p = (agent) => Number(data?.agents?.[agent]?.phishing_probability) || 0;
     return {
@@ -107,7 +106,7 @@ const saveScan = serial(async function saveScan(entry) {
     return clean.id;
 });
 
-// The top words of the explanation, once /explain has answered.
+// Top words of the explanation, added when /explain answers.
 const attachTokens = serial(async function attachTokens(id, tokens) {
     if (!id || !Array.isArray(tokens)) return;
     const list = (await _get(STORAGE_KEY)) || [];
@@ -117,7 +116,7 @@ const attachTokens = serial(async function attachTokens(id, tokens) {
     await _set(STORAGE_KEY, list);
 });
 
-// The user says whether a verdict was right. Unknown labels clear it.
+// Records whether the user found a verdict right. Unknown labels clear it.
 const setLabel = serial(async function setLabel(id, label) {
     const list = (await _get(STORAGE_KEY)) || [];
     const e = list.find((x) => x.id === id);
@@ -127,7 +126,7 @@ const setLabel = serial(async function setLabel(id, label) {
     await _set(STORAGE_KEY, list);
 });
 
-// The user's answers about a scan: the language, a report sent.
+// The user's answers about a scan, such as the language or a sent report.
 const updateScan = serial(async function updateScan(id, patch = {}) {
     const list = (await _get(STORAGE_KEY)) || [];
     const e = list.find((x) => x.id === id);
@@ -181,10 +180,10 @@ function statsRows(list) {
     }));
 }
 
-// Live evaluation from the reviewed scans. Ground truth: a "correct"
-// phishing verdict is a true positive, a "wrong" one a false positive;
-// a "correct" safe verdict is a true negative, a "wrong" one a missed
-// phishing email (false negative).
+// Live evaluation from the reviewed scans. A "correct" phishing verdict
+// is a true positive and a "wrong" one a false positive. A "correct" safe
+// verdict is a true negative and a "wrong" one a missed phishing email
+// (false negative).
 function liveEvaluation(list) {
     let tp = 0, fp = 0, tn = 0, fn = 0;
     for (const e of list) {
@@ -210,10 +209,10 @@ async function getHistory() {
     return (await _get(STORAGE_KEY)) || [];
 }
 
-// Everything PhishLens keeps about the emails seen: the history, the
-// report drafts, the cached explanations (lib/lime_cache.js) and the
-// automatic-scan verdicts (content_scripts/autoscan.js), current and
-// earlier versions. Settings stay.
+// Everything PhishLens keeps about the emails it has seen, in current and
+// earlier storage versions: the history, the report drafts, the cached
+// explanations (lib/lime_cache.js) and the automatic-scan verdicts
+// (content_scripts/autoscan.js). Settings are kept.
 const EMAIL_DATA_KEYS = ["limeCache.v1", "limeCache.v2", "autoScanCache.v3", "autoScanCache.v4", "autoScanCache.v5"];
 
 const clearHistory = serial(async function clearHistory() {
@@ -238,9 +237,9 @@ async function getStats() {
     const phishing = list.filter((e) => e.verdict === "phishing").length;
     const safe = total - phishing;
 
-    // last 30 days daily buckets, keyed by LOCAL date. toISOString() is
-    // UTC: east of Greenwich it shifted every bucket one day back, and the
-    // chart showed nothing for today's scans.
+    // Daily buckets keyed by local date. toISOString() is UTC, which puts
+    // every bucket one day back east of Greenwich and leaves today's scans
+    // off the chart.
     const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const now = new Date();
     const days = [];
@@ -257,7 +256,6 @@ async function getStats() {
         if (b) b[e.verdict]++;
     }
 
-    // Top LIME tokens from phishing scans
     const tokenCounts = {};
     for (const e of list) {
         if (e.verdict !== "phishing") continue;
@@ -274,11 +272,9 @@ async function getStats() {
         .slice(0, 12)
         .map(([token, weight]) => ({ token, weight }));
 
-    // By source breakdown
     const bySource = { gmail: 0, "gmail-attachment": 0, "gmail-auto": 0, outlook: 0, file: 0, attachment: 0, paste: 0, unknown: 0 };
     for (const e of list) bySource[e.source] = (bySource[e.source] || 0) + 1;
 
-    // Average score
     const avgScore = total
         ? list.reduce((s, e) => s + (e.score || 0), 0) / total
         : 0;
@@ -311,10 +307,9 @@ async function exportCSV() {
                   "lang", "lang_user"];
     const esc = (v) => {
         let s = v === null || v === undefined ? "" : String(v);
-        // CSV formula injection: subjects and senders come from attacker
-        // emails. A cell starting with = + - @ (or a tab / CR) would be
-        // run as a formula when the export is opened in Excel or Sheets,
-        // so it is prefixed with a quote to force plain text.
+        // Subjects and senders come from attacker emails. A cell starting
+        // with = + - @ (or a tab or CR) would run as a formula in Excel or
+        // Sheets, so it gets a leading quote to stay plain text.
         if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
         return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };

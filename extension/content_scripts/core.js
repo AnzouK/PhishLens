@@ -1,7 +1,7 @@
 // First content script on Gmail and Outlook (after lib/). It creates the
 // PhishLensPage namespace: each later file wraps its code in a function
 // and adds what it offers to that namespace, so no name leaks between
-// files. Only two places depend on the manifest order: this file runs
+// files. Only two things depend on the manifest order. This file runs
 // first, and gmail.js / outlook.js run last and start the page watchers.
 (function () {
 "use strict";
@@ -46,18 +46,18 @@ PL.shutdownIfDead = function shutdownIfDead() {
     return true;
 };
 // A cut-off copy's chrome.* calls reject with "Extension context
-// invalidated": expected after an update, not worth an error entry.
+// invalidated". That is expected after an update and not logged.
 window.addEventListener("unhandledrejection", (ev) => {
     if (/Extension context invalidated/i.test(String(ev.reason?.message || ev.reason))) ev.preventDefault();
 });
 
-// Options set in the popup. Full headers on by default; automatic
-// scanning off by default (it sends emails without a click).
+// Options set in the popup. Full headers are on by default. Automatic
+// scanning is off by default because it sends emails without a click.
 PL.opts = { fullHeaders: true, autoScan: false };
 
-// Theme: the popup's choice ("theme" in storage). In "auto", the colours
-// follow the mail page, not the system: Gmail can be light on a dark
-// system and the reverse.
+// Theme chosen in the popup ("theme" in storage). In "auto" the colours
+// follow the mail page rather than the system, because Gmail can be light
+// on a dark system and the reverse.
 let themeChoice = "auto";
 let themeCheckedAt = 0;
 
@@ -82,8 +82,8 @@ PL.applyTheme = function applyTheme(theme) {
     themeCheckedAt = Date.now();
 };
 
-// Called as the page changes: the user may switch the mail theme while
-// the tab is open. At most every two seconds.
+// The user may switch the mail theme while the tab is open, so this runs
+// as the page changes, at most every two seconds.
 PL.refreshTheme = function refreshTheme() {
     if (themeChoice === "auto" && Date.now() - themeCheckedAt > 2000) PL.applyTheme("auto");
 };
@@ -114,16 +114,15 @@ PL.setBtnLoading = function setBtnLoading(btn, on) {
     btn.querySelector(".pll-scan-btn__label").textContent = on ? t("scanning") : t("scan_again");
 };
 
-// The body of an email, on Gmail and on Outlook. What is inside one is
-// written by the sender: never read as part of the mail service's page
-// (sender checks, the user's own address).
+// Email body on Gmail and Outlook. Its content is written by the sender,
+// so it is never read as part of the mail service's page (sender checks,
+// the user's own address).
 PL.MESSAGE_BODY = '.a3s, [id^="UniqueMessageBody"]';
 PL.inMessageBody = (el) => !!el?.closest?.(PL.MESSAGE_BODY);
 
-// True when the element and everything in it are out of view: no box,
-// transparent, clipped to nothing, placed far off the page or scaled to
-// nothing. innerText already leaves out display:none; these others it
-// keeps.
+// True when the element and all of its content are out of view (no box,
+// transparent, clipped to nothing, far off the page or scaled to nothing).
+// innerText already skips display:none but keeps these.
 PL.isHiddenBox = function isHiddenBox(el) {
     if (typeof getComputedStyle !== "function" || !el?.getClientRects) return false;
     const st = getComputedStyle(el);
@@ -143,10 +142,10 @@ PL.isHiddenBox = function isHiddenBox(el) {
 };
 
 // True when the element's own text cannot be read: visibility hidden, a
-// font under 2 px, or too little contrast with what is drawn behind it
-// (a WCAG ratio under 1.2, like backend/hidden_content.py). Its children
-// set their own colour and size: a dark section whose paragraphs are
-// white is not hidden.
+// font under 2 px, or a WCAG contrast ratio under 1.2 against what is
+// drawn behind it (the same threshold as backend/hidden_content.py).
+// Children set their own colour and size, so a dark section with white
+// paragraphs is not hidden.
 PL.textUnreadable = function textUnreadable(el, cache) {
     if (typeof getComputedStyle !== "function") return false;
     const st = getComputedStyle(el);
@@ -156,11 +155,11 @@ PL.textUnreadable = function textUnreadable(el, cache) {
     return !!ink && (ink[3] <= 0.05 || (!!behind && contrast(over(ink, behind), behind) < 1.2));
 };
 
-// Either: the element's text cannot be seen (the shared test cases).
+// Either check (used by the shared test cases).
 PL.isHidden = (el) => PL.isHiddenBox(el) || PL.textUnreadable(el);
 
-// A transform that flattens the element to a line or a point (a scale of
-// 0 on any axis): its 2D matrix has a determinant of 0.
+// A scale of 0 on any axis flattens the element to a line or a point, and
+// its 2D matrix then has a determinant of 0.
 function flattened(transform) {
     const m = /^matrix\(([^)]*)\)$/.exec(transform || "");
     if (!m) return false;
@@ -193,14 +192,14 @@ function contrast(a, b) {
     return (hi + 0.05) / (lo + 0.05);
 }
 
-// The colour drawn behind an element: its background and its ancestors'
-// composed from the white page up, alpha included (backgrounds are not
-// inherited, they show through); null when an image is drawn (unknown).
+// Colour drawn behind an element, composed from the white page up through
+// its ancestors' backgrounds with alpha. Backgrounds are not inherited but
+// show through. Returns null when a background image is in the way, since
+// its colour is unknown.
 function backgroundBehind(el, cache = new Map()) {
-    // Up to the first element already known, an opaque or image
-    // background, or the page; then down again, each result memoised (the
-    // walk is shared by all the children; a loop, not recursion, for very
-    // deep messages).
+    // Walk up to the first cached element, an opaque or image background,
+    // or the page, then back down and cache each result so siblings share
+    // the work. A loop rather than recursion, for very deep messages.
     const chain = [];
     let below = [255, 255, 255];
     for (let n = el; n && n.nodeType === 1; n = n.parentNode) {
@@ -227,12 +226,12 @@ function backgroundBehind(el, cache = new Map()) {
     return chain.length ? cache.get(el) : below;
 }
 
-// What is hidden under `el`: { boxes, texts, generated }. `boxes` are the
-// outermost elements hidden whole (their subtrees are not walked); `texts`
-// the elements whose own text is unreadable while their children may not
-// be; `generated` the words style sheets write (pseudoWords), visible.
-// At most MAX_WALK elements are examined (Gmail cuts messages above
-// 102 KB, far fewer elements than that).
+// Hidden content under `el`, as { boxes, texts, generated }. `boxes` are
+// the outermost elements hidden whole (their subtrees are skipped).
+// `texts` are elements whose own text is unreadable even if their children
+// are not. `generated` holds the visible words written by style sheets
+// (pseudoWords). The walk stops after MAX_WALK elements, well above what
+// fits in the 102 KB at which Gmail clips a message.
 const MAX_WALK = 20000;
 PL.hiddenParts = function hiddenParts(el) {
     const out = { boxes: [], texts: [], generated: [] };
@@ -242,7 +241,7 @@ PL.hiddenParts = function hiddenParts(el) {
     for (let seen = 0; stack.length && seen < MAX_WALK; seen++) {
         const n = stack.pop();
         // <map> and <area> never draw a box of their own (area is
-        // display:none in every browser): they are judged through the
+        // display:none in every browser). They are judged through the
         // image that uses the map (shownLink), not as hidden boxes.
         if (n.tagName === "MAP" || n.tagName === "AREA") {
             stack.push(...[...n.children].reverse());
@@ -259,17 +258,17 @@ PL.hiddenParts = function hiddenParts(el) {
     return out;
 };
 
-// Words a style sheet writes on the page itself (::before and ::after
-// content): the reader sees them, innerText does not hold them, so a lure
-// written there was out of the text model's reach. Looked for on the
-// first MAX_PSEUDO elements.
+// Words written by a style sheet (::before and ::after content). The
+// reader sees them but innerText leaves them out, so a lure placed there
+// would never reach the text model. Only the first MAX_PSEUDO elements
+// are checked.
 const MAX_PSEUDO = 5000;
 function pseudoWords(n, backgrounds) {
     const words = [];
     for (const pseudo of ["::before", "::after"]) {
         const st = getComputedStyle(n, pseudo) || {};
-        // Only what can be read: shown, opaque, not invisible, 2 px or
-        // more, and a colour that stands out from what is behind it.
+        // Keep only readable content: shown, not transparent, at least
+        // 2 px, and in a colour that stands out from the background.
         if (st.display === "none" || /hidden|collapse/.test(st.visibility || "") ||
             Number(st.opacity ?? 1) <= 0.05 || parseFloat(st.fontSize) < 2) continue;
         const ink = rgba(st.color);
@@ -288,8 +287,8 @@ function ownText(el) {
     return [...(el.childNodes || [])].filter((c) => c.nodeType === 3).map((c) => c.data).join(" ").replace(/\s+/g, " ").trim();
 }
 
-// The text of an element without its style sheets and scripts (whose
-// textContent is code, not words).
+// Text of an element, skipping style sheets and scripts, whose
+// textContent is code.
 function wordsOf(el) {
     const parts = [];
     const walk = (n) => {
@@ -302,16 +301,16 @@ function wordsOf(el) {
     return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
-// The text of an email as the reader sees it, with the hidden text after
-// it: placed before the message, it filled what the text model reads
-// with words nobody sees. Hidden boxes are marked for an instant
-// (banner.css hides them) and unreadable text emptied for that instant,
-// then both are read on their own.
-// `hidden` is PL.hiddenParts(el), when the caller already has it.
+// Text of an email as the reader sees it, followed by the hidden text.
+// Hidden text placed before the message would otherwise fill what the
+// text model reads with words nobody sees. While innerText is read,
+// hidden boxes are marked (banner.css hides them) and unreadable text is
+// emptied; both are then read separately. `hidden` is PL.hiddenParts(el)
+// when the caller already has it.
 PL.textOf = function textOf(el, hidden = PL.hiddenParts(el)) {
     if (!el) return "";
-    // The unreadable text is emptied for the instant innerText is read,
-    // and put back: a style rule would also have changed the children.
+    // The text nodes are emptied and restored afterwards. A style rule
+    // would have changed the children as well.
     const blanked = hidden.texts.flatMap((n) => [...n.childNodes].filter((c) => c.nodeType === 3))
         .map((c) => [c, c.data]);
     hidden.boxes.forEach((n) => n.setAttribute("data-pll-hidden", ""));
@@ -325,10 +324,10 @@ PL.textOf = function textOf(el, hidden = PL.hiddenParts(el)) {
     }
     const tail = [...hidden.boxes.map(wordsOf), ...hidden.texts.map(ownText)].filter(Boolean);
     const generated = (hidden.generated || []).join(" ");
-    // Without invisible characters, before anyone cuts the text to a
-    // length: 4,000 zero-width spaces once filled what was sent.
-    // Runs of invisible characters cut to one, not removed: the server
-    // reads the text both ways (as shown and as written).
+    // Collapse invisible characters before anything truncates the text,
+    // or a few thousand zero-width spaces can use up the whole length.
+    // Runs are cut to one character rather than removed because the
+    // server reads the text both as shown and as written.
     return PL.collapseInvisible([text, generated, ...tail].filter(Boolean).join("\n"))
         .replace(/\s+\n/g, "\n").trim();
 };
@@ -343,24 +342,21 @@ PL.bytesToBase64 = function bytesToBase64(bytes) {
 };
 PL.utf8ToB64 = (text) => PL.bytesToBase64(new TextEncoder().encode(text));
 
-// A link no one can see to click: neither it nor what it holds is 2 px
+// A link too small to see or click: neither it nor its content is 2 px
 // wide and high (a 1 px image, an empty anchor). An inline link around a
-// block (a button table) has a flat box of its own: its content counts.
+// block (a button table) has a flat box of its own, so its content is
+// measured instead.
 function tinyLink(a) {
     if (!a.getClientRects) return false;
-    // display:contents: no box of its own, its content is what is seen.
+    // display:contents has no box of its own; only its content shows.
     if (typeof getComputedStyle === "function" && getComputedStyle(a).display === "contents") return false;
     const big = (r) => r.width >= 2 && r.height >= 2;
     if ([...a.getClientRects()].some(big)) return false;
     return ![...(a.children || [])].some((c) => c.getBoundingClientRect && big(c.getBoundingClientRect()));
 }
 
-// A link the reader can see: outside every hidden box, not too small to
-// click, and showing something: text outside the hidden parts, or an
-// image or drawing of 2 px at least. Fifty links whose only text was
-// transparent once filled the place of the real one.
-// The <map> names that shown images use (usemap="#name"), once per scan
-// (keyed by that scan's set of hidden boxes).
+// <map> names used by visible images (usemap="#name"), computed once per
+// scan and keyed by that scan's set of hidden boxes.
 const mapsSeen = new WeakMap();
 function shownMaps(a, inBox, boxes) {
     const root = a.getRootNode?.() || a.ownerDocument;
@@ -379,16 +375,20 @@ function shownMaps(a, inBox, boxes) {
     return mapsSeen.get(boxes);
 }
 
+// A link the reader can see: outside every hidden box, large enough to
+// click, and showing something (text outside the hidden parts, or an
+// image or drawing of at least 2 px). Links whose only text is
+// transparent must not take the place of the real one.
 function shownLink(a, hidden, boxes = new Set(hidden.boxes), unreadable = new Set(hidden.texts)) {
-    // Inside a hidden box: walk up the ancestors (sets, not a scan of
-    // every box for every link: 10,000 boxes and 20,000 links froze the tab).
+    // Check the ancestors against a set. Scanning every box for every
+    // link froze the tab on 10,000 boxes and 20,000 links.
     const inBox = (x) => {
         for (let n = x; n; n = n.parentNode) if (boxes.has(n)) return true;
         return false;
     };
     if (inBox(a)) return false;
-    // An <area> shows nothing of its own: it is seen through the image
-    // whose usemap names its <map>, when that image is shown.
+    // An <area> shows nothing itself. It counts as shown when the image
+    // whose usemap names its <map> is shown.
     if (a.tagName === "AREA") {
         const map = a.closest?.("map");
         const name = (map?.getAttribute("name") || map?.id || "").toLowerCase();
@@ -402,8 +402,9 @@ function shownLink(a, hidden, boxes = new Set(hidden.boxes), unreadable = new Se
             // Pictures, and the shapes of a drawing (a link inside an <svg>
             // around a <rect> shows the shape).
             if (/^(IMG|SVG|PICTURE|VIDEO|CANVAS|OBJECT|EMBED|IFRAME|RECT|PATH|CIRCLE|ELLIPSE|POLYGON|POLYLINE|LINE|USE|IMAGE)$/i.test(c.tagName)) {
-                // Seen when it has a box of 2 px and is not invisible
-                // (visibility hidden keeps the box, not the picture).
+                // Seen when its box is at least 2 px and it is not
+                // invisible (visibility hidden keeps the box but not the
+                // picture).
                 const r = c.getBoundingClientRect?.();
                 const st = typeof getComputedStyle === "function" ? getComputedStyle(c) : {};
                 const seen = !/hidden|collapse/.test(st.visibility || "") && Number(st.opacity ?? 1) > 0.05;
@@ -417,26 +418,18 @@ function shownLink(a, hidden, boxes = new Set(hidden.boxes), unreadable = new Se
     return walk(a);
 }
 
-// http(s) targets of the links in a message body, deduplicated, 50 at
-// most, as { visible, hidden }: the visible text only says "Click here",
-// not where the link goes. Visible links fill the 50 first, and each
-// list has the first link of each host before any second one: fifty
-// hidden links placed first left the real one out. The server keeps the
-// two lists apart too (link_urls, hidden_link_urls). Links to the mail
-// page itself are the mail service's own ("View entire message" under a
-// long Gmail email), not the sender's.
-// A link's address as a string. In a real page an <a> inside an <svg> is
-// an SVGAElement: its .href is an SVGAnimatedString ({ baseVal }), and the
-// address may be in xlink:href. Relative addresses are resolved.
+// Address of a link as a string. In a real page an <a> inside an <svg> is
+// an SVGAElement whose .href is an SVGAnimatedString ({ baseVal }), and
+// the address may be in xlink:href. Relative addresses are resolved.
 function linkHref(a) {
-    // An HTML link's .href is already the address as the browser reads it.
+    // The browser has already resolved an HTML link's .href.
     if (typeof a.href === "string" && /^https?:\/\//i.test(a.href)) return a.href;
     const raw = typeof a.href === "string"
         ? a.href
         : a.href?.baseVal || a.getAttribute?.("href") || a.getAttribute?.("xlink:href") || "";
     if (!raw) return "";
-    // The rest (an SVG link's raw attribute: spaces, capitals, relative)
-    // is read the same way.
+    // Anything else (the raw attribute of an SVG link, possibly with
+    // spaces, capitals or a relative path) is resolved here.
     try {
         return new URL(raw.trim(), location.href).href;
     } catch {
@@ -448,6 +441,14 @@ function linkHref(a) {
     }
 }
 
+// http(s) link targets in a message body, deduplicated, at most 50, as
+// { visible, hidden }. The visible text ("Click here") does not say where
+// a link goes. Visible links fill the 50 slots first, and in each list the
+// first link to a host comes before any repeat, so hidden links placed
+// first cannot push the real one out. The server keeps the two lists
+// apart as well (link_urls, hidden_link_urls). Links to the mail page
+// itself belong to the mail service (Gmail's "View entire message" under
+// a long email), not to the sender.
 PL.linkGroupsOf = function linkGroupsOf(el, hidden = PL.hiddenParts(el)) {
     const groups = { visible: [[], []], hidden: [[], []] };    // [new host, repeated host]
     const hosts = { visible: new Set(), hidden: new Set() };
@@ -455,14 +456,15 @@ PL.linkGroupsOf = function linkGroupsOf(el, hidden = PL.hiddenParts(el)) {
     const anchors = el ? el.querySelectorAll("a, area") : [];
     const boxes = new Set(hidden.boxes);
     const unreadable = new Set(hidden.texts);
-    // Every anchor is looked at; at most MAX_WALK distinct addresses get
-    // the (costly) visibility check, the rest count as hidden. A cap on
-    // anchors once let 20,000 copies of a decoy hide the link after them.
+    // Every anchor is examined, but only the first MAX_WALK distinct
+    // addresses get the costly visibility check; the rest count as hidden.
+    // Capping anchors instead would let thousands of copies of a decoy
+    // hide the link that follows them.
     let checked = 0;
     for (let i = 0; i < anchors.length; i++) {
         let href = linkHref(anchors[i]);
-        // A very long address is cut, not dropped: its host is what the
-        // checks read, and a 3,000-character link once vanished from them.
+        // A very long address is truncated rather than dropped, since the
+        // checks mostly read its host.
         if (!/^https?:\/\//i.test(href)) continue;
         if (href.length > 2048) href = href.slice(0, 2048);
         if (seen.has(href)) continue;
@@ -489,15 +491,15 @@ PL.linkTargetsOf = function linkTargetsOf(el, hidden = PL.hiddenParts(el)) {
     return [...visible, ...unseen];
 };
 
-// The text without invisible characters, the joiners kept where Arabic,
-// Persian and Indic writing uses them: lib/shared.js, the same rule as
-// backend/unicode_text.without_invisible.
+// Text without invisible characters, keeping the joiners that Arabic,
+// Persian and Indic scripts need. Defined in lib/shared.js with the same
+// rule as backend/unicode_text.without_invisible.
 PL.withoutInvisible = PhishLensShared.withoutInvisible;
 PL.collapseInvisible = PhishLensShared.collapseInvisible;
 
-// A sender's display name as sent to the server: invisible characters
-// out, spaces collapsed, 200 characters at most (the name comes from the
-// email and can be any length).
+// Sender display name as sent to the server, without invisible
+// characters, spaces collapsed and cut to 200 characters. The name comes
+// from the email and can be any length.
 PL.senderName = function senderName(text) {
     const name = PL.withoutInvisible(text).replace(/\s+/g, " ").trim().slice(0, 200);
     return name || null;
@@ -505,11 +507,11 @@ PL.senderName = function senderName(text) {
 
 PL.pct = (p) => (p == null ? null : Math.round(p * 100));
 
-// The text sent as raw_text: the body, or the subject and whatever text
-// there is when the body is almost empty (image-only emails).
+// raw_text is the body, or the subject plus whatever text there is when
+// the body is almost empty (image-only emails).
 PL.MIN_BODY = 20;
-// The server reads the page text in place of the message's own when both
-// are sent: a shorter cut lost the end of long emails.
+// When both are sent, the server reads the page text instead of the
+// message's own, so a shorter limit would lose the end of long emails.
 PL.MAX_RAW_TEXT = 20000;
 PL.rawText = function rawText(subject, body) {
     const short = !body || body.length < PL.MIN_BODY;

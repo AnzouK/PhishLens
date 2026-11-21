@@ -1,6 +1,6 @@
-// The verdict banner above an email (Gmail and Outlook): verdict, a
-// plain-language line, one meter per agent, signal chips, and the words
-// behind the text score.
+// Verdict banner above an email in Gmail and Outlook. It holds the
+// verdict, a plain-language line, one meter per agent, signal chips and
+// the words behind the text score.
 (function () {
 "use strict";
 
@@ -9,14 +9,14 @@ const { t } = PhishLensI18n;
 const { h, icon } = PhishLensDom;
 const { SOURCE_LABELS } = PhishLensConstants;
 
-// "None of its links lead to that domain": only when that is literally
-// true (the rule also fires on a file-host link next to a decoy link to
-// the sender's own domain).
+// "None of its links lead to that domain" is shown only when that is
+// literally true. The rule also fires on a file-host link next to a decoy
+// link to the sender's own domain.
 const allLinksElsewhere = (data) => data.links_elsewhere && !(data.link_alignment?.aligned > 0);
 
-// The line under the title. On a safe verdict with a high agent score,
-// it says why that score did not count: red meters under "looks safe"
-// would read as a contradiction.
+// Line under the title. On a safe verdict with a high agent score it
+// explains why that score did not count, since red meters under "looks
+// safe" would read as a contradiction.
 function bannerLead(data, phishing) {
     if (phishing) return t(allLinksElsewhere(data) ? "lead_links_elsewhere" : "lead_phishing");
     if (data.forwarded?.detected) return t("lead_forwarded");
@@ -29,10 +29,11 @@ function bannerLead(data, phishing) {
     return t(byPath[data.trust_path] || "lead_one_signal");
 }
 
-// "la poste" -> "La Poste": brand names come from the server in lower case.
+// Brand names come from the server in lower case ("la poste" becomes
+// "La Poste").
 const brandName = (name) => String(name || "").replace(/(^|\s)\S/g, (c) => c.toUpperCase());
 
-// One meter per agent; value null: the agent had nothing to read.
+// One meter per agent. A null value means the agent had nothing to read.
 function meter(label, value, offTitle = "meter_not_checked_title") {
     if (value === null) {
         return h("div.pll-meter", { title: t(offTitle, { label }) },
@@ -119,7 +120,8 @@ function errorContent(data) {
 
 function verdictContent(data, phishing) {
     const meta = data.agents?.metadata?.checked === false ? null : PL.pct(data.agents?.metadata?.phishing_probability);
-    // Almost no text: the text model did not count, its figure means nothing.
+    // With almost no text the text model did not count, so its meter
+    // reads "not checked".
     const wording = data.text_agent_used === false ? null : PL.pct(data.agents?.text?.phishing_probability);
     return [
         h("span.pll-banner__icon", null, icon(phishing ? "alert" : "shieldCheck")),
@@ -141,8 +143,8 @@ function verdictContent(data, phishing) {
 }
 
 // Shows the banner for `data` (an /analyse answer, or { verdict: "error",
-// title, error }) in `emailView`, replacing any earlier one. `anchor`:
-// insert it before that element (Outlook); Gmail finds its own place.
+// title, error }) in `emailView`, replacing any earlier one. On Outlook it
+// is inserted before `anchor`; on Gmail it finds its own place.
 PL.showBanner = function showBanner(emailView, data, anchor = null) {
     emailView.querySelector(".pll-banner")?.remove();
     const isError = data.verdict === "error";
@@ -165,10 +167,10 @@ PL.showBanner = function showBanner(emailView, data, anchor = null) {
     return banner;
 };
 
-// The words behind the text score. LIME weights are tiny (often < 0.01):
-// the colour strength shows each word's weight relative to the strongest.
-// Single characters and bare numbers mean nothing to a reader; they stay
-// in the history but are not shown.
+// Words behind the text score. LIME weights are tiny (often below 0.01),
+// so the colour strength shows each word's weight relative to the
+// strongest. Single characters and bare numbers mean nothing to a reader;
+// they stay in the history but are not shown.
 PL.attachExplanation = function attachExplanation(emailView, features, cached = false) {
     const slot = emailView.querySelector(".pll-banner .pll-banner__tokens");
     if (!slot) return;
@@ -218,9 +220,10 @@ PL.explainInBackground = async function explainInBackground(view, payload, data,
     }
 };
 
-// Before the first scan with PhishLens Cloud, the same notice as the
-// popup's: where the email goes. Resolves to true once the user has seen
-// it (now or earlier, in the page or in the popup), false if dismissed.
+// Before the first scan with PhishLens Cloud, shows the same notice as
+// the popup about where the email goes. Resolves to true once the user
+// has seen it (now or earlier, in the page or the popup), false if
+// dismissed.
 const NOTICE_KEY = "privacy_notice_seen";
 PL.confirmCloudUse = async function confirmCloudUse(view, anchor = null) {
     const s = await new Promise((resolve) => chrome.storage.local.get([NOTICE_KEY, "backend"], (v) => resolve(v || {})));
@@ -247,7 +250,6 @@ PL.confirmCloudUse = async function confirmCloudUse(view, anchor = null) {
     });
 };
 
-// The error banner for a failed scan.
 PL.showError = function showError(view, error, anchor = null) {
     PL.showBanner(view, { verdict: "error", error: String(error?.message || error) }, anchor);
 };

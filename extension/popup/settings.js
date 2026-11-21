@@ -1,5 +1,5 @@
-// The Settings view: server, language, Gmail options. Every choice is
-// saved in chrome.storage.local at once; the service worker and the
+// The Settings view (server, language, Gmail options). Every choice is
+// saved in chrome.storage.local at once, and the service worker and the
 // content scripts read it from there.
 import { $, I18N, t, STORAGE, storageGet, openView, goBack } from "./ui.js";
 
@@ -14,7 +14,8 @@ export async function loadBackend() {
     if (typeof s.backend_custom_url === "string") backend.customUrl = s.backend_custom_url;
 }
 
-// The rule is in lib/shared.js: the service worker applies it too.
+// The rule lives in lib/shared.js because the service worker applies it
+// too.
 export const isPlainRemoteUrl = window.PhishLensShared.isPlainRemoteUrl;
 
 const customUrlInput = $("custom-url");
@@ -52,8 +53,8 @@ async function testConnection() {
     }
 }
 
-// Optional host permissions, asked for during a click; a refusal changes
-// nothing that works (the server's CORS headers still apply).
+// Optional host permissions, requested during a click. A refusal breaks
+// nothing, since the server's CORS headers still apply.
 function requestOrigins(origins) {
     origins = origins.filter(Boolean);
     if (!origins.length) return;
@@ -79,9 +80,9 @@ export function initSettings() {
         r.addEventListener("change", () => {
             if (!r.checked) return;
             backend.choice = r.value;
-            // A local server is asked for in the choice itself (a user
-            // gesture): it is an optional permission. Without it the
-            // server's CORS headers still let the extension in.
+            // The optional permission for a local server is requested
+            // during the choice itself, which is a user gesture. Without it
+            // the server's CORS headers still let the extension in.
             if (backend.choice === "local") requestOrigins(["http://127.0.0.1/*", "http://localhost/*"]);
             customUrlInput.disabled = backend.choice !== "custom";
             STORAGE?.set({ backend: backend.choice });
@@ -89,9 +90,10 @@ export function initSettings() {
             updateCustomUrlWarn();
         });
     });
-    // Saved when the address is complete (Enter or leaving the field), not
-    // at every key: a half-typed address was briefly the server. http://
-    // over the internet needs a confirmation, remembered for that address.
+    // Saved when the address is complete (Enter or leaving the field)
+    // rather than at every key, so a half-typed address never becomes the
+    // server. http:// over the internet needs a confirmation, remembered
+    // for that address.
     customUrlInput.addEventListener("input", updateCustomUrlWarn);
     customUrlInput.addEventListener("change", () => {
         const url = normalizeBaseUrl(customUrlInput.value);
@@ -115,7 +117,7 @@ export function initSettings() {
         updateCustomUrlWarn();
     });
     $("test-conn-btn").addEventListener("click", () => {
-        // Not a URL yet: no pattern, and the test below says so.
+        // Not a URL yet, so there is no pattern and the test below says so.
         if (backend.choice === "custom") requestOrigins([hostPattern(backend.customUrl)]);
         testConnection();
     });
@@ -129,7 +131,7 @@ export function initSettings() {
     fullHeaders.addEventListener("change", () => STORAGE?.set({ opt_full_headers: fullHeaders.checked }));
     autoScan.addEventListener("change", () => STORAGE?.set({ opt_auto_scan: autoScan.checked }));
 
-    // The static texts carry data-i18n attributes; the dynamic ones are
+    // The static texts carry data-i18n attributes. The dynamic ones are
     // built with t() each time they are shown.
     const select = $("ui-lang");
     select.addEventListener("change", () => {

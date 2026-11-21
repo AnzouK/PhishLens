@@ -1,6 +1,6 @@
-// Gmail attachments: one "Scan attachments" button per email, a download
-// of each file (same origin, so Gmail's session cookie goes with it) and
-// one result card per file below the attachment strip.
+// Gmail attachments. Each email gets one "Scan attachments" button; each
+// file is downloaded from the same origin, so Gmail's session cookie goes
+// with it, and gets a result card below the attachment strip.
 (function () {
 "use strict";
 
@@ -13,24 +13,26 @@ const G = PhishLensGmail;
 const { SEL } = G;
 
 const MAX_PER_EMAIL = 15;
-// An attached email is scanned as an email, the rest as attachments;
-// programs, scripts and disk images too (the server flags them by type).
+// An attached email is scanned as an email and everything else as an
+// attachment, including programs, scripts and disk images, which the
+// server flags by type.
 const SUPPORTED = new Set([...ATTACHMENT_EXTS, ...DANGEROUS_EXTS, "eml"]);
 // The size Gmail writes after a tile's name ("Checklist.pdf 320 KB",
-// "Facture.pdf 1,2 Mo", "scan.png 500 octets"). Only that is removed: the
-// name itself is kept whole, in any script and with any character
+// "Facture.pdf 1,2 Mo", "scan.png 500 octets"). Only the size is removed.
+// The name itself is kept whole, in any script and with any character
 // ("Facture_février [1].pdf", "scan.jpg   .js", "invoice.exe .").
 const TRAILING_SIZE_RE = /\s+\d+(?:[.,]\d+)?\s*(?:[KMGT]i?B|[KMGT]o|B|o|bytes?|octets?|[КМГТ]?Б)\s*$/iu;
 
-// A tile's text as a file name: the size cut, nothing else (the
-// characters that reorder a name stay, for the server's checks and for
-// safeName; fileExt reads past invisible ones).
+// A tile's text as a file name, with only the size cut. Characters that
+// reorder a name are kept for the server's checks and for safeName, and
+// fileExt reads past invisible ones.
 function tileName(text) {
     return String(text || "").trim().replace(TRAILING_SIZE_RE, "").trim();
 }
 PL.tileName = tileName;
-// Ways Gmail has marked an attachment tile, all looked up inside a strip
-// only: outside it, stray matches put buttons over the message body.
+// Ways Gmail has marked an attachment tile. They are only looked up inside
+// a strip, because stray matches elsewhere put buttons over the message
+// body.
 const TILE_HINTS = ['a[download]', 'div[data-attachmentid]', 'div[data-tooltip*="oad"]', 'div[role="listitem"]', ".aZo"];
 const hooked = new WeakSet();
 
@@ -42,8 +44,8 @@ PL.installAttachmentButtons = function installAttachmentButtons(emailView) {
     const candidates = new Set();
     strips.forEach((strip) => {
         for (const sel of TILE_HINTS) strip.querySelectorAll(sel).forEach((el) => candidates.add(el));
-        // Newer layouts may use none of the hints: any element whose text
-        // ends with a supported extension.
+        // Newer layouts may match none of the hints, so fall back to any
+        // element whose text ends with a supported extension.
         strip.querySelectorAll("span, div").forEach((el) => {
             const label = tileName(el.textContent);
             if (label.length > 3 && label.length < 260 && SUPPORTED.has(fileExt(label))) candidates.add(el);
@@ -57,8 +59,8 @@ PL.installAttachmentButtons = function installAttachmentButtons(emailView) {
         const tile = strip && findTile(el, strip);
         if (!tile || hooked.has(tile) || seen.has(tile) || !strip.contains(tile) || tile.dataset.pllScanned === "1") return;
         seen.add(tile);
-        // A real tile is roughly 100x80 to 350x280 px: smaller is a stray
-        // hit, much bigger a container.
+        // A real tile is roughly 100x80 to 350x280 px. Anything smaller is
+        // a stray hit and anything much bigger a container.
         const r = tile.getBoundingClientRect();
         if (r.width < 80 || r.height < 60 || r.width > 400 || r.height > 400) return;
         const info = attachmentInfo(tile);
@@ -79,8 +81,8 @@ PL.installAttachmentButtons = function installAttachmentButtons(emailView) {
     installScanAllButton(emailView, found);
 };
 
-// The tile around `node`, never walking past the strip: Gmail also marks
-// whole messages role="listitem" in a conversation.
+// The tile around `node`. The walk stops at the strip because Gmail also
+// marks whole messages role="listitem" in a conversation.
 function findTile(node, strip) {
     for (const selector of [SEL.attachmentTile, '[role="listitem"]']) {
         for (let cur = node; cur && cur !== strip && cur !== document.body; cur = cur.parentElement) {
@@ -114,8 +116,8 @@ function installScanAllButton(emailView, targets) {
         existing = null;
     }
     if (existing) {
-        // More tiles were lazy-loaded since: added to the ones still on the
-        // page and not scanned yet (they are hooked, so not found again).
+        // More tiles were lazy-loaded since. Add them to the ones still on
+        // the page and not scanned yet (hooked tiles are not found again).
         const kept = (existing._pllTargets || []).filter((f) =>
             !targets.includes(f) && f.tile?.isConnected && f.tile.dataset.pllScanned !== "1");
         existing._pllTargets = kept.concat(targets);
@@ -157,8 +159,8 @@ async function scanAll(btn) {
     setTimeout(() => btn.remove(), 2500);
 }
 
-// The cards go in a container after the whole strip: inside a tile,
-// Gmail's own layout mangles them (styles: .pll-att-stack in banner.css).
+// The cards go in a container after the whole strip, since Gmail's layout
+// mangles them inside a tile (styles in .pll-att-stack, banner.css).
 function bannerStack(tile, emailView) {
     const strip = tile?.closest(SEL.attachmentStrip) || emailView.querySelector(SEL.attachmentStrip);
     const anchor = strip || emailView.querySelector(SEL.body) || emailView;
@@ -172,10 +174,10 @@ function bannerStack(tile, emailView) {
 }
 
 // One card per attachment tile (or per target when Gmail gave no tile),
-// updated on a new scan. Never keyed by the file name: "invoice.pdf" and
-// "invoice .pdf", or any two names in a non-Latin script, once shared a
-// card, and the last verdict replaced the other (a phishing result shown
-// as safe).
+// updated on a new scan. Cards are not keyed by file name, because two
+// names such as "invoice.pdf" and "invoice .pdf" could share a card and
+// the last verdict would replace the other (a phishing result shown as
+// safe).
 const cards = new WeakMap();
 
 function cardFor(target) {
@@ -204,7 +206,8 @@ function setCard(card, state, ...children) {
     card.replaceChildren(...children.filter(Boolean));
 }
 
-// A file PhishLens cannot read: say it was not checked, not nothing.
+// For a file PhishLens cannot read, say that it was not checked instead
+// of showing nothing.
 function renderNotice(target) {
     const { filename, tile } = target;
     const card = cardFor(target);
@@ -214,7 +217,8 @@ function renderNotice(target) {
     if (tile) tile.dataset.pllScanned = "1";
 }
 
-// Gmail adds the download link on hover: hover the tile when it is missing.
+// Gmail adds the download link on hover, so the tile is hovered when the
+// link is missing.
 async function downloadUrl(anchor, tile) {
     if (anchor?.href) return anchor.href;
     if (!tile) return "";
@@ -231,7 +235,7 @@ async function download(anchor, tile) {
     if (new URL(url, location.href).origin !== location.origin) throw new Error(t("att_err_no_url"));
     const resp = await fetch(url, { credentials: "include" });
     if (!resp.ok) throw new Error(t("att_err_download", { status: resp.status }));
-    // Too large by its announced size: not downloaded at all.
+    // A file too large by its announced size is not downloaded at all.
     const announced = Number(resp.headers?.get?.("content-length")) || 0;
     if (announced > MAX_FILE_MB * 1024 * 1024) {
         resp.body?.cancel?.().catch?.(() => {});
@@ -256,8 +260,8 @@ async function scanAttachment(target) {
         const b64 = await download(anchor, tile);
         const senderEl = emailView.querySelector(SEL.sender);
         const data = ext === "eml"
-            // An attached email's headers were written by whoever attached
-            // it, its Authentication-Results included: they prove nothing.
+            // An attached email's headers, Authentication-Results included,
+            // were written by whoever attached it and prove nothing.
             ? await PhishLensApi.analyse({ raw_email_b64: b64, client_context: { headers_source: "attachment" } })
             : await PhishLensApi.analyseAttachment({
                 content_b64: b64,
@@ -266,7 +270,7 @@ async function scanAttachment(target) {
                 parent_email: {
                     sender_email: senderEl?.getAttribute("email") || null,
                     subject: emailView.querySelector(SEL.subject)?.textContent?.trim() || null,
-                    // Outside Spam, Gmail's own checks passed: the server
+                    // Outside Spam, Gmail's own checks passed, so the server
                     // scores the attachment with the parent's trust.
                     gmail_delivered: G.inInbox(location.hash),
                 },
@@ -320,10 +324,10 @@ function renderResult(card, data, filename) {
         ...archiveFiles(a, bad));
 }
 
-// Inside an archive: the files that explain the verdict ("Do not open"),
-// then the full list, folded.
+// Files inside an archive. Those that explain the verdict ("Do not open")
+// come first, then the full list, folded.
 function archiveFiles(a, bad) {
-    // Archives, and Office files that hold other files (read as members).
+    // Archives, and Office files that hold other files read as members.
     if (a.kind !== "archive" && !Array.isArray(a.entries)) return [];
     const risky = Array.isArray(a.suspicious_files) ? a.suspicious_files : [];
     const entries = Array.isArray(a.entries) ? a.entries : [];

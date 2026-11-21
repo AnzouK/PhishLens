@@ -1,9 +1,9 @@
-// The content scripts of each manifest entry, loaded in their manifest
-// order in a sandbox with a small fake DOM (fake_dom.js): no error at
-// load time, no name leaked outside the PhishLens namespaces, every
-// function the other files call is present, and the banners render text
-// from emails as text. Catches a file missing from the manifest or
-// loaded in the wrong order, which ESLint cannot see.
+// Loads the content scripts of each manifest entry in manifest order, in
+// a sandbox with a small fake DOM (fake_dom.js). Checks that they load
+// without error, leak no name outside the PhishLens namespaces, define
+// every function the other files call, and render text from emails as
+// text. This catches a file missing from the manifest or loaded in the
+// wrong order, which ESLint cannot see.
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -55,7 +55,7 @@ const SHARED = ["showBanner", "showError", "attachExplanation", "explainInBackgr
 const GMAIL = ["scheduleScan", "runScan", "fetchOriginalMessage", "extractGmailAuthSignals",
     "installAttachmentButtons", "scheduleAutoScan", "paintAutoBadges", "loadAutoCache"];
 
-// An open email as the scripts find it: a view with a message body.
+// An open email as the scripts find it, a view with a message body.
 function mailView(document) {
     const view = document.createElement("div");
     const body = document.createElement("div");
@@ -75,7 +75,7 @@ for (const entry of manifest.content_scripts) {
         const { PL, host, added } = load(entry);
         const want = SHARED.concat(host === "mail.google.com" ? GMAIL : ["olInject"]);
         assert.deepEqual(want.filter((n) => typeof PL[n] !== "function"), []);
-        // Each file keeps its names to itself: only the namespaces are global.
+        // Each file keeps its names to itself. Only the namespaces are global.
         assert.deepEqual(added.filter((k) => !/^PhishLens[A-Z]\w*$/.test(k)), []);
         const view = mailView(makeDocument());
         PL.showBanner(view, PHISHING);
@@ -154,7 +154,8 @@ test("before the first PhishLens Cloud scan, the page shows where the email goes
     assert.equal(await answer, true);
     assert.equal(store.privacy_notice_seen, true);
     assert.equal(view.querySelectorAll(".pll-banner").length, 0);
-    // Seen once: no notice any more, and none with a local server.
+    // After it has been seen there is no notice, and none with a local
+    // server either.
     assert.equal(await PL.confirmCloudUse(view), true);
     delete store.privacy_notice_seen;
     store.backend = "local";
@@ -260,8 +261,8 @@ test("text drawn in a transparent colour counts as hidden", () => {
     assert.equal(PL.isHidden(el), false);
 });
 
-// The same cases as backend/tests/test_bypass_html.py: the server reads the
-// inline style, the extension the computed one; both must agree.
+// Same cases as backend/tests/test_bypass_html.py. The server reads the
+// inline style and the extension the computed one, and both must agree.
 const HIDDEN_CASES = require(path.join(__dirname, "..", "fixtures", "hidden_cases.json")).cases;
 for (const c of HIDDEN_CASES) {
     test(`hidden style case: ${c.name}`, () => {
@@ -452,7 +453,7 @@ test("an <area> counts only through a shown image that uses its map", () => {
     const inMap = doc.createElement("area");
     inMap.href = "https://ok.example/";
     map.append(inMap);
-    // As in a browser: <area> is display:none, <map> draws nothing.
+    // As in a browser, <area> is display:none and <map> draws nothing.
     for (const n of [loose, map, inMap]) n.getClientRects = () => [];
     const img = doc.createElement("img");
     img.setAttribute("usemap", "#m");
@@ -525,8 +526,8 @@ test("the Outlook sender is the address after the name, quoted or not", () => {
     const { PL } = load(entry);
     assert.equal(PL.senderAddress(['"PayPal <service@paypal.com>" <"scam"@attacker.example>']), "scam@attacker.example");
     assert.equal(PL.senderAddress(['PayPal <service@paypal.com> <scam@attacker.example>']), "scam@attacker.example");
-    // A quoted local part can hold an "@": the domain is after the last one
-    // (the server reads it so: auth_headers.sender_domain).
+    // A quoted local part can hold an "@". The domain is after the last
+    // one, as the server reads it (auth_headers.sender_domain).
     assert.equal(PL.senderAddress(['PayPal <"service@paypal.com"@attacker.example>']), "service@paypal.com@attacker.example");
     assert.equal(PL.senderAddress(['"support@gtbank.com" <scam@attacker.example>']), "scam@attacker.example");
     assert.equal(PL.senderAddress(["jane@corp.example"]), "jane@corp.example");
@@ -674,10 +675,10 @@ test("a row pill does not change the row print, even for a sender named SafeBank
     assert.equal(PL.autoRowPrint(row), print);
     PL.paintAutoBadges();
     assert.equal(row.querySelectorAll(".pll-row-badge").length, 1);
-    // Gmail rewrites the date on its own: same print.
+    // Gmail rewrites the date on its own, which keeps the same print.
     row.querySelector(".xW").textContent = "21 Nov";
     assert.equal(PL.autoRowPrint(row), print);
-    // A reply changes the snippet: a new print.
+    // A reply changes the snippet and so the print.
     row.querySelector(".y2").textContent = "Thanks, received";
     assert.notEqual(PL.autoRowPrint(row), print);
 });

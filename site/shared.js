@@ -15,8 +15,9 @@ function normalizeBaseUrl(value) {
     return String(value || "").trim().replace(/\/+$/, "");
 }
 
-// Host permission pattern for a server address. No port: Firefox rejects
-// ports in match patterns, and without one Chrome matches every port.
+// Host permission pattern for a server address. The port is left out
+// because Firefox rejects ports in match patterns, and without one Chrome
+// matches every port.
 function hostPattern(value) {
     try {
         const u = new URL(normalizeBaseUrl(value));
@@ -51,11 +52,11 @@ async function getBackendBase() {
     }
 }
 
-// http:// to a server outside the user's own machine or network: emails
-// would cross the internet unencrypted. Local and private addresses are
-// fine: loopback, .localhost / .local names, RFC 1918 and CGNAT ranges
-// (Tailscale: 100.64.0.0/10, *.ts.net), IPv6 loopback, unique-local
-// (fc00::/7) and link-local (fe80::/10).
+// True for http:// to a server outside the user's own machine or network,
+// where emails would cross the internet unencrypted. Local and private
+// addresses are fine: loopback, .localhost and .local names, RFC 1918 and
+// CGNAT ranges (Tailscale uses 100.64.0.0/10 and *.ts.net), IPv6 loopback,
+// unique-local (fc00::/7) and link-local (fe80::/10).
 function isPlainRemoteUrl(value) {
     let u;
     try {
@@ -76,15 +77,15 @@ function isPlainRemoteUrl(value) {
     return true;
 }
 
-// For failures that change nothing for the user (a cache miss, a page
-// element that is gone): visible with the console's "Verbose" level.
+// For failures that change nothing for the user, such as a cache miss or
+// a page element that is gone. Visible at the console's "Verbose" level.
 function debug(where, err) {
     console.debug(`[PhishLens] ${where}:`, err?.message || err);
 }
 
-// The message of a failed API call: FastAPI returns {"detail": "..."},
-// or a list of field errors for an invalid request.
-// In the interface language when lib/i18n.js is loaded.
+// Message of a failed API call. FastAPI returns {"detail": "..."}, or a
+// list of field errors for an invalid request. The message is in the
+// interface language when lib/i18n.js is loaded.
 function apiErrorMessage(data, status) {
     if (typeof data?.detail === "string") return data.detail;
     const t = globalThis.PhishLensI18n?.t;
@@ -93,8 +94,8 @@ function apiErrorMessage(data, status) {
     return t ? t("err_server", { status }) : `Server error (HTTP ${status}).`;
 }
 
-// A file name as shown to the user: the characters that reorder text
-// ("invoice\u202efdp.exe" displays as "invoiceexe.pdf") made visible.
+// A file name as shown to the user, with the characters that reorder text
+// made visible ("invoice\u202efdp.exe" would display as "invoiceexe.pdf").
 function safeName(name) {
     return String(name || "").replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "\u2420");
 }
@@ -102,7 +103,7 @@ function safeName(name) {
 // Characters that take no room on screen: what Unicode calls default
 // ignorable (format characters, fillers, variation selectors, tags) and
 // control characters other than tab, line feed, form feed and carriage
-// return. Same rule as backend/unicode_text.py; shared cases in
+// return. Same rule as backend/unicode_text.py, with shared cases in
 // tests/fixtures/invisible_cases.json.
 const INVISIBLE_SOURCE = "[\\p{Cf}\\x00-\\x08\\x0B\\x0E-\\x1F\\x7F-\\x9F\\u034F\\u115F\\u1160\\u17B4\\u17B5" +
     "\\u180B-\\u180D\\u180F\\u0890\\u0891\\u3164\\uFFA0\\uFE00-\\uFE0F\\uFFF0-\\uFFF8\\u{13430}-\\u{1343F}" +
@@ -114,9 +115,9 @@ const SHAPED_BLOCK = /[\u0600-\u08FF\u0900-\u0DFF\uFB50-\uFDFF\uFE70-\uFEFC]/u;
 const shapedLetter = (c) => !!c && SHAPED_BLOCK.test(c) && /\p{L}/u.test(c) && !INVISIBLE_ONE.test(c);
 const shapedMark = (c) => !!c && SHAPED_BLOCK.test(c) && /\p{Mn}|\p{Mc}/u.test(c) && !INVISIBLE_ONE.test(c);
 
-// The joiner at i sits where those scripts use one: after a letter of
-// theirs (with its vowel signs or virama) and before another letter of
-// theirs. Marks alone, invisible characters or Latin letters never count.
+// True when the joiner at i sits where those scripts use one, after one
+// of their letters (with its vowel signs or virama) and before another.
+// Marks alone, invisible characters or Latin letters never count.
 function joins(s, i) {
     if (!shapedLetter(s[i + 1])) return false;
     let j = i - 1;
@@ -130,9 +131,9 @@ function withoutInvisible(text) {
         (c, i) => ((c === "\u200C" || c === "\u200D") && joins(s, i) ? c : ""));
 }
 
-// Each run of invisible characters cut to its first one: the page text as
-// written, for the server's text model (backend/unicode_text.
-// collapse_invisible), without letting a padding of them fill the text.
+// Cuts each run of invisible characters to its first one. The server's
+// text model gets the page text as written
+// (backend/unicode_text.collapse_invisible), but padding cannot fill it.
 function collapseInvisible(text) {
     return String(text ?? "").replace(new RegExp(INVISIBLE_SOURCE + "+", "gu"), (run) => [...run][0]);
 }

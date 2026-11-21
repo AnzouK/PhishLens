@@ -1,4 +1,4 @@
-// The Upload view: a file (.eml or an attachment) or pasted text, sent
+// The Upload view. A file (.eml or an attachment) or pasted text is sent
 // to the server when the user clicks Analyze.
 import { $, t, showView, showStatus, hideStatus } from "./ui.js";
 import { renderResult, explain, cancelExplanation } from "./result.js";
@@ -46,8 +46,8 @@ function fileToB64(file) {
     });
 }
 
-// What to send for the current input: an .eml goes to /analyse, other
-// files to /analyse_attachment, pasted text to /analyse.
+// Request for the current input. An .eml goes to /analyse, other files
+// to /analyse_attachment and pasted text to /analyse.
 async function request() {
     if (state.tab === "paste") {
         if (state.pasted.trim().length < MIN_PASTE) throw new Error(t("paste_min"));
@@ -57,7 +57,7 @@ async function request() {
     if (!file) throw new Error(t("pick_first"));
     if (file.size > MAX_FILE_MB * 1024 * 1024) throw new Error(t("file_too_large"));
     const b64 = await fileToB64(file);
-    // An email is an .eml (or a file with no extension); any other file is
+    // An email is an .eml or a file with no extension. Any other file is
     // an attachment, so the server judges its type (an .exe is flagged).
     const ext = fileExt(file.name);
     if (ext && ext !== "eml") {
@@ -102,7 +102,8 @@ async function analyze() {
         console.warn("[PhishLens] scan not saved in the history:", e);
     }
     renderResultFeedback(data, historyId, req.payload.raw_text || "", req.source);
-    // /explain reads the text model, which did not count for almost no text.
+    // /explain reads the text model, which does not count when there is
+    // almost no text.
     if (req.source !== "attachment" && data.text_agent_used !== false) explain(req.payload, historyId);
 }
 
@@ -134,8 +135,9 @@ export function initUpload() {
         const f = e.dataTransfer.files?.[0];
         if (!f) return;
         const ext = fileExt(f.name);
-        // Any file with an extension: an .eml is read as an email, any
-        // other one as an attachment (a program is flagged by type).
+        // Any file with an extension is accepted. An .eml is read as an
+        // email and anything else as an attachment (a program is flagged
+        // by type).
         if (ext) setFile(f);
         else showStatus(t("drop_wrong_type"));
     });

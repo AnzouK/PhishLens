@@ -7,8 +7,8 @@ import { initSettings, backend, loadBackend } from "./settings.js";
 
 const PRIVACY_NOTICE_KEY = "privacy_notice_seen";
 
-// Says where emails go before the first scan, while PhishLens Cloud is
-// the server; hidden for good once dismissed.
+// Says where emails go before the first scan while PhishLens Cloud is the
+// server. Hidden for good once dismissed.
 async function initPrivacyNotice() {
     const box = $("privacy-notice");
     if (!STORAGE) return;
@@ -39,7 +39,7 @@ function applyLanguage() {
     I18N.applyTo(document);
 }
 
-// Registered first: the views re-render after the static texts change.
+// Registered first so the views re-render after the static texts change.
 I18N.onChange(applyLanguage);
 $("app-version").textContent = chrome.runtime?.getManifest ? `v${chrome.runtime.getManifest().version}` : "";
 initTheme();

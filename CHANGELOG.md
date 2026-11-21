@@ -8,34 +8,23 @@ backend share one version number.
 ## [Unreleased]
 
 ### Added
-- `.github/workflows/backend-image.yml` builds the backend image
-  (`backend/Dockerfile.cloud`, linux/amd64) and publishes it as
-  `ghcr.io/anzouk/phishlens-backend` on each version tag or by hand. The
-  image holds the code only: the model is downloaded at start-up and the
-  keys come from the host.
+- `.github/workflows/backend-image.yml` publishes the backend image
+  (`backend/Dockerfile.cloud`, code only) as
+  `ghcr.io/anzouk/phishlens-backend` on each version tag or by hand.
 
 ### Changed
-- Backend comments and tests reorganised; no behaviour change.
-- The API runs on Google Cloud Run. A Pages Function
-  (`functions/[[path]].js`, routes in `site/_routes.json`) forwards the
-  API paths of phishlens.dev to it, so the extension and the website
-  keep the same address; `/metrics` stays private. The function replaces
-  any client-sent `X-Forwarded-For` with the address Cloudflare saw.
-- The documentation and the legal pages describe the new hosting: the
-  website on Cloudflare Pages, PhishLens Cloud on Google Cloud Run in
-  Belgium (europe-west1), reports in Google Cloud Storage (United
-  States). The privacy policy and the terms name these providers in
-  every language, with a new "Last updated" date; the operations guide
-  covers the Cloud Run deployment (the public ghcr.io image pulled
-  directly, its settings with `/metrics` turned off, the reports bucket
-  mounted as a volume, the warm-up job), and `scripts/redeploy.sh` and
-  `scripts/backup.sh` are marked as being for a self-hosted server.
-- The website is served by Cloudflare Pages. Page addresses no longer
-  end in `.html` (`/privacy`, `/fr/terms`); the old addresses redirect
-  to the new ones. `site/_headers` sets the security headers the
-  previous server sent: HSTS, a Content-Security-Policy that allows only
-  the site's own files, the PhishLens API and the GitHub API, and
-  no framing.
+- Backend and extension comments, the README and the docs are written
+  more plainly, and the backend tests are reorganised, with no behaviour
+  change.
+- The API runs on Google Cloud Run behind a Pages Function
+  (`functions/[[path]].js`) that forwards the API paths of
+  phishlens.dev, so the extension and the website keep the same address.
+- The documentation, the privacy policy and the terms describe the new
+  hosting in every language (Cloudflare Pages, Google Cloud Run in
+  Belgium, reports in Google Cloud Storage in the United States).
+- The website is served by Cloudflare Pages, at addresses without
+  `.html` (the old ones redirect), with its security headers in
+  `site/_headers`.
 - Localhost is an optional permission, asked for only when a local or
   custom server is chosen, for that address alone.
 - A custom server address is saved when it is complete, and http:// to
@@ -46,23 +35,16 @@ backend share one version number.
   of staying silent, and "Share my statistics" shows every row it sends.
 - The privacy notice says that results are kept for 24 hours, and the
   privacy policy gives the real lifetime of each local cache.
-- Website and README: SPF, DKIM and DMARC are named as Gmail checks, the
-  false-alarm figure leads with the real inboxes (0 of 117, at most
-  3.2%), the mailing-list set is said to have served for tuning, and the
-  big figure is written the local way.
-- docs/evaluation.md lists what is not measured yet: other channels,
-  rates per trust path, and the re-measured phishing sample.
-- Each user report is its own file, `YYYY-MM/<reference>.json` in the
-  reports folder, created once and never rewritten, without a lock file.
-  On the Cloud Storage bucket, deleting a report is removing one object
-  (`gcloud storage rm`), which can neither lose a report received
-  meanwhile nor bring a deleted one back. The old monthly
-  `feedback-YYYY-MM.jsonl` files are still read, never written;
-  `scripts/delete_report.py` handles both.
-- The privacy policy, in every language, says what the notice sent for
-  each new report holds (kind, verdict, language, source, reference;
-  never email content), that reports are stored one file each, and that
-  the custom server permission covers its host on any port.
+- The website and the README name SPF, DKIM and DMARC as Gmail checks
+  and lead the false-alarm figure with the real inboxes (0 of 117, at
+  most 3.2%).
+- docs/evaluation.md lists what is not measured yet.
+- Each user report is stored as its own file,
+  `YYYY-MM/<reference>.json`, created once and never rewritten, so
+  deleting one cannot affect another.
+- The privacy policy, in every language, describes the notice sent for
+  each new report, the one-file-per-report storage and the scope of the
+  custom server permission.
 
 ### Fixed
 - Gmail attachments: each file gets its own result card. Two names that
@@ -122,8 +104,7 @@ backend share one version number.
 - A long comment inside a second `<style>` sheet is no longer taken for
   a comment and removed.
 - docs/project-overview.md gives the same false-alarm figures as the
-  README: 0 of 117 real inbox emails (at most 3.2%), the Apache set
-  being used for tuning.
+  README.
 
 ### Security
 - The backend refuses with 403 any request without the shared secret
@@ -886,8 +867,6 @@ Attachment analysis, phase 2, and the end of pickle.
   latency) up front, a small diagram instead of the ASCII art, scoring
   details moved to the architecture doc, release history left to this
   changelog.
-- Em dashes removed from the whole repository (code comments, docs, UI
-  strings).
 - Dependabot also ignores major versions of pandas and numpy (their
   objects live inside the pickled Random Forest agents).
 
@@ -965,9 +944,6 @@ No change to detection behaviour or to the extension's features.
   and the `phishlens.*` loggers now get a handler, so INFO lines (model
   loaded, agents loaded, PhishTank feed size) actually reach `docker
   logs`.
-
-### Changed
-- Extension manifest description no longer uses an em dash.
 
 ## [1.9.0] - 2026-09-21
 

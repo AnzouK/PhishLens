@@ -83,7 +83,7 @@ def prefix(lang: str) -> str:
 
 
 def clean(page: str) -> str:
-    """Address of a page without ".html": Cloudflare Pages serves
+    """Address of a page without ".html". Cloudflare Pages serves
     privacy.html at /privacy and redirects the .html address there."""
     return "" if page == "index.html" else page.removesuffix(".html")
 
@@ -110,9 +110,10 @@ def fill(text: str, s: dict[str, str], **extra: str) -> str:
 
 
 def jsonld(lang: str, s: dict[str, str]) -> str:
-    """schema.org description of the extension for search engines: a free,
-    open-source security application for Chrome. No author name, and no
-    version number: the committed site is not rebuilt at each release."""
+    """schema.org description of the extension for search engines, as a
+    free, open-source security application for Chrome. It has no author
+    name and no version number, because the committed site is not rebuilt
+    at each release."""
     data = {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
@@ -191,7 +192,7 @@ def head(
 
 
 def strings_digest() -> str:
-    """Short hash of every strings file: i18n/<lang>.js is built from them."""
+    """Short hash of every strings file, from which i18n/<lang>.js is built."""
     h = hashlib.sha256()
     for f in sorted((SRC / "strings").glob("*.json")):
         h.update(f.read_bytes())

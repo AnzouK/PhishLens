@@ -1,5 +1,5 @@
-// The Result view: verdict, one card per agent with its badges, the
-// files of an archive, and the words behind the text score.
+// The Result view. It shows the verdict, one card per agent with its
+// badges, the files of an archive and the words behind the text score.
 import { $, h, t, tn, I18N, spriteIcon } from "./ui.js";
 
 const { SOURCE_LABELS, isCaution } = window.PhishLensConstants;
@@ -51,7 +51,7 @@ function fillAgent(key, agent, data) {
     const prefix = PREFIX[key];
     const bar = $(`${prefix}-bar`);
     const card = bar.closest(".agent");
-    // Not checked: no sender information, or almost no text to read.
+    // Not checked when there is no sender information or almost no text.
     const off = key === "metadata" && agent?.checked === false ? "meta_not_checked"
         : key === "text" && data?.text_agent_used === false ? "text_not_checked" : null;
     if (off) {
@@ -96,7 +96,7 @@ function renderMetaBadges(auth) {
     }
     if (auth?.cryptographically_verified) badges.push(badge(t("dkim_aligned"), "good", t("dkim_aligned_title")));
     for (const [name, verdict] of [["SPF", auth?.spf], ["DKIM", auth?.dkim], ["DMARC", auth?.dmarc]]) {
-        // "none", "neutral", "temperror": no badge.
+        // "none", "neutral" and "temperror" get no badge.
         const kind = { pass: "good", fail: "bad", softfail: "warn" }[verdict];
         if (kind) badges.push(badge(t(`auth_${verdict}`, { name }), kind, t(`auth_${verdict}_title`, { name })));
     }
@@ -109,12 +109,13 @@ function renderMetaBadges(auth) {
     host.hidden = !badges.length;
 }
 
-// Inside an archive: the files that explain the verdict, then every
-// file, folded. File names come from the archive: text nodes only.
+// Files inside an archive. Those that explain the verdict come first,
+// then every file, folded. File names come from the archive, so they
+// only ever become text nodes.
 function renderArchiveFiles(att, isPhishing) {
     const box = $("archive-files");
     box.replaceChildren();
-    // Archives, and Office files that hold other files (read as members).
+    // Archives, and Office files that hold other files read as members.
     if (att?.kind === "archive" || Array.isArray(att?.entries)) {
         const risky = Array.isArray(att.suspicious_files) ? att.suspicious_files : [];
         const entries = Array.isArray(att.entries) ? att.entries : [];
@@ -202,8 +203,8 @@ const explanation = {
             this.tokens.replaceChildren(h("span.explain__status", null, t("computing_lime")));
             return;
         }
-        // LIME weights are tiny: the colour shows each word's weight
-        // relative to the strongest one, the exact share is in the tooltip.
+        // LIME weights are tiny, so the colour shows each word's weight
+        // relative to the strongest one. The exact share is in the tooltip.
         const shown = this.features.filter((f) => String(f.token || "").length > 1 && !/^\d+$/.test(f.token));
         if (!shown.length) return this.showStatus(t("no_tokens_model"));
         const max = Math.max(...shown.map((f) => Math.abs(Number(f.weight) || 0))) || 1;

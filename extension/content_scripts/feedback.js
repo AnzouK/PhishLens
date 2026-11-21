@@ -7,15 +7,14 @@
 const PL = globalThis.PhishLensPage;
 const { debug } = PhishLensShared;
 
-// The user's own address and name on this page, removed from anything
-// they report.
+// The user's own address and name on this page, removed from any report.
 function accountTerms() {
     const found = [];
     const title = document.title.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/);
     if (title) found.push(title[0]);
     for (const el of document.querySelectorAll('a[aria-label*="@"], [role="tree"] [title*="@"]')) {
-        // An email's own links are the sender's, not the user's account:
-        // five of them used to fill the list before the real one.
+        // Links inside an email belong to the sender, not the user's
+        // account, and would fill the list before the real address.
         if (PL.inMessageBody(el)) continue;
         found.push(el.getAttribute("aria-label") || el.getAttribute("title") || "");
         if (found.length > 4) break;

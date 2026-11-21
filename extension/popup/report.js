@@ -1,6 +1,7 @@
-// Reports from the popup: a wrong verdict (lib/report_ui.js does the
-// panel) and the shared statistics of Insights. Both go to PhishLens
-// Cloud through the service worker, only after the user confirms.
+// Reports from the popup, for a wrong verdict (the panel is in
+// lib/report_ui.js) and for the shared statistics of Insights. Both go to
+// PhishLens Cloud through the service worker, only after the user
+// confirms.
 import { $, h, t, I18N } from "./ui.js";
 
 const { PhishLensReport: REPORT, PhishLensRedact: REDACT, PhishLensHistory: HISTORY, PhishLensApi: API } = window;
@@ -19,9 +20,9 @@ function entryAsResult(e) {
     };
 }
 
-// Under a result: the language line and "Wrong verdict? Report it".
-// Pasted text is offered for the report; for a file the user pastes the
-// part they want to send.
+// Language line and "Wrong verdict? Report it" under a result. Pasted
+// text is offered for the report. For a file the user pastes the part
+// they want to send.
 export function renderResultFeedback(data, historyId, pasted, source) {
     const extra = { source, langUser: null };
     $("result-feedback").replaceChildren(h("div.plr-box", null,
@@ -52,7 +53,8 @@ export async function historyReportPanel(entry) {
     });
 }
 
-// "Share my statistics": the reviewed history without subject, sender or text.
+// "Share my statistics" sends the reviewed history without subject,
+// sender or text.
 export function renderShareStats(list) {
     const host = $("share-stats");
     host.replaceChildren();

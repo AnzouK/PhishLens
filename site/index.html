@@ -31,7 +31,7 @@
 <link rel="icon" href="icon.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="style.css?v=876364fc54">
-<script src="i18n/en.js?v=a7f3a24374" defer></script>
+<script src="i18n/en.js?v=80e0f4966c" defer></script>
 <script src="lang.js?v=074b2a25f3" defer></script>
 <script src="nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -69,8 +69,8 @@
  ]
 }
 </script>
-<script src="shared.js?v=227a246774" defer></script>
-<script src="redact.js?v=f9ef7a192a" defer></script>
+<script src="shared.js?v=3bf65b7269" defer></script>
+<script src="redact.js?v=33f436e8d1" defer></script>
 <script src="app.js?v=1ca3b08526" defer></script>
 </head>
 <body>
@@ -144,7 +144,7 @@
         <p class="lbl">phishing caught by the whole system, in recent real emails<span class="ci">95% confidence interval: 88.8% to 91.4%</span></p>
       </div>
       <p class="facts">0 of 117 real inbox emails flagged (at most 3.2%), 1 of 297 mailing-list emails · about 190 ms per email on the server · checked on real phishing in 6 of the 22 languages the text model reads</p>
-      <p class="note">Measured on PhishLens Cloud on November 1, 2026 with the public benchmark: 1,804 of 2,000 recent phishing emails in several languages, drawn from those nobody looked at while tuning (95% confidence interval 88.8% to 91.4%), and 1 of 414 legitimate emails (297 from public mailing lists, 117 from real inboxes; 0.0% to 1.4%). The scan time is the median for a typical email (about 250 tokens); a short one takes about 65 ms. The mailing-list emails were used while tuning, and the phishing emails were measured again after the 2.0.12 changes: the next run uses a fresh set. An order of magnitude, not a guarantee: see <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">how it was measured</a> and the <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">known limitations</a>.</p>
+      <p class="note">Measured on PhishLens Cloud on November 1, 2026 with the public benchmark: 1,804 of 2,000 recent phishing emails in several languages, drawn from those nobody looked at while tuning (95% confidence interval 88.8% to 91.4%), and 1 of 414 legitimate emails (297 from public mailing lists, 117 from real inboxes; 0.0% to 1.4%). The scan time is the median for a typical email (about 250 tokens); a short one takes about 65 ms. The mailing-list emails were used while tuning, and the phishing emails were measured again after the 2.0.12 changes, and the next run uses a fresh set. These figures give an order of magnitude and are not a guarantee. See <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">how it was measured</a> and the <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">known limitations</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, right now</h3>
       <div class="strip" id="live" aria-live="polite">
@@ -264,7 +264,7 @@
   <section class="sec" id="why">
     <div class="wrap">
       <h2>Why it exists</h2>
-      <p class="intro">PhishLens began as our group's final-year project at Nile University of Nigeria. Of the topics we considered, we chose a phishing detector that explains its verdict instead of only flagging an email. When the course ended I kept it going on my own: it is now an independent project, with no link to the university. In mid-October it still flagged 130 of the 297 legitimate mailing-list emails of its own benchmark; the fixes that brought that down to 1 are <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">described step by step</a>, and every run is published, good or bad.</p>
+      <p class="intro">PhishLens began as our group's final-year project at Nile University of Nigeria. Of the topics we considered, we chose a phishing detector that explains its verdict instead of only flagging an email. When the course ended I kept it going on my own, and it is now an independent project, with no link to the university. In mid-October it still flagged 130 of the 297 legitimate mailing-list emails of its own benchmark; the fixes that brought that down to 1 are <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">described step by step</a>, and every run is published, good or bad.</p>
       <p class="sign">AnzouK</p>
     </div>
   </section>
@@ -272,7 +272,7 @@
   <section class="sec" id="install">
     <div class="wrap">
       <h2>Install</h2>
-      <p class="intro">PhishLens is not on the Chrome Web Store yet: load it by hand, it takes about two minutes.</p>
+      <p class="intro">PhishLens is not on the Chrome Web Store yet, so load it by hand. It takes about two minutes.</p>
       <div class="install">
         <div>
           <h3>1. The extension</h3>
@@ -293,7 +293,7 @@
 huggingface-cli download AnzouKiona/phishlens-distilbert \
   --local-dir backend/model
 cd backend &amp;&amp; docker compose up --build</pre>
-          <p class="small muted">Python without Docker, configuration and deployment: see the <a href="https://github.com/AnzouK/PhishLens#run-your-own-server">quickstart</a>.</p>
+          <p class="small muted">For Python without Docker, configuration and deployment, see the <a href="https://github.com/AnzouK/PhishLens#run-your-own-server">quickstart</a>.</p>
         </div>
       </div>
       <p class="mt"><a class="cta" href="https://github.com/AnzouK/PhishLens/releases/latest">Install PhishLens</a></p>

@@ -18,7 +18,7 @@ function timeAgo(ts) {
     return new Date(ts).toISOString().slice(0, 10);
 }
 
-// One column per day; the chart is 84 px high, 18 of them for the date.
+// One column per day. The chart is 84 px high, 18 of them for the date.
 function dailyChart(days) {
     const maxDaily = Math.max(1, ...days.map((d) => d.phishing + d.safe));
     return days.map((d) => {

@@ -1,8 +1,8 @@
 # Architecture
 
-Two parts: a Chrome extension that reads what Gmail or Outlook shows and
-draws the verdict, and a FastAPI server that does all the scoring. The
-extension never classifies anything itself.
+PhishLens has two parts. A Chrome extension reads what Gmail or Outlook
+shows and draws the verdict, and a FastAPI server does all the scoring.
+The extension never classifies anything itself.
 
 ```mermaid
 flowchart LR
@@ -29,9 +29,9 @@ flowchart LR
     HF[("Hugging Face<br/>pinned model revisions")] -. start-up .-> API
 ```
 
-Where to look: the request handling is `backend/extension_backend.py`,
-every weight and threshold is in `backend/settings.py`, and the verdict
-itself is the pure functions of `backend/fusion.py`. In the extension,
+Requests are handled in `backend/extension_backend.py`, every weight and
+threshold is in `backend/settings.py`, and the verdict itself comes from
+the pure functions of `backend/fusion.py`. In the extension,
 `lib/api.js` is the only way to the server and `lib/gmail_page.js` holds
 everything assumed about Gmail's page.
 
@@ -46,7 +46,7 @@ and lets proof about the sender decide how much the wording counts.
 The verdict is a weighted sum (text 0.34, links 0.33, sender 0.33)
 against a threshold, plus a few signs strong enough to decide on their
 own. Which signs count, and how much the text weighs, depends on what is
-proven about the sender: the trust path.
+proven about the sender. That is the trust path.
 
 ## Trust paths
 
@@ -71,40 +71,41 @@ flowchart TD
 Each path declares these signs itself (`TrustPath.forcing` in
 `settings.py`), and every answer says which one fired (`forced_by`).
 
-Why each rule exists:
+The reasons behind each rule:
 
-- **The discount needs proof.** A From: header can say anything; a DKIM
+- The discount needs proof. A From: header can say anything, but a DKIM
   signature aligned with it cannot be forged. The allowlist only adds
-  to an authenticated sender, never replaces the authentication (until
-  2.0, a forged bank address got the softest path), and leaves out
+  to an authenticated sender and never replaces the authentication
+  (until 2.0, a forged bank address got the softest path). It leaves out
   platforms that send their users' own words (shares, invoices).
-- **A signature proves the domain, not honesty.** Attackers sign mail
+- A signature proves the domain, not honesty, since attackers sign mail
   from their own domains. On `crypto_verified`, a sender none of whose
   links go to its own domain, with phishing-like wording, is flagged
   anyway. Click tracking of known mailing platforms does not count as
   "elsewhere" (`link_alignment.py`).
-- **A brand name over another domain is impersonation.** "Chronopost
+- A brand name over another domain is impersonation. "Chronopost
   <x@qdsodd.us>" loses every softer path and its sender score is at
   least 0.9 (`known_domains.BRANDS`).
-- **A forward vouches for the forward only.** Forwarded mail goes to the
+- A forward vouches for the forward only. Forwarded mail goes to the
   default path, and the original sender is reported.
-- **The link model alone is not proof.** The trained URL model scores
-  the long tracking links of real newsletters near 1.0; on its own it
+- The link model alone is not proof. The trained URL model scores the
+  long tracking links of real newsletters near 1.0, and on its own it
   produced every false alarm of the first public benchmark. It decides
-  only with a threat-intel hit or a strong sign; links that only go to
-  large known sites skip it.
-- **The header model is off** (`METADATA_MODEL_ENABLED=0`). It learned
-  old corpora and scored modern legitimate headers (ARC, long Received
-  chains) near 1.0: 130 of 297 legitimate emails flagged in the 2.0.7
-  benchmark. The sender score now comes from rules and the real SPF,
-  DKIM and DMARC results.
-- **What the reader cannot see comes last.** The text model reads the
-  first 256 tokens; text and links hidden by their style are moved after
-  the visible ones, so invisible filler cannot push the message out.
-- **Too little text, no text verdict.** Under 3 words (image-only mail)
-  the text agent is left out and links and sender share its weight.
-- **Safe Browsing always wins.** A blocklisted link from a trusted
-  sender means the account is compromised.
+  only with a threat-intel hit or a strong sign, and links that only go
+  to large known sites skip it.
+- The header model is off (`METADATA_MODEL_ENABLED=0`). It learned old
+  corpora and scored modern legitimate headers (ARC, long Received
+  chains) near 1.0, which flagged 130 of 297 legitimate emails in the
+  2.0.7 benchmark. The sender score now comes from rules and the real
+  SPF, DKIM and DMARC results.
+- What the reader cannot see comes last. The text model reads the first
+  256 tokens, and text and links hidden by their style are moved after
+  the visible ones so invisible filler cannot push the message out.
+- With too little text there is no text verdict. Under 3 words
+  (image-only mail) the text agent is left out and links and sender
+  share its weight.
+- Safe Browsing always wins. A blocklisted link from a trusted sender
+  means the account is compromised.
 
 ## Attachments
 
@@ -121,8 +122,8 @@ flowchart TD
 ```
 
 Text and links count 0.5 each, plus a bonus for risky features (capped
-at 0.7), against 0.55. The bonus is the point: an attachment often has
-little text, and the feature is the whole signal.
+at 0.7), against 0.55. The bonus does most of the work, because an
+attachment often has little text and the feature is the whole signal.
 
 | Feature | Bonus | Why |
 | --- | --- | --- |
@@ -136,8 +137,8 @@ little text, and the feature is the whole signal.
 
 Macros, remote templates, DDE, executables and scripts (directly or in
 an archive) and double extensions (`invoice.pdf.exe`) decide on their
-own, even from a trusted sender: delivery says nothing about what a
-macro does once enabled. Every step has a limit (pages, time, pixels,
+own, even from a trusted sender, because delivery says nothing about
+what a macro does once enabled. Every step has a limit (pages, time, pixels,
 uncompressed size), and XML that declares a DOCTYPE is not parsed.
 
 ## Text model
@@ -146,20 +147,20 @@ Any two-label Hugging Face classifier works; `phishlens_text_agent.json`
 next to the weights says how to feed it (normalisation, length,
 calibration temperature, its own override threshold), so a new model
 needs no code change. The model reads the subject and then the body,
-as it was trained: on the body alone it scored missed phishing 10% on
+as it was trained. On the body alone it scored missed phishing 10% on
 average, against 94% with the subject. `HF_MODEL_REVISION` pins the
 exact commit, and `/health` reports it.
 
-The production model is a distilled mmBERT-small: small enough for a
-CPU-only server (about 190 ms per email) and multilingual. How it was
-built and why each candidate was kept or rejected:
-[multilingual-model.md](multilingual-model.md).
+The production model is a distilled mmBERT-small, multilingual and small
+enough for a CPU-only server (about 190 ms per email).
+[multilingual-model.md](multilingual-model.md) explains how it was built
+and why each candidate was kept or rejected.
 
 ## Reports from users
 
-A report is built in the browser: `lib/redact.js` removes names,
-addresses, numbers and link paths, the user sees and edits the result,
-and confirms before sending. It always goes to PhishLens Cloud, which
+A report is built in the browser. `lib/redact.js` removes names,
+addresses, numbers and link paths, and the user sees and edits the
+result and confirms before sending. It always goes to PhishLens Cloud, which
 redacts it again (`redaction.py`, tested against the same cases) and
 keeps it with a random reference and the day only. Reports become
 training data only after a human has read them.
@@ -182,8 +183,8 @@ a second request, cached by the service worker.
 in parallel with the models.
 
 **Data formats that cannot run code.** Random Forests load from skops
-with a type allowlist instead of pickle; Office files are read as ZIP
+with a type allowlist instead of pickle. Office files are read as ZIP
 and XML with `defusedxml`, without libraries that interpret documents.
 
-**No accounts, no stored emails.** The server keeps URL verdicts only;
-the scan history stays in the browser.
+**No accounts, no stored emails.** The server keeps URL verdicts only,
+and the scan history stays in the browser.

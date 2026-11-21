@@ -60,13 +60,13 @@ function fakeChrome() {
             },
         },
         runtime: {
-            // Stands in for background.js: the server calls become requests
+            // Stands in for background.js. The server calls become requests
             // to PhishLens Cloud, which the tests intercept.
             sendMessage: async (msg) => {
                 window.__sent = (window.__sent || []).concat([msg]);
                 if (msg?.type === "phishlens.feedback") return { ok: true, data: { reference: "a1b2c3d4e5f6" } };
-                // The history, kept by background.js in the extension: the
-                // same library, run here.
+                // In the extension background.js keeps the history. The same
+                // library runs here.
                 const H = window.PhishLensHistory;
                 const history = {
                     "phishlens.history.save": () => H.saveScan(msg.entry),

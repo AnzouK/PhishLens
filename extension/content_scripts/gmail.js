@@ -1,5 +1,5 @@
-// Last Gmail content script: reads the options and starts the page
-// watchers. The work itself is in gmail_scan.js, attachments.js and
+// Last Gmail content script. It reads the options and starts the page
+// watchers; the work itself is in gmail_scan.js, attachments.js and
 // autoscan.js.
 (function () {
 "use strict";
@@ -51,7 +51,7 @@ const scanAttachments = debounced(400, () => {
 });
 PL.observe(() => { if (!PL.shutdownIfDead()) scanAttachments(); });
 
-// New mail and list redraws: automatic scan and the row pills.
+// New mail and list redraws trigger the automatic scan and row pills.
 const paintBadges = debounced(300, () => PL.paintAutoBadges());
 PL.observe(() => {
     if (PL.shutdownIfDead()) return;

@@ -1,5 +1,9 @@
 # Project overview
 
+This page lists where each part of PhishLens lives, which document
+answers which question, and how far each published figure can be
+trusted.
+
 ## Where things live
 
 | Artefact | What |
@@ -13,7 +17,7 @@
 | [Wiki](https://github.com/AnzouK/PhishLens/wiki) | User guide |
 
 A report on the first version was written at Nile University of
-Nigeria (2025/2026); it is not published here.
+Nigeria (2025/2026). It is not published here.
 
 ## Where to look
 

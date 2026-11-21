@@ -1,5 +1,5 @@
-// The extension and the server redact reports with the same rules: both
-// are checked against tests/fixtures/redaction_cases.json.
+// The extension and the server redact reports with the same rules, and
+// both are checked against tests/fixtures/redaction_cases.json.
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
