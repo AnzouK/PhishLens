@@ -664,6 +664,64 @@ class TestV114:
         assert j["verdict"] == "phishing"
 
 
+def test_reply_prefixes_before_a_forward_prefix_count():
+    for subject in ("Re: Fwd: invoice", "AW: WG: Rechnung", "SV: SV: Fw: faktura", "RE:FWD: x"):
+        assert ep.detect_forwarded("hello", subject)["detected"], subject
+    for subject in ("Re: meeting", "AW: Termin", "Re: forward planning", "Fwdx: no"):
+        assert not ep.detect_forwarded("hello", subject)["detected"], subject
+
+
+def _eml_with_forward_at(offset: int) -> tuple[str, str]:
+    lead = ("Hello team, please review the quarterly figures before Friday. " * 200)[:offset]
+    body = (
+        lead
+        + "\n---------- Forwarded message ---------\n"
+        + "From: GTBank <alerts@gtbank-secure.xyz>\n"
+        + "Your account is suspended, verify your identity immediately.\n"
+    )
+    eml = (
+        b"From: colleague@gtbank.com\r\nSubject: quarterly\r\n"
+        b"Content-Type: text/plain; charset=utf-8\r\n\r\n" + body.encode()
+    )
+    return base64.b64encode(eml).decode(), lead
+
+
+def test_page_text_shorter_than_the_eml_does_not_hide_a_forward_marker(client, monkeypatch):
+    text_score(monkeypatch, 0.2)
+    eml_b64, lead = _eml_with_forward_at(4500)
+    req = eb.AnalyseRequest(raw_email_b64=eml_b64, raw_text=lead[:4000])
+    body, _u, headers, _raw = eb._resolve_email(req)
+    assert "Forwarded message" not in body
+    assert headers[ep.FORWARDED_ELSEWHERE] == "alerts@gtbank-secure.xyz"
+    j = client.post(
+        "/analyse",
+        json={
+            "raw_email_b64": eml_b64,
+            "raw_text": lead[:4000],
+            "sender_email": "colleague@gtbank.com",
+        },
+    ).json()
+    assert j["forwarded"] == {"detected": True, "original_sender": "alerts@gtbank-secure.xyz"}
+
+
+def test_page_text_is_capped_server_side():
+    req = eb.AnalyseRequest(raw_text="word " * 10_000)
+    body, _u, headers, _raw = eb._resolve_email(req)
+    assert len(body) <= eb.MAX_PAGE_TEXT_CHARS
+    eml_b64, _lead = _eml_with_forward_at(100)
+    req = eb.AnalyseRequest(raw_email_b64=eml_b64, raw_text="Some page words here. " * 2000)
+    body, _u, _h, _raw = eb._resolve_email(req)
+    assert len(body) <= eb.MAX_PAGE_TEXT_CHARS
+    marker_late = "x " * 15_000 + "\n---------- Forwarded message ---------\nFrom: a@b.example\n"
+    _b, _u, headers, _raw = eb._resolve_email(eb.AnalyseRequest(raw_text=marker_late))
+    assert headers[ep.FORWARDED_ELSEWHERE] == "a@b.example"
+
+
+def test_a_message_cannot_set_the_forward_hint_itself():
+    headers = ep.header_dict([(ep.FORWARDED_ELSEWHERE, "1"), ("From", "a@b.example")])
+    assert ep.FORWARDED_ELSEWHERE not in headers
+
+
 def test_forwarded_sender_parsing_is_bounded():
     body = "---------- Forwarded message ---------\nFrom: " + "a" * 200_000
     assert ep.detect_forwarded(body) == {"detected": True, "original_sender": None}

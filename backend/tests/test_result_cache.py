@@ -52,3 +52,18 @@ def test_disabled_cache_stores_nothing():
     cache = rc.ResultCache(ttl=0, max_entries=5)
     cache.set("k", 1)
     assert cache.get("k") is None and not cache.stats()["enabled"]
+
+
+def test_expired_entries_go_on_write(monkeypatch):
+    now = [1000.0]
+    monkeypatch.setattr(rc.time, "monotonic", lambda: now[0])
+    cache = rc.ResultCache(ttl=60, max_entries=10)
+    cache.set("old", {"verdict": "phishing"})
+    cache.set("short", {"verdict": "safe"}, ttl=5)
+    now[0] += 30
+    cache.set("new", {"verdict": "safe"})
+    assert cache.stats()["entries"] == 2  # "short" expired, never read again
+    now[0] += 31
+    cache.set("newer", {"verdict": "safe"})
+    assert cache.stats()["entries"] == 2
+    assert cache.get("old") is None and cache.get("new") == {"verdict": "safe"}

@@ -141,7 +141,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>Meldungen gehen an PhishLens Cloud, egal welchen Server Sie für die Prüfungen nutzen. Der Server anonymisiert den Text ein zweites Mal mit denselben Regeln, speichert die Meldung ohne Ihre IP-Adresse oder andere Anfragedaten (die unten beschriebenen Anfrageprotokolle erfassen die Anfrage dennoch 30 Tage lang) und gibt eine Referenz zurück. Meldungen dienen nur dazu, PhishLens zu messen und zu verbessern (zum Beispiel, um das Textmodell mit legitimen E-Mails zu trainieren, die es falsch beurteilt hat); sie werden nie veröffentlicht oder weitergegeben. Sie werden höchstens zwei Jahre aufbewahrt. Um eine Meldung löschen zu lassen, schreiben Sie an <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> mit ihrer Referenz oder eröffnen Sie ein Issue unter <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (die Referenz allein verrät nichts über die Meldung).</p>
+<p>Meldungen gehen an PhishLens Cloud, egal welchen Server Sie für die Prüfungen nutzen. Der Server anonymisiert den Text ein zweites Mal mit denselben Regeln, speichert die Meldung ohne Ihre IP-Adresse oder andere Anfragedaten (die unten beschriebenen Anfrageprotokolle erfassen die Anfrage dennoch 30 Tage lang) und gibt eine Referenz zurück. Über jede neue Meldung erhält der Betreiber eine kurze Benachrichtigung über einen Push-Dienst (ntfy): Art, gemeldetes Urteil, Sprache, wo die E-Mail geprüft wurde, und Referenz (bei Statistiken die Zahl der Prüfungen), nie Inhalte der E-Mail. Meldungen dienen nur dazu, PhishLens zu messen und zu verbessern (zum Beispiel, um das Textmodell mit legitimen E-Mails zu trainieren, die es falsch beurteilt hat); sie werden nie veröffentlicht oder weitergegeben. Sie werden höchstens zwei Jahre aufbewahrt. Um eine Meldung löschen zu lassen, schreiben Sie an <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> mit ihrer Referenz oder eröffnen Sie ein Issue unter <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (die Referenz allein verrät nichts über die Meldung).</p>
 <p>Damit Sie auch aus der Ansicht Statistiken melden können, bleibt der anonymisierte Text Ihrer letzten Gmail- und Outlook-Prüfungen 7 Tage lang in Ihrem Browser (höchstens 50 E-Mails). Er verlässt den Browser nie, außer Sie melden diese Prüfung.</p>
 <h2 id="was-gespeichert-wird-und-wie-lange">Was gespeichert wird und wie lange</h2>
 <div class="table-wrap"><table>
@@ -170,7 +170,7 @@
 </tr>
 <tr class="even">
 <td>Von Ihnen gesendete Meldungen (anonymisierter Text oder Statistik, siehe oben)</td>
-<td>PhishLens Cloud (Google Cloud Storage, USA)</td>
+<td>PhishLens Cloud (Google Cloud Storage, USA; eine Datei pro Meldung)</td>
 <td>Höchstens zwei Jahre; auf Anfrage mit der Referenz gelöscht</td>
 </tr>
 <tr class="odd">
@@ -243,7 +243,7 @@
 </tr>
 <tr class="odd">
 <td>Optional: <code>127.0.0.1</code>, <code>localhost</code> oder die Adresse Ihres eigenen Servers</td>
-<td>Nur angefragt, wenn Sie in den Einstellungen einen lokalen oder eigenen Server wählen, und nur für diese Adresse.</td>
+<td>Nur angefragt, wenn Sie in den Einstellungen einen lokalen oder eigenen Server wählen, und nur für diesen Host, auf jedem Port.</td>
 </tr>
 </tbody>
 </table></div>

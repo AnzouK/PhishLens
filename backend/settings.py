@@ -90,6 +90,9 @@ FEEDBACK_NOTIFY_CLICK = os.environ.get("FEEDBACK_NOTIFY_CLICK", "")
 # 10 MB by attachment_analysis. Bigger bodies are refused before parsing.
 MAX_EMAIL_B64_CHARS = 40_000_000
 MAX_TEXT_CHARS = 2_000_000
+# Page text actually read (raw_text), after markup noise is removed: the
+# extension sends at most this much; the text model reads far less.
+MAX_PAGE_TEXT_CHARS = 20_000
 MAX_ATTACHMENT_B64_CHARS = 15_000_000
 MAX_BODY_BYTES = 45_000_000
 

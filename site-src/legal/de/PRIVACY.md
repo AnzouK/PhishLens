@@ -82,7 +82,12 @@ Meldungen gehen an PhishLens Cloud, egal welchen Server Sie für die
 Prüfungen nutzen. Der Server anonymisiert den Text ein zweites Mal mit
 denselben Regeln, speichert die Meldung ohne Ihre IP-Adresse oder andere
 Anfragedaten (die unten beschriebenen Anfrageprotokolle erfassen die
-Anfrage dennoch 30 Tage lang) und gibt eine Referenz zurück. Meldungen
+Anfrage dennoch 30 Tage lang) und gibt eine Referenz zurück.
+Über jede neue Meldung erhält der Betreiber eine kurze Benachrichtigung
+über einen Push-Dienst (ntfy): Art, gemeldetes Urteil, Sprache, wo die
+E-Mail geprüft wurde, und Referenz (bei Statistiken die Zahl der
+Prüfungen), nie Inhalte der E-Mail.
+Meldungen
 dienen nur dazu, PhishLens zu messen und zu verbessern (zum Beispiel, um
 das Textmodell mit legitimen E-Mails zu trainieren, die es falsch
 beurteilt hat); sie werden nie veröffentlicht oder weitergegeben. Sie
@@ -103,7 +108,7 @@ nie, außer Sie melden diese Prüfung.
 | Prüfverlauf (Betreff, Absender, Urteil, Werte, wichtigste Wörter der Erklärung, erkannte Sprache und Ihre Antwort) | Ihr Browser (`chrome.storage.local`) | Bis Sie ihn löschen (Statistiken, **Löschen**), höchstens die letzten 500 Prüfungen |
 | Zwischenspeicher der Erklärungen (die Wörter, die ein Urteil erklären, über einen Hash des Textes zugeordnet) | Ihr Browser | 30 Tage, höchstens 200 Einträge; mit dem Verlauf gelöscht |
 | Anonymisierter Text der letzten Gmail- und Outlook-Prüfungen, für Meldungen | Ihr Browser | 7 Tage, höchstens 50 E-Mails; wird mit dem Verlauf gelöscht |
-| Von Ihnen gesendete Meldungen (anonymisierter Text oder Statistik, siehe oben) | PhishLens Cloud (Google Cloud Storage, USA) | Höchstens zwei Jahre; auf Anfrage mit der Referenz gelöscht |
+| Von Ihnen gesendete Meldungen (anonymisierter Text oder Statistik, siehe oben) | PhishLens Cloud (Google Cloud Storage, USA; eine Datei pro Meldung) | Höchstens zwei Jahre; auf Anfrage mit der Referenz gelöscht |
 | Ergebnisse der automatischen Prüfung (Unterhaltungs-ID, Urteil, Wert, ein kurzer Abdruck der Zeile im Posteingang) | Ihr Browser | Die letzten 500 E-Mails; mit dem Verlauf gelöscht |
 | Einstellungen | Ihr Browser | Bis zur Änderung |
 | Link-Urteile (URL, Urteil, Quelle) | Server-Cache (SQLite) | 24 Stunden |
@@ -135,7 +140,7 @@ was GitHub als normale Anfrage Ihres Browsers sieht.
 | Zugriff auf `mail.google.com` | Die Prüf-Schaltflächen und Hinweise in Gmail anzeigen und die geprüfte E-Mail lesen. |
 | Zugriff auf Outlook im Web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Dasselbe in Outlook (nur manuelle Prüfungen). |
 | Zugriff auf `phishlens.dev` | Prüfungen an PhishLens Cloud senden, den Standardserver. |
-| Optional: `127.0.0.1`, `localhost` oder die Adresse Ihres eigenen Servers | Nur angefragt, wenn Sie in den Einstellungen einen lokalen oder eigenen Server wählen, und nur für diese Adresse. |
+| Optional: `127.0.0.1`, `localhost` oder die Adresse Ihres eigenen Servers | Nur angefragt, wenn Sie in den Einstellungen einen lokalen oder eigenen Server wählen, und nur für diesen Host, auf jedem Port. |
 
 ## Ihre Möglichkeiten
 

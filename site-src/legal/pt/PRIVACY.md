@@ -80,7 +80,12 @@ As comunicações vão para o PhishLens Cloud, seja qual for o servidor que
 usa para as análises. O servidor anonimiza o texto uma segunda vez com
 as mesmas regras, guarda a comunicação sem o seu endereço IP nem outros
 dados do pedido (os registos de pedidos descritos abaixo continuam a
-registar o pedido durante 30 dias) e devolve uma referência. As
+registar o pedido durante 30 dias) e devolve uma referência.
+Um breve aviso de cada nova comunicação é enviado ao responsável através
+de um serviço de notificações (ntfy): o tipo, o veredicto comunicado, o
+idioma, onde o e-mail foi analisado e a referência (para estatísticas, o
+número de análises), nunca o conteúdo do e-mail.
+As
 comunicações servem apenas para medir e melhorar o PhishLens (por
 exemplo, para treinar o modelo de texto com e-mails legítimos que
 avaliou mal); nunca são publicadas nem partilhadas. São guardadas no
@@ -101,7 +106,7 @@ a menos que comunique essa análise.
 | Histórico de análises (assunto, remetente, veredito, pontuações, principais palavras da explicação, idioma detetado e a sua resposta) | O seu navegador (`chrome.storage.local`) | Até o limpar (Estatísticas, **Limpar**), no máximo as últimas 500 análises |
 | Cache das explicações (as palavras que explicam um veredito, indexadas por uma impressão digital do texto) | O seu navegador | 30 dias, no máximo 200 entradas; apagada com o histórico |
 | Texto anonimizado das análises recentes no Gmail e no Outlook, para comunicações | O seu navegador | 7 dias, no máximo 50 e-mails; apagado com o histórico |
-| Comunicações que enviou (texto anonimizado ou estatísticas, ver acima) | PhishLens Cloud (Google Cloud Storage, Estados Unidos) | No máximo dois anos; apagadas a pedido com a referência |
+| Comunicações que enviou (texto anonimizado ou estatísticas, ver acima) | PhishLens Cloud (Google Cloud Storage, Estados Unidos; um ficheiro por comunicação) | No máximo dois anos; apagadas a pedido com a referência |
 | Resultados da análise automática (identificador da conversa, veredito, pontuação, uma impressão curta da linha da caixa de entrada) | O seu navegador | Os últimos 500 e-mails; apagados com o histórico |
 | Definições | O seu navegador | Até serem alteradas |
 | Vereditos dos links (URL, veredito, fonte) | Cache do servidor (SQLite) | 24 horas |
@@ -133,7 +138,7 @@ que o GitHub vê como um pedido normal do seu navegador.
 | Acesso a `mail.google.com` | Acrescentar os botões de análise e as faixas ao Gmail e ler o e-mail que analisa. |
 | Acesso ao Outlook na web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | O mesmo, no Outlook (apenas análises manuais). |
 | Acesso a `phishlens.dev` | Enviar as análises para o PhishLens Cloud, o servidor predefinido. |
-| Opcional: `127.0.0.1`, `localhost` ou o endereço do seu próprio servidor | Pedido só quando escolhe um servidor local ou personalizado nas definições, e só para esse endereço. |
+| Opcional: `127.0.0.1`, `localhost` ou o endereço do seu próprio servidor | Pedido só quando escolhe um servidor local ou personalizado nas definições, e só para esse servidor, em qualquer porta. |
 
 ## As suas opções
 

@@ -141,7 +141,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>As comunicações vão para o PhishLens Cloud, seja qual for o servidor que usa para as análises. O servidor anonimiza o texto uma segunda vez com as mesmas regras, guarda a comunicação sem o seu endereço IP nem outros dados do pedido (os registos de pedidos descritos abaixo continuam a registar o pedido durante 30 dias) e devolve uma referência. As comunicações servem apenas para medir e melhorar o PhishLens (por exemplo, para treinar o modelo de texto com e-mails legítimos que avaliou mal); nunca são publicadas nem partilhadas. São guardadas no máximo dois anos. Para apagar uma comunicação, escreva para <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> com a respetiva referência, ou abra um pedido em <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (a referência por si só não revela nada da comunicação).</p>
+<p>As comunicações vão para o PhishLens Cloud, seja qual for o servidor que usa para as análises. O servidor anonimiza o texto uma segunda vez com as mesmas regras, guarda a comunicação sem o seu endereço IP nem outros dados do pedido (os registos de pedidos descritos abaixo continuam a registar o pedido durante 30 dias) e devolve uma referência. Um breve aviso de cada nova comunicação é enviado ao responsável através de um serviço de notificações (ntfy): o tipo, o veredicto comunicado, o idioma, onde o e-mail foi analisado e a referência (para estatísticas, o número de análises), nunca o conteúdo do e-mail. As comunicações servem apenas para medir e melhorar o PhishLens (por exemplo, para treinar o modelo de texto com e-mails legítimos que avaliou mal); nunca são publicadas nem partilhadas. São guardadas no máximo dois anos. Para apagar uma comunicação, escreva para <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> com a respetiva referência, ou abra um pedido em <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (a referência por si só não revela nada da comunicação).</p>
 <p>Para permitir comunicar a partir da vista Estatísticas, o texto anonimizado das suas últimas análises no Gmail e no Outlook fica no seu navegador durante 7 dias (no máximo 50 e-mails). Nunca sai do navegador, a menos que comunique essa análise.</p>
 <h2 id="o-que-é-guardado-e-durante-quanto-tempo">O que é guardado, e durante quanto tempo</h2>
 <div class="table-wrap"><table>
@@ -170,7 +170,7 @@
 </tr>
 <tr class="even">
 <td>Comunicações que enviou (texto anonimizado ou estatísticas, ver acima)</td>
-<td>PhishLens Cloud (Google Cloud Storage, Estados Unidos)</td>
+<td>PhishLens Cloud (Google Cloud Storage, Estados Unidos; um ficheiro por comunicação)</td>
 <td>No máximo dois anos; apagadas a pedido com a referência</td>
 </tr>
 <tr class="odd">
@@ -243,7 +243,7 @@
 </tr>
 <tr class="odd">
 <td>Opcional: <code>127.0.0.1</code>, <code>localhost</code> ou o endereço do seu próprio servidor</td>
-<td>Pedido só quando escolhe um servidor local ou personalizado nas definições, e só para esse endereço.</td>
+<td>Pedido só quando escolhe um servidor local ou personalizado nas definições, e só para esse servidor, em qualquer porta.</td>
 </tr>
 </tbody>
 </table></div>

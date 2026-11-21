@@ -111,7 +111,13 @@ scales to zero) and can be spread over many addresses; behind a reverse
 proxy they need the proxy's address in `FORWARDED_ALLOW_IPS`
 ([operations](operations.md)), or every user shares one limit. The
 Pages Function in front of PhishLens Cloud replaces any client-sent
-`X-Forwarded-For` with the address Cloudflare saw. The
+`X-Forwarded-For` with the address Cloudflare saw. The backend's own
+Cloud Run address is written in that function and is not a secret: the
+backend answers only requests carrying the function's shared secret
+(`PROXY_SECRET`), so calling it directly, with or without a forged
+`X-Forwarded-For`, gets 403. Routes without a limit of their own
+(`/`, `/reputation/stats`) share `RATE_LIMIT_DEFAULT`; `/health` has
+none, for the keep-warm job and uptime monitors. The
 Safe Browsing quota is shared too: links sent from many addresses can
 exhaust it for the day. With a
 public store release, per-install keys or a shared limiter become

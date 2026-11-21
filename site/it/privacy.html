@@ -141,7 +141,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>Le segnalazioni vanno a PhishLens Cloud, qualunque server tu usi per le analisi. Il server anonimizza il testo una seconda volta con le stesse regole, salva la segnalazione senza il tuo indirizzo IP né altri dati della richiesta (i log delle richieste descritti più sotto registrano comunque la richiesta per 30 giorni) e restituisce un riferimento. Le segnalazioni servono solo a misurare e migliorare PhishLens (per esempio ad addestrare il modello del testo su email legittime giudicate male); non vengono mai pubblicate né condivise. Sono conservate al massimo due anni. Per far cancellare una segnalazione, scrivi a <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> indicando il suo riferimento, oppure apri una segnalazione su <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (il riferimento da solo non rivela nulla della segnalazione).</p>
+<p>Le segnalazioni vanno a PhishLens Cloud, qualunque server tu usi per le analisi. Il server anonimizza il testo una seconda volta con le stesse regole, salva la segnalazione senza il tuo indirizzo IP né altri dati della richiesta (i log delle richieste descritti più sotto registrano comunque la richiesta per 30 giorni) e restituisce un riferimento. Per ogni nuova segnalazione il responsabile riceve un breve avviso tramite un servizio di notifiche (ntfy): tipo, verdetto segnalato, lingua, dove è stata analizzata l'email e riferimento (per le statistiche, il numero di analisi), mai il contenuto dell'email. Le segnalazioni servono solo a misurare e migliorare PhishLens (per esempio ad addestrare il modello del testo su email legittime giudicate male); non vengono mai pubblicate né condivise. Sono conservate al massimo due anni. Per far cancellare una segnalazione, scrivi a <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> indicando il suo riferimento, oppure apri una segnalazione su <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (il riferimento da solo non rivela nulla della segnalazione).</p>
 <p>Per permettere di segnalare dalla vista Statistiche, il testo anonimizzato delle tue ultime analisi di Gmail e Outlook resta nel tuo browser per 7 giorni (al massimo 50 email). Non lascia mai il browser, a meno che tu non segnali quell'analisi.</p>
 <h2 id="cosa-viene-conservato-e-per-quanto-tempo">Cosa viene conservato e per quanto tempo</h2>
 <div class="table-wrap"><table>
@@ -170,7 +170,7 @@
 </tr>
 <tr class="even">
 <td>Segnalazioni che hai inviato (testo anonimizzato o statistiche, vedi sopra)</td>
-<td>PhishLens Cloud (Google Cloud Storage, Stati Uniti)</td>
+<td>PhishLens Cloud (Google Cloud Storage, Stati Uniti; un file per segnalazione)</td>
 <td>Al massimo due anni; cancellate su richiesta con il riferimento</td>
 </tr>
 <tr class="odd">
@@ -243,7 +243,7 @@
 </tr>
 <tr class="odd">
 <td>Facoltativo: <code>127.0.0.1</code>, <code>localhost</code> o l'indirizzo del tuo server</td>
-<td>Richiesto solo quando scegli un server locale o personalizzato nelle impostazioni, e solo per quell'indirizzo.</td>
+<td>Richiesto solo quando scegli un server locale o personalizzato nelle impostazioni, e solo per quell'host, su qualsiasi porta.</td>
 </tr>
 </tbody>
 </table></div>

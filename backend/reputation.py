@@ -94,12 +94,17 @@ USER_AGENT = f"PhishLens/{VERSION} (+https://github.com/AnzouK/PhishLens)"
 # SQLite cache: persistent across restarts, thread-safe via lock.
 # =====================================================================
 class Cache:
-    """Tiny SQLite cache with TTL. One row per URL."""
+    """Tiny SQLite cache with TTL. One row per URL. Expired rows are
+    deleted at startup and then by a write, at most once an hour, so none
+    is kept much past the TTL however long the instance runs."""
+
+    PURGE_EVERY_SEC = 3600
 
     def __init__(self, path: str):
         self.path = path
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._lock = asyncio.Lock()
+        self._last_purge = 0.0
         self._init_db()
 
     def _init_db(self):
@@ -174,12 +179,15 @@ class Cache:
                     )
             else:
                 raise
+        if time.time() - self._last_purge >= self.PURGE_EVERY_SEC:
+            self._purge_sync()
 
     async def purge_expired(self):
         async with self._lock:
             await asyncio.to_thread(self._purge_sync)
 
     def _purge_sync(self):
+        self._last_purge = time.time()
         cutoff = int(time.time()) - CACHE_TTL_SEC
         try:
             with sqlite3.connect(self.path) as db:

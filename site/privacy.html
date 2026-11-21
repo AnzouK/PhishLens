@@ -140,7 +140,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>Reports go to PhishLens Cloud whatever server you use for scanning. The server redacts the text again with the same rules, stores the report without your IP address or any other request data (the request logs described below still record the request for 30 days), and returns a reference. Reports are used only to measure and improve PhishLens (for example to train the text model on legitimate mail it got wrong); they are never published or shared. They are kept for at most two years. To have a report deleted, write to <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> with its reference, or open an issue at <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (the reference alone says nothing about the report).</p>
+<p>Reports go to PhishLens Cloud whatever server you use for scanning. The server redacts the text again with the same rules, stores the report without your IP address or any other request data (the request logs described below still record the request for 30 days), and returns a reference. A short notice of each new report goes to the maintainer through a push notification service (ntfy): its kind, the reported verdict, the language, where it was scanned and its reference (for statistics, the number of scans), never any email content. Reports are used only to measure and improve PhishLens (for example to train the text model on legitimate mail it got wrong); they are never published or shared. They are kept for at most two years. To have a report deleted, write to <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> with its reference, or open an issue at <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (the reference alone says nothing about the report).</p>
 <p>To make reporting possible from Insights, the redacted text of your last Gmail and Outlook scans is kept in your browser for 7 days (50 emails at most). It never leaves the browser unless you report that scan.</p>
 <h2 id="what-is-kept-and-for-how-long">What is kept, and for how long</h2>
 <div class="table-wrap"><table>
@@ -169,7 +169,7 @@
 </tr>
 <tr class="even">
 <td>Reports you sent (redacted text or statistics, see above)</td>
-<td>PhishLens Cloud (Google Cloud Storage, United States)</td>
+<td>PhishLens Cloud (Google Cloud Storage, United States; one file per report)</td>
 <td>At most two years; deleted on request with the reference</td>
 </tr>
 <tr class="odd">
@@ -242,7 +242,7 @@
 </tr>
 <tr class="odd">
 <td>Optional: <code>127.0.0.1</code>, <code>localhost</code>, or the address of your own server</td>
-<td>Asked for only when you choose a local or custom backend in the settings, for that address alone.</td>
+<td>Asked for only when you choose a local or custom backend in the settings, for that host alone, on any port.</td>
 </tr>
 </tbody>
 </table></div>

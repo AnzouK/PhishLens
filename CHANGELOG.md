@@ -51,6 +51,17 @@ backend share one version number.
   big figure is written the local way.
 - docs/evaluation.md lists what is not measured yet: other channels,
   rates per trust path, and the re-measured phishing sample.
+- Each user report is its own file, `YYYY-MM/<reference>.json` in the
+  reports folder, created once and never rewritten, without a lock file.
+  On the Cloud Storage bucket, deleting a report is removing one object
+  (`gcloud storage rm`), which can neither lose a report received
+  meanwhile nor bring a deleted one back. The old monthly
+  `feedback-YYYY-MM.jsonl` files are still read, never written;
+  `scripts/delete_report.py` handles both.
+- The privacy policy, in every language, says what the notice sent for
+  each new report holds (kind, verdict, language, source, reference;
+  never email content), that reports are stored one file each, and that
+  the custom server permission covers its host on any port.
 
 ### Fixed
 - Gmail attachments: each file gets its own result card. Two names that
@@ -95,12 +106,34 @@ backend share one version number.
   wording.
 - Gmail's sender checks ("via", "signed-by", "mailed-by") are never read
   from the subject, which the sender writes.
+- Expired link verdicts are deleted from the reputation cache at most an
+  hour after expiry while the server runs, not only at startup, and the
+  result cache drops expired entries on every write: nothing is kept
+  much past the 24 hours the privacy policy states.
+- The 411 and 413 answers of the body size check, and the 429 of the
+  rate limits, carry CORS headers, so the extension can read them.
+- `RATE_LIMIT_DEFAULT` applies to the routes without their own limit
+  (it was never enforced); `/health` is exempt for the keep-warm job.
+- The page text is read up to 20,000 characters on the server too, and
+  a forward marker the shorter page text leaves out (but the .eml holds)
+  still counts as a forward. "Re: Fwd:", "AW: WG:" and other reply
+  prefixes before a forward prefix count as a forward subject.
+- A long comment inside a second `<style>` sheet is no longer taken for
+  a comment and removed.
+- docs/project-overview.md gives the same false-alarm figures as the
+  README: 0 of 117 real inbox emails (at most 3.2%), the Apache set
+  being used for tuning.
 
 ### Security
 - The backend refuses with 403 any request without the shared secret
   (`PROXY_SECRET`, header `X-PhishLens-Proxy`) that the Pages Function
   adds, so calling the Cloud Run address directly with a forged
   `X-Forwarded-For` no longer dodges the rate limits. Off when unset.
+- The Pages Function adds HSTS, `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY` and `Referrer-Policy` to the API answers
+  (`site/_headers` does not cover them), never forwards `Cookie` or
+  `Authorization`, and answers 405 to methods other than GET, HEAD,
+  POST and OPTIONS. `BACKEND_ORIGIN` can override the backend address.
 
 ## [2.0.12] - 2026-11-01
 

@@ -80,7 +80,12 @@ ita don bincike. Sabar tana sake cire bayanan sirri daga rubutun da
 ƙa'idoji iri ɗaya, tana ajiye rahoton ba tare da adireshin IP ɗinka ko
 wani bayanin buƙata ba (bayanan ayyukan buƙatu da aka bayyana a ƙasa
 suna ci gaba da rubuta buƙatar har kwana 30), sannan ta dawo da lambar
-shaida. Ana amfani da rahotanni ne kawai don auna da inganta PhishLens
+shaida.
+Ana aika wa mai kula da PhishLens gajeren sanarwa game da kowane sabon
+rahoto ta hanyar sabis na sanarwa (ntfy): irin rahoton, hukuncin da aka
+ruwaito, harshe, inda aka bincika imel ɗin da lambar shaidarsa (ga
+ƙididdiga, adadin binciken), ba a taɓa aika abin da ke cikin imel ba.
+Ana amfani da rahotanni ne kawai don auna da inganta PhishLens
 (misali, don horar da samfurin rubutu a kan imel na gaskiya da ya yi
 kuskure a kansu); ba a taɓa wallafa su ko raba su. Ana ajiye su har
 shekara biyu mafi yawa. Don a share rahoto, rubuta zuwa
@@ -100,7 +105,7 @@ sai idan ka ba da rahoton wannan bincike.
 | Tarihin bincike (jigo, mai aikawa, hukunci, maki, manyan kalmomin bayani, harshen da aka gano da amsarka) | Burauzarka (`chrome.storage.local`) | Har sai ka share shi (Ƙididdiga, **Share**), mafi yawa bincike 500 na ƙarshe |
 | Ajiyar bayani (kalmomin da ke bayyana hukunci, an haɗa su da lambar tantance rubutun) | Burauzarka | Kwanaki 30, shigarwa 200 a mafi yawa; ana share su tare da tarihi |
 | Rubutun da aka cire wa bayanan sirri na binciken Gmail da Outlook na baya-bayan nan, don rahotanni | Burauzarka | Kwana 7, imel 50 mafi yawa; ana share shi tare da tarihi |
-| Rahotannin da ka aika (rubutu ba tare da bayanan sirri ba ko ƙididdiga, duba sama) | PhishLens Cloud (Google Cloud Storage, Amurka) | Shekara biyu mafi yawa; ana share su idan aka nema da lambar shaida |
+| Rahotannin da ka aika (rubutu ba tare da bayanan sirri ba ko ƙididdiga, duba sama) | PhishLens Cloud (Google Cloud Storage, Amurka; fayil ɗaya ga kowane rahoto) | Shekara biyu mafi yawa; ana share su idan aka nema da lambar shaida |
 | Sakamakon bincike ta atomatik (lambar tattaunawa, hukunci, maki, gajeriyar alamar layin akwatin saƙo) | Burauzarka | Imel 500 na ƙarshe; ana share su tare da tarihi |
 | Saituna | Burauzarka | Har sai an canza su |
 | Hukuncin hanyoyin haɗi (URL, hukunci, majiya) | Ajiyar sabar (SQLite) | Awa 24 |
@@ -132,7 +137,7 @@ daga burauzarka.
 | Samun dama ga `mail.google.com` | Ƙara maɓallan bincike da tutoci a Gmail da karanta imel ɗin da kake dubawa. |
 | Samun dama ga Outlook a yanar gizo (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Haka nan, a Outlook (bincike da hannu kawai). |
 | Samun dama ga `phishlens.dev` | Aika bincike zuwa PhishLens Cloud, sabar da aka saba. |
-| Na zaɓi: `127.0.0.1`, `localhost` ko adireshin sabarka | Ana nema ne kawai idan ka zaɓi sabar gida ko ta musamman a saituna, don wannan adireshin kaɗai. |
+| Na zaɓi: `127.0.0.1`, `localhost` ko adireshin sabarka | Ana nema ne kawai idan ka zaɓi sabar gida ko ta musamman a saituna, don wannan sabar kaɗai, a kowace tashar (port). |
 
 ## Zaɓuɓɓukanka
 

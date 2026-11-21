@@ -81,7 +81,12 @@ Los avisos van a PhishLens Cloud, sea cual sea el servidor que use para
 los análisis. El servidor anonimiza el texto por segunda vez con las
 mismas reglas, guarda el aviso sin su dirección IP ni otros datos de la
 solicitud (los registros de solicitudes descritos más abajo siguen
-registrando la solicitud durante 30 días) y devuelve una referencia. Los
+registrando la solicitud durante 30 días) y devuelve una referencia.
+Cada nuevo aviso genera una breve notificación al responsable mediante un
+servicio de notificaciones (ntfy): el tipo, el veredicto indicado, el
+idioma, dónde se analizó el correo y la referencia (para estadísticas, el
+número de análisis), nunca el contenido del correo.
+Los
 avisos solo sirven para medir y mejorar PhishLens (por ejemplo, para
 entrenar el modelo de texto con correos legítimos que juzgó mal); nunca
 se publican ni se comparten. Se conservan como máximo dos años. Para que
@@ -101,7 +106,7 @@ que avise de ese análisis.
 | Historial de análisis (asunto, remitente, veredicto, puntuaciones, palabras principales de la explicación, idioma detectado y su respuesta) | Su navegador (`chrome.storage.local`) | Hasta que lo borre (Estadísticas, **Borrar**), como máximo los últimos 500 análisis |
 | Caché de explicaciones (las palabras que explican un veredicto, indexadas por una huella del texto) | Su navegador | 30 días, como mucho 200 entradas; se borra con el historial |
 | Texto anonimizado de los análisis recientes de Gmail y Outlook, para los avisos | Su navegador | 7 días, 50 correos como máximo; se borra con el historial |
-| Avisos que envió (texto anonimizado o estadísticas, ver arriba) | PhishLens Cloud (Google Cloud Storage, Estados Unidos) | Dos años como máximo; se borran a petición con la referencia |
+| Avisos que envió (texto anonimizado o estadísticas, ver arriba) | PhishLens Cloud (Google Cloud Storage, Estados Unidos; un archivo por aviso) | Dos años como máximo; se borran a petición con la referencia |
 | Resultados del análisis automático (identificador de conversación, veredicto, puntuación, una huella corta de la fila de la bandeja) | Su navegador | Los últimos 500 correos; se borran con el historial |
 | Ajustes | Su navegador | Hasta que se cambien |
 | Veredictos de enlaces (URL, veredicto, fuente) | Caché del servidor (SQLite) | 24 horas |
@@ -133,7 +138,7 @@ GitHub ve como una solicitud normal de su navegador.
 | Acceso a `mail.google.com` | Añadir los botones de análisis y los avisos a Gmail y leer el correo que analiza. |
 | Acceso a Outlook en la web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Lo mismo, en Outlook (solo análisis manuales). |
 | Acceso a `phishlens.dev` | Enviar los análisis a PhishLens Cloud, el servidor por defecto. |
-| Opcional: `127.0.0.1`, `localhost` o la dirección de su propio servidor | Solo se pide cuando elige un servidor local o personalizado en los ajustes, y solo para esa dirección. |
+| Opcional: `127.0.0.1`, `localhost` o la dirección de su propio servidor | Solo se pide cuando elige un servidor local o personalizado en los ajustes, y solo para ese servidor, en cualquier puerto. |
 
 ## Sus opciones
 

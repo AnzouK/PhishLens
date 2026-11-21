@@ -51,7 +51,7 @@ jobs:
           npm install --no-save --no-package-lock --silent eslint@9 globals@15
           npx eslint . --max-warnings 0
       - name: Unit tests (node:test)
-        run: node --test tests/extension/*.test.js
+        run: node --test tests/extension/*.test.js tests/functions/*.test.mjs
 
   # Same Python as the Docker base image (python:3.12-slim). Catches
   # dependency bumps that cannot install in the image, which the test

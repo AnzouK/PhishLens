@@ -84,7 +84,12 @@ vous utilisez pour les analyses. Le serveur anonymise le texte une
 seconde fois avec les mêmes règles, enregistre le signalement sans votre
 adresse IP ni aucune autre donnée de la requête (les journaux des
 requêtes décrits plus bas enregistrent toutefois la requête pendant 30
-jours), et renvoie une référence. Les signalements servent uniquement à
+jours), et renvoie une référence.
+Un court avis de chaque nouveau signalement est envoyé au responsable
+par un service de notifications (ntfy) : son type, le verdict signalé,
+la langue, où l'e-mail a été analysé et sa référence (pour des
+statistiques, le nombre d'analyses), jamais le contenu de l'e-mail.
+Les signalements servent uniquement à
 mesurer et à améliorer PhishLens (par exemple à entraîner le modèle de
 texte sur des e-mails légitimes qu'il a mal jugés) ; ils ne sont jamais
 publiés ni partagés. Ils sont conservés au plus deux ans. Pour faire
@@ -105,7 +110,7 @@ jamais le navigateur, sauf si vous signalez cette analyse.
 | Historique des analyses (objet, expéditeur, verdict, scores, principaux mots de l'explication, langue détectée et votre réponse) | Votre navigateur (`chrome.storage.local`) | Jusqu'à ce que vous l'effaciez (Statistiques, **Effacer**), au plus les 500 dernières analyses |
 | Cache des explications (les mots qui expliquent un verdict, indexés par une empreinte du texte) | Votre navigateur | 30 jours, au plus 200 entrées ; effacé avec l'historique |
 | Texte anonymisé des analyses Gmail et Outlook récentes, pour les signalements | Votre navigateur | 7 jours, 50 e-mails au plus ; effacé avec l'historique |
-| Signalements que vous avez envoyés (texte anonymisé ou statistiques, voir plus haut) | PhishLens Cloud (Google Cloud Storage, États-Unis) | Au plus deux ans ; supprimés sur demande avec la référence |
+| Signalements que vous avez envoyés (texte anonymisé ou statistiques, voir plus haut) | PhishLens Cloud (Google Cloud Storage, États-Unis ; un fichier par signalement) | Au plus deux ans ; supprimés sur demande avec la référence |
 | Résultats de l'analyse automatique (identifiant de conversation, verdict, score, une courte empreinte de la ligne de la boîte de réception) | Votre navigateur | Les 500 derniers e-mails ; effacés avec l'historique |
 | Réglages | Votre navigateur | Jusqu'à leur modification |
 | Verdicts des liens (URL, verdict, source) | Cache du serveur (SQLite) | 24 heures |
@@ -138,7 +143,7 @@ navigateur.
 | Accès à `mail.google.com` | Ajouter les boutons d'analyse et les bannières à Gmail et lire l'e-mail que vous analysez. |
 | Accès à Outlook sur le web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | La même chose, dans Outlook (analyses manuelles seulement). |
 | Accès à `phishlens.dev` | Envoyer les analyses à PhishLens Cloud, le serveur par défaut. |
-| Facultatif : `127.0.0.1`, `localhost` ou l'adresse de votre propre serveur | Demandé seulement quand vous choisissez un serveur local ou personnalisé dans les réglages, pour cette seule adresse. |
+| Facultatif : `127.0.0.1`, `localhost` ou l'adresse de votre propre serveur | Demandé seulement quand vous choisissez un serveur local ou personnalisé dans les réglages, pour ce seul hôte, quel que soit le port. |
 
 ## Vos choix
 

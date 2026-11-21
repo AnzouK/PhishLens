@@ -122,6 +122,27 @@ class TestCache:
         monkeypatch.setattr(rep, "CACHE_TTL_SEC", -1)
         assert c._get_sync("http://old.tld") is None
 
+    def test_writes_purge_expired_rows_at_most_hourly(self, tmp_path, monkeypatch):
+        now = [1_000_000.0]
+        monkeypatch.setattr(rep.time, "time", lambda: now[0])
+        monkeypatch.setattr(rep, "CACHE_TTL_SEC", 24 * 3600)
+        c = rep.Cache(str(tmp_path / "c.db"))
+        c._put_sync("http://old.tld", {"score": 0.0})
+        now[0] += 24 * 3600 + 10
+        c._put_sync("http://new.tld", {"score": 0.0})
+        assert c.stats()["cache_entries"] == 1  # the old row went with this write
+        c._put_sync("http://b.tld", {"score": 0.0})
+        now[0] += 24 * 3600 + 10
+        c._put_sync("http://c.tld", {"score": 0.0})
+        assert c.stats()["cache_entries"] == 1  # an hour passed: purged again
+        now[0] += 24 * 3600 - 600
+        c._put_sync("http://d.tld", {"score": 0.0})
+        now[0] += 700
+        c._put_sync("http://e.tld", {"score": 0.0})
+        # c has just expired, but the last purge is 700 s old: it stays
+        # until the next hourly one, and reads never return it.
+        assert c.stats()["cache_entries"] == 3 and c._get_sync("http://c.tld") is None
+
     def test_self_heals_if_table_dropped(self, tmp_path):
         import sqlite3
 

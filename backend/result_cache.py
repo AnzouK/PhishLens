@@ -11,7 +11,8 @@ between two clicks, and saves Google Safe Browsing quota.
   cached for 24 hours by the reputation module).
 - Memory only: a restart or a redeploy empties it.
 - Entries expire after ``RESULT_CACHE_TTL`` seconds (default 86400, 24 h;
-  0 turns the cache off) and the oldest go first past
+  0 turns the cache off), are dropped at the next write once expired, and
+  the oldest go first past
   ``RESULT_CACHE_MAX`` entries (default 2000).
 """
 
@@ -76,8 +77,13 @@ class ResultCache:
         if not self.enabled:
             return
         keep = self.ttl if ttl is None else min(self.ttl, ttl)
+        now = time.monotonic()
         with self._lock:
-            self._data[key] = (time.monotonic() + keep, copy.deepcopy(value))
+            # Expired entries go on every write, not only when read again:
+            # a result is never kept past its TTL.
+            for k in [k for k, (expires, _v) in self._data.items() if expires < now]:
+                del self._data[k]
+            self._data[key] = (now + keep, copy.deepcopy(value))
             self._data.move_to_end(key)
             while len(self._data) > self.max_entries:
                 self._data.popitem(last=False)

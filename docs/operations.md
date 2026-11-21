@@ -14,10 +14,11 @@ behind a reverse proxy; adapt names and paths.
 | Backend | Cloud Run service `phishlens-backend`, region `europe-west1` (Belgium), running `ghcr.io/anzouk/phishlens-backend:latest` pulled straight from ghcr.io (the image is public, so no registry in between) |
 | Resources | 2 vCPU, 4 GiB of memory, startup CPU boost, second generation execution environment; 0 to 1 instance, 8 requests at a time per instance, 120 s request timeout |
 | Settings | Environment variables of the service (below) |
-| Secrets | Secret Manager: `gsb-api-key` (`GSB_API_KEY`), `hf-token` (`HF_TOKEN`), `feedback-notify-url` (`FEEDBACK_NOTIFY_URL`) |
-| Identity | A dedicated service account that can read only those three secrets and write only to the reports bucket |
-| Reports | `FEEDBACK_DIR=/feedback`, a private Cloud Storage bucket (`us-central1`, Standard class) mounted as a volume |
-| Warm-up | A Cloud Scheduler job calls `/health` every 10 minutes |
+| Secrets | Secret Manager: `gsb-api-key` (`GSB_API_KEY`), `hf-token` (`HF_TOKEN`), `feedback-notify-url` (`FEEDBACK_NOTIFY_URL`), `proxy-secret` (`PROXY_SECRET`) |
+| Proxy guard | The same `proxy-secret` value is the Pages secret `PROXY_SECRET`: the function sends it in `X-PhishLens-Proxy` and the backend answers 403 to any request without it, so the Cloud Run address itself (`*.run.app`) answers nothing useful |
+| Identity | A dedicated service account that can read only those four secrets and write only to the reports bucket |
+| Reports | `FEEDBACK_DIR=/feedback`, a private Cloud Storage bucket (`us-central1`, Standard class) mounted as a volume (Cloud Storage FUSE) |
+| Warm-up | A Cloud Scheduler job calls `https://phishlens.dev/health` every 10 minutes (through the function: the run.app address answers 403) |
 | Cost | A monthly spending cap on Cloud Run and a budget alert at 1 USD |
 
 The service sets these environment variables besides the secrets:
@@ -32,8 +33,18 @@ FORWARDED_ALLOW_IPS=*                # Cloud Run's front end is the proxy
 
 The function replaces any `X-Forwarded-For` sent by the client with the
 address Cloudflare saw, so the per-address rate limits see the real
-client. The extension and the website only ever call
+client. It never forwards `Cookie`, `Authorization` or a client-sent
+`X-PhishLens-Proxy`, answers 405 to methods other than GET, HEAD, POST
+and OPTIONS, and adds the security headers of `site/_headers` (which
+Pages does not apply to a function's responses) to every answer. The
+backend address is in the function; the Pages variable `BACKEND_ORIGIN`
+overrides it. The extension and the website only ever call
 `https://phishlens.dev`.
+
+To change the proxy secret, add a new version of `proxy-secret`, put the
+same value in Pages (`npx wrangler pages secret put PROXY_SECRET`), then
+deploy a new Cloud Run revision: until both sides match, phishlens.dev
+answers 403.
 
 At most one instance runs, so the rate limits, the Safe Browsing quota
 counter and the result cache, all kept in memory, stay exact; they start
@@ -154,6 +165,7 @@ training mail is. The extension warns about it.
 | `METADATA_MODEL_ENABLED` | `0` | The trained header model; off because it flags most modern legitimate headers |
 | `AGENTS_ALLOW_PICKLE` | `0` | `1` also loads pickle (joblib) agents, which run code when loaded; only for an old local copy never converted to skops |
 | `RATE_LIMIT_ANALYSE` | `30/minute` | Per IP; also `RATE_LIMIT_ATTACHMENT`, `RATE_LIMIT_EXPLAIN`, `RATE_LIMIT_FEEDBACK` |
+| `RATE_LIMIT_DEFAULT` | `60/minute` | Per IP, for the routes without a limit of their own (`/`, `/reputation/stats`); `/health` is never limited |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Read by uvicorn: the reverse proxy's address, whose `X-Forwarded-For` gives the client's. If the access log (`docker logs phishlens`) shows one private address for every request (the proxy's), set it to that address's Docker network (`172.18.0.0/16`: the container's address can change at restart), or the rate limits apply to all users together |
 | `PROXY_SECRET` | empty | Shared with the reverse proxy (the phishlens.dev Pages Function); when set, a request without the header `X-PhishLens-Proxy` carrying it gets 403, `/health` included, so the host's own address cannot be called directly with a forged `X-Forwarded-For`. Leave it empty on a self-hosted server |
 | `RESULT_CACHE_TTL` / `RESULT_CACHE_MAX` | `86400` / `2000` | Results kept in memory by request hash; `0` turns it off |
@@ -187,14 +199,24 @@ Cloud); email content is never logged.
 
 ## Reports from users
 
-With `FEEDBACK_DIR=/data/feedback`, reports are appended to
-`feedback-YYYY-MM.jsonl`. They are private: back them up encrypted,
-never commit them. To delete one on request:
+With `FEEDBACK_DIR=/data/feedback`, each report is its own file,
+`YYYY-MM/<reference>.json`, created once and never rewritten. They are private: back them up encrypted, never commit them. To
+delete one on request:
 `python3 scripts/delete_report.py --dir <folder> <reference>`.
 
 On PhishLens Cloud the folder is the Cloud Storage bucket mounted at
-`/feedback`: copy the month's file with `gcloud storage cp`, delete the
-report in the local copy with the same script, and copy the file back.
+`/feedback`; delete a report by removing its object, which no report
+received meanwhile can touch:
+
+```bash
+gcloud storage rm "gs://<bucket>/*/<reference>.json"
+```
+
+Reports received by older servers are lines of the monthly files
+`feedback-YYYY-MM.jsonl`, which are still read and never written. To
+delete one of those (legacy procedure): copy the month's file with
+`gcloud storage cp`, delete the report in the local copy with the same
+script, and copy the file back.
 
 ## Load test
 

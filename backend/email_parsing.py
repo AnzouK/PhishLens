@@ -282,7 +282,10 @@ _STYLE_OPEN_RE = re.compile(r"<style\b", re.IGNORECASE)
 
 def _without_long_comments(src: str) -> str:
     """Long comments out; "<!--" inside a <style> sheet is not a comment
-    for the browser (its rules apply) and stays, sheet and all."""
+    for the browser (its rules apply) and stays, sheet and all. Sheets are
+    found in document order, each one from where the previous one (or the
+    previous comment) ended: a sheet that closed before a comment says
+    nothing about it, and a "<style" inside a comment opens nothing."""
     out, pos = [], 0
     lower = src.lower()
     while True:
@@ -293,10 +296,11 @@ def _without_long_comments(src: str) -> str:
         if style:
             close = lower.find("</style", style.end())
             close = len(src) if close < 0 else close
-            if close > start:
-                out.append(src[pos:close])
-                pos = close
-                continue
+            # Inside this sheet or not, nothing before its end is a
+            # comment to remove; the next sheet is looked for after it.
+            out.append(src[pos:close])
+            pos = close
+            continue
         end = src.find("-->", start + 4)
         end = len(src) if end < 0 else end + 3
         if end - start > 500:
@@ -474,6 +478,10 @@ _TOPMOST_WINS = frozenset(
 # MAX_HEADER_CHARS once its spaces are collapsed. Same name as
 # auth_headers.FROM_UNPROVEN (not imported: no cycle).
 FROM_UNPROVEN = "x-phishlens-from-unproven"
+# Set by the backend when the text it scores is shorter than the message
+# and only the part left out holds a forward marker. Like FROM_UNPROVEN,
+# never taken from the message itself.
+FORWARDED_ELSEWHERE = "x-phishlens-forwarded"
 # Every header value is kept with its runs of spaces collapsed, cut here:
 # 2,000 spaces in a From: used to push the real address past what the
 # checks read.
@@ -496,7 +504,7 @@ def header_dict(items) -> dict[str, str]:
     headers: dict[str, str] = {}
     for k, v in items:
         key = k.lower()
-        if key == FROM_UNPROVEN:
+        if key in (FROM_UNPROVEN, FORWARDED_ELSEWHERE):
             continue
         if key in _TOPMOST_WINS and key in headers:
             if key == "from":
@@ -596,7 +604,10 @@ _FORWARD_MARKERS = re.compile(
     r"|d[ée]but du message (?:r[ée]exp[ée]di[ée]|transf[ée]r[ée])\s*:)",
     re.IGNORECASE | re.MULTILINE,
 )
-_FORWARD_SUBJECT = re.compile(r"^\s*(?:fwd?|tr|wg|rv|enc)\s*:", re.IGNORECASE)
+# Fwd:, TR:, WG:... possibly after reply prefixes ("Re: Fwd:", "AW: WG:").
+_FORWARD_SUBJECT = re.compile(
+    r"^\s*(?:(?:re|res|aw|sv|antw|r)\s*:\s*){0,10}(?:fwd?|tr|wg|rv|enc)\s*:", re.IGNORECASE
+)
 _FORWARD_FROM_KEYS = ("from", "de", "von")
 
 

@@ -141,7 +141,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>Les signalements vont à PhishLens Cloud, quel que soit le serveur que vous utilisez pour les analyses. Le serveur anonymise le texte une seconde fois avec les mêmes règles, enregistre le signalement sans votre adresse IP ni aucune autre donnée de la requête (les journaux des requêtes décrits plus bas enregistrent toutefois la requête pendant 30 jours), et renvoie une référence. Les signalements servent uniquement à mesurer et à améliorer PhishLens (par exemple à entraîner le modèle de texte sur des e-mails légitimes qu'il a mal jugés) ; ils ne sont jamais publiés ni partagés. Ils sont conservés au plus deux ans. Pour faire supprimer un signalement, écrivez à <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> en indiquant sa référence, ou ouvrez un ticket sur <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (la référence seule ne révèle rien du signalement).</p>
+<p>Les signalements vont à PhishLens Cloud, quel que soit le serveur que vous utilisez pour les analyses. Le serveur anonymise le texte une seconde fois avec les mêmes règles, enregistre le signalement sans votre adresse IP ni aucune autre donnée de la requête (les journaux des requêtes décrits plus bas enregistrent toutefois la requête pendant 30 jours), et renvoie une référence. Un court avis de chaque nouveau signalement est envoyé au responsable par un service de notifications (ntfy) : son type, le verdict signalé, la langue, où l'e-mail a été analysé et sa référence (pour des statistiques, le nombre d'analyses), jamais le contenu de l'e-mail. Les signalements servent uniquement à mesurer et à améliorer PhishLens (par exemple à entraîner le modèle de texte sur des e-mails légitimes qu'il a mal jugés) ; ils ne sont jamais publiés ni partagés. Ils sont conservés au plus deux ans. Pour faire supprimer un signalement, écrivez à <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> en indiquant sa référence, ou ouvrez un ticket sur <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (la référence seule ne révèle rien du signalement).</p>
 <p>Pour permettre un signalement depuis la vue Statistiques, le texte anonymisé de vos dernières analyses Gmail et Outlook est conservé dans votre navigateur pendant 7 jours (50 e-mails au plus). Il ne quitte jamais le navigateur, sauf si vous signalez cette analyse.</p>
 <h2 id="ce-qui-est-conservé-et-combien-de-temps">Ce qui est conservé, et combien de temps</h2>
 <div class="table-wrap"><table>
@@ -170,7 +170,7 @@
 </tr>
 <tr class="even">
 <td>Signalements que vous avez envoyés (texte anonymisé ou statistiques, voir plus haut)</td>
-<td>PhishLens Cloud (Google Cloud Storage, États-Unis)</td>
+<td>PhishLens Cloud (Google Cloud Storage, États-Unis ; un fichier par signalement)</td>
 <td>Au plus deux ans ; supprimés sur demande avec la référence</td>
 </tr>
 <tr class="odd">
@@ -243,7 +243,7 @@
 </tr>
 <tr class="odd">
 <td>Facultatif : <code>127.0.0.1</code>, <code>localhost</code> ou l'adresse de votre propre serveur</td>
-<td>Demandé seulement quand vous choisissez un serveur local ou personnalisé dans les réglages, pour cette seule adresse.</td>
+<td>Demandé seulement quand vous choisissez un serveur local ou personnalisé dans les réglages, pour ce seul hôte, quel que soit le port.</td>
 </tr>
 </tbody>
 </table></div>

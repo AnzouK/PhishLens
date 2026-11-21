@@ -2688,3 +2688,17 @@ def test_the_text_model_keeps_the_higher_of_both_readings(monkeypatch):
     )
     tm.text_agent("plain text")
     assert calls == [True]
+
+
+def test_a_comment_in_a_second_style_sheet_stays():
+    comment = "<!--" + "a" * 600 + "-->"
+    two = f"<style>p{{color:red}}</style><p>hi</p><style>{comment} .x{{display:none}}</style>"
+    assert comment in ep.without_inline_data(two)
+    # A long comment after the sheets is still removed, its links kept.
+    after = two + '<!--[if mso]><a href="https://evil.example/x">' + "b" * 600 + "<![endif]-->"
+    out = ep.without_inline_data(after)
+    assert comment in out and "b" * 600 not in out
+    assert '<a href="https://evil.example/x"></a>' in out
+    # "<style" inside a long comment opens no sheet.
+    tricky = "<!--<style>" + "c" * 600 + "--><p>x</p>" + comment
+    assert ep.without_inline_data(tricky) == "<p>x</p>"

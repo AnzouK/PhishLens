@@ -141,7 +141,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>Los avisos van a PhishLens Cloud, sea cual sea el servidor que use para los análisis. El servidor anonimiza el texto por segunda vez con las mismas reglas, guarda el aviso sin su dirección IP ni otros datos de la solicitud (los registros de solicitudes descritos más abajo siguen registrando la solicitud durante 30 días) y devuelve una referencia. Los avisos solo sirven para medir y mejorar PhishLens (por ejemplo, para entrenar el modelo de texto con correos legítimos que juzgó mal); nunca se publican ni se comparten. Se conservan como máximo dos años. Para que se borre un aviso, escriba a <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> con su referencia, o abra una incidencia en <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (la referencia por sí sola no revela nada del aviso).</p>
+<p>Los avisos van a PhishLens Cloud, sea cual sea el servidor que use para los análisis. El servidor anonimiza el texto por segunda vez con las mismas reglas, guarda el aviso sin su dirección IP ni otros datos de la solicitud (los registros de solicitudes descritos más abajo siguen registrando la solicitud durante 30 días) y devuelve una referencia. Cada nuevo aviso genera una breve notificación al responsable mediante un servicio de notificaciones (ntfy): el tipo, el veredicto indicado, el idioma, dónde se analizó el correo y la referencia (para estadísticas, el número de análisis), nunca el contenido del correo. Los avisos solo sirven para medir y mejorar PhishLens (por ejemplo, para entrenar el modelo de texto con correos legítimos que juzgó mal); nunca se publican ni se comparten. Se conservan como máximo dos años. Para que se borre un aviso, escriba a <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> con su referencia, o abra una incidencia en <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (la referencia por sí sola no revela nada del aviso).</p>
 <p>Para poder avisar desde la vista Estadísticas, el texto anonimizado de sus últimos análisis de Gmail y Outlook se guarda en su navegador durante 7 días (50 correos como máximo). Nunca sale del navegador, salvo que avise de ese análisis.</p>
 <h2 id="qué-se-conserva-y-durante-cuánto-tiempo">Qué se conserva y durante cuánto tiempo</h2>
 <div class="table-wrap"><table>
@@ -170,7 +170,7 @@
 </tr>
 <tr class="even">
 <td>Avisos que envió (texto anonimizado o estadísticas, ver arriba)</td>
-<td>PhishLens Cloud (Google Cloud Storage, Estados Unidos)</td>
+<td>PhishLens Cloud (Google Cloud Storage, Estados Unidos; un archivo por aviso)</td>
 <td>Dos años como máximo; se borran a petición con la referencia</td>
 </tr>
 <tr class="odd">
@@ -243,7 +243,7 @@
 </tr>
 <tr class="odd">
 <td>Opcional: <code>127.0.0.1</code>, <code>localhost</code> o la dirección de su propio servidor</td>
-<td>Solo se pide cuando elige un servidor local o personalizado en los ajustes, y solo para esa dirección.</td>
+<td>Solo se pide cuando elige un servidor local o personalizado en los ajustes, y solo para ese servidor, en cualquier puerto.</td>
 </tr>
 </tbody>
 </table></div>

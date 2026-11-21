@@ -53,6 +53,7 @@ import fusion
 import structured_agents
 import text_model
 from email_parsing import (
+    FORWARDED_ELSEWHERE,
     FROM_UNPROVEN,
     Ranked,
     client_links,
@@ -87,6 +88,7 @@ from settings import (
     MAX_BODY_BYTES,
     MAX_EMAIL_B64_CHARS,
     MAX_LINK_URLS,
+    MAX_PAGE_TEXT_CHARS,
     MAX_TEXT_CHARS,
     METADATA_MODEL_ENABLED,
     METRICS_ENABLED,
@@ -163,49 +165,14 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="PhishLens API", version=VERSION, lifespan=lifespan)
 
-# Extensions call from chrome-extension://<id>; the public backend accepts
-# any origin (no cookies are used). Self-hosted servers can restrict it.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ALLOW_ORIGINS,
-    allow_credentials=False,
-    allow_methods=["POST", "GET", "OPTIONS"],
-    allow_headers=["*"],
-)
-
-
-@app.middleware("http")
-async def _limit_body_size(request: Request, call_next):
-    """Refuse a body above MAX_BODY_BYTES before reading it. A body sent
-    without a length (chunked) is refused too: its size could only be
-    known by reading it. Browsers and the extension always send one."""
-    length = request.headers.get("content-length")
-    if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
-        return JSONResponse({"detail": "Request too large."}, status_code=413)
-    if request.method in ("POST", "PUT", "PATCH") and not length:
-        return JSONResponse({"detail": "Content-Length required."}, status_code=411)
-    return await call_next(request)
-
-
-# Added last, so it runs first: a request that did not come through the
-# proxy is refused before the size check and any route.
-@app.middleware("http")
-async def _require_proxy_secret(request: Request, call_next):
-    """With PROXY_SECRET set, only requests carrying it in the
-    X-PhishLens-Proxy header are served (constant-time comparison).
-    Neither the expected nor the received value is ever logged."""
-    if PROXY_SECRET:
-        sent = request.headers.get("x-phishlens-proxy", "")
-        if not hmac.compare_digest(sent.encode(), PROXY_SECRET.encode()):
-            return JSONResponse({"detail": "Forbidden."}, status_code=403)
-    return await call_next(request)
-
-
-# Rate limiting per client IP on the expensive endpoints (slowapi,
-# in memory; SLOWAPI_STORAGE_URI=redis://... when scaling out).
+# Rate limiting per client IP (slowapi, in memory; SLOWAPI_STORAGE_URI=
+# redis://... when scaling out): the expensive endpoints have their own
+# limit, every other route RATE_LIMIT_DEFAULT through the middleware
+# below, except /health (keep-warm calls and uptime monitors).
 try:
     from slowapi import Limiter, _rate_limit_exceeded_handler
     from slowapi.errors import RateLimitExceeded
+    from slowapi.middleware import SlowAPIMiddleware
     from slowapi.util import get_remote_address
 
     _limiter = Limiter(
@@ -224,6 +191,55 @@ except Exception as _e:
 
 def _rate_limited(limit: str):
     return _limiter.limit(limit) if _RATE_LIMIT_OK else (lambda f: f)
+
+
+def _not_rate_limited(f):
+    return _limiter.exempt(f) if _RATE_LIMIT_OK else f
+
+
+@app.middleware("http")
+async def _limit_body_size(request: Request, call_next):
+    """Refuse a body above MAX_BODY_BYTES before reading it. A body sent
+    without a length (chunked) is refused too: its size could only be
+    known by reading it. Browsers and the extension always send one."""
+    length = request.headers.get("content-length")
+    if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
+        return JSONResponse({"detail": "Request too large."}, status_code=413)
+    if request.method in ("POST", "PUT", "PATCH") and not length:
+        return JSONResponse({"detail": "Content-Length required."}, status_code=411)
+    return await call_next(request)
+
+
+# Middleware added later runs earlier. From the outside in: the proxy
+# secret, CORS, the default rate limit, the body size check. CORS wraps
+# the size check and the rate limit so a browser can read their 411, 413
+# and 429 answers.
+if _RATE_LIMIT_OK:
+    app.add_middleware(SlowAPIMiddleware)
+
+# Extensions call from chrome-extension://<id>; the public backend accepts
+# any origin (no cookies are used). Self-hosted servers can restrict it.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ALLOW_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["POST", "GET", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+
+# Added last, so it runs first: a request that did not come through the
+# proxy is refused before CORS, the size check and any route.
+@app.middleware("http")
+async def _require_proxy_secret(request: Request, call_next):
+    """With PROXY_SECRET set, only requests carrying it in the
+    X-PhishLens-Proxy header are served (constant-time comparison).
+    Neither the expected nor the received value is ever logged."""
+    if PROXY_SECRET:
+        sent = request.headers.get("x-phishlens-proxy", "")
+        if not hmac.compare_digest(sent.encode(), PROXY_SECRET.encode()):
+            return JSONResponse({"detail": "Forbidden."}, status_code=403)
+    return await call_next(request)
 
 
 # Prometheus metrics: standard HTTP metrics plus the verdicts per endpoint
@@ -341,11 +357,13 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     """
     ctx = req.client_context or {}
     if req.raw_text and not req.raw_email_b64:
-        body = req.raw_text.strip()
-        if looks_like_source(body):
-            body = strip_markup_noise(body)
+        full = req.raw_text.strip()
+        if looks_like_source(full):
+            full = strip_markup_noise(full)
+        body = full[:MAX_PAGE_TEXT_CHARS]
         urls = rank_links(*_client_link_groups(ctx), urls_in_text(body))
         headers: dict[str, str] = {}
+        _keep_forward_marker(full, body, headers)
         if req.sender_email:
             headers["from"] = _from_value(req.sender_email, req.sender_name)
         synth = synthesize_auth_results(ctx, req.sender_email)
@@ -391,7 +409,12 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     page = (req.raw_text or "").strip()
     if page and not is_page_source(page):
         page = strip_markup_noise(page) if looks_like_source(page) else page
+        page = page[:MAX_PAGE_TEXT_CHARS]
         if len(page.split()) >= MIN_TEXT_WORDS:
+            # The page text can be shorter than the message (the client
+            # sends at most MAX_PAGE_TEXT_CHARS): a forward marker further
+            # down the message still counts.
+            _keep_forward_marker(body, page, headers)
             body = page
             text_urls = urls_in_text(body)
     # Visible links of the page, then those of the message (its own
@@ -404,6 +427,16 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     # Without invisible characters, as the reader sees it: for the text
     # model, the forward and language checks alike.
     return collapse_invisible(body), urls, headers, raw_bytes
+
+
+def _keep_forward_marker(full: str, used: str, headers: dict[str, str]) -> None:
+    """Record in headers a forward marker that only the text left out
+    holds (detect_forwarded on the scored text alone would miss it)."""
+    if detect_forwarded(used)["detected"]:
+        return
+    found = detect_forwarded(full)
+    if found["detected"]:
+        headers[FORWARDED_ELSEWHERE] = found["original_sender"] or "1"
 
 
 def _model_text(body: str, headers: dict[str, str], ctx: dict[str, Any]) -> str:
@@ -456,6 +489,7 @@ def root():
 
 # HEAD too: uptime monitors (UptimeRobot's free plan) probe with HEAD.
 @app.api_route("/health", methods=["GET", "HEAD"])
+@_not_rate_limited
 def health():
     """Liveness, version, and which agents run a trained model."""
     return {
@@ -681,6 +715,9 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
 
     subject = headers.get("subject") or ctx.get("subject")
     forwarded = detect_forwarded(body, subject if isinstance(subject, str) else None)
+    hint = headers.get(FORWARDED_ELSEWHERE)
+    if hint and not forwarded["detected"]:
+        forwarded = {"detected": True, "original_sender": hint if "@" in hint else None}
     # A brand's name over another domain's address: authentication only
     # proves who the impostor is, so no softer path. Checked on forwards
     # too: a "TR:" in the subject must not hide it.

@@ -141,7 +141,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>Meldingen gaan naar PhishLens Cloud, welke server u ook voor de controles gebruikt. De server anonimiseert de tekst een tweede keer met dezelfde regels, bewaart de melding zonder uw IP-adres of andere verzoekgegevens (de hieronder beschreven verzoeklogs leggen het verzoek wel 30 dagen vast) en geeft een referentie terug. Meldingen dienen alleen om PhishLens te meten en te verbeteren (bijvoorbeeld om het tekstmodel te trainen op legitieme e-mails die het verkeerd beoordeelde); ze worden nooit gepubliceerd of gedeeld. Ze worden hooguit twee jaar bewaard. Om een melding te laten verwijderen, schrijft u naar <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> met de referentie, of opent u een issue op <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (de referentie alleen zegt niets over de melding).</p>
+<p>Meldingen gaan naar PhishLens Cloud, welke server u ook voor de controles gebruikt. De server anonimiseert de tekst een tweede keer met dezelfde regels, bewaart de melding zonder uw IP-adres of andere verzoekgegevens (de hieronder beschreven verzoeklogs leggen het verzoek wel 30 dagen vast) en geeft een referentie terug. Bij elke nieuwe melding krijgt de beheerder een korte notificatie via een pushdienst (ntfy): het soort melding, het gemelde oordeel, de taal, waar de e-mail werd gecontroleerd en de referentie (bij statistieken het aantal controles), nooit de inhoud van de e-mail. Meldingen dienen alleen om PhishLens te meten en te verbeteren (bijvoorbeeld om het tekstmodel te trainen op legitieme e-mails die het verkeerd beoordeelde); ze worden nooit gepubliceerd of gedeeld. Ze worden hooguit twee jaar bewaard. Om een melding te laten verwijderen, schrijft u naar <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> met de referentie, of opent u een issue op <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (de referentie alleen zegt niets over de melding).</p>
 <p>Om melden vanuit de weergave Statistieken mogelijk te maken, blijft de geanonimiseerde tekst van uw laatste Gmail- en Outlook-controles 7 dagen in uw browser (hooguit 50 e-mails). Die verlaat de browser nooit, tenzij u die controle meldt.</p>
 <h2 id="wat-bewaard-wordt-en-hoe-lang">Wat bewaard wordt, en hoe lang</h2>
 <div class="table-wrap"><table>
@@ -170,7 +170,7 @@
 </tr>
 <tr class="even">
 <td>Meldingen die u hebt verstuurd (geanonimiseerde tekst of statistieken, zie hierboven)</td>
-<td>PhishLens Cloud (Google Cloud Storage, Verenigde Staten)</td>
+<td>PhishLens Cloud (Google Cloud Storage, Verenigde Staten; één bestand per melding)</td>
 <td>Hooguit twee jaar; op verzoek verwijderd met de referentie</td>
 </tr>
 <tr class="odd">
@@ -243,7 +243,7 @@
 </tr>
 <tr class="odd">
 <td>Optioneel: <code>127.0.0.1</code>, <code>localhost</code> of het adres van uw eigen server</td>
-<td>Alleen gevraagd als u in de instellingen een lokale of eigen server kiest, en alleen voor dat adres.</td>
+<td>Alleen gevraagd als u in de instellingen een lokale of eigen server kiest, en alleen voor die host, op elke poort.</td>
 </tr>
 </tbody>
 </table></div>
