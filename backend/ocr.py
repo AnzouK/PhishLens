@@ -1,15 +1,14 @@
 """
 PhishLens: OCR and QR code decoding for attachments.
-=====================================================================
 Two evasion tricks this module closes:
 
 * **Image-only content.** A phishing PDF that is just a scanned picture
   of a fake invoice, or a PNG of a login page, has no extractable text,
-  so the text agent used to be skipped entirely. We render the pages and
-  run Tesseract OCR on them.
+  so the text agent has nothing to read. The pages are rendered and run
+  through Tesseract OCR.
 * **QR codes ("quishing").** The link is drawn as a QR code so that
-  neither the text nor the link annotations contain it. We decode QR
-  codes with OpenCV and feed the URLs to the reputation cascade.
+  neither the text nor the link annotations contain it. QR codes are
+  decoded with OpenCV and the URLs go to the reputation cascade.
 
 Every dependency is optional. If Tesseract, OpenCV or pypdfium2 is
 missing, the matching step is skipped and ``capabilities()`` says so;
@@ -53,9 +52,7 @@ SCRIPT_LANGS = {
 }
 IMAGE_MAX_PIXELS = 40_000_000  # about 6300 x 6300; beyond that it is a bomb, not a scan
 
-# ---------------------------------------------------------------------
 # Optional dependencies
-# ---------------------------------------------------------------------
 try:
     from PIL import Image  # type: ignore
 
@@ -105,9 +102,7 @@ def capabilities() -> dict[str, bool]:
     }
 
 
-# ---------------------------------------------------------------------
 # Images
-# ---------------------------------------------------------------------
 def _downscale(img: Image.Image) -> Image.Image:
     w, h = img.size
     longest = max(w, h)
@@ -228,7 +223,6 @@ def decode_qr(img: Image.Image) -> list[str]:
             single, _points, _ = detector.detectAndDecode(arr)
             if single:
                 payloads.append(single)
-        # de-duplicate, keep order
         return list(dict.fromkeys(payloads))
     except Exception as e:
         logger.warning(f"QR decoding failed: {e}")
@@ -244,9 +238,7 @@ def qr_urls(payloads: list[str]) -> list[str]:
     return urls
 
 
-# ---------------------------------------------------------------------
 # PDF pages
-# ---------------------------------------------------------------------
 def render_pdf_pages(raw: bytes, max_pages: int = OCR_MAX_PAGES) -> list[Image.Image]:
     """Render the first ``max_pages`` pages of a PDF to Pillow images.
 

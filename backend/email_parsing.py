@@ -24,8 +24,8 @@ from link_alignment import browser_path, browser_url, link_host
 from settings import MAX_EMAIL_URLS, MAX_LINK_URLS
 from unicode_text import without_invisible
 
-# An email that is only an address is still an email to read, not a
-# mistake to warn about (each warning went to the server log).
+# A body that is only an address is still an email to read. Without this,
+# BeautifulSoup logs a warning for each one.
 warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
 # http(s) URL written out in a text, in any case, or starting with
@@ -91,8 +91,9 @@ def html_link_groups(html_src: str) -> tuple[list[str], list[str]]:
     maps = shown_maps(soup, hidden_ids)
     visible, hidden, unknown = [], [], []
     shown, checked = set(), 0
-    # Every link is looked at; at most 20,000 get the visibility check (a
-    # cap on links once let 20,000 copies of a decoy hide the one after).
+    # Every link is looked at, and at most 20,000 get the visibility check.
+    # Capping the links themselves would let copies of a decoy hide the
+    # real one behind them.
     for tag in soup.find_all(["a", "area"]):
         # SVG links use xlink:href.
         href = tag.get("href") or tag.get("xlink:href")
@@ -482,9 +483,8 @@ FROM_UNPROVEN = "x-phishlens-from-unproven"
 # and only the part left out holds a forward marker. Like FROM_UNPROVEN,
 # never taken from the message itself.
 FORWARDED_ELSEWHERE = "x-phishlens-forwarded"
-# Every header value is kept with its runs of spaces collapsed, cut here:
-# 2,000 spaces in a From: used to push the real address past what the
-# checks read.
+# Header values are cut here after runs of spaces are collapsed, so
+# padding cannot push the real address past what the checks read.
 MAX_HEADER_CHARS = 8000
 _MAX_RAW_HEADER = 1_000_000
 
@@ -593,10 +593,8 @@ def _decoded_header(value: str, address: bool = False) -> str:
     return _ENCODED_RUN_RE.sub(run, value)
 
 
-# ---------------------------------------------------------------------
 # Forwarded emails. The From: of a forward is the person who forwarded it,
 # not the author of the content, so sender trust must not cover it.
-# ---------------------------------------------------------------------
 _FORWARD_MARKERS = re.compile(
     r"^[ \t]*(?:-{2,}[ \t]*(?:forwarded message|original message|message transf[ée]r[ée]|"
     r"message d'origine|mensaje reenviado|mensaje original)[ \t]*-{2,}"
@@ -642,12 +640,10 @@ def detect_forwarded(body: str, subject: str | None = None) -> dict[str, Any]:
     return {"detected": detected, "original_sender": original}
 
 
-# ---------------------------------------------------------------------
 # Links to file-sharing and form services. The domain is
 # legitimate (Google, Microsoft, Dropbox), so the URL agent and threat
 # intel rarely flag it, but the shared file or form is often the lure.
 # Informational: surfaced to the user, not added to the score.
-# ---------------------------------------------------------------------
 _SHARE_SERVICES = [
     (re.compile(r"(?:^|\.)docs\.google\.com$"), r"^/forms/", "Google Forms"),
     (re.compile(r"(?:^|\.)forms\.gle$"), None, "Google Forms"),

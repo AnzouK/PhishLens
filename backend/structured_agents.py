@@ -23,14 +23,6 @@ from link_alignment import link_host as _host
 from sender_trust import impersonated_brand, sender_domain
 from settings import AGENTS_ALLOW_PICKLE, HF_AGENTS_REPO, HF_AGENTS_REVISION
 
-try:
-    from auth_headers import org_domain
-except Exception:  # auth_headers missing: the host itself
-
-    def org_domain(d: str) -> str:
-        return (d or "").lower().strip(".")
-
-
 logger = logging.getLogger("phishlens.structured_agents")
 
 
@@ -200,9 +192,9 @@ def url_agent(urls: list[str], body_text: str = "") -> float:
             and not all(well_known_link(u) for u in visible)
         ):
             try:
-                # The links as read (lower-case scheme, "www." made a URL):
-                # the model's own pattern misses "HTTPS://" and "www.",
-                # and a harmless link was all it saw next to them.
+                # The links are passed as read (lower-case scheme, "www."
+                # made a URL). The model's own pattern misses "HTTPS://" and
+                # "www." and would see only the harmless links next to them.
                 feats = _FEATURE_EXTRACT.extract_url_features(" ".join(visible))
                 pred = _URL_AGENT.get_prediction_with_confidence(feats)
                 # The model adds to the rules, never removes from them:
@@ -250,12 +242,11 @@ def load() -> None:
     global _URL_AGENT, _METADATA_AGENT, _FEATURE_EXTRACT
     try:
         from feature_extraction import FeatureExtractor
-        from metadata_agent import MetadataAgent
-        from url_agent import URLAgent
+        from rf_agent import RandomForestAgent
 
         _FEATURE_EXTRACT = FeatureExtractor()
-        _URL_AGENT = _init_agent("url_agent", "URL_AGENT_PATH", URLAgent)
-        _METADATA_AGENT = _init_agent("metadata_agent", "METADATA_AGENT_PATH", MetadataAgent)
+        _URL_AGENT = _init_agent("url_agent", "URL_AGENT_PATH", RandomForestAgent)
+        _METADATA_AGENT = _init_agent("metadata_agent", "METADATA_AGENT_PATH", RandomForestAgent)
         if not _URL_AGENT and not _METADATA_AGENT:
             logger.info("No trained agents loaded: rule-based fallbacks only.")
     except Exception as e:

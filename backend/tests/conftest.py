@@ -22,12 +22,14 @@ from __future__ import annotations
 import contextlib
 import importlib
 import importlib.machinery
+import json
 import os
 import sys
 import types
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+SHARED_FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures"
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 
@@ -102,3 +104,8 @@ def import_extension_backend():
         for name, mod in mods.items():
             if sys.modules.get(name) is mod:
                 del sys.modules[name]
+
+
+def shared_cases(name: str):
+    """A JSON fixture shared with the extension's tests (tests/fixtures)."""
+    return json.loads((SHARED_FIXTURES / name).read_text())

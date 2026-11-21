@@ -31,8 +31,8 @@ max-complexity = 15
 known-first-party = [
     "agent_io", "archive_analysis", "attachment_analysis", "auth_headers",
     "email_parsing", "extension_backend", "feature_extraction", "fusion",
-    "metadata_agent", "ocr", "office_analysis", "reputation", "result_cache",
+    "ocr", "office_analysis", "reputation", "result_cache",
     "rf_agent", "sender_trust", "settings", "structured_agents", "text_model",
-    "trusted_domains", "url_agent", "language", "redaction", "feedback", "text_normalize", "known_domains",
+    "trusted_domains", "language", "redaction", "feedback", "text_normalize", "known_domains",
     "link_alignment", "convert_agents_to_skops", "hidden_content", "unicode_text",
 ]

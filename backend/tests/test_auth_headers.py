@@ -9,40 +9,35 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Let the tests find the module without an install step
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from auth_headers import _org_domain, parse_authentication_results
+from auth_headers import org_domain, parse_authentication_results
 
 
-# ---------------------------------------------------------------------
 # Organisational-domain reduction
-# ---------------------------------------------------------------------
 class TestOrgDomain:
     def test_two_labels_untouched(self):
-        assert _org_domain("paypal.com") == "paypal.com"
+        assert org_domain("paypal.com") == "paypal.com"
 
     def test_three_labels_stripped_to_two(self):
-        assert _org_domain("mail.paypal.com") == "paypal.com"
+        assert org_domain("mail.paypal.com") == "paypal.com"
 
     def test_deep_subdomain(self):
-        assert _org_domain("smtp.eu.mail.paypal.com") == "paypal.com"
+        assert org_domain("smtp.eu.mail.paypal.com") == "paypal.com"
 
     def test_two_part_tld_kept(self):
         # co.uk is a two-part TLD: keep 3 labels
-        assert _org_domain("bank.co.uk") == "bank.co.uk"
-        assert _org_domain("service.bank.co.uk") == "bank.co.uk"
+        assert org_domain("bank.co.uk") == "bank.co.uk"
+        assert org_domain("service.bank.co.uk") == "bank.co.uk"
 
     def test_empty(self):
-        assert _org_domain("") == ""
+        assert org_domain("") == ""
 
     def test_case_insensitive(self):
-        assert _org_domain("Mail.PayPal.COM") == "paypal.com"
+        assert org_domain("Mail.PayPal.COM") == "paypal.com"
 
 
-# ---------------------------------------------------------------------
 # Authentication-Results parsing
-# ---------------------------------------------------------------------
 class TestParseAuthResults:
     def test_no_header_present(self):
         v = parse_authentication_results({"from": "x@paypal.com"})
@@ -122,25 +117,25 @@ class TestParseAuthResults:
 
 
 class TestOrgDomainPublicSuffixes:
-    """v1.15.5: two organisations under the same public suffix never align."""
+    """Two organisations under the same public suffix never align."""
 
     def test_country_code_registries(self):
-        assert _org_domain("billing.paypal.co.uk") == "paypal.co.uk"
-        assert _org_domain("attacker.co.uk") != _org_domain("paypal.co.uk")
-        assert _org_domain("ib.firstbank.com.ng") == "firstbank.com.ng"
-        assert _org_domain("attacker.com.ng") != _org_domain("firstbank.com.ng")
-        assert _org_domain("portal.unilag.edu.ng") == "unilag.edu.ng"
-        assert _org_domain("mail.uct.ac.za") == "uct.ac.za"
+        assert org_domain("billing.paypal.co.uk") == "paypal.co.uk"
+        assert org_domain("attacker.co.uk") != org_domain("paypal.co.uk")
+        assert org_domain("ib.firstbank.com.ng") == "firstbank.com.ng"
+        assert org_domain("attacker.com.ng") != org_domain("firstbank.com.ng")
+        assert org_domain("portal.unilag.edu.ng") == "unilag.edu.ng"
+        assert org_domain("mail.uct.ac.za") == "uct.ac.za"
 
     def test_shared_hosting_suffixes(self):
-        assert _org_domain("victim.github.io") == "victim.github.io"
-        assert _org_domain("evil.github.io") != _org_domain("victim.github.io")
-        assert _org_domain("x.anzouk.duckdns.org") == "anzouk.duckdns.org"
+        assert org_domain("victim.github.io") == "victim.github.io"
+        assert org_domain("evil.github.io") != org_domain("victim.github.io")
+        assert org_domain("x.anzouk.duckdns.org") == "anzouk.duckdns.org"
 
     def test_suffix_alone_and_plain_domains(self):
-        assert _org_domain("co.uk") == "co.uk"
-        assert _org_domain("a.b.example.com") == "example.com"
-        assert _org_domain("example.ng") == "example.ng"
+        assert org_domain("co.uk") == "co.uk"
+        assert org_domain("a.b.example.com") == "example.com"
+        assert org_domain("example.ng") == "example.ng"
 
     def test_dkim_from_other_org_under_same_suffix_is_not_verified(self):
         v = parse_authentication_results(

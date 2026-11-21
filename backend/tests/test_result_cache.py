@@ -1,4 +1,4 @@
-"""Unit tests for result_cache.py (v1.15.2)."""
+"""Unit tests for result_cache.py."""
 
 from __future__ import annotations
 
@@ -67,3 +67,12 @@ def test_expired_entries_go_on_write(monkeypatch):
     cache.set("newer", {"verdict": "safe"})
     assert cache.stats()["entries"] == 2
     assert cache.get("old") is None and cache.get("new") == {"verdict": "safe"}
+
+
+def test_a_shorter_ttl_wins(monkeypatch):
+    now = [1000.0]
+    monkeypatch.setattr(rc.time, "monotonic", lambda: now[0])
+    cache = rc.ResultCache(ttl=86400, max_entries=10)
+    cache.set("k", {"verdict": "safe"}, ttl=3600)
+    now[0] += 3601
+    assert cache.get("k") is None

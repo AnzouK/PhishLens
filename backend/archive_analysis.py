@@ -1,6 +1,5 @@
 """
 PhishLens: archive and calendar-invite attachments.
-=====================================================================
 Archives are the classic way to get a payload past mail scanners:
 
   - a password-protected ZIP cannot be opened by Gmail's scanner, so the
@@ -39,9 +38,7 @@ from typing import Any
 
 from unicode_text import without_invisible
 
-# ---------------------------------------------------------------------
 # Limits (zip-bomb and abuse protection)
-# ---------------------------------------------------------------------
 MAX_ENTRIES = 500  # entries listed
 MAX_INNER_FILES = 5  # supported inner files analysed
 MAX_INNER_BYTES = 5 * 1024 * 1024  # per inner file, uncompressed
@@ -652,9 +649,7 @@ def analyse_uninspectable_archive(raw: bytes, filename: str, fmt: str) -> dict[s
     }
 
 
-# ---------------------------------------------------------------------
 # Calendar invites (.ics)
-# ---------------------------------------------------------------------
 _HREF_RE = re.compile(r"""(?:href|src)\s*=\s*["']?([^"'\s>]{1,2048})""", re.IGNORECASE)
 
 

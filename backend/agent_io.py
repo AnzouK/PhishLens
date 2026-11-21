@@ -1,6 +1,5 @@
 """
 PhishLens: loading the Random Forest agents without pickle.
-=====================================================================
 The URL and metadata agents used to be published as joblib files.
 joblib is pickle underneath, and unpickling runs whatever code the file
 asks for: a tampered file on Hugging Face would mean code execution on
@@ -8,12 +7,12 @@ every backend that downloads it (threat model, risk R4).
 
 The skops format stores the same scikit-learn objects as data. Loading
 it never imports an arbitrary module: skops lists every type it would
-have to reconstruct, and we accept the file only if all of them come
+have to reconstruct, and the file is accepted only if all of them come
 from scikit-learn, NumPy, SciPy or the Python builtins. Anything else
 (os.system, subprocess, a custom class) is refused.
 
-``load_agent_state`` returns the dict the agents' ``load_model`` used to
-read from joblib: model, scaler, feature_names, is_trained, and the
+``load_skops_state`` returns the same dict that ``load_model`` reads from
+joblib: model, scaler, feature_names, is_trained, and the
 optional training_history / best_params.
 """
 
@@ -82,8 +81,8 @@ def dump_skops_state(state: dict[str, Any], path: str | Path) -> None:
 
 
 def apply_state(agent: Any, state: dict[str, Any]) -> Any:
-    """Fill a URLAgent / MetadataAgent instance, exactly like its own
-    load_model does after joblib.load."""
+    """Fill a RandomForestAgent, exactly like its load_model does after
+    joblib.load."""
     agent.model = state["model"]
     agent.scaler = state["scaler"]
     agent.feature_names = list(state["feature_names"])

@@ -260,7 +260,7 @@ test("text drawn in a transparent colour counts as hidden", () => {
     assert.equal(PL.isHidden(el), false);
 });
 
-// The same cases as backend/tests/test_bypasses.py: the server reads the
+// The same cases as backend/tests/test_bypass_html.py: the server reads the
 // inline style, the extension the computed one; both must agree.
 const HIDDEN_CASES = require(path.join(__dirname, "..", "fixtures", "hidden_cases.json")).cases;
 for (const c of HIDDEN_CASES) {
@@ -502,7 +502,7 @@ test("a name cut after many invisible marks keeps the brand", () => {
     assert.equal(PL.senderName("\ufe0f".repeat(300) + "PayPal"), "PayPal");
 });
 
-// The same cases as backend/tests/test_bypasses.py (unicode_text).
+// The same cases as backend/tests/test_bypass_text.py (unicode_text).
 const INVISIBLE_CASES = require(path.join(__dirname, "..", "fixtures", "invisible_cases.json")).cases;
 test("invisible characters are removed as on the server", () => {
     const entry = entryFor("mail.google.com");
@@ -510,7 +510,7 @@ test("invisible characters are removed as on the server", () => {
     for (const c of INVISIBLE_CASES) assert.equal(PL.withoutInvisible(c.text), c.clean, JSON.stringify(c.text));
 });
 
-// The same cases as backend/tests/test_bypasses.py (archive_analysis._ext).
+// The same cases as backend/tests/test_bypass_attachments.py (archive_analysis._ext).
 const FILE_NAMES = require(path.join(__dirname, "..", "fixtures", "file_name_cases.json"));
 test("file extensions and Gmail tile names are read as on the server", () => {
     const C = require(path.join(EXT, "lib", "constants.js"));

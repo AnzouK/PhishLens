@@ -76,9 +76,9 @@ def browser_url(url: str) -> str:
             authority, extra = authority.split(mark, 1)
             tail, sep = mark + extra + sep + tail, ""
     userinfo, at, hostport = authority.rpartition("@")
-    # Percent-encoded as browsers do: a character such as "\u2105" (c/o
-    # under NFKC) made Python refuse the address, and the fallback read
-    # the host after a later "@" ("https://\u2105@evil.tk#@paypal.com").
+    # Percent-encoded as browsers do. Python refuses a character such as
+    # "\u2105" (c/o under NFKC), and the fallback would then read the host
+    # after a later "@" ("https://\u2105@evil.tk#@paypal.com").
     userinfo = quote(userinfo, safe="!$&'()*+,;=:%")
     host, port = _split_port(hostport)
     if not host.startswith("["):
@@ -222,9 +222,9 @@ def link_profile(urls: list[str], from_header: str) -> dict[str, int]:
     counts = {"links": 0, "aligned": 0, "well_known": 0, "cloud": 0, "tracking": 0, "other": 0}
     for url in dict.fromkeys(urls):
         host = _host(url)
-        # Only links reach here (<a>, <area>, addresses in the text): a
-        # path ending in ".css" was once skipped, and "#.css" after a
-        # phishing page hid it from the link rule.
+        # Only links reach here (<a>, <area>, addresses in the text), so a
+        # path ending in ".css" is not skipped as an asset. Otherwise "#.css"
+        # after a phishing page would hide it from the link rule.
         if not host or host in ASSET_HOSTS:
             continue
         org = org_domain(host)

@@ -141,9 +141,7 @@ except Exception as _e:
     logger.warning("attachment_analysis not loaded (%s): /analyse_attachment returns 501.", _e)
 
 
-# ---------------------------------------------------------------------
 # Application
-# ---------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     text_model.load()
@@ -286,9 +284,7 @@ def _verdict_label(p: float) -> str:
     return "Phishing" if p >= 0.5 else "Safe"
 
 
-# ---------------------------------------------------------------------
 # Requests
-# ---------------------------------------------------------------------
 class AnalyseRequest(BaseModel):
     """An email: raw_email_b64 (a base64 .eml) and/or raw_text (the text
     as the page shows it).
@@ -318,12 +314,12 @@ def _from_value(email: str, name: str | None, original: str = "") -> str:
     (or the name of the original header), so that the name can be checked
     against the address (impersonation)."""
     display = name or parseaddr(original)[0] or ""
-    # Invisible characters out before the cut: 200 zero-width spaces used
-    # to push the brand name past it.
+    # Invisible characters are removed before the cut so zero-width padding
+    # cannot push the brand name past it.
     display = without_invisible(display)
     display = " ".join(display.split())[:200]
-    # Quoted as RFC 5322 says: a name ending in a backslash escaped the
-    # closing quote, and the name was lost (with the impersonation check).
+    # Quoted per RFC 5322. An unescaped trailing backslash would escape the
+    # closing quote and drop the name, and the impersonation check with it.
     display = display.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{display}" <{email}>' if display else email
 
@@ -469,9 +465,7 @@ async def _check_urls(urls: list[str]) -> list[dict[str, Any]]:
     return await _reputation.check_urls(urls)
 
 
-# ---------------------------------------------------------------------
 # Small endpoints
-# ---------------------------------------------------------------------
 @app.api_route("/", methods=["GET", "HEAD"])
 def root():
     return {
@@ -577,9 +571,7 @@ def explain(request: Request, req: AnalyseRequest):
     return result
 
 
-# ---------------------------------------------------------------------
 # /analyse
-# ---------------------------------------------------------------------
 @dataclass
 class _Scores:
     """The three agents' scores, after threat intelligence and sender
@@ -802,7 +794,7 @@ def _sender_auth_block(s: _Scores, who: _Sender) -> dict[str, Any]:
 
 def _auth_source(headers: dict[str, str]) -> str:
     """Where the sender checks came from: real headers, or the values
-    Gmail shows (Gmail verified them, we did not)."""
+    Gmail shows (verified by Gmail, not here)."""
     auth_header = headers.get("authentication-results", "") or ""
     if auth_header.startswith("gmail-client-context"):
         return "gmail_ui"
@@ -904,9 +896,7 @@ async def analyse(request: Request, req: AnalyseRequest):
     return result
 
 
-# ---------------------------------------------------------------------
 # /analyse_attachment
-# ---------------------------------------------------------------------
 # Inner-file features worth naming in the per-file report of an archive.
 _INNER_REASONS = {
     "contains_macros": "macros",
@@ -983,7 +973,8 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
             mime_type=req.mime_type,
         )
     except ValueError as e:
-        # Unsupported type, oversized, bad base64: our own messages, for the user.
+        # Unsupported type, oversized, bad base64. These messages are
+        # written for the user.
         raise HTTPException(400, str(e)) from e
     except RuntimeError as e:
         # A valid request whose file does not parse (corrupt PDF...).
@@ -1005,7 +996,7 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
     notable = extracted.get("notable_features", []) or []
     feature_bonus = fusion.attachment_feature_bonus(notable)
     dropper = fusion.dropper_techniques(notable)
-    # parent_email is a client hint we cannot verify: a false claim only
+    # parent_email is an unverifiable client hint. A false claim only
     # softens the caller's own result, and Safe Browsing hits and dropper
     # techniques override it. Never use it for anything shared.
     parent = req.parent_email or {}

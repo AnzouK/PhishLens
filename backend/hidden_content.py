@@ -713,9 +713,10 @@ def _sheet_rules(css: str, out: list[tuple[str, Declarations]]) -> None:
 # A selector made of a tag, classes and an id only ("td.dark", ".h", "#x"):
 # matched from an index, without walking the document.
 _SIMPLE_RE = re.compile(r"^([a-z][a-z0-9-]*|\*)?((?:[.#][a-z0-9_-]+)*)$", re.IGNORECASE)
-# Work allowed for all rules together, in elements checked or styled: 2,000
-# selectors over 10,000 elements took two minutes. Rules past it are not
-# applied (the email's own <style> is long enough to be suspect anyway).
+# Work allowed for all rules together, counted in elements checked or
+# styled. Without it a few thousand selectors over a large document take
+# minutes. Rules past the budget are not applied; a <style> that long is
+# suspect anyway.
 _SELECT_BUDGET = 20_000
 _SELECT_SECONDS = 0.5
 # Styles given to elements, all rules together ("div" repeated in 5,000
@@ -892,13 +893,11 @@ def _cascade(soup) -> dict[int, Declarations]:
         return {}
     index = _Index(soup)
     budget = [_SELECT_BUDGET, time.monotonic() + _SELECT_SECONDS]
-    # Rules that hide a box are matched first, then those that change
-    # colour, size or visibility, then the rest, so that junk rules placed
-    # before them cannot spend the budget; all are then applied in their
-    # own order.
-    # The elements of every rule, rules that can hide first for the work
-    # budget of complex selectors (simple ones are free). A selector
-    # repeated in many rules is matched once.
+    # Rules that can hide a box are matched first, then those that change
+    # colour, size or visibility, then the rest, so junk rules placed before
+    # them cannot spend the selector budget (simple selectors cost nothing).
+    # They are still applied in source order. A selector repeated in many
+    # rules is matched only once.
     memo: dict[str, list] = {}
 
     def elements(selectors: str) -> list[list]:
@@ -1031,8 +1030,8 @@ def _tiny_box(decl: dict[str, str], tag) -> bool:
 
 def shown_link(tag, hidden_ids: set[int], maps: frozenset[str] | None = None) -> bool:
     """A link the reader can see: outside every hidden part, and showing
-    something. Fifty links whose only text was transparent once filled
-    the place of the real one. An <area> shows nothing of its own: it is
+    something, so links with transparent text cannot stand in for the
+    real one. An <area> shows nothing of its own: it is
     seen through the image whose usemap names its <map>, when that image
     is shown (`maps`: shown_maps of the document, computed here if not
     given)."""

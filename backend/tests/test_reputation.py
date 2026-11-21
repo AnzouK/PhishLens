@@ -19,9 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import reputation as rep
 
 
-# ---------------------------------------------------------------------
 # Fakes
-# ---------------------------------------------------------------------
 class FakePhishTank:
     def __init__(self, bad: set[str]):
         self.bad = bad
@@ -93,9 +91,7 @@ def offline(monkeypatch):
     return monkeypatch
 
 
-# ---------------------------------------------------------------------
 # Cache
-# ---------------------------------------------------------------------
 class TestCache:
     def test_roundtrip_marks_cached(self, tmp_path):
         async def go():
@@ -155,9 +151,7 @@ class TestCache:
         assert c.stats()["cache_entries"] == 1
 
 
-# ---------------------------------------------------------------------
 # GSB quota
-# ---------------------------------------------------------------------
 class TestGsbQuota:
     def test_stops_at_limit_minus_buffer(self):
         async def go():
@@ -181,9 +175,7 @@ class TestGsbQuota:
         assert asyncio.run(go()) is True
 
 
-# ---------------------------------------------------------------------
 # Cascade
-# ---------------------------------------------------------------------
 class TestCascade:
     def test_normalize_adds_scheme(self, tmp_path):
         eng = make_engine(tmp_path)

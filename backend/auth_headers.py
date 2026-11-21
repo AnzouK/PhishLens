@@ -12,7 +12,7 @@ aligned SPF/DKIM). That's the RFC-7489 alignment rule; it's what stops a
 spoofer from putting "From: paypal.com" on a message that was actually
 signed by attacker.tld.
 
-We also expose a Spamhaus DBL (Domain Block List) lookup: a DNS query
+It also offers a Spamhaus DBL (Domain Block List) lookup, a DNS query
 against dbl.spamhaus.org. If the sender domain (or any URL domain) has a
 record there, it's a known spam / malware / phish source.
 
@@ -38,9 +38,7 @@ FROM_UNPROVEN = "x-phishlens-from-unproven"
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
 
-# =====================================================================
 # Authentication-Results parsing
-# =====================================================================
 
 # Extracts the authenticated identity for each method.
 _SPF_ID_RE = re.compile(r"smtp\.mailfrom=([^\s;]+)", re.IGNORECASE)
@@ -107,7 +105,7 @@ def _clauses(ar: str):
 class AuthVerdict:
     """Structured result of Authentication-Results parsing."""
 
-    # Raw verdicts as reported by the receiving MTA
+    # Verdicts as reported by the receiving MTA.
     spf: str = "none"  # "pass" | "fail" | "softfail" | "none" | ...
     dkim: str = "none"
     dmarc: str = "none"
@@ -117,14 +115,13 @@ class AuthVerdict:
     dkim_domain: str = ""
     dmarc_domain: str = ""
 
-    # Higher-level signals derived from the above
     from_domain: str = ""
     aligned: bool = False  # From: domain matches at least one authenticated domain
     all_pass: bool = False  # all three of SPF/DKIM/DMARC are "pass"
     cryptographically_verified: bool = False  # aligned AND at least DKIM pass
     header_present: bool = False  # Authentication-Results was actually there
 
-    # Extras: the raw header for debug / logging
+    # The raw header, for logging.
     raw: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -254,7 +251,7 @@ SHARED_SUFFIXES = {
 }
 
 
-def _org_domain(domain: str) -> str:
+def org_domain(domain: str) -> str:
     """
     Organisational domain ("registrable" domain): 'mail.paypal.com' ->
     'paypal.com', 'billing.paypal.co.uk' -> 'paypal.co.uk',
@@ -278,11 +275,6 @@ def _org_domain(domain: str) -> str:
     if len(parts[-1]) == 2 and parts[-2] in _GENERIC_SLDS:
         return ".".join(parts[-3:])
     return tail2
-
-
-def org_domain(domain: str) -> str:
-    """Public name for _org_domain (used by extension_backend)."""
-    return _org_domain(domain)
 
 
 def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
@@ -318,21 +310,20 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     # the brand's name next to a passing one for the sender's own domain
     # must not combine into "pass for the brand". Per method, the result
     # kept is an aligned pass, else any pass, else the first one listed.
-    fod = _org_domain(verdict.from_domain)
+    fod = org_domain(verdict.from_domain)
     chosen: dict[str, tuple[int, str, str]] = {}
     for method, result, clause in _clauses(ar):
         idm = _ID_RE[method].search(clause)
         domain = _domain_of(idm.group(1)) if idm else ""
         rank = 0
         if result == "pass":
-            rank = 2 if domain and _org_domain(domain) == fod else 1
+            rank = 2 if domain and org_domain(domain) == fod else 1
         if method not in chosen or rank > chosen[method][0]:
             chosen[method] = (rank, result, domain)
     for method, (_rank, result, domain) in chosen.items():
         setattr(verdict, method, result)
         setattr(verdict, f"{method}_domain", domain)
 
-    # Compute derived signals
     verdict.all_pass = verdict.spf == "pass" and verdict.dkim == "pass" and verdict.dmarc == "pass"
 
     # Alignment: the visible From: domain must match an authenticated one at
@@ -359,22 +350,20 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
         and len(from_addresses) <= 1
         and len(sender_domains(from_value)) <= 1
     )
-    verdict.aligned = proven and bool(fod) and any(_org_domain(d) == fod for d in aligned_domains)
+    verdict.aligned = proven and bool(fod) and any(org_domain(d) == fod for d in aligned_domains)
 
     # Cryptographic verification requires DKIM (the only crypto method: SPF
     # is envelope-only, DMARC is a policy layer on top of the other two) to
     # have passed AND the DKIM-signing domain to align with From:.
     dkim_aligned = (
-        verdict.dkim == "pass" and verdict.dkim_domain and _org_domain(verdict.dkim_domain) == fod
+        verdict.dkim == "pass" and verdict.dkim_domain and org_domain(verdict.dkim_domain) == fod
     )
     verdict.cryptographically_verified = proven and bool(dkim_aligned)
 
     return verdict
 
 
-# =====================================================================
 # Spamhaus DBL: Domain Block List (DNS-based)
-# =====================================================================
 
 DBL_ZONE = "dbl.spamhaus.org"
 
@@ -432,17 +421,10 @@ async def spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any] | No
     return {"threat_type": threat_type, "category": category, "code": code}
 
 
-# =====================================================================
-# High-level convenience: one call, everything you need
-# =====================================================================
-
-
 async def build_metadata_auth_signal(
     headers: dict[str, str], enable_dbl: bool = True
 ) -> dict[str, Any]:
     """
-    Convenience wrapper used by extension_backend's metadata_agent().
-
     Combines Authentication-Results parsing with a Spamhaus DBL lookup on
     the From: domain, and returns a JSON-serialisable dict ready to attach
     to the /analyse response.
@@ -492,30 +474,3 @@ async def build_metadata_auth_signal(
         "score_delta": round(delta, 3),
         "reasons": reasons,
     }
-
-
-# =====================================================================
-# Sync wrapper: for callers not in an async context.
-# =====================================================================
-
-
-def build_metadata_auth_signal_sync(
-    headers: dict[str, str], enable_dbl: bool = True
-) -> dict[str, Any]:
-    """
-    Synchronous variant. Runs the async coroutine to completion.
-    Safe to call from FastAPI sync endpoints (which run in a threadpool).
-    """
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # Rare but possible: called from inside an event loop.
-            # Schedule in a fresh loop on a helper thread instead of deadlocking.
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                fut = ex.submit(asyncio.run, build_metadata_auth_signal(headers, enable_dbl))
-                return fut.result(timeout=5)
-    except RuntimeError:
-        pass
-    return asyncio.run(build_metadata_auth_signal(headers, enable_dbl))

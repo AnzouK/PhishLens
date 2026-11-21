@@ -17,9 +17,7 @@ from pathlib import Path
 # the CI checks that both say the same.
 VERSION = "2.0.12"
 
-# ---------------------------------------------------------------------
 # Text model
-# ---------------------------------------------------------------------
 # MODEL_DIR holds the text model checkpoint. When it is empty, the model
 # is downloaded from HF_MODEL_REPO on startup.
 MODEL_DIR = Path(os.environ.get("MODEL_DIR", Path(__file__).parent / "model"))
@@ -37,9 +35,7 @@ CLASS_NAMES = ["Safe", "Phishing"]
 LIME_NUM_SAMPLES = int(os.environ.get("LIME_NUM_SAMPLES", "100"))
 LIME_MAX_CHARS = 800  # LIME explains the start of the body
 
-# ---------------------------------------------------------------------
 # URL and metadata agents (trained Random Forests, optional)
-# ---------------------------------------------------------------------
 HF_AGENTS_REPO = os.environ.get("HF_AGENTS_REPO", "AnzouKiona/phishlens-agents")
 HF_AGENTS_REVISION = os.environ.get("HF_AGENTS_REVISION") or None  # as HF_MODEL_REVISION
 # skops files are loaded with a type allowlist. Pickle (joblib) runs code
@@ -47,9 +43,7 @@ HF_AGENTS_REVISION = os.environ.get("HF_AGENTS_REVISION") or None  # as HF_MODEL
 # old local copy of the agents that was never converted).
 AGENTS_ALLOW_PICKLE = os.environ.get("AGENTS_ALLOW_PICKLE", "0") == "1"
 
-# ---------------------------------------------------------------------
 # Server
-# ---------------------------------------------------------------------
 PORT = int(os.environ.get("PORT", "8000"))
 # The public backend serves any extension install; self-hosted servers
 # can restrict this.
@@ -105,9 +99,7 @@ MAX_EMAIL_URLS = 100
 MIN_TEXT_WORDS = 3
 
 
-# ---------------------------------------------------------------------
 # Scoring
-# ---------------------------------------------------------------------
 @dataclass(frozen=True)
 class TrustPath:
     """How one trust path weighs the agents.

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 import extension_backend as eb
 import feedback
@@ -170,3 +171,11 @@ def test_delete_script_removes_new_and_old_reports(client):
     keep, gone = (c.post("/feedback", json=REPORT).json()["reference"] for _ in range(2))
     assert _delete_script().delete(folder, {gone, "a1b2c3d4e5f6"}) == 2
     assert sorted(r["reference"] for r in _stored(folder)) == sorted(["0a0b0c0d0e0f", keep])
+
+
+def test_report_fields_besides_text_are_identifiers():
+    feedback.FeedbackRequest(kind="false_negative", text="a b c", source="gmail", version="2.0.11")
+    with pytest.raises(ValidationError):
+        feedback.FeedbackRequest(
+            kind="false_negative", text="a b c", source="Call +234 800 000 0000"
+        )

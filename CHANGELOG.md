@@ -15,6 +15,7 @@ backend share one version number.
   keys come from the host.
 
 ### Changed
+- Backend comments and tests reorganised; no behaviour change.
 - The API runs on Google Cloud Run. A Pages Function
   (`functions/[[path]].js`, routes in `site/_routes.json`) forwards the
   API paths of phishlens.dev to it, so the extension and the website

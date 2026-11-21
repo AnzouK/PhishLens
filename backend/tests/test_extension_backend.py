@@ -63,9 +63,7 @@ def text_score(monkeypatch, p: float):
     monkeypatch.setattr(tm, "text_agent", lambda _body: p)
 
 
-# ---------------------------------------------------------------------
 # Small pure helpers
-# ---------------------------------------------------------------------
 class TestHelpers:
     def test_sender_domain(self):
         assert st.sender_domain('"Bank" <alerts@GTBank.com>') == "gtbank.com"
@@ -110,9 +108,7 @@ class TestHelpers:
         assert "dmarc=pass" not in h
 
 
-# ---------------------------------------------------------------------
 # Heuristic agents
-# ---------------------------------------------------------------------
 class TestHeuristicAgents:
     def test_url_agent_no_urls_is_low(self, monkeypatch):
         monkeypatch.setattr(sa, "_URL_AGENT", None)
@@ -177,9 +173,7 @@ class TestHeuristicAgents:
         assert 0.0 <= sa.metadata_agent({"from": evil}) <= 1.0
 
 
-# ---------------------------------------------------------------------
 # Simple endpoints
-# ---------------------------------------------------------------------
 class TestSimpleEndpoints:
     def test_health(self, client):
         r = client.get("/health")
@@ -199,9 +193,7 @@ class TestSimpleEndpoints:
         assert r.json()["enabled"] is False
 
 
-# ---------------------------------------------------------------------
 # Request limits and error responses
-# ---------------------------------------------------------------------
 class TestLimitsAndErrors:
     def test_oversized_text_field_is_refused(self, client):
         r = client.post("/analyse", json={"raw_text": "a" * (eb.MAX_TEXT_CHARS + 1)})
@@ -232,9 +224,7 @@ class TestLimitsAndErrors:
         assert r.status_code == 400 and "base64" in r.json()["detail"]
 
 
-# ---------------------------------------------------------------------
 # /analyse
-# ---------------------------------------------------------------------
 class TestAnalyse:
     def test_requires_a_payload(self, client):
         r = client.post("/analyse", json={})
@@ -411,9 +401,7 @@ class TestAnalyse:
         assert j["agents"]["metadata"]["phishing_probability"] >= 0.85
 
 
-# ---------------------------------------------------------------------
 # /analyse_attachment
-# ---------------------------------------------------------------------
 LOGIN_PAGE = (
     b"<html><body><form action='http://attacker.tld/login'>"
     b"<input type='password' name='p'></form></body></html>"
@@ -522,9 +510,7 @@ class TestAnalyseAttachment:
         assert j["verdict"] == "phishing"
 
 
-# ---------------------------------------------------------------------
 # /metrics (only when the Prometheus instrumentator is installed)
-# ---------------------------------------------------------------------
 class TestMetrics:
     def test_metrics_exposes_verdict_counter(self, client):
         pytest.importorskip("prometheus_fastapi_instrumentator")
@@ -534,9 +520,7 @@ class TestMetrics:
         assert "phishlens_verdicts_total" in r.text
 
 
-# ---------------------------------------------------------------------
 # Link targets sent by the Gmail extension (client_context.link_urls)
-# ---------------------------------------------------------------------
 class TestLinkUrls:
     def test_client_links_are_filtered_and_deduped(self):
         out = ep.rank_links(
@@ -585,11 +569,8 @@ class TestLinkUrls:
         assert seen["urls"] == ["https://parcel-redelivery.example/track"]
 
 
-# ---------------------------------------------------------------------
-# v1.14: forwarded emails, near-empty bodies, shared-file links,
-# archives through the endpoint
-# ---------------------------------------------------------------------
-class TestV114:
+# Forwarded emails, near-empty bodies, shared-file links, archives
+class TestForwardsAndArchives:
     def test_forwarded_from_trusted_sender_gets_no_discount(self, client, monkeypatch):
         text_score(monkeypatch, 0.95)
         body = (
@@ -957,9 +938,7 @@ def test_is_hostname():
     assert not st.is_hostname("-" * 300 + ".com")
 
 
-# ---------------------------------------------------------------------
-# v1.15.2: result cache
-# ---------------------------------------------------------------------
+# Result cache
 class TestResultCache:
     BODY = "Your account is suspended, verify your payment details immediately at our page."
 
@@ -1004,9 +983,7 @@ class TestResultCache:
         eb._stats_cache.clear()
 
 
-# ---------------------------------------------------------------------
-# v1.15.4: which files inside an archive are the problem
-# ---------------------------------------------------------------------
+# Which files inside an archive are the problem
 class TestArchiveFileReport:
     def _zip(self, files):
         import io
@@ -1051,9 +1028,7 @@ class TestArchiveFileReport:
         assert r.json()["attachment"]["suspicious_files"] == []
 
 
-# ---------------------------------------------------------------------
-# Alignment from Gmail's signed-by, and which checks ran (v1.15.5)
-# ---------------------------------------------------------------------
+# Alignment from Gmail's signed-by, and which checks ran
 class TestGmailSignedByAlignment:
     def test_synthetic_header_no_dmarc_pass_across_organisations(self):
         h = st.synthesize_auth_results(

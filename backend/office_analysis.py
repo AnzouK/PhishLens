@@ -1,6 +1,5 @@
 """
 PhishLens: Office document analysis.
-=====================================================================
 Extracts text and links from Word, Excel and PowerPoint attachments and
 flags the features attackers use to turn a document into a dropper.
 Standard library only (zipfile + ElementTree): no python-docx or
@@ -120,7 +119,7 @@ _READ_SECONDS = 4.0
 _RUN_ACTION_RE = re.compile(rb"ppaction://(?:program|macro|ole)", re.IGNORECASE)
 
 
-# XML namespaces: we match on local names so we don't depend on them.
+# Elements are matched on local names, so namespaces do not matter.
 def _local(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
 
@@ -135,9 +134,7 @@ def _urls_from(text: str, into: list[str]) -> None:
                 return
 
 
-# =====================================================================
 # OOXML (zip + xml)
-# =====================================================================
 # The part each kind of document opens from. Names are compared in lower
 # case: Office resolves part names without regard to case.
 _MAIN_PART = {
@@ -579,7 +576,6 @@ def _embedded_files(zf: zipfile.ZipFile, names: list[str], flags: list[str]) -> 
         data = _read_part(zf, name, flags)
         if not data:
             continue
-        # Any part that is an OLE file, whatever its name or folder.
         for flag in _cfb_flags(data) or []:
             if flag != "encrypted_document":
                 _add(flags, flag)
@@ -741,9 +737,7 @@ def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
     }
 
 
-# =====================================================================
 # OLE2 (legacy .doc/.xls/.ppt, or an encrypted modern file)
-# =====================================================================
 def _utf16(s: str) -> bytes:
     return s.encode("utf-16-le")
 
@@ -867,17 +861,16 @@ def analyse_ole(raw: bytes, filename: str) -> dict[str, Any]:
             _add(flags, flag)
 
     # Binary formats keep text in either cp1252 or UTF-16LE runs (a field
-    # starts with U+0013). We only pull URLs and DDE fields out of them,
+    # starts with U+0013). Only URLs and DDE fields are pulled out of them,
     # in any case; the text agent is skipped (too noisy).
     texts = [raw.decode("latin-1", errors="ignore")]
     # UTF-16 runs start at an even or an odd offset.
     texts += [raw[k:].decode("utf-16-le", errors="ignore") for k in (0, 1)]
     if any(_LEGACY_DDE_RE.search(t) for t in texts):
         flags.append("dde_field")
-    # Addresses from the text runs, each on its own line: read over the
-    # whole file, a NUL that ends a string was dropped as invisible and
-    # glued the address to what followed ("https://evil.tk" + NUL +
-    # "Click" gave evil.tkclick).
+    # Addresses are read from the text runs, one per line. Reading the
+    # whole file would drop the NUL ending a string as invisible and glue
+    # the address to the next word ("https://evil.tk" + NUL + "Click").
     urls: list[str] = []
     _urls_from(_binary_strings(raw), urls)
 

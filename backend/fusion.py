@@ -44,9 +44,7 @@ FORCING_SIGNS = (
 )
 
 
-# ---------------------------------------------------------------------
 # Threat intelligence
-# ---------------------------------------------------------------------
 @dataclass
 class Reputation:
     """What the URL reputation cascade said about the links."""
@@ -94,9 +92,7 @@ def apply_reputation(p_url: float, rep: Reputation) -> float:
     return p_url
 
 
-# ---------------------------------------------------------------------
 # Emails
-# ---------------------------------------------------------------------
 @dataclass(frozen=True)
 class Verdict:
     is_phishing: bool
@@ -183,9 +179,7 @@ def decide_email(
     )
 
 
-# ---------------------------------------------------------------------
 # Attachments
-# ---------------------------------------------------------------------
 # Risk added by each feature found in an attachment. These features are
 # often the whole signal (little or no text), so the bonus can reach
 # ATTACHMENT_FEATURE_BONUS_MAX.

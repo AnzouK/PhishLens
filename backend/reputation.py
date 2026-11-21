@@ -1,9 +1,8 @@
 """
 PhishLens: URL reputation cascade.
-=====================================================================
 
-Cascaded lookup against multiple threat-intel feeds so we never rely on
-a single source of truth. Order:
+Cascaded lookup against several threat-intel feeds, so no single source
+decides alone. Order:
 
     1. Local SQLite cache (24h TTL)                  : sub-millisecond
     2. Google Safe Browsing v4 (10,000 lookups/day)  : Google's flagship
@@ -58,9 +57,7 @@ except ImportError:
     logger.warning("httpx not installed: reputation lookups disabled. pip install httpx>=0.27")
 
 
-# ---------------------------------------------------------------------
 # Configuration (env-tunable)
-# ---------------------------------------------------------------------
 GSB_API_KEY = os.environ.get("GSB_API_KEY", "").strip()
 GSB_DAILY_LIMIT = int(os.environ.get("GSB_DAILY_LIMIT", "10000"))
 GSB_SAFETY_BUFFER = int(os.environ.get("GSB_SAFETY_BUFFER", "500"))
@@ -90,9 +87,7 @@ HTTP_TIMEOUT = float(os.environ.get("REPUTATION_HTTP_TIMEOUT", "3.0"))
 USER_AGENT = f"PhishLens/{VERSION} (+https://github.com/AnzouK/PhishLens)"
 
 
-# =====================================================================
 # SQLite cache: persistent across restarts, thread-safe via lock.
-# =====================================================================
 class Cache:
     """Tiny SQLite cache with TTL. One row per URL. Expired rows are
     deleted at startup and then by a write, at most once an hour, so none
@@ -135,9 +130,8 @@ class Cache:
                     (url, cutoff),
                 ).fetchone()
         except sqlite3.OperationalError as e:
-            # Defensive self-heal: if the DB file was deleted / corrupted
-            # since we opened it (or the volume was remounted), re-create
-            # the schema and treat this lookup as a miss.
+            # The DB file was deleted or corrupted after startup, or the
+            # volume was remounted: re-create the schema and count a miss.
             if "no such table" in str(e).lower():
                 self._init_db()
                 return None
@@ -157,7 +151,7 @@ class Cache:
             await asyncio.to_thread(self._put_sync, url, verdict)
 
     def _put_sync(self, url: str, verdict: dict[str, Any]):
-        # Strip the cached flag before storing so we don't compound it.
+        # Drop the cached markers so a re-stored verdict does not keep them.
         v = {k: val for k, val in verdict.items() if k not in ("cached", "cached_age_sec")}
         try:
             with sqlite3.connect(self.path) as db:
@@ -168,8 +162,8 @@ class Cache:
                 )
         except sqlite3.OperationalError as e:
             if "no such table" in str(e).lower():
-                # Re-create schema and retry once. If it still fails after
-                # the retry there's a real filesystem issue: surface it.
+                # Re-create the schema and retry once. A second failure is a
+                # real filesystem problem and is raised.
                 self._init_db()
                 with sqlite3.connect(self.path) as db:
                     db.execute(
@@ -194,7 +188,7 @@ class Cache:
                 db.execute("DELETE FROM reputation_cache WHERE stored_at <= ?", (cutoff,))
         except sqlite3.OperationalError as e:
             if "no such table" in str(e).lower():
-                self._init_db()  # no rows to purge but future writes work
+                self._init_db()  # nothing to purge; later writes need the table
             else:
                 raise
 
@@ -204,9 +198,7 @@ class Cache:
         return {"cache_entries": total}
 
 
-# =====================================================================
 # Google Safe Browsing v4: quota-tracked client.
-# =====================================================================
 class GsbQuota:
     """
     Simple daily counter, resets at 00:00 UTC.
@@ -214,8 +206,8 @@ class GsbQuota:
     Kept in-process (not Redis) because a single instance handles all
     backend traffic (PhishLens Cloud runs at most one Cloud Run
     instance). The count starts again at zero when the instance
-    restarts. If we ever scale to N replicas, swap this for a Redis
-    INCR with EX=86400: same interface.
+    restarts. With several replicas this would become a Redis INCR with
+    EX=86400 behind the same interface.
     """
 
     def __init__(self, limit: int, buffer: int):
@@ -318,9 +310,8 @@ class GoogleSafeBrowsing:
             logger.warning(f"GSB request failed: {_safe_error(e)}")
             return None
 
-        # Opt-in debug: set GSB_DEBUG=1 to log every GSB call and its
-        # match count. Off by default in production; useful when you're
-        # diagnosing why an expected phishing URL isn't being flagged.
+        # GSB_DEBUG=1 logs every call and its match count, to diagnose a
+        # phishing URL that is not flagged. Off by default.
         if os.environ.get("GSB_DEBUG", "0") != "0":
             n_matches = len(body.get("matches", []))
             logger.debug(f"[GSB] sent {len(urls)} URL(s), got {n_matches} match(es). URLs={urls}")
@@ -345,9 +336,7 @@ class GoogleSafeBrowsing:
         return results
 
 
-# =====================================================================
 # PhishTank: verified phishing feed, in-memory set.
-# =====================================================================
 # Hosts where one domain serves many unrelated owners, told apart by the
 # path (storage buckets, link shorteners, form and file-sharing services,
 # email click trackers, big platforms). A PhishTank entry on such a host
@@ -450,9 +439,9 @@ def is_shared_path_host(netloc: str) -> bool:
 
 class PhishTank:
     """
-    PhishTank's public feed of verified phishing URLs. We download the
-    full JSON dump once at startup, refresh in the background every hour,
-    and answer lookups from an in-memory set for zero-cost O(1) checks.
+    PhishTank's public feed of verified phishing URLs. The full JSON dump
+    is downloaded at startup and refreshed in the background; lookups are
+    answered from an in-memory set.
     """
 
     # HTTPS: over plain HTTP anyone on the path could rewrite the list.
@@ -585,9 +574,7 @@ class PhishTank:
         }
 
 
-# =====================================================================
 # URLhaus: abuse.ch malware URL feed.
-# =====================================================================
 class URLhaus:
     """
     URLhaus lookup API: free, no key required, generous rate limit.
@@ -644,9 +631,7 @@ async def _spamhaus_dbl(host: str) -> dict[str, Any] | None:
     }
 
 
-# =====================================================================
 # Orchestrator
-# =====================================================================
 @dataclass
 class UrlVerdict:
     url: str
@@ -700,7 +685,6 @@ class ReputationEngine:
             if n:
                 logger.info(f"PhishTank saved feed: {n} entries")
                 wait = max(0.0, PHISHTANK_REFRESH_S - (age or 0))
-            # Fire-and-forget refresh loop
             self.phishtank._refresh_task = asyncio.create_task(
                 self.phishtank.start_refresh_loop(first_wait=wait)
             )
@@ -806,13 +790,11 @@ class ReputationEngine:
 
         verdicts: dict[str, UrlVerdict] = {u: UrlVerdict(url=u) for u in norm}
 
-        # ---- 1. Cache lookup for every URL ----
         uncached = await self._from_cache(norm, verdicts)
         if not uncached:
             return [verdicts[u].to_dict() for u in norm]
 
-        # ---- 2. Google Safe Browsing (batch) ----
-        # At most GSB_MAX_PER_SCAN URLs per scan, the first ones in the
+        # Google Safe Browsing, in one batch. At most GSB_MAX_PER_SCAN URLs per scan, the first ones in the
         # caller's rank order: the daily quota is shared by every user, and
         # one request with hundreds of links must not spend it.
         gsb_hits: dict[str, dict[str, Any]] = {}
@@ -823,15 +805,14 @@ class ReputationEngine:
             if answer is not None:
                 gsb_hits, gsb_checked = answer, set(batch)
 
-        # ---- 3. Fallback cascade for URLs GSB didn't flag ----
-        # (also for the case where GSB is disabled / quota exhausted)
+        # The other feeds check what Safe Browsing did not flag, or
+        # everything when it is disabled or out of quota.
         need_fallback = _apply_gsb(verdicts, uncached, gsb_hits, gsb_checked)
         if need_fallback:
             await asyncio.gather(
                 *(self._fallback(verdicts[u]) for u in need_fallback), return_exceptions=True
             )
 
-        # ---- 4. Persist to cache ----
         # A clean verdict is kept only when Safe Browsing (when configured)
         # checked the URL: otherwise exhausting the quota with junk links,
         # then sending a phishing link, would store it as clean for a day.
@@ -856,9 +837,7 @@ class ReputationEngine:
         }
 
 
-# =====================================================================
 # Module-level singleton: the FastAPI app pulls this in lifespan.
-# =====================================================================
 _ENGINE: ReputationEngine | None = None
 
 

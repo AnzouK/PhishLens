@@ -44,9 +44,7 @@ def b64(data: bytes) -> str:
     return base64.b64encode(data).decode()
 
 
-# ---------------------------------------------------------------------
 # Detection and dispatch
-# ---------------------------------------------------------------------
 class TestDetection:
     def test_kinds(self):
         assert office.detect_ooxml_kind(docx(para("hi"))) == "docx"
@@ -58,7 +56,7 @@ class TestDetection:
         with zipfile.ZipFile(buf, "w") as zf:
             zf.writestr("readme.txt", "hello")
         assert office.detect_ooxml_kind(buf.getvalue()) is None
-        # v1.14: a plain ZIP is analysed as an archive, not rejected.
+        # A plain ZIP is analysed as an archive, not rejected.
         r = analyse_attachment(b64(buf.getvalue()), filename="archive.zip")
         assert r["kind"] == "archive"
         assert r["entries"] == ["readme.txt"]
@@ -71,9 +69,7 @@ class TestDetection:
         assert sniff_type("", office.OLE2_MAGIC + b"\x00" * 8, None) == "application/x-ole-storage"
 
 
-# ---------------------------------------------------------------------
 # Word
-# ---------------------------------------------------------------------
 class TestWord:
     def test_text_and_hyperlinks(self):
         rels = (
@@ -136,9 +132,7 @@ class TestWord:
         assert r["extracted_text"] == ""
 
 
-# ---------------------------------------------------------------------
 # Excel and PowerPoint
-# ---------------------------------------------------------------------
 class TestExcelPowerPoint:
     def test_xlsx_shared_strings_and_xlm_macros(self):
         ss = (
@@ -175,9 +169,7 @@ class TestExcelPowerPoint:
         assert "Claim your reward" in r["extracted_text"]
 
 
-# ---------------------------------------------------------------------
 # Safety limits
-# ---------------------------------------------------------------------
 class TestLimits:
     def test_zip_bomb_rejected(self, monkeypatch):
         monkeypatch.setattr(office, "MAX_UNCOMPRESSED_TOTAL", 1000)
@@ -190,9 +182,7 @@ class TestLimits:
             analyse_attachment(b64(b"PK\x03\x04garbage"), filename="x.docx")
 
 
-# ---------------------------------------------------------------------
 # Legacy OLE2
-# ---------------------------------------------------------------------
 class TestLegacy:
     def ole(self, payload: bytes) -> bytes:
         return office.OLE2_MAGIC + b"\x00" * 504 + payload
