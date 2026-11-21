@@ -82,4 +82,14 @@ export default [
     files: ["extension/popup/*.js"],
     languageOptions: { sourceType: "module" },
   },
+  {
+    // Cloudflare Pages Functions (Workers runtime, ES modules).
+    files: ["functions/**/*.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: { ...globals.serviceworker },
+    },
+    rules: { ...bugRules, ...hygieneRules },
+  },
 ];

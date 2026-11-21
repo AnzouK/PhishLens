@@ -15,6 +15,11 @@ backend share one version number.
   keys come from the host.
 
 ### Changed
+- The API runs on Google Cloud Run. A Pages Function
+  (`functions/[[path]].js`, routes in `site/_routes.json`) forwards the
+  API paths of phishlens.dev to it, so the extension and the website
+  keep the same address; `/metrics` stays private. The function replaces
+  any client-sent `X-Forwarded-For` with the address Cloudflare saw.
 - The website is served by Cloudflare Pages. Page addresses no longer
   end in `.html` (`/privacy`, `/fr/terms`); the old addresses redirect
   to the new ones. `site/_headers` sets the security headers the
