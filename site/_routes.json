@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "include": ["/analyse", "/analyse_attachment", "/explain", "/feedback", "/health", "/reputation/*"],
+  "exclude": []
+}
