@@ -30,15 +30,16 @@ and no published model trained on personal mail.
 
 ## Method
 
-| Part | Choice |
-| --- | --- |
-| Teacher | [Horizon-Labs/phishing-scam-detector-base](https://huggingface.co/Horizon-Labs/phishing-scam-detector-base) |
-| Student | [jhu-clsp/mmBERT-small](https://huggingface.co/jhu-clsp/mmBERT-small), two classes |
-| Teacher score | P(fraud) + 0.5 x P(spam): with the full spam weight, newsletters looked like phishing |
-| Loss | 0.7 x cross-entropy on the true label + 0.3 x towards the teacher |
-| Training | 2 epochs, learning rate 3e-5, batch 32, 256 tokens; rare languages repeated |
-| Calibration | temperature fitted on validation data |
-| Input | links, addresses and phone numbers masked the same way everywhere (`backend/text_normalize.py`) |
+- Teacher: [Horizon-Labs/phishing-scam-detector-base](https://huggingface.co/Horizon-Labs/phishing-scam-detector-base).
+- Student: [jhu-clsp/mmBERT-small](https://huggingface.co/jhu-clsp/mmBERT-small), two classes.
+- Teacher score: P(fraud) + 0.5 x P(spam). With the full spam weight,
+  newsletters looked like phishing.
+- Loss: 0.7 x cross-entropy on the true label + 0.3 x towards the teacher.
+- Training: 2 epochs, learning rate 3e-5, batch 32, 256 tokens; rare
+  languages repeated.
+- Calibration: temperature fitted on validation data.
+- Input: links, addresses and phone numbers masked the same way
+  everywhere (`backend/text_normalize.py`).
 
 One model for every language replaced the first plan (DistilBERT for
 English, a multilingual model for the rest) once the student beat v1 in

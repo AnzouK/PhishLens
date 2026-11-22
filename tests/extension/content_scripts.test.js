@@ -819,6 +819,82 @@ test("a tile loaded just after a scan gets a new button", async () => {
     assert.deepEqual(sent, ["first.pdf"]);
 });
 
+// A Gmail page with one attachment tile, Cloud backend, privacy notice not
+// seen yet. Returns the scan-all button and the files sent.
+function attachmentPage() {
+    const sent = [];
+    const sendMessage = async (msg) => {
+        if (msg?.type === "phishlens.analyse_attachment") sent.push(msg.payload.filename);
+        return { ok: false, error: "x" };
+    };
+    const { ctx, PL } = load(entryFor("mail.google.com"), { sendMessage });
+    const store = {};
+    ctx.chrome.storage.local.get = (keys, cb) => cb(Object.fromEntries([].concat(keys).filter((k) => k in store).map((k) => [k, store[k]])));
+    ctx.chrome.storage.local.set = (obj) => Object.assign(store, obj);
+    ctx.fetch = async () => ({ ok: true, headers: { get: () => "3" }, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
+    const doc = ctx.document;
+    const view = mailView(doc);
+    const subject = doc.createElement("h2");
+    subject.className = "hP";
+    subject.append("Invoice");
+    view.append(subject);
+    const strip = doc.createElement("div");
+    strip.className = "aQH";
+    view.append(strip);
+    const tile = doc.createElement("div");
+    tile.className = "aZo";
+    tile.getBoundingClientRect = () => ({ width: 200, height: 150 });
+    const a = doc.createElement("a");
+    a.setAttribute("download", "first.pdf");
+    a.setAttribute("href", "https://mail.google.com/mail/u/0/?view=att");
+    a.href = "https://mail.google.com/mail/u/0/?view=att";
+    a.append("first.pdf");
+    tile.append(a);
+    strip.append(tile);
+    PL.installAttachmentButtons(view);
+    let notices = 0;
+    const confirm = PL.confirmCloudUse;
+    PL.confirmCloudUse = (...args) => {
+        notices += 1;
+        return confirm(...args);
+    };
+    const btn = view.querySelector(".pll-scan-btn--all");
+    const tick = () => new Promise((r) => setTimeout(r, 0));
+    return { PL, view, btn, sent, tick, notices: () => notices };
+}
+
+test("two clicks on scan attachments open one privacy notice and one scan", async () => {
+    const { view, btn, sent, tick, notices } = attachmentPage();
+    const click = { preventDefault() {}, stopPropagation() {} };
+    btn.dispatch("click", click);
+    btn.dispatch("click", click);
+    await tick();
+    assert.equal(notices(), 1);
+    assert.equal(view.querySelectorAll(".pll-banner").length, 1);
+    assert.ok(btn.disabled);
+    view.querySelector(".pll-banner .pll-att-btn").dispatch("click");
+    const label = btn.querySelector(".pll-scan-btn__label");
+    for (let i = 0; i < 100 && label.textContent !== "Attachments scanned"; i++) await new Promise((r) => setTimeout(r, 10));
+    assert.deepEqual(sent, ["first.pdf"]);
+});
+
+test("a privacy notice closed or replaced lets the attachments be scanned later", async () => {
+    const { PL, view, btn, sent, tick } = attachmentPage();
+    btn.dispatch("click", { preventDefault() {}, stopPropagation() {} });
+    await tick();
+    view.querySelector(".pll-banner .pll-banner__close").dispatch("click");
+    await tick();
+    assert.ok(!btn.disabled);
+    btn.dispatch("click", { preventDefault() {}, stopPropagation() {} });
+    await tick();
+    assert.ok(btn.disabled);
+    // Another banner (an email scan's notice or result) takes its place.
+    PL.showBanner(view, PHISHING);
+    await tick();
+    assert.ok(!btn.disabled);
+    assert.deepEqual(sent, []);
+});
+
 test("without the text model the wording meter says not checked", () => {
     const { ctx, PL } = load(entryFor("mail.google.com"));
     const view = mailView(ctx.document);

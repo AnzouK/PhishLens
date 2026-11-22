@@ -143,15 +143,22 @@ function installScanAllButton(emailView, targets) {
 }
 
 async function scanAll(btn) {
+    // Disabled at once: a second click while the privacy notice is open
+    // would open a second notice and start a second scan.
+    if (btn.disabled) return;
+    btn.disabled = true;
+    const view = (btn._pllTargets || [])[0]?.emailView;
+    const stop = () => {
+        btn.disabled = false;
+    };
+    if (view && !(await PL.confirmCloudUse(view))) return stop();
+    // Read after the notice: tiles Gmail loaded meanwhile are counted.
     const targets = btn._pllTargets || [];
-    const view = targets[0]?.emailView;
-    if (view && !(await PL.confirmCloudUse(view))) return;
-    if (targets.length >= 5 && !confirm(t("att_confirm_many", { count: targets.length }))) return;
+    if (targets.length >= 5 && !confirm(t("att_confirm_many", { count: targets.length }))) return stop();
     if (targets.length > MAX_PER_EMAIL) {
         alert(t("att_too_many", { count: targets.length, max: MAX_PER_EMAIL }));
-        return;
+        return stop();
     }
-    btn.disabled = true;
     const label = btn.querySelector(".pll-scan-btn__label");
     // Read from btn._pllTargets at each step: tiles Gmail loads during the
     // scan are added there (installScanAllButton) and scanned in the same

@@ -58,7 +58,11 @@ def html_to_text(html_src: str) -> str:
     soup = BeautifulSoup(without_inline_data(html_src)[:_MAX_PARSED], "html.parser")
     hidden = hidden_tags(soup)  # before the <style> sheets go
     generated = generated_text(soup, hidden)
-    for tag in soup(["style", "script", "head", "noscript", "title"]):
+    # <iframe>, <noembed> and <noframes> hold fallback content that
+    # browsers and Gmail never show.
+    for tag in soup(
+        ["style", "script", "head", "noscript", "title", "iframe", "noembed", "noframes"]
+    ):
         tag.decompose()
     # Line breaks where the page breaks lines: a forward's marker line
     # ("---------- Forwarded message ---------") must start a line for
@@ -280,8 +284,10 @@ def without_inline_data(html_src: str) -> str:
 
 
 # Where markup starts, as a browser reads HTML: a comment, a start or
-# end tag, or "<!" / "<?" (read up to the next ">").
-_MARKUP_START_RE = re.compile(r"<(?:!--|[a-zA-Z]|/[a-zA-Z]|[!?])")
+# end tag, or a bogus comment: "<!", "<?" or "</" not followed by an
+# ASCII letter, read up to the next ">" (html.parser does the same).
+# "</>" is such a comment, empty; "</" at the end is text.
+_MARKUP_START_RE = re.compile(r"<(?:!--|[a-zA-Z]|/[a-zA-Z]|[!?/])")
 # Elements whose content is text up to their end tag, for browsers and
 # for html.parser (which html_to_text uses): "<!--" or "<style" inside
 # opens nothing. <noscript> is not one of them: html.parser reads it as
@@ -332,7 +338,10 @@ def _comment_end(src: str, start: int) -> int:
 
 
 def _without_long_comments(src: str) -> str:
-    """Remove long comments. The HTML is read in order, as a browser does:
+    """Remove long comments, bogus ones ("<!x", "<?x", "</1") included:
+    one that a browser does not show can still push the text and links
+    past _MAX_PARSED, or glue what is around it into one tag for
+    html.parser. The HTML is read in order, as a browser does:
     "<!--" inside <style>, <script>, <title> and the other raw text
     elements is not a comment (a sheet's rules apply), and "<style" or
     "<!--" inside a tag's attribute value, or "<style" inside a comment,
@@ -344,8 +353,12 @@ def _without_long_comments(src: str) -> str:
         if not m:
             break
         start = m.start()
-        if m.group() == "<!--":
-            end = _comment_end(src, start)
+        if m.group() in ("<!--", "<!", "<?", "</"):
+            if m.group() == "<!--":
+                end = _comment_end(src, start)
+            else:
+                end = src.find(">", start + 2)
+                end = n if end < 0 else end + 1
             if end - start > 500:
                 out.append(src[pos:start])
                 for link in _LINK_ATTR_RE.finditer(src, start, end):
@@ -354,9 +367,6 @@ def _without_long_comments(src: str) -> str:
                         out.append(f'<a href="{html_lib.escape(url)}"></a>')
                 pos = end
             i = end
-        elif m.group() in ("<!", "<?"):
-            end = src.find(">", start)
-            i = n if end < 0 else end + 1
         else:
             i = _tag_end(src, start)
             raw = _RAW_TEXT_OPEN_RE.match(src, start)

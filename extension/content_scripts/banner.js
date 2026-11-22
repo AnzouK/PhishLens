@@ -146,7 +146,10 @@ function verdictContent(data, phishing) {
 // title, error }) in `emailView`, replacing any earlier one. On Outlook it
 // is inserted before `anchor`; on Gmail it finds its own place.
 PL.showBanner = function showBanner(emailView, data, anchor = null) {
-    emailView.querySelector(".pll-banner")?.remove();
+    const old = emailView.querySelector(".pll-banner");
+    // A privacy notice replaced by another banner was not accepted.
+    old?._pllCancel?.();
+    old?.remove();
     const isError = data.verdict === "error";
     const phishing = data.verdict === "phishing";
     const banner = h("div", {
@@ -247,6 +250,7 @@ PL.confirmCloudUse = async function confirmCloudUse(view, anchor = null) {
         }, t("privacy_notice_link"));
         banner.querySelector(".pll-banner__main").append(h("div.pll-notice-actions", null, ok, " ", policy));
         banner.querySelector(".pll-banner__close").addEventListener("click", () => resolve(false));
+        banner._pllCancel = () => resolve(false);
     });
 };
 

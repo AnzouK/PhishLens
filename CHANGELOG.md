@@ -8,148 +8,111 @@ backend share one version number.
 ## [Unreleased]
 
 ### Added
-- `.github/workflows/backend-image.yml` publishes the backend image
-  (`backend/Dockerfile.cloud`, code only) as
+- Backend image: `.github/workflows/backend-image.yml` publishes
+  `backend/Dockerfile.cloud` (code only) as
   `ghcr.io/anzouk/phishlens-backend` on each version tag or by hand.
 
 ### Changed
-- The API runs on Google Cloud Run behind a Pages Function
+- Hosting: the API runs on Google Cloud Run behind a Pages Function
   (`functions/[[path]].js`) that forwards the API paths of
   phishlens.dev, so the extension and the website keep the same address.
-- The documentation, the privacy policy and the terms describe the new
+  The website is served by Cloudflare Pages at addresses without `.html`
+  (the old ones redirect), with its security headers in `site/_headers`.
+  The documentation, the privacy policy and the terms describe the new
   hosting in every language (Cloudflare Pages, Google Cloud Run in
   Belgium, reports in Google Cloud Storage in the United States).
-- The website is served by Cloudflare Pages, at addresses without
-  `.html` (the old ones redirect), with its security headers in
-  `site/_headers`.
-- Localhost is an optional permission, asked for only when a local or
-  custom server is chosen, for that address alone.
-- A custom server address is saved when it is complete, and http:// to
+- Local and custom servers: localhost is an optional permission
+  (`http://127.0.0.1/*` and `http://localhost/*`, without a port, which
+  Firefox refuses), asked for only when a local or custom server is
+  chosen, for that host alone, with one prompt when the address is saved
+  or tested. A custom address is saved when it is complete, trimmed,
+  without trailing slashes and with its scheme in lower case; http:// to
   a server outside the user's network needs a confirmation (Tailscale
   and private IPv6 addresses count as the user's network).
-- Desktop notifications show the sender only, not the subject.
-- The automatic scan says it is waiting for the privacy notice instead
-  of staying silent, and "Share my statistics" shows every row it sends.
-- The privacy notice says that results are kept for 24 hours, and the
-  privacy policy gives the real lifetime of each local cache.
-- The website and the README name SPF, DKIM and DMARC as Gmail checks
-  and lead the false-alarm figure with the real inboxes (0 of 117, at
-  most 3.2%).
-- docs/evaluation.md lists what is not measured yet.
-- Each user report is stored as its own file,
+- User reports: each one is stored as its own file,
   `YYYY-MM/<reference>.json`, created once and never rewritten, so
-  deleting one cannot affect another.
-- The privacy policy, in every language, describes the notice sent for
-  each new report, the one-file-per-report storage and the scope of the
-  custom server permission.
+  deleting one cannot affect another (the old monthly `.jsonl` files are
+  still read). The folder is measured at most every 5 minutes, and a
+  report deleted meanwhile no longer turns POST /feedback into a 503.
+- Privacy: desktop notifications show the sender only, not the subject;
+  the privacy notice says that results are kept for 24 hours; the
+  automatic scan says when it waits for that notice; "Share my
+  statistics" shows every row it sends. The privacy policy, in every
+  language, gives the real lifetime of each local cache and describes
+  the notice sent for each new report, the one-file-per-report storage
+  and the scope of the custom server permission.
+- Page text: Gmail and Outlook send up to 20,000 characters instead of
+  4,000, and the server reads that much too. Links written further on
+  are still checked (up to 200,000 characters), and a tag cut at the end
+  is judged against the new limit.
+- Documentation and website: SPF, DKIM and DMARC are named as Gmail
+  checks, the false-alarm figure leads with the real inboxes (0 of 117,
+  at most 3.2%) in the README, the website and docs/project-overview.md,
+  docs/evaluation.md lists what is not measured yet, and
+  docs/operations.md gives the role the service account really has on
+  the reports bucket.
 
 ### Fixed
-- Gmail attachments: each file gets its own result card. Two names that
+- Gmail attachments: each file gets its own result card (two names that
   differ only in spaces or punctuation, or written in a non-Latin
-  script, shared one card, and the last verdict replaced the other.
+  script, shared one). Tiles that load in two waves, during a scan or
+  just after it are all scanned, with the right count. A double click on
+  "Scan attachments" opens one privacy notice and runs one scan, and a
+  notice closed or replaced by another banner leaves the button usable.
 - Automatic scan: a thread is scanned again when a new reply arrives,
   its old pill is taken down, and an email Gmail would not serve is
-  retried later (three times at most) instead of never.
-- A link longer than 2,048 characters is cut, not dropped from the
-  checks.
-- "Clear history" also clears the cached explanations and the automatic
-  scan's verdicts, as it says.
-- Popup changes to the history go through the service worker like every
-  other write, so two windows no longer write over each other.
-- A click on a notification brings back its Gmail tab even after the
-  service worker was stopped.
-- Gmail's "via" hint is never read from the sender's own name.
-- The optional localhost permissions no longer name a port, which
-  Firefox does not accept in a match pattern: `http://127.0.0.1/*` and
-  `http://localhost/*`, and a custom server is asked for by host. The
-  permission is now asked for when a custom address is saved, not only
-  on "Test connection".
-- A custom server address is stored trimmed and without trailing
-  slashes, so a confirmed http:// address typed with a final "/" is no
-  longer refused by the service worker.
-- Automatic scan: the row print reads only the senders, the subject and
-  the snippet, and leaves the PhishLens pill out by element. A sender
-  named like the pill ("SafeBank") made the pill come and go, and the
-  date Gmail rewrites each day made a thread look changed.
-- Gmail attachments: tiles that load in two waves are all kept by the
-  "Scan attachments" button, with the right count.
-- Gmail and Outlook send up to 20,000 characters of the page text
-  instead of 4,000: with the original message, the server reads that
-  text in place of the message's own.
-- When the email has almost no text, the wording score shows "not
-  checked" in the banner and the popup, and the popup no longer asks
-  for an explanation the text model cannot give.
-- Pasted text is saved in the history under its first line, not under
-  the name of a file picked earlier.
-- Privacy policy links use the website's new addresses without
-  `.html`, and the popup's built-in notice text matches the current
-  wording.
-- Gmail's sender checks ("via", "signed-by", "mailed-by") are never read
-  from the subject, which the sender writes.
-- Expired link verdicts are deleted from the reputation cache at most an
-  hour after expiry while the server runs, not only at startup, and the
-  result cache drops expired entries on every write: nothing is kept
-  much past the 24 hours the privacy policy states.
-- The 411 and 413 answers of the body size check, and the 429 of the
-  rate limits, carry CORS headers, so the extension can read them.
-- `RATE_LIMIT_DEFAULT` applies to the routes without their own limit
-  (it was never enforced); `/health` is exempt for the keep-warm job.
-- The page text is read up to 20,000 characters on the server too, and
-  a forward marker the shorter page text leaves out (but the .eml holds)
-  still counts as a forward. "Re: Fwd:", "AW: WG:" and other reply
-  prefixes before a forward prefix count as a forward subject.
-- A long comment inside a second `<style>` sheet is no longer taken for
-  a comment and removed.
-- docs/project-overview.md gives the same false-alarm figures as the
-  README.
-- CI installs slowapi (a runtime dependency) so the rate limit tests
-  run, and every backend test starts with empty rate limit counters,
-  whatever ran before it.
-- Report storage: a report deleted while the folder was measured no
-  longer turns POST /feedback into a 503, and the folder is measured at
-  most every 5 minutes, with the bytes written since added to that
-  figure, instead of on every report. docs/operations.md gives the role
-  the service account really has on the reports bucket.
-- Long comments in an HTML email are found as a browser finds them: a
-  dotted capital I before a `<style>` sheet, a `<style` or `<!--`
-  inside an attribute value, and the empty comments `<!-->` and
-  `<!--->` no longer let a long comment survive or hide text.
-- Links written past the first 20,000 characters of a long page text
-  are still checked (up to 200,000 characters), a "Fwd:" subject keeps
-  the original sender of a forward marker the scored text leaves out,
-  and a tag cut at the end of a page text is judged against the
-  extension's 20,000 character limit, not the old 4,000.
-- A custom server typed as `HTTPS://...` is stored with its scheme in
-  lower case, and "Test connection" waits for the server permission
-  answer (also asked for a local server) before testing.
-- Gmail attachments loaded while "Scan attachments" runs are scanned in
-  the same run, and expired cache entries are dropped on a stats call
-  and at most hourly from `/health`, so an idle instance keeps none.
-- The long comment scan skips the content of every raw text element
-  (`<script>`, `<title>`, `<textarea>`, `<xmp>`, `<iframe>`,
-  `<noembed>`, `<noframes>`, `<plaintext>`, besides `<style>`), so a
-  `<!--` there no longer removes the rest of the email, ends comments at
-  `--!>` too, and reads attribute values as the HTML tokenizer does (an
-  `=` inside an unquoted value opens no quote).
-- The reputation cache takes one thread lock for every database call,
-  including the stats and purge calls of `/health` and
-  `/reputation/stats`, and its stats re-create a deleted table.
-- Gmail attachments loaded in the 2.5 seconds after "Scan attachments"
-  has finished get a new button instead of being lost.
-- Leaving the server address field by clicking "Test connection" opens
-  one permission prompt, not two, and written URLs are cut at 2,048
-  characters like the other links.
+  retried later (three times at most). The row print reads only the
+  senders, the subject and the snippet, so a sender named like the pill
+  or the date Gmail rewrites each day no longer makes a thread look
+  changed.
+- Gmail's sender hints ("via", "signed-by", "mailed-by") are never read
+  from the sender's name or the subject.
+- Forwards: "Re: Fwd:", "AW: WG:" and other reply prefixes before a
+  forward prefix count as a forward subject, and a forward marker the
+  page text leaves out but the .eml holds still counts, with its
+  original sender.
+- HTML email comments are found as a browser finds them: the content of
+  raw text elements (`<style>`, `<script>`, `<title>`, `<textarea>`,
+  `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`, `<plaintext>`) and of
+  attribute values is skipped, `--!>` ends a comment, the empty comments
+  `<!-->` and `<!--->` hide nothing, and a dotted capital I before a
+  sheet no longer shifts the scan. Long bogus comments (`<!x`, `<?x`,
+  `</` not followed by a letter) are removed like long comments, their
+  links kept as hidden ones, so they can no longer push the text out of
+  the parsed part or hide the link or hidden block after them.
+- The fallback content of `<iframe>`, `<noembed>` and `<noframes>`,
+  which browsers and Gmail never show, is not read as email text, and a
+  link that shows only such content counts as hidden.
+- Links longer than 2,048 characters, in markup or written in the text,
+  are cut, not dropped from the checks.
+- Caches and history: "Clear history" also clears the cached
+  explanations and the automatic scan's verdicts; popup changes to the
+  history go through the service worker, so two windows no longer write
+  over each other; expired link verdicts and results are deleted while
+  the server runs (on writes, on stats calls and at most hourly from
+  `/health`), not only at startup; the reputation cache takes one thread
+  lock for every database call.
+- Extension: a click on a notification brings back its Gmail tab even
+  after the service worker was stopped; with almost no text, the wording
+  score shows "not checked" and the popup no longer asks for an
+  explanation; pasted text is saved in the history under its first line.
+- API: the 411, 413 and 429 answers carry CORS headers, and
+  `RATE_LIMIT_DEFAULT` (60/minute unless set) now applies to the routes
+  without their own limit; `/health` is exempt for the keep-warm job.
+- CI installs slowapi so the rate limit tests run, and every backend
+  test starts with empty rate limit counters.
 
 ### Security
-- The backend refuses with 403 any request without the shared secret
-  (`PROXY_SECRET`, header `X-PhishLens-Proxy`) that the Pages Function
-  adds, so calling the Cloud Run address directly with a forged
-  `X-Forwarded-For` no longer dodges the rate limits. Off when unset.
+- With `PROXY_SECRET` set, the backend refuses with 403 any request
+  without that secret in the `X-PhishLens-Proxy` header (added by the
+  Pages Function), so calling the Cloud Run address directly with a
+  forged `X-Forwarded-For` no longer dodges the rate limits. Off when
+  unset.
 - The Pages Function adds HSTS, `X-Content-Type-Options: nosniff`,
-  `X-Frame-Options: DENY` and `Referrer-Policy` to the API answers
-  (`site/_headers` does not cover them), never forwards `Cookie` or
-  `Authorization`, and answers 405 to methods other than GET, HEAD,
-  POST and OPTIONS. `BACKEND_ORIGIN` can override the backend address.
+  `X-Frame-Options: DENY` and `Referrer-Policy` to the API answers, never
+  forwards `Cookie` or `Authorization`, and answers 405 to methods other
+  than GET, HEAD, POST and OPTIONS. `BACKEND_ORIGIN` can override the
+  backend address.
 
 ## [2.0.12] - 2026-11-01
 

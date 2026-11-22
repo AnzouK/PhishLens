@@ -1020,7 +1020,9 @@ _MEDIA = frozenset({"img", "svg", "picture", "video", "canvas", "object", "embed
 _SHAPES = frozenset(
     {"rect", "path", "circle", "ellipse", "polygon", "polyline", "line", "use", "image"}
 )
-_NOT_SHOWN = frozenset({"style", "script", "noscript", "title", "template", "head", "meta"})
+_NOT_SHOWN = frozenset(
+    {"style", "script", "noscript", "noembed", "noframes", "title", "template", "head", "meta"}
+)
 
 
 def _tiny_box(decl: dict[str, str], tag) -> bool:

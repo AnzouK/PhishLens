@@ -697,3 +697,65 @@ def test_equals_inside_an_unquoted_value_opens_no_quote(tag):
 def test_quoted_values_still_hide_markup():
     for tag in ['<div a = "x>">', "<div a='x>' b=\"y>\">", '<a href="x">', "</p a='>'>"]:
         assert ep.without_inline_data(tag + _BIG + "<p>V</p>") == tag + "<p>V</p>"
+
+
+_LONG = "<!--" + "x" * 600 + "-->"
+
+
+def test_end_tag_opener_without_a_letter_hides_no_link():
+    # "</1 " opens a bogus comment that a browser ends at the next ">",
+    # the end of the long comment here: the link after it shows.
+    html = "<p>hi</1 " + _LONG + '<a href="https://evil.tk/x">click</a></p>'
+    assert ep.html_links(html) == ["https://evil.tk/x"]
+    assert ep.html_to_text(html) == "hi click"
+
+
+def test_end_tag_opener_without_a_letter_hides_no_hidden_div():
+    html = "<p>hi</1 " + _LONG + '<div style="display:none">HIDDEN</div> shown</p>'
+    assert ep.html_to_text(html) == "hi\nshown\nHIDDEN"
+
+
+@pytest.mark.parametrize("opener", ["<!", "<?", "</1", "</ ", "</é"])
+def test_long_bogus_comments_are_removed(opener):
+    html = opener + "x" * 1_100_000 + "><p>visible words</p>"
+    assert ep.without_inline_data(html) == "<p>visible words</p>"
+    assert ep.html_to_text(html) == "visible words"
+
+
+def test_a_long_bogus_comment_keeps_its_links_as_empty_links():
+    html = '<?x <a href="https://in.example/a"' + "y" * 600 + '><a href="https://ok.example">ok</a>'
+    out = ep.without_inline_data(html)
+    assert out == '<a href="https://in.example/a"></a><a href="https://ok.example">ok</a>'
+    visible, hidden = ep.html_link_groups(html)
+    assert visible == ["https://ok.example"] and hidden == ["https://in.example/a"]
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<p>a</>b</p>" + "x" * 600,  # "</>" is ignored
+        "<p>Verify</p></",  # "</" at the end is text
+        "<!DOCTYPE html><p>Verify</p>",
+        "<p>a</1 b>c</p>" + "x" * 600,  # short bogus comment stays
+    ],
+)
+def test_short_bogus_comments_stay(html):
+    assert ep.without_inline_data(html) == html
+
+
+def test_an_unclosed_long_bogus_comment_runs_to_the_end():
+    html = "<p>Verify</p></ " + "x" * 600 + '<a href="https://in.example/b"'
+    assert ep.without_inline_data(html) == '<p>Verify</p><a href="https://in.example/b"></a>'
+
+
+@pytest.mark.parametrize("tag", ["iframe", "noembed", "noframes"])
+def test_fallback_content_is_not_text(tag):
+    html = f"<p>Verify</p><{tag}>fallback words</{tag}><p>now</p>"
+    assert ep.html_to_text(html) == "Verify\nnow"
+
+
+@pytest.mark.parametrize("tag", ["noembed", "noframes"])
+def test_a_link_showing_only_fallback_content_is_not_shown(tag):
+    html = f'<a href="https://evil.tk/x"><{tag}>Go</{tag}></a><a href="https://ok.example">ok</a>'
+    visible, hidden = ep.html_link_groups(html)
+    assert visible == ["https://ok.example"] and hidden == ["https://evil.tk/x"]
