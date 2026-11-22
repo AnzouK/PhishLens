@@ -15,7 +15,7 @@ from pathlib import Path
 
 # Shared by the backend and the extension (extension/manifest.json);
 # the CI checks that both say the same.
-VERSION = "2.0.12"
+VERSION = "2.1.0"
 
 # Text model
 # MODEL_DIR holds the text model checkpoint. When it is empty, the model

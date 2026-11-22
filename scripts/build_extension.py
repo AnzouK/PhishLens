@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The extension zip for a browser store, from extension/.
 
-    python3 scripts/build_extension.py chrome  dist/PhishLens-chrome-2.0.12.zip
-    python3 scripts/build_extension.py firefox dist/PhishLens-firefox-2.0.12.zip
+    python3 scripts/build_extension.py chrome  dist/PhishLens-extension-2.1.0.zip
+    python3 scripts/build_extension.py firefox dist/PhishLens-firefox-2.1.0.zip
 
 Chrome gets extension/ as it is. Firefox gets the same files with three
 manifest changes:

@@ -176,7 +176,8 @@ own buttons) are checked as hidden links.
 Revisit this document when an endpoint, an input type or an extension
 permission is added, when the text model changes, or when the
 deployment runs more than one instance (PhishLens Cloud is capped at
-one Cloud Run instance). The last review took place after 2.0.12, with
-five external audit rounds (authentication parsing, impersonation, hidden
-content, link parsing, Safe Browsing quota, Outlook sender, HTML
-attachments).
+one Cloud Run instance). The last review took place for 2.1.0: an
+external audit of 2.0.12 followed by five rounds of follow-up review
+(authentication parsing, impersonation, hidden content, link parsing,
+Safe Browsing quota, Outlook sender, HTML attachments, HTML comments,
+rate limits and hosting).

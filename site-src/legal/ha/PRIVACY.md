@@ -1,6 +1,6 @@
 # Manufar sirri ta PhishLens
 
-An sabunta ta ƙarshe: 21 ga Nuwamba, 2026.
+An sabunta ta ƙarshe: 22 ga Nuwamba, 2026.
 
 PhishLens ƙarin Chrome ne da ke duba ko imel phishing ne. Wannan shafin
 yana bayyana bayanan da yake sarrafawa, inda suke zuwa da abin da ake

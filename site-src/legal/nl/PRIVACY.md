@@ -1,6 +1,6 @@
 # Privacybeleid van PhishLens
 
-Laatst bijgewerkt: 21 november 2026.
+Laatst bijgewerkt: 22 november 2026.
 
 PhishLens is een Chrome-extensie die e-mails op phishing controleert.
 Deze pagina legt uit welke gegevens ze verwerkt, waar die naartoe gaan

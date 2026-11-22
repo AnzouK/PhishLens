@@ -7,6 +7,8 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-22
+
 ### Added
 - Backend image: `.github/workflows/backend-image.yml` publishes
   `backend/Dockerfile.cloud` (code only) as
@@ -45,6 +47,9 @@ backend share one version number.
   4,000, and the server reads that much too. Links written further on
   are still checked (up to 200,000 characters), and a tag cut at the end
   is judged against the new limit.
+- Self-hosting: `RATE_LIMIT_DEFAULT` is now enforced on every route
+  without its own limit (60/minute when unset; `/health` is exempt), so
+  a shared server may need a higher value.
 - Documentation and website: SPF, DKIM and DMARC are named as Gmail
   checks, the false-alarm figure leads with the real inboxes (0 of 117,
   at most 3.2%) in the README, the website and docs/project-overview.md,
@@ -1038,7 +1043,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.12...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/AnzouK/PhishLens/compare/v2.0.12...v2.1.0
 [2.0.12]: https://github.com/AnzouK/PhishLens/compare/v2.0.11...v2.0.12
 [2.0.11]: https://github.com/AnzouK/PhishLens/compare/v2.0.10...v2.0.11
 [2.0.10]: https://github.com/AnzouK/PhishLens/compare/v2.0.9...v2.0.10
