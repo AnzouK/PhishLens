@@ -7,7 +7,8 @@ module.exports = defineConfig({
     timeout: 30_000,
     retries: 1,
     reporter: [["list"]],
-    // English UI whatever the machine language: the tests check English texts.
+    // English UI whatever the machine language, since the tests check
+    // English texts.
     // PW_CHANNEL=chrome uses the Google Chrome already installed (CI
     // runners have it) instead of downloading Playwright's Chromium.
     use: {

@@ -1,11 +1,17 @@
 """
-Inference side of the Random Forest agents (URL and metadata).
+Inference side of the Random Forest agents.
 
-The agents are trained in the PhishingDetector repository
-(github.com/dodi-ctrl/PhishingDetector); this backend only loads the
-published state (skops, see agent_io.py) and scores one email at a
-time. The state is the dict the training code saves: model, scaler,
-feature_names, is_trained, training_history, best_params.
+Two instances are loaded by structured_agents: the URL agent, over the
+URL features of an email (domain properties, brand look-alikes, path and
+query patterns, shorteners, ports, HTTPS), and the metadata agent, over
+its header features (sender and reply-to domains, authentication
+results, routing). Both are trained in the PhishingDetector repository
+(github.com/dodi-ctrl/PhishingDetector) by Udodinachukwu David Nwoke;
+this backend only loads the published state (skops, see agent_io.py) and
+scores one email at a time. The state is the dict the training code
+saves: model, scaler, feature_names, is_trained, training_history,
+best_params. It holds only scikit-learn objects and plain values, never
+an instance of this class, so no module path is pinned by the files.
 """
 
 from __future__ import annotations

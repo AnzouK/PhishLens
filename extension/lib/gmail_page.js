@@ -1,9 +1,10 @@
 // Everything PhishLens assumes about Gmail's page, in one place. Gmail
-// has no public API for an open message: these are observations of its
-// current page (class names, an inline script, the "Show original" view)
-// and they break when Gmail changes. Each one is covered by a test on a
-// sample page (tests/extension/gmail_page.test.js, tests/fixtures/gmail/);
-// when Gmail changes, update the sample and the code here together.
+// has no public API for an open message, so these are observations of
+// its current page (class names, an inline script, the "Show original"
+// view) and they break when Gmail changes. Each one is covered by a test
+// on a sample page (tests/extension/gmail_page.test.js,
+// tests/fixtures/gmail/). When Gmail changes, update the sample and the
+// code here together.
 (function () {
 "use strict";
 
@@ -19,12 +20,14 @@ const SEL = Object.freeze({
     inboxRow: "tr.zA",                   // one row of the message list
     unreadRowClass: "zE",
     rowSubject: ".bog",
+    rowSnippet: ".y2",                   // start of the latest message, after the subject
+    rowSender: "span[email]",            // one sender of the thread, name in its "name" attribute
     rowThreadId: "[data-legacy-thread-id]",
 });
 
-// Gmail's per-account token "ik", needed by its own URLs: the 10th value
-// of `var GLOBALS=[…]` in an inline script of the page. Content scripts
-// cannot read page variables, but they can read the script text.
+// Gmail's per-account token "ik", which its own URLs need. It is the 10th
+// value of `var GLOBALS=[…]` in an inline script of the page. Content
+// scripts cannot read page variables, but they can read the script text.
 function ikFromScripts(scriptTexts) {
     for (const src of scriptTexts) {
         const i = String(src || "").indexOf("var GLOBALS=[");
@@ -42,9 +45,10 @@ function accountPath(pathname) {
     return m ? m[0] : "/mail/u/0";
 }
 
-// Query naming one message for the "Show original" view: from a message
-// element's data-message-id ("#msg-f:123…") or data-legacy-message-id
-// (hex), or a thread id from the message list. null when none fits.
+// Query naming one message for the "Show original" view, built from a
+// message element's data-message-id ("#msg-f:123…") or
+// data-legacy-message-id (hex), or from a thread id in the message list.
+// Returns null when none fits.
 function originalQuery({ thread, messageId, legacyId } = {}) {
     if (thread) return "th=" + encodeURIComponent(thread);
     const perm = String(messageId || "").replace(/^#/, "");
@@ -60,9 +64,10 @@ function originalUrl(origin, pathname, ik, query) {
 const ENTITIES = { "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&amp;": "&" };
 const MAX_RAW = 2 * 1024 * 1024;
 
-// The raw message in the "Show original" page: the <pre id="raw_message_text">
-// (headers and text parts; Gmail leaves attachment bodies out).
-// Returns { raw } or { reason } saying why it was not usable.
+// The raw message in the "Show original" page, from
+// <pre id="raw_message_text"> (headers and text parts; Gmail leaves
+// attachment bodies out). Returns { raw } or { reason } saying why it was
+// not usable.
 function parseShowOriginal(html) {
     const start = html.indexOf('id="raw_message_text"');
     if (start < 0) return { reason: "unexpected page layout" };
@@ -73,8 +78,8 @@ function parseShowOriginal(html) {
     if (!/^(?:from|received|delivered-to|return-path):/im.test(raw.slice(0, 20000))) {
         return { reason: "content is not an email" };
     }
-    // A message the user sent (or a draft) has no delivery headers:
-    // nothing to verify, and the sender checks would read it wrong.
+    // A message the user sent (or a draft) has no delivery headers. There
+    // is nothing to verify, and the sender checks would misread it.
     const headerEnd = raw.search(/\r?\n\r?\n/);
     if (!/^Received:/im.test(raw.slice(0, headerEnd > 0 ? headerEnd : 20000))) {
         return { reason: "no delivery headers (a message you sent?)" };
@@ -83,8 +88,9 @@ function parseShowOriginal(html) {
 }
 
 // Labels of the "mailed-by" / "signed-by" rows of the message details,
-// in the interface languages PhishLens supports. Only a fallback: with
-// "Read full headers" on, the real Authentication-Results header is used.
+// in the interface languages PhishLens supports. This is only a fallback;
+// with "Read full headers" on, the real Authentication-Results header is
+// used.
 const MAILED_BY = new Set(["mailed-by", "envoyé par", "enviado por", "gesendet von", "inviato da", "verzonden door"]);
 const SIGNED_BY = new Set(["signed-by", "signé par", "firmado por", "assinado por", "signiert von", "firmato da",
     "ondertekend door"]);
@@ -100,8 +106,8 @@ function viaDomain(text) {
     return m ? m[1] : null;
 }
 
-// Spam and Trash have their own hash in Gmail's URL; a search can reach
-// them too ("in:spam", "in:anywhere").
+// Spam and Trash have their own hash in Gmail's URL, and a search can
+// reach them too ("in:spam", "in:anywhere").
 function inInbox(hash) {
     return !/spam|trash|anywhere/i.test(String(hash || ""));
 }

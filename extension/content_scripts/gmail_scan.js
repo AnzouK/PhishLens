@@ -1,4 +1,4 @@
-// Gmail: the "Scan with PhishLens" button of an open email. Reads the
+// The "Scan with PhishLens" button of an open Gmail email. It reads the
 // message (text, sender, links, Gmail's sender checks, and the original
 // message when "Read full headers" is on) and sends it to /analyse.
 (function () {
@@ -12,7 +12,8 @@ const { SEL } = G;
 const processed = new WeakSet();
 let scanQueued = false;
 
-// Gmail mutates the page constantly: look for new emails at most every 250 ms.
+// Gmail mutates the page constantly, so look for new emails at most every
+// 250 ms.
 PL.scheduleScan = function scheduleScan() {
     if (scanQueued) return;
     scanQueued = true;
@@ -38,7 +39,7 @@ function installScanButton(subjectEl, emailView) {
     if (subjectEl.dataset.pllHooked === PL.instance) return;
     let wrap = subjectEl.parentElement?.classList.contains("pll-subject-wrap") ? subjectEl.parentElement : null;
     if (subjectEl.dataset.pllHooked && wrap) {
-        // Hooked by an older copy of the scripts: drop its dead buttons.
+        // Drop dead buttons left by an older copy of the scripts.
         wrap.querySelectorAll(".pll-scan-btn").forEach((b) => b.remove());
     }
     subjectEl.dataset.pllHooked = PL.instance;
@@ -55,16 +56,17 @@ function installScanButton(subjectEl, emailView) {
     }));
 }
 
-// In a conversation several messages can be expanded. The one scanned is
-// the last expanded message; body, sender, links and the sender checks
-// are all read from it, so they cannot come from two different emails.
+// In a conversation several messages can be expanded. The last expanded
+// one is scanned, and its body, sender, links and sender checks are all
+// read from it so they cannot come from two different emails.
 function currentMessage(emailView) {
     const msgs = [...emailView.querySelectorAll(SEL.message)].filter((m) => m.querySelector(SEL.body));
     return { msg: msgs.length ? msgs[msgs.length - 1] : emailView, count: msgs.length };
 }
 
-// No text and no links: nothing to score. Usually an email that only
-// carries an attachment (a classic lure), so the attachments are scanned.
+// With no text and no links there is nothing to score. That is usually an
+// email that only carries an attachment (a classic lure), so the
+// attachments are scanned instead.
 function nothingToScan(emailView, hasAttachments, attBtn) {
     if (hasAttachments) {
         PL.showBanner(emailView, {
@@ -80,7 +82,7 @@ function nothingToScan(emailView, hasAttachments, attBtn) {
 
 async function buildPayload(emailView, msg, { body, subject, linkGroups, count, sender }) {
     const shortBody = !body || body.length < PL.MIN_BODY;
-    // Gmail ran SPF/DKIM/DMARC before delivery; its results on the page
+    // Gmail ran SPF/DKIM/DMARC before delivery. Its results on the page
     // let the server trust a verified sender even without the headers.
     const gmailAuth = extractGmailAuthSignals(emailView, msg);
     const original = PL.opts.fullHeaders ? await PL.fetchOriginalMessage(msg) : null;
@@ -88,10 +90,10 @@ async function buildPayload(emailView, msg, { body, subject, linkGroups, count, 
         : `full headers: not used (option ${PL.opts.fullHeaders ? "on" : "off"})`);
     const payload = {
         // With the original, the headers come from it but the text is the
-        // one the page shows: plain-text parts spell URLs out and skew the
-        // text model.
+        // one the page shows, because plain-text parts spell URLs out and
+        // skew the text model.
         ...(original
-            ? { raw_email_b64: PL.utf8ToB64(original), ...(shortBody ? {} : { raw_text: body.slice(0, 4000) }) }
+            ? { raw_email_b64: PL.utf8ToB64(original), ...(shortBody ? {} : { raw_text: body.slice(0, PL.MAX_RAW_TEXT) }) }
             : { raw_text: PL.rawText(subject, body) }),
         sender_email: sender.getAttribute?.("email")?.slice(0, 512) || null,
         sender_name: PL.senderName(sender.textContent),
@@ -129,8 +131,8 @@ async function runScan(emailView, btn) {
         return;
     }
     if (!(await PL.confirmCloudUse(emailView))) return;
-    // Almost no text but some links (image-only emails): the links and the
-    // sender are scored, and the attachments scanned too.
+    // With almost no text but some links (image-only emails), the links
+    // and sender are scored and the attachments are scanned too.
     if (shortBody && hasAttachments && attBtn && !attBtn.disabled) attBtn.click();
 
     PL.setBtnLoading(btn, true);
@@ -156,8 +158,9 @@ function gmailIk() {
 }
 
 // The raw message behind "Show original". `ref` is the message element
-// or { thread: id } from the message list. null when Gmail does not
-// serve it (changed page, timeout): the scan then uses the visible page.
+// or { thread: id } from the message list. Returns null when Gmail does
+// not serve it (changed page, timeout); the scan then uses the visible
+// page.
 PL.fetchOriginalMessage = async function fetchOriginalMessage(ref) {
     const fallback = (why) => {
         console.info(PL.TAG, `full headers: ${why}, using the visible page`);
@@ -173,8 +176,8 @@ PL.fetchOriginalMessage = async function fetchOriginalMessage(ref) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 5000);
     try {
-        // Absolute URL: a relative one is not resolved against the page in
-        // every content-script context.
+        // Absolute URL, because a relative one is not resolved against the
+        // page in every content-script context.
         const resp = await fetch(G.originalUrl(location.origin, location.pathname, ik, query),
             { credentials: "include", signal: ctrl.signal });
         if (!resp.ok) return fallback(`Gmail answered HTTP ${resp.status}`);
@@ -187,28 +190,31 @@ PL.fetchOriginalMessage = async function fetchOriginalMessage(ref) {
     }
 };
 
-// Gmail's own sender checks, as shown on the page: the "mailed-by" and
-// "signed-by" rows of the message details (present only when the user
-// opened them; opening them automatically was too intrusive), the "via
-// example.com" hint, and whether the mail is outside Spam and Trash.
-// Matched on visible labels, not on Gmail's class names.
+// Gmail's own sender checks as shown on the page: the "mailed-by" and
+// "signed-by" rows of the message details, the "via example.com" hint,
+// and whether the mail is outside Spam and Trash. The detail rows exist
+// only when the user opened them; opening them automatically was too
+// intrusive. Matched on visible labels, not on Gmail's class names.
 function extractGmailAuthSignals(emailView, msg) {
     const out = { signedBy: null, mailedBy: null, via: null, inInbox: G.inInbox(location.hash) };
     if (msg) scrapeAuthRows(msg, out);
     if (!out.signedBy && !out.mailedBy) scrapeAuthRows(document.body, out);
     for (const el of (msg || emailView).querySelectorAll("span")) {
-        if (!fromGmail(el)) continue;
+        // Skip the sender's own name, or a display name "via paypal.com"
+        // would pass for Gmail's hint.
+        if (!fromGmail(el) || el.closest?.("[email], [name]")) continue;
         out.via = G.viaDomain(el.textContent);
         if (out.via) break;
     }
     return out;
 }
 
-// Written by Gmail, not by the sender: outside every message body (an
-// email can contain a "signed-by: bank.com" of its own, even hidden) and
-// visible.
+// True for text written by Gmail rather than the sender. It must be
+// visible, outside every message body (an email can contain its own
+// "signed-by: bank.com", even hidden) and outside the subject, which the
+// sender also writes ("via paypal.com").
 function fromGmail(el) {
-    return !PL.inMessageBody(el) && !PL.isHidden(el);
+    return !PL.inMessageBody(el) && !el.closest?.(G.SEL.subject) && !PL.isHidden(el);
 }
 
 const HOST_RE = /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i;

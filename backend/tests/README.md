@@ -21,7 +21,7 @@ OpenCV, scikit-learn, skops) skip themselves when it is missing.
 | `test_text_model.py` | text agent wrapper and LIME selection with stand-ins for torch / transformers / LIME |
 | `test_structured_agents.py` | loading the trained URL / metadata agents, pickle refusal, rule fallback |
 | `test_rf_agent.py` | inference of the Random Forest agents (feature padding, joblib fallback) |
-| `test_bypasses.py` | each way found to make a phishing email look safer (audits): forged results, impersonation variants, hidden text and links, URL tricks, attachment links; `tests/fixtures/hidden_cases.json` is shared with the extension's tests |
+| `test_bypass_*.py` | each way found to make a phishing email look safer (audits), by topic: `sender` (forged results, impersonation variants), `html` (hidden text and links), `text` (invisible characters, source shown as text), `urls` (URL tricks, known sites), `attachments` (pages, scripts, archives, file names), `office` (Office and OLE2 documents); the JSON files in `tests/fixtures/` are shared with the extension's tests through `conftest.shared_cases` |
 | `test_extension_backend.py` | endpoints, request limits and errors, the trust paths (allowlist only for authenticated senders), attachment trust inheritance, `/metrics` |
 
 Run locally:
@@ -31,7 +31,8 @@ cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install pytest pytest-cov fastapi httpx prometheus-fastapi-instrumentator \
             numpy pandas beautifulsoup4 pdfplumber pypdfium2 pillow pytesseract \
-            opencv-python-headless reportlab scikit-learn joblib skops rarfile py7zr defusedxml
+            opencv-python-headless reportlab scikit-learn joblib skops rarfile py7zr defusedxml \
+            slowapi
 pytest -q --cov=. --cov-config=.coveragerc
 ```
 

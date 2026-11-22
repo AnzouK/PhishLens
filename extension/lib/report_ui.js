@@ -1,8 +1,9 @@
 // "Is this right?" controls under a verdict, in the Gmail and Outlook
-// banners and in the popup:
+// banners and in the popup.
 //   languageLine()  "Language detected: French. Correct / Not this language"
-//   reportButton()  "Wrong verdict? Report it": a panel with the redacted
-//                   text, editable, sent only when the user confirms.
+//   reportButton()  "Wrong verdict? Report it". Opens a panel with the
+//                   redacted text, editable, sent only when the user
+//                   confirms.
 // Classes are prefixed plr- (styled in banner.css and popup.css).
 (function () {
 "use strict";
@@ -97,8 +98,9 @@ function sentMessage(reference) {
     return box;
 }
 
-// The report panel: what will be sent, editable, behind a confirmation.
-// send(kind, text) returns a promise of {ok, reference, error}.
+// The report panel shows what will be sent, lets the user edit it and
+// asks for confirmation. send(kind, text) returns a promise of
+// {ok, reference, error}.
 function reportPanel({ verdict, text, redact, send, onSent }) {
     const kind = verdict === "phishing" ? "false_positive" : "false_negative";
     const panel = el("div", "plr-report");
@@ -157,8 +159,9 @@ function reportPanel({ verdict, text, redact, send, onSent }) {
     return panel;
 }
 
-// "Wrong verdict? Report it": opens the panel next to itself. getText
-// resolves to the redacted text, or "" when the person has to paste it.
+// "Wrong verdict? Report it" button that opens the panel next to itself.
+// getText resolves to the redacted text, or "" when the person has to
+// paste it.
 function reportButton({ verdict, getText, redact, send, onSent }) {
     const wrap = el("div", "plr-wrap");
     const b = button(t("fb_report"), "plr-link");
@@ -173,8 +176,9 @@ function reportButton({ verdict, getText, redact, send, onSent }) {
     return wrap;
 }
 
-// The body of a report (POST /feedback): the verdict and scores, never
-// the sender or the subject; `text` was redacted and shown to the user.
+// Body of a report (POST /feedback). It carries the verdict and scores,
+// never the sender or the subject, and `text` has been redacted and shown
+// to the user.
 function payload(kind, text, data, { source, lang, langUser } = {}) {
     const p = (agent) => Number(data?.agents?.[agent]?.phishing_probability) || 0;
     return {

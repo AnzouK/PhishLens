@@ -1,9 +1,8 @@
-// Removing personal data from an email before it is shared.
-// Used before a report leaves the browser (the server runs the same
-// rules again, backend/redaction.py). What is removed:
+// Removes personal data from an email before a report leaves the browser.
+// The server runs the same rules again (backend/redaction.py). Removed:
 //   email addresses, phone numbers, long numbers (accounts, cards, codes,
-//   IBANs), the path and query of every link (the domain stays: it is
-//   what tells a phishing site from a real one), @handles and usernames,
+//   IBANs), the path and query of every link (the domain stays because it
+//   tells a phishing site from a real one), @handles and usernames,
 //   names after a greeting or a title, and the words given in `terms`
 //   (the user's own name and address, read from the mail page).
 // The person always sees the result before sending it.
@@ -30,7 +29,7 @@ const RE = {
     longNumber: /(?<![\p{L}\p{N}])\d(?:[ .-]?\d){5,}(?![\p{L}\p{N}])/gu,
     phone: /(?<![\p{L}\p{N}])\+\d[\d ().-]{6,}\d/gu,
     handle: /(?<![\p{L}\p{N}<])@[\p{L}\p{N}_.]{2,}/gu,
-    // Same rule as backend/unicode_text.py (lib/shared.js), every one
+    // Same rule as backend/unicode_text.py (lib/shared.js). Every match is
     // removed, joiners included.
     invisible: new RegExp(INVISIBLE_SOURCE, "gu"),
 };
@@ -60,9 +59,9 @@ function termsFrom(...values) {
 }
 
 function redact(text, terms = []) {
-    // Compatibility forms folded (no-break and narrow spaces become
-    // spaces, full-width digits plain ones) and invisible characters
-    // removed, before any rule. Same as backend/redaction.py.
+    // Before any rule, fold compatibility forms (no-break and narrow
+    // spaces become spaces, full-width digits plain ones) and remove
+    // invisible characters. Same as backend/redaction.py.
     let t = String(text || "").normalize("NFKC").replace(RE.invisible, "");
     t = t.replace(RE.email, "<EMAIL>");
     t = t.replace(RE.url, (_, host) => `<URL:${host.toLowerCase().replace(/^www\./, "")}>`);

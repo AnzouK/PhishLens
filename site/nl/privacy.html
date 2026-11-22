@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=876364fc54">
-<script src="../i18n/nl.js?v=be469f1892" defer></script>
+<script src="../i18n/nl.js?v=80e0f4966c" defer></script>
 <script src="../lang.js?v=074b2a25f3" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 </head>
@@ -66,7 +66,7 @@
 <article class="prose">
 <p class="legal-note">Deze vertaling is bedoeld voor het gemak. Als ze afwijkt van de <a href="../privacy">Engelse versie</a>, geldt de Engelse versie.</p>
 <h1 id="privacybeleid-van-phishlens">Privacybeleid van PhishLens</h1>
-<p>Laatst bijgewerkt: 21 november 2026.</p>
+<p>Laatst bijgewerkt: 22 november 2026.</p>
 <p>PhishLens is een Chrome-extensie die e-mails op phishing controleert. Deze pagina legt uit welke gegevens ze verwerkt, waar die naartoe gaan en wat bewaard wordt. Ze geldt voor de extensie en voor de gehoste server, PhishLens Cloud, op <code>phishlens.dev</code>.</p>
 <h2 id="in-het-kort">In het kort</h2>
 <ul>
@@ -141,7 +141,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>Meldingen gaan naar PhishLens Cloud, welke server u ook voor de controles gebruikt. De server anonimiseert de tekst een tweede keer met dezelfde regels, bewaart de melding zonder uw IP-adres of andere verzoekgegevens (de hieronder beschreven verzoeklogs leggen het verzoek wel 30 dagen vast) en geeft een referentie terug. Meldingen dienen alleen om PhishLens te meten en te verbeteren (bijvoorbeeld om het tekstmodel te trainen op legitieme e-mails die het verkeerd beoordeelde); ze worden nooit gepubliceerd of gedeeld. Ze worden hooguit twee jaar bewaard. Om een melding te laten verwijderen, schrijft u naar <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> met de referentie, of opent u een issue op <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (de referentie alleen zegt niets over de melding).</p>
+<p>Meldingen gaan naar PhishLens Cloud, welke server u ook voor de controles gebruikt. De server anonimiseert de tekst een tweede keer met dezelfde regels, bewaart de melding zonder uw IP-adres of andere verzoekgegevens (de hieronder beschreven verzoeklogs leggen het verzoek wel 30 dagen vast) en geeft een referentie terug. Bij elke nieuwe melding krijgt de beheerder een korte notificatie via een pushdienst (ntfy): het soort melding, het gemelde oordeel, de taal, waar de e-mail werd gecontroleerd en de referentie (bij statistieken het aantal controles), nooit de inhoud van de e-mail. Meldingen dienen alleen om PhishLens te meten en te verbeteren (bijvoorbeeld om het tekstmodel te trainen op legitieme e-mails die het verkeerd beoordeelde); ze worden nooit gepubliceerd of gedeeld. Ze worden hooguit twee jaar bewaard. Om een melding te laten verwijderen, schrijft u naar <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> met de referentie, of opent u een issue op <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (de referentie alleen zegt niets over de melding).</p>
 <p>Om melden vanuit de weergave Statistieken mogelijk te maken, blijft de geanonimiseerde tekst van uw laatste Gmail- en Outlook-controles 7 dagen in uw browser (hooguit 50 e-mails). Die verlaat de browser nooit, tenzij u die controle meldt.</p>
 <h2 id="wat-bewaard-wordt-en-hoe-lang">Wat bewaard wordt, en hoe lang</h2>
 <div class="table-wrap"><table>
@@ -159,9 +159,9 @@
 <td>Tot u ze wist (Statistieken, <strong>Wissen</strong>), hooguit de laatste 500 controles</td>
 </tr>
 <tr class="even">
-<td>Cache van uitleg</td>
+<td>Cache van uitleg (de woorden die een oordeel uitleggen, gekoppeld aan een hash van de tekst)</td>
 <td>Uw browser</td>
-<td>Tot de extensie wordt verwijderd</td>
+<td>30 dagen, hoogstens 200 items; gewist met de geschiedenis</td>
 </tr>
 <tr class="odd">
 <td>Geanonimiseerde tekst van recente Gmail- en Outlook-controles, voor meldingen</td>
@@ -170,13 +170,13 @@
 </tr>
 <tr class="even">
 <td>Meldingen die u hebt verstuurd (geanonimiseerde tekst of statistieken, zie hierboven)</td>
-<td>PhishLens Cloud (Google Cloud Storage, Verenigde Staten)</td>
+<td>PhishLens Cloud (Google Cloud Storage, Verenigde Staten; één bestand per melding)</td>
 <td>Hooguit twee jaar; op verzoek verwijderd met de referentie</td>
 </tr>
 <tr class="odd">
-<td>Resultaten van de automatische controle (gespreks-ID, oordeel, score)</td>
+<td>Resultaten van de automatische controle (gespreks-ID, oordeel, score, een korte afdruk van de rij in de inbox)</td>
 <td>Uw browser</td>
-<td>De laatste 500 e-mails</td>
+<td>De laatste 500 e-mails; gewist met de geschiedenis</td>
 </tr>
 <tr class="even">
 <td>Instellingen</td>
@@ -238,8 +238,12 @@
 <td>Hetzelfde, in Outlook (alleen handmatige controles).</td>
 </tr>
 <tr class="even">
-<td>Toegang tot <code>127.0.0.1:8000</code>, <code>localhost:8000</code>, <code>phishlens.dev</code></td>
-<td>Controles naar de door u gekozen server sturen.</td>
+<td>Toegang tot <code>phishlens.dev</code></td>
+<td>Controles naar PhishLens Cloud sturen, de standaardserver.</td>
+</tr>
+<tr class="odd">
+<td>Optioneel: <code>127.0.0.1</code>, <code>localhost</code> of het adres van uw eigen server</td>
+<td>Alleen gevraagd als u in de instellingen een lokale of eigen server kiest, en alleen voor die host, op elke poort.</td>
 </tr>
 </tbody>
 </table></div>

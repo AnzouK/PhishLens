@@ -19,9 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import reputation as rep
 
 
-# ---------------------------------------------------------------------
 # Fakes
-# ---------------------------------------------------------------------
 class FakePhishTank:
     def __init__(self, bad: set[str]):
         self.bad = bad
@@ -93,9 +91,7 @@ def offline(monkeypatch):
     return monkeypatch
 
 
-# ---------------------------------------------------------------------
 # Cache
-# ---------------------------------------------------------------------
 class TestCache:
     def test_roundtrip_marks_cached(self, tmp_path):
         async def go():
@@ -122,6 +118,36 @@ class TestCache:
         monkeypatch.setattr(rep, "CACHE_TTL_SEC", -1)
         assert c._get_sync("http://old.tld") is None
 
+    def test_writes_purge_expired_rows_at_most_hourly(self, tmp_path, monkeypatch):
+        now = [1_000_000.0]
+        monkeypatch.setattr(rep.time, "time", lambda: now[0])
+        monkeypatch.setattr(rep, "CACHE_TTL_SEC", 24 * 3600)
+        c = rep.Cache(str(tmp_path / "c.db"))
+        c._put_sync("http://old.tld", {"score": 0.0})
+        now[0] += 24 * 3600 + 10
+        c._put_sync("http://new.tld", {"score": 0.0})
+        assert c.stats()["cache_entries"] == 1  # the old row went with this write
+        c._put_sync("http://b.tld", {"score": 0.0})
+        now[0] += 24 * 3600 + 10
+        c._put_sync("http://c.tld", {"score": 0.0})
+        assert c.stats()["cache_entries"] == 1  # an hour passed: purged again
+        now[0] += 24 * 3600 - 600
+        c._put_sync("http://d.tld", {"score": 0.0})
+        now[0] += 700
+        c._put_sync("http://e.tld", {"score": 0.0})
+        # c has just expired, but the last purge is 700 s old: it stays
+        # until the next hourly one, and reads never return it.
+        assert c.stats()["cache_entries"] == 3 and c._get_sync("http://c.tld") is None
+
+    def test_stats_purge_expired_rows_when_due(self, tmp_path, monkeypatch):
+        now = [1_000_000.0]
+        monkeypatch.setattr(rep.time, "time", lambda: now[0])
+        monkeypatch.setattr(rep, "CACHE_TTL_SEC", 24 * 3600)
+        c = rep.Cache(str(tmp_path / "c.db"))
+        c._put_sync("http://old.tld", {"score": 0.0})
+        now[0] += 24 * 3600 + 10
+        assert c.stats()["cache_entries"] == 0  # no write since, still purged
+
     def test_self_heals_if_table_dropped(self, tmp_path):
         import sqlite3
 
@@ -133,10 +159,72 @@ class TestCache:
         c._put_sync("http://x.tld", {"score": 0.0})
         assert c.stats()["cache_entries"] == 1
 
+    def test_stats_self_heals_if_table_dropped(self, tmp_path):
+        import sqlite3
 
-# ---------------------------------------------------------------------
+        path = str(tmp_path / "c.db")
+        c = rep.Cache(path)
+        with sqlite3.connect(path) as db:
+            db.execute("DROP TABLE reputation_cache")
+        c._last_purge = rep.time.time()  # no purge to re-create it first
+        assert c.stats() == {"cache_entries": 0}
+        c._put_sync("http://x.tld", {"score": 0.0})
+        assert c.stats()["cache_entries"] == 1
+
+    def test_sync_and_async_calls_from_threads_do_not_collide(self, tmp_path, monkeypatch):
+        # /health and /reputation/stats run in worker threads while the
+        # event loop writes; every call must go through the same lock.
+        from concurrent.futures import ThreadPoolExecutor
+
+        c = rep.Cache(str(tmp_path / "c.db"))
+        monkeypatch.setattr(c, "PURGE_EVERY_SEC", 0)  # purge on every call
+        held = []
+        real_connect = rep.sqlite3.connect
+
+        def connect(*a, **kw):
+            # Only one connection open at a time: no "database is locked".
+            assert not held, "two connections at once"
+            held.append(1)
+            db = real_connect(*a, **kw)
+
+            class Guard:
+                def __enter__(self):
+                    return db.__enter__()
+
+                def __exit__(self, *exc):
+                    try:
+                        return db.__exit__(*exc)
+                    finally:
+                        db.close()
+                        held.pop()
+
+            return Guard()
+
+        monkeypatch.setattr(rep.sqlite3, "connect", connect)
+
+        def reads():
+            for _ in range(20):
+                c.stats()
+                c.purge_if_due()
+
+        async def writes(k):
+            for j in range(20):
+                await c.put(f"http://{k}-{j}.tld", {"score": 0.0})
+                await c.get(f"http://{k}-{j}.tld")
+
+        async def go():
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor(8) as pool:
+                await asyncio.gather(
+                    *(writes(k) for k in range(4)),
+                    *(loop.run_in_executor(pool, reads) for _ in range(8)),
+                )
+
+        asyncio.run(go())
+        assert c.stats()["cache_entries"] == 4 * 20
+
+
 # GSB quota
-# ---------------------------------------------------------------------
 class TestGsbQuota:
     def test_stops_at_limit_minus_buffer(self):
         async def go():
@@ -160,9 +248,7 @@ class TestGsbQuota:
         assert asyncio.run(go()) is True
 
 
-# ---------------------------------------------------------------------
 # Cascade
-# ---------------------------------------------------------------------
 class TestCascade:
     def test_normalize_adds_scheme(self, tmp_path):
         eng = make_engine(tmp_path)

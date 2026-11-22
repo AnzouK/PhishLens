@@ -23,9 +23,7 @@ def fx():
     return FeatureExtractor()
 
 
-# ---------------------------------------------------------------------
 # URL features
-# ---------------------------------------------------------------------
 class TestUrlFeatures:
     def test_no_urls_gives_all_zero(self, fx):
         f = fx.extract_url_features("Hello, no links in here.")
@@ -83,9 +81,7 @@ class TestUrlFeatures:
         assert f["potential_typosquatting"] == 1
 
 
-# ---------------------------------------------------------------------
 # Metadata features
-# ---------------------------------------------------------------------
 PHISHY_EML = (
     b"From: PayPal Security <alert@paypa1-support.xyz>\r\n"
     b"Reply-To: collector@evil.example\r\n"
@@ -145,9 +141,7 @@ class TestMetadataFeatures:
         assert f["spf_pass"] == 1
 
 
-# ---------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------
 class TestHelpers:
     def test_address_domain(self):
         assert fe.address_domain('"Bob" <bob@mail.example.org>') == "mail.example.org"

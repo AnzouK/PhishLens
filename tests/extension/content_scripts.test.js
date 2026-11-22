@@ -1,9 +1,9 @@
-// The content scripts of each manifest entry, loaded in their manifest
-// order in a sandbox with a small fake DOM (fake_dom.js): no error at
-// load time, no name leaked outside the PhishLens namespaces, every
-// function the other files call is present, and the banners render text
-// from emails as text. Catches a file missing from the manifest or
-// loaded in the wrong order, which ESLint cannot see.
+// Loads the content scripts of each manifest entry in manifest order, in
+// a sandbox with a small fake DOM (fake_dom.js). Checks that they load
+// without error, leak no name outside the PhishLens namespaces, define
+// every function the other files call, and render text from emails as
+// text. This catches a file missing from the manifest or loaded in the
+// wrong order, which ESLint cannot see.
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -55,7 +55,7 @@ const SHARED = ["showBanner", "showError", "attachExplanation", "explainInBackgr
 const GMAIL = ["scheduleScan", "runScan", "fetchOriginalMessage", "extractGmailAuthSignals",
     "installAttachmentButtons", "scheduleAutoScan", "paintAutoBadges", "loadAutoCache"];
 
-// An open email as the scripts find it: a view with a message body.
+// An open email as the scripts find it, a view with a message body.
 function mailView(document) {
     const view = document.createElement("div");
     const body = document.createElement("div");
@@ -75,7 +75,7 @@ for (const entry of manifest.content_scripts) {
         const { PL, host, added } = load(entry);
         const want = SHARED.concat(host === "mail.google.com" ? GMAIL : ["olInject"]);
         assert.deepEqual(want.filter((n) => typeof PL[n] !== "function"), []);
-        // Each file keeps its names to itself: only the namespaces are global.
+        // Each file keeps its names to itself. Only the namespaces are global.
         assert.deepEqual(added.filter((k) => !/^PhishLens[A-Z]\w*$/.test(k)), []);
         const view = mailView(makeDocument());
         PL.showBanner(view, PHISHING);
@@ -125,7 +125,7 @@ test("a failed explanation says so instead of waiting forever", async () => {
     assert.match(view.querySelector(".pll-banner__tokens").textContent, /Server unreachable/);
 });
 
-test("in automatic theme, the banner colours follow the mail page, not the system", () => {
+test("automatic theme: banner colours follow the mail page", () => {
     const { PL, ctx } = load(manifest.content_scripts[0]);
     const theme = () => ctx.document.documentElement.getAttribute("data-phishlens-theme");
     ctx.getComputedStyle = () => ({ backgroundColor: "rgb(32, 33, 36)" });
@@ -138,7 +138,7 @@ test("in automatic theme, the banner colours follow the mail page, not the syste
     assert.equal(theme(), "dark");
 });
 
-test("before the first PhishLens Cloud scan, the page shows where the email goes", async () => {
+test("before the first Cloud scan, the page shows where emails go", async () => {
     const { PL, ctx } = load(manifest.content_scripts[0]);
     const store = {};
     ctx.chrome.storage.local = {
@@ -154,14 +154,15 @@ test("before the first PhishLens Cloud scan, the page shows where the email goes
     assert.equal(await answer, true);
     assert.equal(store.privacy_notice_seen, true);
     assert.equal(view.querySelectorAll(".pll-banner").length, 0);
-    // Seen once: no notice any more, and none with a local server.
+    // After it has been seen there is no notice, and none with a local
+    // server either.
     assert.equal(await PL.confirmCloudUse(view), true);
     delete store.privacy_notice_seen;
     store.backend = "local";
     assert.equal(await PL.confirmCloudUse(view), true);
 });
 
-test("a signed-by line written in the email body is not taken for Gmail's", () => {
+test("a signed-by line in the email body is not Gmail's", () => {
     const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const view = mailView(ctx.document);
@@ -224,7 +225,7 @@ test("hidden parts of one letter each are moved too", () => {
     assert.equal(body.dump().includes("data-pll-hidden"), false);
 });
 
-test("a display name is sent without invisible characters and cut at 200", () => {
+test("display names lose invisible characters and stop at 200", () => {
     const entry = entryFor("mail.google.com");
     const { PL } = load(entry);
     assert.equal(PL.senderName("​".repeat(300) + "PayPal"), "PayPal");
@@ -260,8 +261,8 @@ test("text drawn in a transparent colour counts as hidden", () => {
     assert.equal(PL.isHidden(el), false);
 });
 
-// The same cases as backend/tests/test_bypasses.py: the server reads the
-// inline style, the extension the computed one; both must agree.
+// Same cases as backend/tests/test_bypass_html.py. The server reads the
+// inline style and the extension the computed one, and both must agree.
 const HIDDEN_CASES = require(path.join(__dirname, "..", "fixtures", "hidden_cases.json")).cases;
 for (const c of HIDDEN_CASES) {
     test(`hidden style case: ${c.name}`, () => {
@@ -278,7 +279,7 @@ for (const c of HIDDEN_CASES) {
     });
 }
 
-test("visible and hidden links are sent apart, a second visible one first", () => {
+test("visible and hidden links are sent apart, visible ones first", () => {
     const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
@@ -298,7 +299,7 @@ test("visible and hidden links are sent apart, a second visible one first", () =
     assert.equal(groups.hidden.length, 48);
 });
 
-test("Outlook reads the sender's own address, not one in the display name", () => {
+test("Outlook reads the sender's address, not one in the name", () => {
     const entry = manifest.content_scripts.find((e) => e !== entryFor("mail.google.com"));
     const { PL } = load(entry);
     assert.equal(PL.senderAddress(['"support@gtbank.com" <scam@attacker.example>']), "scam@attacker.example");
@@ -306,7 +307,7 @@ test("Outlook reads the sender's own address, not one in the display name", () =
     assert.equal(PL.senderAddress(["Ana Silva"]), "");
 });
 
-test("thousands of anchors without an address do not hide the links after them", () => {
+test("anchors without an address do not hide the links after them", () => {
     const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
@@ -323,7 +324,7 @@ test("thousands of anchors without an address do not hide the links after them",
     assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
 });
 
-test("Outlook takes the last address between angle brackets, over every part of the line", () => {
+test("Outlook takes the last address between angle brackets", () => {
     const entry = manifest.content_scripts.find((e) => e !== entryFor("mail.google.com"));
     const { PL } = load(entry);
     assert.equal(PL.senderAddress(['"PayPal <service@paypal.com>" <scam@attacker.example>']), "scam@attacker.example");
@@ -352,7 +353,7 @@ test("a link whose only text is hidden counts as hidden", () => {
     assert.deepEqual([...groups.hidden], ["https://d0.example/", "https://d1.example/"]);
 });
 
-test("a dark section whose paragraphs are white stays visible; its own dark text does not", () => {
+test("dark section: white text visible, its dark text hidden", () => {
     const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
@@ -391,7 +392,7 @@ test("a link whose only picture is invisible counts as hidden", () => {
     assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
 });
 
-test("file names that reorder text are shown with the reordering mark visible", () => {
+test("file names that reorder text show the reordering mark", () => {
     const shared = require(path.join(EXT, "lib", "shared.js"));
     assert.equal(shared.safeName("invoice‮fdp.exe"), "invoice␠fdp.exe");
     assert.equal(shared.safeName("report.pdf"), "report.pdf");
@@ -409,7 +410,7 @@ test("words a style sheet writes with ::before are read", () => {
     assert.equal(PL.textOf(body), "Hello\nVerify your account now");
 });
 
-test("unreadable text is emptied only for the reading, and put back", () => {
+test("unreadable text is emptied for the reading, then put back", () => {
     const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const body = mailView(ctx.document).querySelector(".a3s");
@@ -440,7 +441,7 @@ test("display:contents shows its content", () => {
     assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
 });
 
-test("an <area> counts only through a shown image that uses its map", () => {
+test("an <area> counts only through a shown image using its map", () => {
     const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
@@ -452,7 +453,7 @@ test("an <area> counts only through a shown image that uses its map", () => {
     const inMap = doc.createElement("area");
     inMap.href = "https://ok.example/";
     map.append(inMap);
-    // As in a browser: <area> is display:none, <map> draws nothing.
+    // As in a browser, <area> is display:none and <map> draws nothing.
     for (const n of [loose, map, inMap]) n.getClientRects = () => [];
     const img = doc.createElement("img");
     img.setAttribute("usemap", "#m");
@@ -464,7 +465,7 @@ test("an <area> counts only through a shown image that uses its map", () => {
     assert.deepEqual([...groups.hidden], ["https://d0.example/"]);
 });
 
-test("words written by ::before in the colour of the background are not read", () => {
+test("::before words in the background colour are not read", () => {
     const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const body = mailView(ctx.document).querySelector(".a3s");
@@ -502,7 +503,7 @@ test("a name cut after many invisible marks keeps the brand", () => {
     assert.equal(PL.senderName("\ufe0f".repeat(300) + "PayPal"), "PayPal");
 });
 
-// The same cases as backend/tests/test_bypasses.py (unicode_text).
+// The same cases as backend/tests/test_bypass_text.py (unicode_text).
 const INVISIBLE_CASES = require(path.join(__dirname, "..", "fixtures", "invisible_cases.json")).cases;
 test("invisible characters are removed as on the server", () => {
     const entry = entryFor("mail.google.com");
@@ -510,9 +511,9 @@ test("invisible characters are removed as on the server", () => {
     for (const c of INVISIBLE_CASES) assert.equal(PL.withoutInvisible(c.text), c.clean, JSON.stringify(c.text));
 });
 
-// The same cases as backend/tests/test_bypasses.py (archive_analysis._ext).
+// The same cases as backend/tests/test_bypass_attachments.py (archive_analysis._ext).
 const FILE_NAMES = require(path.join(__dirname, "..", "fixtures", "file_name_cases.json"));
-test("file extensions and Gmail tile names are read as on the server", () => {
+test("file extensions and tile names are read as on the server", () => {
     const C = require(path.join(EXT, "lib", "constants.js"));
     for (const c of FILE_NAMES.names) assert.equal(C.fileExt(c.name), c.ext, JSON.stringify(c.name));
     const entry = entryFor("mail.google.com");
@@ -520,13 +521,13 @@ test("file extensions and Gmail tile names are read as on the server", () => {
     for (const c of FILE_NAMES.tiles) assert.equal(PL.tileName(c.text), c.name, JSON.stringify(c.text));
 });
 
-test("the Outlook sender is the address after the name, quoted or not", () => {
+test("the Outlook sender is the address after the name", () => {
     const entry = entryFor("outlook.office.com");
     const { PL } = load(entry);
     assert.equal(PL.senderAddress(['"PayPal <service@paypal.com>" <"scam"@attacker.example>']), "scam@attacker.example");
     assert.equal(PL.senderAddress(['PayPal <service@paypal.com> <scam@attacker.example>']), "scam@attacker.example");
-    // A quoted local part can hold an "@": the domain is after the last one
-    // (the server reads it so: auth_headers.sender_domain).
+    // A quoted local part can hold an "@". The domain is after the last
+    // one, as the server reads it (auth_headers.sender_domain).
     assert.equal(PL.senderAddress(['PayPal <"service@paypal.com"@attacker.example>']), "service@paypal.com@attacker.example");
     assert.equal(PL.senderAddress(['"support@gtbank.com" <scam@attacker.example>']), "scam@attacker.example");
     assert.equal(PL.senderAddress(["jane@corp.example"]), "jane@corp.example");
@@ -554,7 +555,7 @@ test("a link around a drawn shape is shown, as on the server", () => {
     assert.deepEqual([...PL.linkGroupsOf(body).visible], ["https://evil.example/login"]);
 });
 
-test("an SVG link (SVGAnimatedString href) and a link after a flood of decoys are read", () => {
+test("SVG links and links after a flood of decoys are read", () => {
     const entry = entryFor("mail.google.com");
     const { ctx, PL } = load(entry);
     const doc = ctx.document;
@@ -587,4 +588,334 @@ const COLLAPSE_CASES = require(path.join(__dirname, "..", "fixtures", "invisible
 test("runs of invisible characters are cut to one as on the server", () => {
     const shared = require(path.join(EXT, "lib", "shared.js"));
     for (const c of COLLAPSE_CASES) assert.equal(shared.collapseInvisible(c.text), c.collapsed, JSON.stringify(c.text));
+});
+
+test("two attachments whose names look alike get a card each", () => {
+    const { ctx, PL } = load(entryFor("mail.google.com"));
+    const view = mailView(ctx.document);
+    const strip = ctx.document.createElement("div");
+    strip.className = "aQH";
+    view.append(strip);
+    const [a, b] = ["\u0441\u0447\u0451\u0442.pdf", "\u53d1\u7968.pdf"].map((filename) => {
+        const tile = ctx.document.createElement("div");
+        strip.append(tile);
+        return { filename, tile, emailView: view };
+    });
+    const cardA = PL.attachmentCardFor(a);
+    const cardB = PL.attachmentCardFor(b);
+    assert.notEqual(cardA, cardB);
+    assert.equal(PL.attachmentCardFor(a), cardA);
+    assert.equal(PL.attachmentCardFor({ ...b }), cardB);
+});
+
+test("auto scan rechecks changed threads and retries skips later", () => {
+    const { PL } = load(entryFor("mail.google.com"));
+    const now = 10 * 60 * 60 * 1000;
+    const row = { id: "abc123def", print: "p1" };
+    assert.equal(PL.autoScanNeeds(row, undefined, now), true);
+    assert.equal(PL.autoScanNeeds(row, { verdict: "safe", print: "p1", ts: now }, now), false);
+    assert.equal(PL.autoScanNeeds(row, { verdict: "safe", print: "p0", ts: now }, now), true);
+    assert.equal(PL.autoScanNeeds(row, { verdict: "skipped", print: "p1", tries: 1, ts: now - 60_000 }, now), false);
+    assert.equal(PL.autoScanNeeds(row, { verdict: "skipped", print: "p1", tries: 1, ts: now - 31 * 60_000 }, now), true);
+    assert.equal(PL.autoScanNeeds(row, { verdict: "skipped", print: "p1", tries: 3, ts: 0 }, now), false);
+});
+
+test("plain http:// only inside the user's machine or network", () => {
+    const shared = require(path.join(EXT, "lib", "shared.js"));
+    for (const u of ["http://localhost:8000", "http://127.0.0.1:8000", "http://192.168.1.5:8000", "http://100.101.102.103:8000",
+        "http://box.tail1234.ts.net:8000", "http://[fd12::1]:8000", "http://[fe80::1]:8000", "http://nas.local:8000", "https://example.com"]) {
+        assert.equal(shared.isPlainRemoteUrl(u), false, u);
+    }
+    for (const u of ["http://example.com", "http://8.8.8.8:8000", "http://[2001:db8::1]:8000", "http://100.128.0.1"]) {
+        assert.equal(shared.isPlainRemoteUrl(u), true, u);
+    }
+});
+
+test("a subject reading \"via paypal.com\" is not taken for Gmail's via hint", () => {
+    const { ctx, PL } = load(entryFor("mail.google.com"));
+    const view = mailView(ctx.document);
+    const subject = ctx.document.createElement("h2");
+    subject.className = "hP";
+    const words = ctx.document.createElement("span");
+    words.textContent = "via paypal.com";
+    subject.append(words);
+    view.append(subject);
+    assert.equal(PL.extractGmailAuthSignals(view, null).via, null);
+    const hint = ctx.document.createElement("span");
+    hint.textContent = "via sendgrid.net";
+    view.append(hint);
+    assert.equal(PL.extractGmailAuthSignals(view, null).via, "sendgrid.net");
+});
+
+test("a row pill does not change the row print (sender SafeBank)", async () => {
+    const { ctx, PL } = load(entryFor("mail.google.com"));
+    const doc = ctx.document;
+    const el = (tag, cls, text) => {
+        const n = doc.createElement(tag);
+        if (cls) n.className = cls;
+        if (text) n.append(text);
+        return n;
+    };
+    const row = el("tr", "zA zE");
+    const sender = el("span", "", "SafeBank");
+    sender.setAttribute("email", "news@safebank.example");
+    sender.setAttribute("name", "SafeBank");
+    const idHolder = el("span");
+    idHolder.setAttribute("data-legacy-thread-id", "18c0ffee12345678");
+    const cell = el("div", "y6");
+    cell.append(el("span", "bog", "Your statement"));
+    row.append(sender, idHolder, cell, el("span", "y2", "Your monthly statement is ready"), el("span", "xW", "10:32"));
+    doc.body.append(row);
+    const print = PL.autoRowPrint(row);
+    ctx.chrome.storage.local.get = (k, cb) => cb({ "autoScanCache.v5": {
+        "18c0ffee12345678": { verdict: "safe", score: 0.05, print, ts: 1 },
+    } });
+    await PL.loadAutoCache();
+    assert.equal(row.querySelectorAll(".pll-row-badge").length, 1);
+    assert.equal(PL.autoRowPrint(row), print);
+    PL.paintAutoBadges();
+    assert.equal(row.querySelectorAll(".pll-row-badge").length, 1);
+    // Gmail rewrites the date on its own, which keeps the same print.
+    row.querySelector(".xW").textContent = "21 Nov";
+    assert.equal(PL.autoRowPrint(row), print);
+    // A reply changes the snippet and so the print.
+    row.querySelector(".y2").textContent = "Thanks, received";
+    assert.notEqual(PL.autoRowPrint(row), print);
+});
+
+test("tiles loaded in two waves are all scanned by one button", () => {
+    const { ctx, PL } = load(entryFor("mail.google.com"));
+    const doc = ctx.document;
+    const view = mailView(doc);
+    const head = doc.createElement("div");
+    const subject = doc.createElement("h2");
+    subject.className = "hP";
+    subject.append("Invoices");
+    head.append(subject);
+    view.append(head);
+    const strip = doc.createElement("div");
+    strip.className = "aQH";
+    view.append(strip);
+    const addTile = (name) => {
+        const tile = doc.createElement("div");
+        tile.className = "aZo";
+        tile.getBoundingClientRect = () => ({ width: 200, height: 150 });
+        const a = doc.createElement("a");
+        a.setAttribute("download", name);
+        a.setAttribute("href", "https://mail.google.com/mail/u/0/?view=att");
+        a.append(name);
+        tile.append(a);
+        strip.append(tile);
+    };
+    addTile("a.pdf");
+    PL.installAttachmentButtons(view);
+    addTile("b.pdf");
+    PL.installAttachmentButtons(view);
+    const buttons = view.querySelectorAll(".pll-scan-btn--all");
+    assert.equal(buttons.length, 1);
+    assert.deepEqual([...buttons[0]._pllTargets.map((f) => f.filename)], ["a.pdf", "b.pdf"]);
+    assert.equal(buttons[0].querySelector(".pll-scan-btn__label").textContent, "Scan 2 attachments");
+});
+
+test("a tile loaded during a scan is scanned in the same run", async () => {
+    const sent = [];
+    let addTile = null;
+    let view = null;
+    let PLref = null;
+    const sendMessage = async (msg) => {
+        if (msg?.type !== "phishlens.analyse_attachment") return { ok: false };
+        sent.push(msg.payload.filename);
+        if (sent.length === 1) {
+            addTile("late.pdf");
+            PLref.installAttachmentButtons(view);
+        }
+        return { ok: false, error: "x" };
+    };
+    const { ctx, PL } = load(entryFor("mail.google.com"), { sendMessage });
+    PLref = PL;
+    ctx.chrome.storage.local.get = (k, cb) => cb && cb({ backend: "local" });
+    ctx.fetch = async () => ({ ok: true, headers: { get: () => "3" }, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
+    const doc = ctx.document;
+    view = mailView(doc);
+    const head = doc.createElement("div");
+    const subject = doc.createElement("h2");
+    subject.className = "hP";
+    subject.append("Invoices");
+    head.append(subject);
+    view.append(head);
+    const strip = doc.createElement("div");
+    strip.className = "aQH";
+    view.append(strip);
+    addTile = (name) => {
+        const tile = doc.createElement("div");
+        tile.className = "aZo";
+        tile.getBoundingClientRect = () => ({ width: 200, height: 150 });
+        const a = doc.createElement("a");
+        a.setAttribute("download", name);
+        a.setAttribute("href", "https://mail.google.com/mail/u/0/?view=att");
+        a.href = "https://mail.google.com/mail/u/0/?view=att";
+        a.append(name);
+        tile.append(a);
+        strip.append(tile);
+    };
+    addTile("first.pdf");
+    PL.installAttachmentButtons(view);
+    const btn = view.querySelector(".pll-scan-btn--all");
+    btn.dispatch("click", { preventDefault() {}, stopPropagation() {} });
+    const label = btn.querySelector(".pll-scan-btn__label");
+    for (let i = 0; i < 100 && label.textContent !== "Attachments scanned"; i++) await new Promise((r) => setTimeout(r, 10));
+    assert.deepEqual(sent, ["first.pdf", "late.pdf"]);
+});
+
+test("a tile loaded just after a scan gets a new button", async () => {
+    const sent = [];
+    const sendMessage = async (msg) => {
+        if (msg?.type === "phishlens.analyse_attachment") sent.push(msg.payload.filename);
+        return { ok: false, error: "x" };
+    };
+    const { ctx, PL } = load(entryFor("mail.google.com"), { sendMessage });
+    ctx.chrome.storage.local.get = (k, cb) => cb && cb({ backend: "local" });
+    ctx.fetch = async () => ({ ok: true, headers: { get: () => "3" }, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
+    const doc = ctx.document;
+    const view = mailView(doc);
+    const head = doc.createElement("div");
+    const subject = doc.createElement("h2");
+    subject.className = "hP";
+    subject.append("Invoices");
+    head.append(subject);
+    view.append(head);
+    const strip = doc.createElement("div");
+    strip.className = "aQH";
+    view.append(strip);
+    const addTile = (name) => {
+        const tile = doc.createElement("div");
+        tile.className = "aZo";
+        tile.getBoundingClientRect = () => ({ width: 200, height: 150 });
+        const a = doc.createElement("a");
+        a.setAttribute("download", name);
+        a.setAttribute("href", "https://mail.google.com/mail/u/0/?view=att");
+        a.href = "https://mail.google.com/mail/u/0/?view=att";
+        a.append(name);
+        tile.append(a);
+        strip.append(tile);
+    };
+    addTile("first.pdf");
+    PL.installAttachmentButtons(view);
+    const btn = view.querySelector(".pll-scan-btn--all");
+    btn.dispatch("click", { preventDefault() {}, stopPropagation() {} });
+    const label = btn.querySelector(".pll-scan-btn__label");
+    for (let i = 0; i < 100 && label.textContent !== "Attachments scanned"; i++) await new Promise((r) => setTimeout(r, 10));
+    assert.equal(btn.dataset.pllDone, "1");
+    // The finished button is still shown (removed 2.5 s later): the new
+    // tile must not be added to it.
+    addTile("late.pdf");
+    PL.installAttachmentButtons(view);
+    const buttons = view.querySelectorAll(".pll-scan-btn--all");
+    assert.equal(buttons.length, 1);
+    assert.notEqual(buttons[0], btn);
+    assert.ok(!buttons[0].disabled);
+    assert.deepEqual([...buttons[0]._pllTargets.map((f) => f.filename)], ["late.pdf"]);
+    assert.equal(buttons[0].querySelector(".pll-scan-btn__label").textContent, "Scan attachment");
+    assert.deepEqual(sent, ["first.pdf"]);
+});
+
+// A Gmail page with one attachment tile, Cloud backend, privacy notice not
+// seen yet. Returns the scan-all button and the files sent.
+function attachmentPage() {
+    const sent = [];
+    const sendMessage = async (msg) => {
+        if (msg?.type === "phishlens.analyse_attachment") sent.push(msg.payload.filename);
+        return { ok: false, error: "x" };
+    };
+    const { ctx, PL } = load(entryFor("mail.google.com"), { sendMessage });
+    const store = {};
+    ctx.chrome.storage.local.get = (keys, cb) => cb(Object.fromEntries([].concat(keys).filter((k) => k in store).map((k) => [k, store[k]])));
+    ctx.chrome.storage.local.set = (obj) => Object.assign(store, obj);
+    ctx.fetch = async () => ({ ok: true, headers: { get: () => "3" }, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
+    const doc = ctx.document;
+    const view = mailView(doc);
+    const subject = doc.createElement("h2");
+    subject.className = "hP";
+    subject.append("Invoice");
+    view.append(subject);
+    const strip = doc.createElement("div");
+    strip.className = "aQH";
+    view.append(strip);
+    const tile = doc.createElement("div");
+    tile.className = "aZo";
+    tile.getBoundingClientRect = () => ({ width: 200, height: 150 });
+    const a = doc.createElement("a");
+    a.setAttribute("download", "first.pdf");
+    a.setAttribute("href", "https://mail.google.com/mail/u/0/?view=att");
+    a.href = "https://mail.google.com/mail/u/0/?view=att";
+    a.append("first.pdf");
+    tile.append(a);
+    strip.append(tile);
+    PL.installAttachmentButtons(view);
+    let notices = 0;
+    const confirm = PL.confirmCloudUse;
+    PL.confirmCloudUse = (...args) => {
+        notices += 1;
+        return confirm(...args);
+    };
+    const btn = view.querySelector(".pll-scan-btn--all");
+    const tick = () => new Promise((r) => setTimeout(r, 0));
+    return { PL, view, btn, sent, tick, notices: () => notices };
+}
+
+test("two clicks on scan attachments open one privacy notice and one scan", async () => {
+    const { view, btn, sent, tick, notices } = attachmentPage();
+    const click = { preventDefault() {}, stopPropagation() {} };
+    btn.dispatch("click", click);
+    btn.dispatch("click", click);
+    await tick();
+    assert.equal(notices(), 1);
+    assert.equal(view.querySelectorAll(".pll-banner").length, 1);
+    assert.ok(btn.disabled);
+    view.querySelector(".pll-banner .pll-att-btn").dispatch("click");
+    const label = btn.querySelector(".pll-scan-btn__label");
+    for (let i = 0; i < 100 && label.textContent !== "Attachments scanned"; i++) await new Promise((r) => setTimeout(r, 10));
+    assert.deepEqual(sent, ["first.pdf"]);
+});
+
+test("a privacy notice closed or replaced lets the attachments be scanned later", async () => {
+    const { PL, view, btn, sent, tick } = attachmentPage();
+    btn.dispatch("click", { preventDefault() {}, stopPropagation() {} });
+    await tick();
+    view.querySelector(".pll-banner .pll-banner__close").dispatch("click");
+    await tick();
+    assert.ok(!btn.disabled);
+    btn.dispatch("click", { preventDefault() {}, stopPropagation() {} });
+    await tick();
+    assert.ok(btn.disabled);
+    // Another banner (an email scan's notice or result) takes its place.
+    PL.showBanner(view, PHISHING);
+    await tick();
+    assert.ok(!btn.disabled);
+    assert.deepEqual(sent, []);
+});
+
+test("without the text model the wording meter says not checked", () => {
+    const { ctx, PL } = load(entryFor("mail.google.com"));
+    const view = mailView(ctx.document);
+    PL.showBanner(view, { ...PHISHING, verdict: "safe", text_agent_used: false });
+    const wording = view.querySelectorAll(".pll-meter")[0];
+    assert.equal(wording.querySelector(".pll-meter__off").textContent, "not checked");
+    assert.match(wording.getAttribute("title"), /almost no text/);
+    assert.equal(wording.querySelector(".pll-meter__v"), null);
+});
+
+test("the page text sent with the original keeps 20000 characters", () => {
+    const { PL } = load(entryFor("mail.google.com"));
+    assert.equal(PL.MAX_RAW_TEXT, 20000);
+    assert.equal(PL.rawText("Subject", "a".repeat(30000)).length, 20000);
+});
+
+test("privacy links use the website's address without .html", () => {
+    const shared = require(path.join(EXT, "lib", "shared.js"));
+    assert.equal(shared.privacyUrl("en"), "https://phishlens.dev/privacy");
+    assert.equal(shared.privacyUrl("fr"), "https://phishlens.dev/fr/privacy");
+    const html = fs.readFileSync(path.join(EXT, "popup", "popup.html"), "utf8");
+    const code = ["popup/popup.js", "content_scripts/banner.js"].map((f) => fs.readFileSync(path.join(EXT, f), "utf8")).join("\n");
+    assert.doesNotMatch(html + code, /privacy\.html/);
 });

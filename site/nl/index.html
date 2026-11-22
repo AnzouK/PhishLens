@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=876364fc54">
-<script src="../i18n/nl.js?v=be469f1892" defer></script>
+<script src="../i18n/nl.js?v=80e0f4966c" defer></script>
 <script src="../lang.js?v=074b2a25f3" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -69,8 +69,8 @@
  ]
 }
 </script>
-<script src="../shared.js?v=e55783863a" defer></script>
-<script src="../redact.js?v=f9ef7a192a" defer></script>
+<script src="../shared.js?v=b5e6174b96" defer></script>
+<script src="../redact.js?v=33f436e8d1" defer></script>
 <script src="../app.js?v=1ca3b08526" defer></script>
 </head>
 <body>
@@ -140,11 +140,11 @@
     <div class="wrap">
       <h2>Resultaten</h2>
       <div class="headline">
-        <div class="big">90.2%</div>
-        <p class="lbl">van de phishing herkend door het hele systeem, in recente mails die niemand eerder had bekeken<span class="ci">95%-betrouwbaarheidsinterval: 88,8% tot 91,4%</span></p>
+        <div class="big">90,2%</div>
+        <p class="lbl">van de phishing herkend door het hele systeem, in echte recente mails<span class="ci">95%-betrouwbaarheidsinterval: 88,8% tot 91,4%</span></p>
       </div>
-      <p class="facts">1 van 414 legitieme mails gemarkeerd (0,2%) · ongeveer 190 ms per mail op de server · gecontroleerd op echte phishing in 6 van de 22 talen die het tekstmodel leest</p>
-      <p class="note">Gemeten op PhishLens Cloud op 1 november 2026 met de openbare benchmark: 1.804 van 2.000 recente phishingmails in meerdere talen, gekozen uit de mails die tijdens het afstemmen niemand had bekeken (95%-betrouwbaarheidsinterval 88,8% tot 91,4%), en 1 van 414 legitieme mails (297 uit openbare mailinglijsten, 117 uit echte mailboxen; 0,0% tot 1,4%). De controletijd is de mediaan voor een gewone mail (ongeveer 250 tokens); een korte mail duurt ongeveer 65 ms. Een ordegrootte, geen garantie: zie <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">hoe het gemeten is</a> en de <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">bekende beperkingen</a>.</p>
+      <p class="facts">0 van 117 mails uit echte mailboxen gemarkeerd (hoogstens 3,2%), 1 van 297 uit mailinglijsten · ongeveer 190 ms per mail op de server · gecontroleerd op echte phishing in 6 van de 22 talen die het tekstmodel leest</p>
+      <p class="note">Gemeten op PhishLens Cloud op 1 november 2026 met de openbare benchmark: 1.804 van 2.000 recente phishingmails in meerdere talen, gekozen uit de mails die tijdens het afstemmen niemand had bekeken (95%-betrouwbaarheidsinterval 88,8% tot 91,4%), en 1 van 414 legitieme mails (297 uit openbare mailinglijsten, 117 uit echte mailboxen; 0,0% tot 1,4%). De controletijd is de mediaan voor een gewone mail (ongeveer 250 tokens); een korte mail duurt ongeveer 65 ms. De mails uit de mailinglijsten zijn gebruikt bij het afstemmen, en de phishingmails zijn na de wijzigingen van 2.0.12 opnieuw gemeten: de volgende meting gebruikt een nieuwe set. Een ordegrootte, geen garantie: zie <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">hoe het gemeten is</a> en de <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">bekende beperkingen</a>.</p>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, op dit moment</h3>
       <div class="strip" id="live" aria-live="polite">
@@ -162,7 +162,7 @@
         <ul class="rows">
           <li><svg class="ic"><use href="#i-text"/></svg><b>Tekst</b><span>Een meertalig model (mmBERT-small, gedistilleerd uit een grotere phishingdetector) beoordeelt de tekst in 22 talen; LIME toont de woorden die het oordeel bepaalden.</span></li>
           <li><svg class="ic"><use href="#i-link"/></svg><b>Links</b><span>Elke echte linkbestemming, ook die achter „Klik hier”, gecontroleerd bij Safe Browsing, PhishTank, URLhaus en Spamhaus.</span></li>
-          <li><svg class="ic"><use href="#i-key"/></svg><b>Afzender</b><span>SPF, DKIM en DMARC laten zien wie hem echt verstuurde. Een doorgestuurde e-mail neemt het vertrouwen in de doorsturende persoon niet over.</span></li>
+          <li><svg class="ic"><use href="#i-key"/></svg><b>Afzender</b><span>In Gmail laten SPF, DKIM en DMARC zien wie hem echt verstuurde (Outlook geeft de pagina alleen de zichtbare tekst: daar worden de tekst, de links en de naam gecontroleerd). Een doorgestuurde e-mail neemt het vertrouwen in de doorsturende persoon niet over.</span></li>
           <li><svg class="ic"><use href="#i-clip"/></svg><b>Bijlagen</b><span>Pdf's (ook gescande, via OCR), QR-codes, Office-macro's en externe sjablonen, ZIP-, RAR- en 7z-archieven en agenda-uitnodigingen.</span></li>
           <li><svg class="ic"><use href="#i-inbox"/></svg><b>Echte inboxen</b><span>Gesprekken, e-mails met alleen afbeeldingen en links naar bestanden die op Drive, OneDrive of Dropbox zijn gedeeld.</span></li>
         </ul>
@@ -189,7 +189,7 @@
         <li><svg class="ic"><use href="#i-bell"/></svg><div><b>Automatische controle</b><span>Optioneel: nieuwe e-mails worden bij aankomst gecontroleerd, in de lijst gemarkeerd als Veilig of Phishing?, met een melding.</span></div></li>
         <li><svg class="ic"><use href="#i-lock"/></svg><div><b>Privacy vanaf het ontwerp</b><span>Geen account. Mails worden in het geheugen gecontroleerd en niet bewaard; je geschiedenis blijft in je browser. Met je eigen server verlaat geen enkele mail je computer.</span></div></li>
         <li><svg class="ic"><use href="#i-chart"/></svg><div><b>Uw eigen nauwkeurigheid</b><span>Geef bij elk oordeel aan of het juist of onjuist was en zie hoe PhishLens presteert op uw echte e-mails, met CSV-export.</span></div></li>
-        <li><svg class="ic"><use href="#i-code"/></svg><div><b>Open en getest</b><span>GNU AGPL-3.0-licentie, met een dreigingsmodel, CodeQL en meer dan 300 automatische tests bij elke wijziging.</span></div></li>
+        <li><svg class="ic"><use href="#i-code"/></svg><div><b>Open en getest</b><span>GNU AGPL-3.0-licentie, met een dreigingsmodel, CodeQL en meer dan 1.000 automatische tests bij elke wijziging.</span></div></li>
       </ul>
     </div>
   </section>
@@ -289,7 +289,7 @@
             <li><b>PhishLens Cloud</b> (standaard): niets te doen.</li>
             <li><b>Uw eigen, privé:</b> start hem met Docker en kies daarna <b>Lokaal</b> in de instellingen van de extensie.</li>
           </ol>
-<pre># the public English text model; PhishLens Cloud runs the multilingual one
+<pre># het openbare Engelse tekstmodel; PhishLens Cloud gebruikt het meertalige
 huggingface-cli download AnzouKiona/phishlens-distilbert \
   --local-dir backend/model
 cd backend &amp;&amp; docker compose up --build</pre>

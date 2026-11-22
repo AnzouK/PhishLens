@@ -92,4 +92,14 @@ export default [
     },
     rules: { ...bugRules, ...hygieneRules },
   },
+  {
+    // Node tests of the Pages Function (node --test).
+    files: ["tests/functions/**/*.mjs"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: { ...globals.node },
+    },
+    rules: { ...bugRules, ...hygieneRules },
+  },
 ];

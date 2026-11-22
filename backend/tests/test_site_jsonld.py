@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 import build_site as bs  # noqa: E402
 
 
-def test_jsonld_describes_a_free_chrome_extension_in_every_language():
+def test_jsonld_free_chrome_extension_every_language():
     strings = bs.load_strings()
     for lang in bs.LANGS:
         block = bs.jsonld(lang, strings[lang])

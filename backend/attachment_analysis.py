@@ -1,6 +1,5 @@
 """
 PhishLens: email attachment analysis.
-=====================================================================
 Extract text and URLs from email attachments and reuse the existing
 text / URL / reputation pipeline on the extracted content.
 
@@ -44,9 +43,7 @@ from unicode_text import without_invisible
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
-# ---------------------------------------------------------------------
 # Limits: enforced BEFORE decoding to protect the process.
-# ---------------------------------------------------------------------
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  # 10 MB hard cap
 MAX_EXTRACTED_TEXT = 20_000  # chars fed to the text agent
 MAX_EXTRACTED_URLS = 200  # URLs sent to reputation cascade
@@ -55,10 +52,8 @@ PDF_PAGE_LIMIT = 50  # abort text extraction past this
 # is treated as scanned / image-only and sent to OCR.
 SCANNED_CHARS_PER_PAGE = 50
 
-# ---------------------------------------------------------------------
-# Optional deps: graceful fallback (endpoint still responds, but
-# returns a clear error) if the module isn't in the runtime image.
-# ---------------------------------------------------------------------
+# Optional dependency. Without it the endpoint still answers, with a
+# clear error for PDF files.
 try:
     import pdfplumber  # type: ignore
 
@@ -68,11 +63,8 @@ except Exception as _e:
     logger.warning(f"pdfplumber not available ({_e}); PDF attachments will be rejected.")
 
 
-# ---------------------------------------------------------------------
-# MIME sniffing: trust the extension of the filename first, fall back
-# to content sniffing. Client sends its own mime_type as a hint but we
-# don't trust it blindly.
-# ---------------------------------------------------------------------
+# The filename extension decides first, then content sniffing. The
+# client's mime_type is only a last-resort hint.
 _MIME_BY_EXT = {
     ".pdf": "application/pdf",
     ".html": "text/html",
@@ -184,16 +176,12 @@ def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> s
     if head.startswith(b"BM"):
         return "image/bmp"
 
-    # Fall back to whatever the client claimed, sanitized.
     if client_hint and "/" in client_hint:
         return client_hint.lower().split(";", 1)[0].strip()
     return "application/octet-stream"
 
 
-# ---------------------------------------------------------------------
-# URL extraction: same regex the /analyse endpoint uses, plus we also
-# pick up bare-domain "click here" style links (missing scheme).
-# ---------------------------------------------------------------------
+# Same URL pattern as /analyse, plus bare domains written without a scheme.
 _URL_DEDUP_N = MAX_EXTRACTED_URLS
 
 
@@ -212,11 +200,8 @@ def extract_urls(text: str) -> list[str]:
     return out
 
 
-# =====================================================================
-# PDF analysis
-# =====================================================================
-# Suspicious PDF markers: presence of any of these is worth surfacing
-# to the user, they're the classic phishing / malware droppers.
+# PDF markers worth showing to the user: the usual features of phishing
+# and malware droppers.
 _PDF_SUSPICIOUS_MARKERS = {
     b"/JavaScript": "contains_javascript",
     b"/JS": "contains_javascript",
@@ -272,8 +257,8 @@ def _add_new(urls: list[str], more: list[str]) -> None:
 
 
 def _add_uri_annotations(raw: bytes, urls: list[str]) -> None:
-    """Link annotations the text layer misses (a clickable button with no
-    visible URL): grabs (/URI (https://...)).
+    """Add the link annotations the text layer misses (a clickable button
+    with no visible URL), read from (/URI (https://...)).
 
     The inner class is length-capped (2048 bytes) to close a
     polynomial-ReDoS surface that CodeQL flagged: a crafted PDF with a
@@ -320,12 +305,12 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
             }
         raise RuntimeError(f"PDF parse failed: {e}") from e
 
-    # Invisible characters out before the cut: 20,000 zero-width spaces
-    # on the first page once left nothing else to read.
+    # Invisible characters are removed before the cut so zero-width padding
+    # on the first page cannot use up the budget.
     text = without_invisible("\n".join(text_chunks))[:MAX_EXTRACTED_TEXT]
 
-    # URLs: extracted text can miss link annotations (clickable button
-    # with no visible URL text). We also parse /URI markers directly.
+    # Link annotations (a clickable button with no URL in its text) are
+    # read from the /URI markers directly.
     urls = extract_urls(text)
     if len(urls) < MAX_EXTRACTED_URLS:
         _add_uri_annotations(raw, urls)
@@ -369,9 +354,7 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
     }
 
 
-# =====================================================================
 # Image analysis: OCR + QR
-# =====================================================================
 def analyse_image(raw: bytes, filename: str) -> dict[str, Any]:
     img = ocr.load_image(raw)
     caps = ocr.capabilities()
@@ -402,9 +385,7 @@ def analyse_image(raw: bytes, filename: str) -> dict[str, Any]:
     }
 
 
-# =====================================================================
 # HTML analysis
-# =====================================================================
 _PAGE_DATA_TYPES = ("data:text/html", "data:application/xhtml+xml", "data:image/svg+xml")
 
 
@@ -455,10 +436,11 @@ _EMBEDDED_PAGES = (
 
 
 def _inline_embedded(soup, depth: int = 3) -> None:
-    """Pages an HTML attachment carries inside itself, parsed into it so
-    their forms, scripts and links are read like the rest: an <iframe
-    srcdoc="...">, a frame, object or embed whose address is
-    data:text/html, and a meta refresh to one (three levels, 500 KB each)."""
+    """Parse the pages an HTML attachment carries inside itself into it,
+    so their forms, scripts and links are read like the rest. Such a page
+    is an <iframe srcdoc="...">, a frame, object or embed whose address
+    is data:text/html, or a meta refresh to one (three levels, 500 KB
+    each)."""
     for _ in range(depth):
         found = False
         for name, attr in _EMBEDDED_PAGES:
@@ -571,17 +553,17 @@ def _script_strings(code: str) -> str:
     return "\n".join(readings)[:1_000_000]
 
 
-# Markup a script writes into the page (document.write, innerHTML) once
-# decoded: what is between its first tag and its last ">".
+# Markup a script writes into the page (document.write, innerHTML) after
+# decoding, from its first tag to its last ">".
 _WRITTEN_TAG_RE = re.compile(
     r"<(?:form|input|iframe|frame|meta|a|svg|button|img|object|embed)\b", re.I
 )
 
 
 def _js_strings(code: str) -> list[str]:
-    """The string literals of a script ("...", '...', `...`, escapes
-    allowed): where a page a script writes is, never the code around it
-    ("if (x > 0)" is not markup). One pass, linear on any input; an
+    """Return the string literals of a script ("...", '...', `...`,
+    escapes allowed). A page a script writes is in them, never in the
+    code around them ("if (x > 0)" is not markup). One pass, linear on any input; an
     unclosed literal ends at its line."""
     out: list[str] = []
     i, n = 0, len(code)
@@ -657,8 +639,8 @@ def analyse_html(raw: bytes, filename: str, location: str = "") -> dict[str, Any
     """
     Extract visible text + href / action URLs from an HTML attachment.
     HTML phishing attachments typically render a login form styled as
-    a well-known brand, with a <form action="attacker.tld">. We grab
-    all such URLs regardless of visible text.
+    a well-known brand, with a <form action="attacker.tld">. All such
+    URLs are collected whatever the visible text.
     """
     try:
         soup = BeautifulSoup(raw, "html.parser")
@@ -672,8 +654,8 @@ def analyse_html(raw: bytes, filename: str, location: str = "") -> dict[str, Any
     # telling first: where the page sends its reader (form targets,
     # frames, a meta refresh, addresses written in a script such as
     # 'window.location = "https://..."'), then visible links, hidden
-    # links, and images and style sheets last. Two hundred hidden images
-    # once pushed the form's target past the limit.
+    # links, and images and style sheets last, so hidden images cannot
+    # push the form's target past the limit.
     hidden_parts = hidden_tags(soup)  # before the <style> sheets go
     hidden = {id(tag) for tag in hidden_parts}
     maps = shown_maps(soup, hidden)
@@ -740,9 +722,9 @@ _MIME_PAGE_PARTS = ("text/html", "application/xhtml+xml", "image/svg+xml")
 
 
 def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
-    """A web archive (.mht) or a saved email (.eml) inside an archive: its
-    HTML parts read as pages (forms, scripts, links), its plain text as
-    text. Files attached to it are named, not opened."""
+    """Read a web archive (.mht) or a saved email (.eml) found inside an
+    archive. Its HTML parts are read as pages (forms, scripts, links) and
+    its plain text as text. Files attached to it are named, not opened."""
     msg = message_from_bytes(raw, policy=email_policy.compat32)
     pages: list[dict[str, Any]] = []
     plain: list[str] = []
@@ -789,9 +771,6 @@ def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
     return out
 
 
-# =====================================================================
-# Dispatcher: the public entry point.
-# =====================================================================
 def analyse_attachment(
     content_b64: str, filename: str = "", mime_type: str | None = None
 ) -> dict[str, Any]:
@@ -865,8 +844,9 @@ _MAX_PICTURES = 3
 
 
 def _merge(doc: dict[str, Any], other: dict[str, Any]) -> dict[str, Any]:
-    """The Office reading of a package with what its other members say:
-    flags, links and text added, the members listed like an archive's."""
+    """Combine the Office reading of a package with what its other
+    members say. Their flags, links and text are added, and the members
+    are listed like an archive's."""
     out = dict(doc)
     out["notable_features"] = list(
         dict.fromkeys([*doc.get("notable_features", []), *other.get("notable_features", [])])
@@ -1031,7 +1011,6 @@ def dispatch_raw(
     if mime in MIME_PAGE_TYPES or mime in PAGE_MIMES:
         return _read_page(raw, filename, mime)
     if mime == "text/plain":
-        # trivial: treat as plain text
         text = without_invisible(raw.decode("utf-8", errors="ignore"))[:MAX_EXTRACTED_TEXT]
         return {
             "kind": "text",

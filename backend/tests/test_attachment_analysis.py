@@ -24,9 +24,7 @@ from attachment_analysis import (
 )
 
 
-# ---------------------------------------------------------------------
 # MIME sniffing
-# ---------------------------------------------------------------------
 class TestSniffType:
     def test_pdf_by_magic_bytes(self):
         assert sniff_type("", b"%PDF-1.7\n", None) == "application/pdf"
@@ -41,8 +39,7 @@ class TestSniffType:
         assert sniff_type("", b"<!doctype html>\n<html>", None) == "text/html"
 
     def test_zip_prefix_recognised_as_zip(self):
-        # DOCX / XLSX are ZIP files under the hood; we return the zip
-        # MIME here; analyse_attachment turns it into a 400.
+        # DOCX and XLSX are ZIP files; the dispatcher resolves them later.
         assert sniff_type("", b"PK\x03\x04garbage", None) == "application/zip"
 
     def test_unknown_falls_back_to_client_hint(self):
@@ -52,9 +49,7 @@ class TestSniffType:
         assert sniff_type("f.xyz", b"garbage", None) == "application/octet-stream"
 
 
-# ---------------------------------------------------------------------
 # URL extraction
-# ---------------------------------------------------------------------
 class TestExtractUrls:
     def test_finds_multiple_urls(self):
         text = "Visit https://a.com and http://b.tld/foo for more."
@@ -70,9 +65,7 @@ class TestExtractUrls:
         assert extract_urls(text) == ["https://a.com/path"]
 
 
-# ---------------------------------------------------------------------
 # HTML feature flags
-# ---------------------------------------------------------------------
 class TestAnalyseHtml:
     def test_plain_html_no_flags(self):
         raw = b"<html><body><p>Hello world</p></body></html>"
@@ -114,9 +107,7 @@ class TestAnalyseHtml:
         assert "Visible text" in r["extracted_text"]
 
 
-# ---------------------------------------------------------------------
 # Dispatcher: size + type errors
-# ---------------------------------------------------------------------
 class TestAnalyseAttachment:
     def _b64(self, s: bytes) -> str:
         return base64.b64encode(s).decode()
@@ -126,10 +117,8 @@ class TestAnalyseAttachment:
             analyse_attachment("", filename="x.pdf")
 
     def test_empty_base64_rejected(self):
-        # base64.b64encode(b"") returns "" which is falsy, so the
-        # dispatcher hits the "Empty attachment" guard before the
-        # decode step. Either way, we get a ValueError: that's what
-        # we're asserting.
+        # An empty payload is caught by the "Empty attachment" guard
+        # before decoding; either way the result is a ValueError.
         with pytest.raises(ValueError):
             analyse_attachment(self._b64(b""), filename="x.pdf")
 
@@ -144,7 +133,6 @@ class TestAnalyseAttachment:
             )
 
     def test_oversized_rejected(self):
-        # Craft an 11 MB blob
         oversized = b"A" * (MAX_ATTACHMENT_BYTES + 1)
         with pytest.raises(ValueError, match="exceeds"):
             analyse_attachment(self._b64(oversized), filename="x.html")

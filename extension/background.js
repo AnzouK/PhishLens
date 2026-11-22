@@ -7,15 +7,13 @@
 // Chrome runs this file as a service worker, which loads the libraries
 // here. Firefox runs it as an event page whose manifest lists the same
 // files before it (scripts/build_extension.py reads this list).
+// A missing file stops the worker with the browser's own error, shown on
+// the extensions page, since nothing below works without these libraries.
 if (typeof importScripts === "function") {
-    try {
-        importScripts(
-            "lib/locales/en.js", "lib/locales/fr.js", "lib/locales/pt.js", "lib/locales/es.js",
-            "lib/locales/de.js", "lib/locales/it.js", "lib/locales/nl.js", "lib/locales/ha.js",
-            "lib/i18n.js", "lib/shared.js", "lib/history.js", "lib/lime_cache.js");
-    } catch (e) {
-        console.warn("[PhishLens] shared modules not loaded:", e);
-    }
+    importScripts(
+        "lib/locales/en.js", "lib/locales/fr.js", "lib/locales/pt.js", "lib/locales/es.js",
+        "lib/locales/de.js", "lib/locales/it.js", "lib/locales/nl.js", "lib/locales/ha.js",
+        "lib/i18n.js", "lib/shared.js", "lib/history.js", "lib/lime_cache.js");
 }
 self.PhishLensI18n?.init();
 
@@ -29,7 +27,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 
 // Chrome does not inject content scripts into tabs that were open before
-// an install or an update: without this the user would have to reload
+// an install or an update, so without this the user would have to reload
 // Gmail. The new copy replaces the old one's buttons (core.js).
 async function reinjectIntoOpenTabs() {
     if (!chrome.scripting) return;
@@ -53,19 +51,25 @@ async function reinjectIntoOpenTabs() {
     }
 }
 
-// A click on a notification brings back the Gmail tab that raised it.
-const notificationTabs = new Map();
+// A click on a notification brings back the Gmail tab that raised it. The
+// tab and window are stored in the notification's id because an idle
+// worker is stopped and loses its memory.
+function notificationTab(id) {
+    const m = /^pll-(\d+)-(\d+)-/.exec(String(id));
+    return m ? { tabId: Number(m[1]), windowId: Number(m[2]) } : null;
+}
+
 chrome.notifications?.onClicked?.addListener((id) => {
-    const tab = notificationTabs.get(id);
+    const tab = notificationTab(id);
+    chrome.notifications.clear(id);
     if (!tab) return;
     chrome.tabs.update(tab.tabId, { active: true }).catch((e) => debug("focus tab", e));
     chrome.windows.update(tab.windowId, { focused: true }).catch((e) => debug("focus window", e));
-    chrome.notifications.clear(id);
-    notificationTabs.delete(id);
 });
 
 function notify(msg, sender) {
-    const id = "pll-" + Date.now();
+    const tab = sender?.tab;
+    const id = tab?.id != null ? `pll-${tab.id}-${tab.windowId ?? 0}-${Date.now()}` : `pll-x-${Date.now()}`;
     chrome.notifications?.create(id, {
         type: "basic",
         iconUrl: "icons/128.png",
@@ -73,13 +77,11 @@ function notify(msg, sender) {
         message: String(msg.message || "").slice(0, 300),
         priority: 2,
     });
-    if (sender?.tab?.id != null) notificationTabs.set(id, { tabId: sender.tab.id, windowId: sender.tab.windowId });
 }
 
-// One POST to the server; resolves to the JSON answer or throws an Error
-// with a message for the user.
-// An answer that takes longer is treated as no answer: an explanation
-// can take seconds on a busy server, a scan far less.
+// One POST to the server. Resolves to the JSON answer or throws an Error
+// with a message for the user. The timeout is generous because an
+// explanation can take seconds on a busy server; a scan takes far less.
 const TIMEOUT_MS = 60_000;
 
 function networkError(e, key) {
@@ -112,12 +114,18 @@ async function post(base, endpoint, payload) {
 async function serverBase() {
     const base = await self.PhishLensShared.getBackendBase();
     if (!base) throw new Error(text("no_server"));
-    if (!/^https?:\/\//.test(base)) throw new Error(text("url_scheme"));
+    if (!/^https?:\/\//i.test(base)) throw new Error(text("url_scheme"));
+    // Plain http:// over the internet is allowed only after the user has
+    // confirmed that exact address in Settings.
+    if (self.PhishLensShared.isPlainRemoteUrl(base)) {
+        const ok = await new Promise((r) => chrome.storage.local.get(["backend_http_ok"], (s) => r(s?.backend_http_ok)));
+        if (self.PhishLensShared.normalizeBaseUrl(ok) !== base) throw new Error(text("err_http_remote"));
+    }
     return base;
 }
 
-// LIME takes seconds on the server: an explanation already computed for
-// this text on this server is served from the local cache.
+// LIME takes seconds on the server, so an explanation already computed
+// for this text on this server comes from the local cache.
 async function explain(payload) {
     const base = await serverBase();
     const hit = await self.PhishLensLimeCache.get(base, payload);
@@ -142,25 +150,29 @@ async function health() {
 
 const H = () => self.PhishLensHistory;
 
-// Message type -> handler; each resolves to the `data` of the reply.
+// Message type to handler. Each resolves to the `data` of the reply.
 const HANDLERS = {
     "phishlens.analyse": async (msg) => post(await serverBase(), "/analyse", msg.payload),
     "phishlens.analyse_attachment": async (msg) => post(await serverBase(), "/analyse_attachment", msg.payload),
     "phishlens.explain": (msg) => explain(msg.payload),
     "phishlens.health": () => health(),
-    // Reports always go to PhishLens Cloud, whatever server analyses the
-    // mail: they are for improving PhishLens, and the user has seen and
+    // Reports always go to PhishLens Cloud, whichever server analyses the
+    // mail. They are used to improve PhishLens, and the user has seen and
     // confirmed what is sent.
     "phishlens.feedback": (msg) => post(self.PhishLensShared.BACKEND_PRESETS.cloud, "/feedback", msg.payload),
     "phishlens.history.save": (msg) => H().saveScan(msg.entry),
     "phishlens.history.update": (msg) => H().updateScan(msg.id, msg.patch),
     "phishlens.history.draft": (msg) => H().saveDraft(msg.id, msg.text),
     "phishlens.history.attachTokens": (msg) => H().attachTokens(msg.id, msg.tokens),
+    "phishlens.history.label": (msg) => H().setLabel(msg.id, msg.label),
+    "phishlens.history.remove": (msg) => H().deleteScan(msg.id),
+    "phishlens.history.clear": () => H().clearHistory(),
 };
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    // Only this extension's own pages and scripts (no page can message it
-    // without externally_connectable, but the check costs nothing).
+    // Accept only this extension's own pages and scripts. Without
+    // externally_connectable no web page can send messages anyway, but the
+    // check is cheap.
     if (sender?.id !== chrome.runtime.id) return false;
     if (msg?.type === "phishlens.notify") {
         try { notify(msg, sender); } catch (e) { debug("notification", e); }

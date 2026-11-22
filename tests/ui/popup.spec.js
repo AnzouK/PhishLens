@@ -52,14 +52,32 @@ function fakeChrome() {
                     if (cb) cb();
                     return Promise.resolve();
                 },
+                remove(keys, cb) {
+                    for (const k of [].concat(keys || [])) delete store[k];
+                    if (cb) cb();
+                    return Promise.resolve();
+                },
             },
         },
         runtime: {
-            // Stands in for background.js: the server calls become requests
+            // Stands in for background.js. The server calls become requests
             // to PhishLens Cloud, which the tests intercept.
             sendMessage: async (msg) => {
                 window.__sent = (window.__sent || []).concat([msg]);
                 if (msg?.type === "phishlens.feedback") return { ok: true, data: { reference: "a1b2c3d4e5f6" } };
+                // In the extension background.js keeps the history. The same
+                // library runs here.
+                const H = window.PhishLensHistory;
+                const history = {
+                    "phishlens.history.save": () => H.saveScan(msg.entry),
+                    "phishlens.history.update": () => H.updateScan(msg.id, msg.patch),
+                    "phishlens.history.draft": () => H.saveDraft(msg.id, msg.text),
+                    "phishlens.history.attachTokens": () => H.attachTokens(msg.id, msg.tokens),
+                    "phishlens.history.label": () => H.setLabel(msg.id, msg.label),
+                    "phishlens.history.remove": () => H.deleteScan(msg.id),
+                    "phishlens.history.clear": () => H.clearHistory(),
+                }[msg?.type];
+                if (history) return { ok: true, data: await history() };
                 const endpoint = { "phishlens.analyse": "/analyse", "phishlens.analyse_attachment": "/analyse_attachment",
                     "phishlens.explain": "/explain" }[msg?.type];
                 if (!endpoint) return { ok: true, data: null };
@@ -261,7 +279,7 @@ test("first run: the privacy notice says where emails go until dismissed", async
     const notice = page.locator("#privacy-notice");
     await expect(notice).toBeVisible();
     await expect(notice).toContainText("PhishLens Cloud");
-    await expect(page.locator("#privacy-notice-link")).toHaveAttribute("href", "https://phishlens.dev/privacy.html");
+    await expect(page.locator("#privacy-notice-link")).toHaveAttribute("href", "https://phishlens.dev/privacy");
     await page.click("#privacy-notice-ok");
     await expect(notice).toBeHidden();
     const seen = await page.evaluate(() => window.chrome.storage.local.get(["privacy_notice_seen"]));
@@ -273,6 +291,30 @@ test("first run: no privacy notice with a local server", async ({ page }) => {
     await page.goto(`${base}/popup/popup.html`);
     await expect(page.locator("#view-upload")).toBeVisible();
     await expect(page.locator("#privacy-notice")).toBeHidden();
+});
+
+test("settings: the server permission is answered before the connection test", async ({ page }) => {
+    await page.addInitScript(() => {
+        window.chrome.storage.local.set({ backend: "local" });
+        window.__order = [];
+        window.chrome.permissions = {
+            request: ({ origins }) => new Promise((resolve) => setTimeout(() => {
+                window.__order.push(["permission", origins]);
+                resolve(true);
+            }, 100)),
+        };
+        const send = window.chrome.runtime.sendMessage;
+        window.chrome.runtime.sendMessage = (msg) => {
+            if (msg?.type === "phishlens.health") window.__order.push(["health"]);
+            return send(msg);
+        };
+    });
+    await page.goto(`${base}/popup/popup.html`);
+    await page.click("#settings-btn");
+    await page.click("#test-conn-btn");
+    await expect(page.locator("#conn-status")).toHaveClass(/conn-status--ok/);
+    const order = await page.evaluate(() => window.__order);
+    expect(order).toEqual([["permission", ["http://127.0.0.1/*", "http://localhost/*"]], ["health"]]);
 });
 
 test("a DKIM-signed sender flagged by its links says why", async ({ page }) => {

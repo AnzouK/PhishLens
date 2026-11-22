@@ -3,23 +3,27 @@ Reports that users choose to send from the extension: a wrong verdict
 (with the redacted email text), a wrongly detected language, or their
 reviewed scan statistics without any email content.
 
-Stored as JSON lines, one file per month, in FEEDBACK_DIR. Nothing is
-stored when FEEDBACK_DIR is empty (the default), and the endpoint then
-answers 503. No IP address or other request metadata is written; the
+Each report is its own file, FEEDBACK_DIR/YYYY-MM/<reference>.json,
+created once and never rewritten: on a Cloud Storage bucket mounted as a
+folder, deleting one report is removing one object, and no write can
+undo it or be lost to it. Older servers appended to one JSON lines file
+per month (feedback-YYYY-MM.jsonl); those files are still read, never
+written. Nothing is stored when FEEDBACK_DIR is empty (the default), and
+the endpoint then answers 503. No IP address or other request metadata is written; the
 reference returned to the user is the only link between a person and a
 report (to have it deleted).
 """
 
 from __future__ import annotations
 
-import contextlib
-import fcntl
 import json
 import logging
 import os
 import secrets
 import threading
+import time
 import urllib.request
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -31,7 +35,6 @@ from settings import FEEDBACK_DIR, FEEDBACK_MAX_MB, FEEDBACK_NOTIFY_CLICK, FEEDB
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 Kind = Literal["false_positive", "false_negative", "wrong_language", "stats"]
-_LOCK = threading.Lock()
 _LANG = Field(None, max_length=8, pattern=r"^[a-z]{2,3}$|^und$|^other$")
 # Short identifiers only ("gmail", "trusted_sender", "2.0.11"): these are
 # stored as they are and shown in the report notification, unlike the
@@ -78,8 +81,59 @@ def enabled() -> bool:
     return bool(FEEDBACK_DIR)
 
 
-def _dir_size_mb(path: Path) -> float:
-    return sum(f.stat().st_size for f in path.glob("*.jsonl")) / 1_000_000
+def _report_files(folder: Path) -> list[Path]:
+    """Legacy monthly files first, then one file per report."""
+    return sorted(folder.glob("feedback-*.jsonl")) + sorted(folder.glob("[0-9]*-[0-9]*/*.json"))
+
+
+# Size of the stored reports. Listing and measuring every report on each
+# POST was slow on a Cloud Storage folder (one object per report), so
+# the folder is measured at most every _SIZE_REFRESH_S seconds and the
+# bytes written since are added to that figure.
+_SIZE_REFRESH_S = 300.0
+_size_lock = threading.Lock()
+_size: dict[str, Any] = {"folder": None, "bytes": 0, "at": 0.0}
+
+
+def _file_size(path: Path) -> int:
+    """0 for a report deleted between the listing and this call."""
+    try:
+        return path.stat().st_size
+    except OSError:
+        return 0
+
+
+def _dir_size_mb(folder: Path) -> float:
+    now = time.monotonic()
+    with _size_lock:
+        if _size["folder"] != str(folder) or now - _size["at"] >= _SIZE_REFRESH_S:
+            total = sum(_file_size(f) for f in _report_files(folder))
+            _size.update(folder=str(folder), bytes=total, at=now)
+        return _size["bytes"] / 1_000_000
+
+
+def _count_written(folder: Path, nbytes: int) -> None:
+    with _size_lock:
+        if _size["folder"] == str(folder):
+            _size["bytes"] += nbytes
+
+
+def read_all(folder: Path) -> Iterator[dict[str, Any]]:
+    """Every stored report, old monthly lines and single files alike,
+    oldest first within each kind of file. Unreadable entries are skipped."""
+    for path in _report_files(folder):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        lines = text.splitlines() if path.suffix == ".jsonl" else [text]
+        for line in lines:
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(record, dict):
+                yield record
 
 
 def store(req: FeedbackRequest) -> str:
@@ -103,43 +157,42 @@ def store(req: FeedbackRequest) -> str:
             "lang_user": req.lang_user,
         }
     now = datetime.now(timezone.utc)
-    reference = secrets.token_hex(6)
-    record = {
-        "reference": reference,
-        "received": now.date().isoformat(),
-        "kind": req.kind,
-        "version": req.version,
-        "ui_lang": req.ui_lang,
-        **body,
-    }
     folder = Path(FEEDBACK_DIR)
-    with _LOCK:
-        folder.mkdir(parents=True, exist_ok=True)
-        with folder_lock(folder):
-            _append(folder, now, record)
-    notify(record)
-    return reference
-
-
-@contextlib.contextmanager
-def folder_lock(folder: Path):
-    """Exclusive lock on the report folder, shared with other processes
-    that rewrite its files (scripts/delete_report.py)."""
-    fd = os.open(folder / ".lock", os.O_WRONLY | os.O_CREAT, 0o600)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        yield
-    finally:
-        os.close(fd)
-
-
-def _append(folder: Path, now: datetime, record: dict[str, Any]) -> None:
-    if _dir_size_mb(folder) >= FEEDBACK_MAX_MB:
+    if folder.is_dir() and _dir_size_mb(folder) >= FEEDBACK_MAX_MB:
         raise OSError("report storage is full")
-    path = folder / f"feedback-{now:%Y-%m}.jsonl"
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-    with os.fdopen(fd, "a", encoding="utf-8") as fh:
-        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    month = folder / f"{now:%Y-%m}"
+    month.mkdir(parents=True, exist_ok=True)
+    record: dict[str, Any] = {}
+    for _ in range(5):
+        record = {
+            "reference": secrets.token_hex(6),
+            "received": now.date().isoformat(),
+            "kind": req.kind,
+            "version": req.version,
+            "ui_lang": req.ui_lang,
+            **body,
+        }
+        written = _create(month / f"{record['reference']}.json", record)
+        if written:
+            _count_written(folder, written)
+            break
+    else:
+        raise OSError("no free reference")
+    notify(record)
+    return record["reference"]
+
+
+def _create(path: Path, record: dict[str, Any]) -> int:
+    """Write a new file and return its size; 0 when one already has that
+    name."""
+    data = (json.dumps(record, ensure_ascii=False) + "\n").encode("utf-8")
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        return 0
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(data)
+    return len(data)
 
 
 def notification_text(record: dict[str, Any]) -> str:

@@ -1,8 +1,8 @@
 # Operations
 
-How PhishLens Cloud is deployed, and how to run your own PhishLens
-server: deploy, configure, observe. The self-hosting examples use Docker
-behind a reverse proxy; adapt names and paths.
+This guide explains how PhishLens Cloud is deployed and how to deploy,
+configure and observe your own PhishLens server. The self-hosting
+examples use Docker behind a reverse proxy, so adapt names and paths.
 
 ## PhishLens Cloud
 
@@ -14,10 +14,11 @@ behind a reverse proxy; adapt names and paths.
 | Backend | Cloud Run service `phishlens-backend`, region `europe-west1` (Belgium), running `ghcr.io/anzouk/phishlens-backend:latest` pulled straight from ghcr.io (the image is public, so no registry in between) |
 | Resources | 2 vCPU, 4 GiB of memory, startup CPU boost, second generation execution environment; 0 to 1 instance, 8 requests at a time per instance, 120 s request timeout |
 | Settings | Environment variables of the service (below) |
-| Secrets | Secret Manager: `gsb-api-key` (`GSB_API_KEY`), `hf-token` (`HF_TOKEN`), `feedback-notify-url` (`FEEDBACK_NOTIFY_URL`) |
-| Identity | A dedicated service account that can read only those three secrets and write only to the reports bucket |
-| Reports | `FEEDBACK_DIR=/feedback`, a private Cloud Storage bucket (`us-central1`, Standard class) mounted as a volume |
-| Warm-up | A Cloud Scheduler job calls `/health` every 10 minutes |
+| Secrets | Secret Manager: `gsb-api-key` (`GSB_API_KEY`), `hf-token` (`HF_TOKEN`), `feedback-notify-url` (`FEEDBACK_NOTIFY_URL`), `proxy-secret` (`PROXY_SECRET`) |
+| Proxy guard | The same `proxy-secret` value is the Pages secret `PROXY_SECRET`: the function sends it in `X-PhishLens-Proxy` and the backend answers 403 to any request without it, so the Cloud Run address itself (`*.run.app`) answers nothing useful |
+| Identity | A dedicated service account that can read only those four secrets and, with `roles/storage.objectUser` on the reports bucket alone, list, read, create and delete the objects of that bucket (the backend lists the reports to keep their total under `FEEDBACK_MAX_MB`) |
+| Reports | `FEEDBACK_DIR=/feedback`, a private Cloud Storage bucket (`us-central1`, Standard class) mounted as a volume (Cloud Storage FUSE) |
+| Warm-up | A Cloud Scheduler job calls `https://phishlens.dev/health` every 10 minutes (through the function: the run.app address answers 403) |
 | Cost | A monthly spending cap on Cloud Run and a budget alert at 1 USD |
 
 The service sets these environment variables besides the secrets:
@@ -32,14 +33,24 @@ FORWARDED_ALLOW_IPS=*                # Cloud Run's front end is the proxy
 
 The function replaces any `X-Forwarded-For` sent by the client with the
 address Cloudflare saw, so the per-address rate limits see the real
-client. The extension and the website only ever call
+client. It never forwards `Cookie`, `Authorization` or a client-sent
+`X-PhishLens-Proxy`, answers 405 to methods other than GET, HEAD, POST
+and OPTIONS, and adds the security headers of `site/_headers` (which
+Pages does not apply to a function's responses) to every answer. The
+backend address is in the function; the Pages variable `BACKEND_ORIGIN`
+overrides it. The extension and the website only ever call
 `https://phishlens.dev`.
 
+To change the proxy secret, add a new version of `proxy-secret`, put the
+same value in Pages (`npx wrangler pages secret put PROXY_SECRET`), then
+deploy a new Cloud Run revision. Until both sides match, phishlens.dev
+answers 403.
+
 At most one instance runs, so the rate limits, the Safe Browsing quota
-counter and the result cache, all kept in memory, stay exact; they start
+counter and the result cache, all kept in memory, stay exact. They start
 again empty when the instance restarts. The reputation cache lives in
 `/tmp`, the instance's memory, and goes with it. Cloud Run can scale the
-service to zero; the Cloud Scheduler call to `/health` every 10 minutes
+service to zero, but the Cloud Scheduler call to `/health` every 10 minutes
 keeps the instance warm, so users rarely wait for it to start and load
 the text model. Cloud Run bills only the time spent on requests, so these
 calls cost almost nothing.
@@ -57,7 +68,7 @@ curl -s https://phishlens.dev/health
 ```
 
 A new revision pulls the image again, so deploying after each publish is
-enough. Going back is sending the traffic to the previous revision:
+enough. To go back, send the traffic to the previous revision:
 
 ```bash
 gcloud run revisions list --service phishlens-backend --region europe-west1
@@ -67,22 +78,23 @@ gcloud run services update-traffic phishlens-backend --region europe-west1 \
 
 To change a key, add a new version of its secret
 (`gcloud secrets versions add gsb-api-key --data-file=-`), then deploy a
-new revision so the instance reads it. Logs go to Cloud Logging:
-`gcloud run services logs read phishlens-backend --region europe-west1`.
+new revision so the instance reads it. Logs go to Cloud Logging, and
+`gcloud run services logs read phishlens-backend --region europe-west1`
+shows them.
 
 ### Update the website
 
 `python3 scripts/build_site.py` (needs pandoc) writes `site/` from
-`site-src/`; Cloudflare Pages serves `site/` as it is, with the security
+`site-src/`. Cloudflare Pages serves `site/` as it is, with the security
 headers of `site/_headers`.
 
 ## Self-hosted server
 
 ### Deploy or update
 
-`scripts/redeploy.sh` does it in one command on a Docker host: pull
-`origin/main`, build, restart, wait for `/health`, run a test scan, and
-go back to the previous image if the new one is not healthy.
+On a Docker host, `scripts/redeploy.sh` does it in one command. It pulls
+`origin/main`, builds, restarts, waits for `/health`, runs a test scan,
+and goes back to the previous image if the new one is not healthy.
 
 ```bash
 bash ~/PhishLens/scripts/redeploy.sh              # update and redeploy
@@ -123,9 +135,9 @@ HF_AGENTS_REVISION=<commit sha>
 HF_TOKEN=hf_...                     # private repositories only
 ```
 
-Pin both revisions: unset, the server takes whatever the repository
-holds when it starts (and logs a warning), so anyone who can push to it
-changes your model. The sha of the latest commit:
+Pin both revisions. When they are unset, the server takes whatever the
+repository holds when it starts (and logs a warning), so anyone who can
+push to it changes your model. To get the sha of the latest commit:
 
 ```bash
 python3 -c "from huggingface_hub import HfApi; print(HfApi().model_info('<owner>/<model>').sha)"
@@ -133,11 +145,12 @@ python3 -c "from huggingface_hub import HfApi; print(HfApi().model_info('<owner>
 
 Each repository and revision gets its own folder, so going back is
 restoring the previous values. `curl -s <server>/health` shows the
-repository, revision and settings in use. How the server reads a model:
-[architecture.md](architecture.md#text-model).
+repository, revision and settings in use. See
+[architecture.md](architecture.md#text-model) for how the server reads a
+model.
 
 A self-hosted server uses the English model by default
-(`AnzouKiona/phishlens-distilbert`); it flags far more legitimate mail
+(`AnzouKiona/phishlens-distilbert`). It flags far more legitimate mail
 than the multilingual one, which is private because part of its
 training mail is. The extension warns about it.
 
@@ -154,6 +167,7 @@ training mail is. The extension warns about it.
 | `METADATA_MODEL_ENABLED` | `0` | The trained header model; off because it flags most modern legitimate headers |
 | `AGENTS_ALLOW_PICKLE` | `0` | `1` also loads pickle (joblib) agents, which run code when loaded; only for an old local copy never converted to skops |
 | `RATE_LIMIT_ANALYSE` | `30/minute` | Per IP; also `RATE_LIMIT_ATTACHMENT`, `RATE_LIMIT_EXPLAIN`, `RATE_LIMIT_FEEDBACK` |
+| `RATE_LIMIT_DEFAULT` | `60/minute` | Per IP, for the routes without a limit of their own (`/`, `/reputation/stats`); `/health` is never limited |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Read by uvicorn: the reverse proxy's address, whose `X-Forwarded-For` gives the client's. If the access log (`docker logs phishlens`) shows one private address for every request (the proxy's), set it to that address's Docker network (`172.18.0.0/16`: the container's address can change at restart), or the rate limits apply to all users together |
 | `PROXY_SECRET` | empty | Shared with the reverse proxy (the phishlens.dev Pages Function); when set, a request without the header `X-PhishLens-Proxy` carrying it gets 403, `/health` included, so the host's own address cannot be called directly with a forged `X-Forwarded-For`. Leave it empty on a self-hosted server |
 | `RESULT_CACHE_TTL` / `RESULT_CACHE_MAX` | `86400` / `2000` | Results kept in memory by request hash; `0` turns it off |
@@ -178,30 +192,41 @@ Keep `/metrics` private: forward only the API paths from the proxy
 the Pages Function does for PhishLens Cloud, or turn it off with
 `METRICS_ENABLED=0`, as PhishLens Cloud does so that its Cloud Run
 address does not answer `/metrics` either. The number to watch is the
-share of phishing verdicts over time: a jump is an attack wave or a
-regression, a drop to zero means something upstream broke (a Gmail
+share of phishing verdicts over time. A jump means an attack wave or a
+regression, and a drop to zero means something upstream broke (a Gmail
 change, an extension bug).
 
 Logs go to stdout (`docker logs phishlens`, Cloud Logging on PhishLens
-Cloud); email content is never logged.
+Cloud). Email content is never logged.
 
 ## Reports from users
 
-With `FEEDBACK_DIR=/data/feedback`, reports are appended to
-`feedback-YYYY-MM.jsonl`. They are private: back them up encrypted,
-never commit them. To delete one on request:
+With `FEEDBACK_DIR=/data/feedback`, each report is its own file,
+`YYYY-MM/<reference>.json`, created once and never rewritten. They are
+private, so back them up encrypted and never commit them. To delete one
+on request, run
 `python3 scripts/delete_report.py --dir <folder> <reference>`.
 
 On PhishLens Cloud the folder is the Cloud Storage bucket mounted at
-`/feedback`: copy the month's file with `gcloud storage cp`, delete the
-report in the local copy with the same script, and copy the file back.
+`/feedback`. Delete a report by removing its object, which no report
+received meanwhile can touch:
+
+```bash
+gcloud storage rm "gs://<bucket>/*/<reference>.json"
+```
+
+Reports received by older servers are lines of the monthly files
+`feedback-YYYY-MM.jsonl`, which are still read and never written. To
+delete one of those (legacy procedure): copy the month's file with
+`gcloud storage cp`, delete the report in the local copy with the same
+script, and copy the file back.
 
 ## Load test
 
 `scripts/locustfile.py` replays the extension's traffic (text scans
 mostly, `.eml` and attachment scans). Run it against a throwaway
 container with the rate limits lifted, threat intel off and the result
-cache off (`RESULT_CACHE_TTL=0`): otherwise it measures the limiter, the
+cache off (`RESULT_CACHE_TTL=0`). Otherwise it measures the limiter, the
 intel APIs or the cache. Never aim it at someone else's server.
 
 ```bash
@@ -210,9 +235,10 @@ docker run --rm --network host -v "$PWD":/mnt/locust locustio/locust \
   --headless -u 10 -r 2 -t 2m --csv /mnt/locust/loadtest --only-summary
 ```
 
-The earlier PhishLens Cloud host (4 ARM cores, CPU only, 10 users,
-multilingual model, 2026-10-15): median 65 ms and p95 120 ms for short text scans, 0
-failures out of 472 requests. The test emails are short; a typical
+On the earlier PhishLens Cloud host (4 ARM cores, CPU only, 10 users,
+multilingual model, 2026-10-15), short text scans took a median of 65 ms
+and a p95 of 120 ms, with 0 failures out of 472 requests. The test
+emails are short, and a typical
 email of about 250 tokens takes about 190 ms
 ([evaluation](evaluation.md#results)).
 
@@ -220,9 +246,9 @@ email of about 250 tokens takes about 190 ms
 
 On a self-hosted server, `scripts/backup.sh` archives what the
 repository cannot rebuild (env file, proxy configuration, data folder)
-to an [rclone](https://rclone.org) remote. Use a crypt remote: the
-archive holds the env file.
+to an [rclone](https://rclone.org) remote. Use a crypt remote, because
+the archive holds the env file.
 
-PhishLens Cloud has no such files: the code and the image are on GitHub,
+PhishLens Cloud has no such files. The code and the image are on GitHub,
 the settings on the Cloud Run service, the keys in Secret Manager, and
 the reports in their Cloud Storage bucket.

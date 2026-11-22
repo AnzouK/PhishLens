@@ -124,9 +124,7 @@ def test_strip_tags_is_linear_on_crafted_input():
     assert archives._strip_tags("<" * 50_000) == ""
 
 
-# ---------------------------------------------------------------------
-# v1.15.3: RAR and 7z opened (rarfile / py7zr)
-# ---------------------------------------------------------------------
+# RAR and 7z (rarfile / py7zr)
 def _vint(n: int) -> bytes:
     out = bytearray()
     while True:

@@ -1,5 +1,5 @@
-// The Result view: verdict, one card per agent with its badges, the
-// files of an archive, and the words behind the text score.
+// The Result view. It shows the verdict, one card per agent with its
+// badges, the files of an archive and the words behind the text score.
 import { $, h, t, tn, I18N, spriteIcon } from "./ui.js";
 
 const { SOURCE_LABELS, isCaution } = window.PhishLensConstants;
@@ -47,15 +47,18 @@ function subline(data, isPhishing, caution, flags) {
 // Element ids and hint keys of each agent card ("meta-score", "meta_high").
 const PREFIX = { text: "text", url: "url", metadata: "meta" };
 
-function fillAgent(key, agent) {
+function fillAgent(key, agent, data) {
     const prefix = PREFIX[key];
     const bar = $(`${prefix}-bar`);
     const card = bar.closest(".agent");
-    if (key === "metadata" && agent?.checked === false) {
+    // Not checked when there is no sender information or almost no text.
+    const off = key === "metadata" && agent?.checked === false ? "meta_not_checked"
+        : key === "text" && data?.text_agent_used === false ? "text_not_checked" : null;
+    if (off) {
         $(`${prefix}-score`).textContent = "—";
         bar.style.width = "0%";
         card.dataset.flagged = "safe";
-        $(`${prefix}-hint`).textContent = t("meta_not_checked");
+        $(`${prefix}-hint`).textContent = t(off);
         return;
     }
     const p = Number(agent?.phishing_probability) || 0;
@@ -93,7 +96,7 @@ function renderMetaBadges(auth) {
     }
     if (auth?.cryptographically_verified) badges.push(badge(t("dkim_aligned"), "good", t("dkim_aligned_title")));
     for (const [name, verdict] of [["SPF", auth?.spf], ["DKIM", auth?.dkim], ["DMARC", auth?.dmarc]]) {
-        // "none", "neutral", "temperror": no badge.
+        // "none", "neutral" and "temperror" get no badge.
         const kind = { pass: "good", fail: "bad", softfail: "warn" }[verdict];
         if (kind) badges.push(badge(t(`auth_${verdict}`, { name }), kind, t(`auth_${verdict}_title`, { name })));
     }
@@ -106,12 +109,13 @@ function renderMetaBadges(auth) {
     host.hidden = !badges.length;
 }
 
-// Inside an archive: the files that explain the verdict, then every
-// file, folded. File names come from the archive: text nodes only.
+// Files inside an archive. Those that explain the verdict come first,
+// then every file, folded. File names come from the archive, so they
+// only ever become text nodes.
 function renderArchiveFiles(att, isPhishing) {
     const box = $("archive-files");
     box.replaceChildren();
-    // Archives, and Office files that hold other files (read as members).
+    // Archives, and Office files that hold other files read as members.
     if (att?.kind === "archive" || Array.isArray(att?.entries)) {
         const risky = Array.isArray(att.suspicious_files) ? att.suspicious_files : [];
         const entries = Array.isArray(att.entries) ? att.entries : [];
@@ -148,10 +152,11 @@ export function renderResult(data) {
     $("verdict-sub").textContent = subline(data, isPhishing, caution, flags);
     renderTrustPill(data);
     renderArchiveFiles(data.attachment, isPhishing);
-    for (const key of ["text", "url", "metadata"]) fillAgent(key, data.agents?.[key]);
+    for (const key of ["text", "url", "metadata"]) fillAgent(key, data.agents?.[key], data);
     renderUrlBadges(data.url_reputation);
     renderMetaBadges(data.sender_auth);
-    explanation.reset(!isAttachment);
+    // No words to explain without the text model (attachments, almost no text).
+    explanation.reset(!isAttachment && data.text_agent_used !== false);
 }
 
 // The words behind the text score, computed in the background while the
@@ -183,7 +188,7 @@ const explanation = {
             this.features = result.features || [];
             if (historyId) {
                 const tokens = this.features.slice(0, 5).map((f) => ({ token: f.token || "", weight: f.weight || 0 }));
-                await window.PhishLensHistory.attachTokens(historyId, tokens);
+                await window.PhishLensApi.history.attachTokens(historyId, tokens);
             }
         } catch (e) {
             if (run !== this.run) return;
@@ -198,8 +203,8 @@ const explanation = {
             this.tokens.replaceChildren(h("span.explain__status", null, t("computing_lime")));
             return;
         }
-        // LIME weights are tiny: the colour shows each word's weight
-        // relative to the strongest one, the exact share is in the tooltip.
+        // LIME weights are tiny, so the colour shows each word's weight
+        // relative to the strongest one. The exact share is in the tooltip.
         const shown = this.features.filter((f) => String(f.token || "").length > 1 && !/^\d+$/.test(f.token));
         if (!shown.length) return this.showStatus(t("no_tokens_model"));
         const max = Math.max(...shown.map((f) => Math.abs(Number(f.weight) || 0))) || 1;

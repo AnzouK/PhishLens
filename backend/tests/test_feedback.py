@@ -1,7 +1,10 @@
+import importlib.util
 import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 import extension_backend as eb
 import feedback
@@ -25,8 +28,7 @@ def client(monkeypatch, tmp_path):
 
 
 def _stored(folder):
-    lines = [json.loads(x) for f in folder.glob("*.jsonl") for x in f.read_text().splitlines()]
-    return lines
+    return list(feedback.read_all(folder))
 
 
 def test_report_is_redacted_and_stored_without_request_data(client):
@@ -113,3 +115,90 @@ def test_no_notification_without_an_https_url(client, monkeypatch):
     monkeypatch.setattr(feedback, "_post", lambda url, msg, click="": sent.append(msg))
     c.post("/feedback", json=REPORT)
     assert sent == []
+
+
+def test_each_report_is_its_own_file(client):
+    c, folder = client
+    refs = [c.post("/feedback", json=REPORT).json()["reference"] for _ in range(2)]
+    files = sorted(folder.glob("*/*.json"))
+    assert sorted(f.stem for f in files) == sorted(refs)
+    assert all(len(f.parent.name) == 7 and f.parent.name[4] == "-" for f in files)
+    assert not list(folder.glob("*.jsonl")) and not (folder / ".lock").exists()
+    assert all(json.loads(f.read_text())["reference"] == f.stem for f in files)
+    assert all(oct(f.stat().st_mode & 0o777) == "0o600" for f in files)
+
+
+def test_removing_one_report_leaves_the_other(client):
+    c, folder = client
+    first, second = (c.post("/feedback", json=REPORT).json()["reference"] for _ in range(2))
+    (gone,) = folder.glob(f"*/{first}.json")
+    gone.unlink()
+    assert [r["reference"] for r in _stored(folder)] == [second]
+    third = c.post("/feedback", json=REPORT).json()["reference"]
+    assert sorted(r["reference"] for r in _stored(folder)) == sorted([second, third])
+
+
+def test_old_monthly_files_are_still_read(client):
+    c, folder = client
+    old = {"reference": "a1b2c3d4e5f6", "received": "2026-10-01", "kind": "stats", "rows": []}
+    (folder / "feedback-2026-10.jsonl").write_text(json.dumps(old) + "\nnot json\n")
+    new = c.post("/feedback", json=REPORT).json()["reference"]
+    assert [r["reference"] for r in _stored(folder)] == ["a1b2c3d4e5f6", new]
+    assert (folder / "feedback-2026-10.jsonl").read_text().startswith("{")
+
+
+def test_a_taken_reference_is_never_overwritten(client, monkeypatch):
+    c, folder = client
+    refs = iter(["aaaaaaaaaaaa", "aaaaaaaaaaaa", "bbbbbbbbbbbb"])
+    monkeypatch.setattr(feedback.secrets, "token_hex", lambda n: next(refs))
+    assert c.post("/feedback", json=REPORT).json()["reference"] == "aaaaaaaaaaaa"
+    assert c.post("/feedback", json=REPORT).json()["reference"] == "bbbbbbbbbbbb"
+    assert len(_stored(folder)) == 2
+
+
+def _delete_script():
+    path = Path(__file__).resolve().parents[2] / "scripts" / "delete_report.py"
+    spec = importlib.util.spec_from_file_location("delete_report", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_delete_script_removes_new_and_old_reports(client):
+    c, folder = client
+    old = [{"reference": r, "kind": "stats", "rows": []} for r in ("a1b2c3d4e5f6", "0a0b0c0d0e0f")]
+    (folder / "feedback-2026-10.jsonl").write_text("".join(json.dumps(x) + "\n" for x in old))
+    keep, gone = (c.post("/feedback", json=REPORT).json()["reference"] for _ in range(2))
+    assert _delete_script().delete(folder, {gone, "a1b2c3d4e5f6"}) == 2
+    assert sorted(r["reference"] for r in _stored(folder)) == sorted(["0a0b0c0d0e0f", keep])
+
+
+def test_report_fields_besides_text_are_identifiers():
+    feedback.FeedbackRequest(kind="false_negative", text="a b c", source="gmail", version="2.0.11")
+    with pytest.raises(ValidationError):
+        feedback.FeedbackRequest(
+            kind="false_negative", text="a b c", source="Call +234 800 000 0000"
+        )
+
+
+def test_report_deleted_while_measuring_is_skipped(client, monkeypatch):
+    c, folder = client
+    listed = feedback._report_files
+    gone = folder / "2026-10" / "deleted0000.json"
+    monkeypatch.setattr(feedback, "_report_files", lambda f: [*listed(f), gone])
+    assert c.post("/feedback", json=REPORT).status_code == 200
+
+
+def test_folder_size_is_measured_once_then_counted(client, monkeypatch):
+    c, folder = client
+    calls = []
+    listed = feedback._report_files
+    monkeypatch.setattr(feedback, "_report_files", lambda f: calls.append(f) or listed(f))
+    for _ in range(3):
+        assert c.post("/feedback", json=REPORT).status_code == 200
+    assert len(calls) == 1
+    on_disk = sum(p.stat().st_size for p in listed(folder))
+    assert feedback._dir_size_mb(folder) == on_disk / 1_000_000
+    monkeypatch.setattr(feedback, "_SIZE_REFRESH_S", 0.0)
+    feedback._dir_size_mb(folder)
+    assert len(calls) == 2

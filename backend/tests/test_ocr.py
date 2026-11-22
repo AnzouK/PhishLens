@@ -57,9 +57,7 @@ def to_bytes(img: Image.Image, fmt: str) -> bytes:
     return buf.getvalue()
 
 
-# ---------------------------------------------------------------------
 # Unit
-# ---------------------------------------------------------------------
 class TestHelpers:
     def test_qr_payload_filter(self):
         assert ocr.qr_urls(["https://a.example/x", "WIFI:S:home;;", "paypa1.com/login", ""]) == [
@@ -82,9 +80,7 @@ class TestHelpers:
             analyse_attachment(b64(b"\x89PNG\r\n\x1a\nnot really"), filename="x.png")
 
 
-# ---------------------------------------------------------------------
 # Images
-# ---------------------------------------------------------------------
 @needs_qr
 def test_qr_in_image_is_decoded():
     r = analyse_attachment(
@@ -112,9 +108,7 @@ def test_blank_photo_has_no_flags():
     assert r["extracted_urls"] == []
 
 
-# ---------------------------------------------------------------------
 # Scanned PDFs
-# ---------------------------------------------------------------------
 @needs_render
 @needs_tesseract
 @needs_qr
@@ -149,9 +143,7 @@ def test_text_pdf_is_not_flagged_as_scanned():
     assert r["ocr_used"] is False
 
 
-# ---------------------------------------------------------------------
 # Language selection (multilingual OCR)
-# ---------------------------------------------------------------------
 def test_ocr_language_follows_the_detected_script(monkeypatch):
     import ocr
 

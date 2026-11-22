@@ -1,6 +1,6 @@
 # PhishLens privacy policy
 
-Last updated: November 21, 2026.
+Last updated: November 22, 2026.
 
 PhishLens is a Chrome extension that checks emails for phishing. This
 page explains what data it handles, where that data goes and what is
@@ -78,7 +78,11 @@ Reports go to PhishLens Cloud whatever server you use for scanning. The
 server redacts the text again with the same rules, stores the report
 without your IP address or any other request data (the request logs
 described below still record the request for 30 days), and returns a
-reference. Reports are used only to measure and improve
+reference.
+A short notice of each new report goes to the maintainer through a push
+notification service (ntfy): its kind, the reported verdict, the
+language, where it was scanned and its reference (for statistics, the
+number of scans), never any email content. Reports are used only to measure and improve
 PhishLens (for example to train the text model on legitimate mail it got
 wrong); they are never published or shared. They are kept for at most
 two years. To have a report deleted, write to privacy@phishlens.dev with
@@ -95,10 +99,10 @@ most). It never leaves the browser unless you report that scan.
 | Data | Where | How long |
 | --- | --- | --- |
 | Scan history (subject, sender, verdict, scores, top explanation words, detected language and your answer) | Your browser (`chrome.storage.local`) | Until you clear it (Insights, **Clear**), up to the last 500 scans |
-| Explanation cache | Your browser | Until the extension is removed |
+| Explanation cache (the words that explain a verdict, keyed by a hash of the text) | Your browser | 30 days, 200 entries at most; cleared with the history |
 | Redacted text of recent Gmail and Outlook scans, for reporting | Your browser | 7 days, 50 emails at most; cleared with the history |
-| Reports you sent (redacted text or statistics, see above) | PhishLens Cloud (Google Cloud Storage, United States) | At most two years; deleted on request with the reference |
-| Automatic-scan results (thread id, verdict, score) | Your browser | Last 500 emails |
+| Reports you sent (redacted text or statistics, see above) | PhishLens Cloud (Google Cloud Storage, United States; one file per report) | At most two years; deleted on request with the reference |
+| Automatic-scan results (thread id, verdict, score, a short print of the inbox row) | Your browser | Last 500 emails; cleared with the history |
 | Settings | Your browser | Until changed |
 | Link verdicts (URL, verdict, source) | Backend cache (SQLite) | 24 hours |
 | Results sent back (verdict, scores, link verdicts, explanation words), keyed by a hash of the email; not the email itself | Backend memory | 24 hours, or until the server restarts |
@@ -127,7 +131,8 @@ sees as a normal request from your browser.
 | `scripting` | After an update, put the new version of the scan buttons into Gmail and Outlook tabs that are already open, so you do not have to refresh them. |
 | Access to `mail.google.com` | Add the scan buttons and banners to Gmail and read the email you scan. |
 | Access to Outlook on the web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Same, in Outlook (manual scans only). |
-| Access to `127.0.0.1:8000`, `localhost:8000`, `phishlens.dev` | Send scans to the backend you chose. |
+| Access to `phishlens.dev` | Send scans to PhishLens Cloud, the default backend. |
+| Optional: `127.0.0.1`, `localhost`, or the address of your own server | Asked for only when you choose a local or custom backend in the settings, for that host alone, on any port. |
 
 ## Your choices
 

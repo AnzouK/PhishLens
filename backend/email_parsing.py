@@ -1,7 +1,7 @@
 """
-Reading an email: the visible text, the links and the headers of a raw
-.eml, plus the structural signals computed from them (forwarded emails,
-links to file-sharing services).
+Reads the visible text, the links and the headers of a raw .eml, and
+computes structural signals from them (forwarded emails, links to
+file-sharing services).
 
 Every parser here is linear on its input (no backtracking regex on
 attacker-controlled text) and caps what it reads.
@@ -21,11 +21,11 @@ from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
 from hidden_content import generated_text, hidden_tags, shown_link, shown_maps, visible_text_first
 from link_alignment import browser_path, browser_url, link_host
-from settings import MAX_EMAIL_URLS, MAX_LINK_URLS
+from settings import MAX_EMAIL_URLS, MAX_LINK_URLS, MAX_PAGE_TEXT_CHARS
 from unicode_text import without_invisible
 
-# An email that is only an address is still an email to read, not a
-# mistake to warn about (each warning went to the server log).
+# A body that is only an address is still an email to read. Without this,
+# BeautifulSoup logs a warning for each one.
 warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
 # http(s) URL written out in a text, in any case, or starting with
@@ -39,7 +39,7 @@ def urls_in_text(text: str) -> list[str]:
     # from a host ("evil\u200b.tk" opens evil.tk), the match must too.
     out = []
     for u in URL_IN_TEXT_RE.findall(without_invisible(text or "")):
-        u = u.rstrip(".,;:!?")
+        u = u[:2048].rstrip(".,;:!?")
         out.append(browser_url(u if u[:4].lower() != "www." else "http://" + u))
     return out
 
@@ -58,7 +58,11 @@ def html_to_text(html_src: str) -> str:
     soup = BeautifulSoup(without_inline_data(html_src)[:_MAX_PARSED], "html.parser")
     hidden = hidden_tags(soup)  # before the <style> sheets go
     generated = generated_text(soup, hidden)
-    for tag in soup(["style", "script", "head", "noscript", "title"]):
+    # <iframe>, <noembed> and <noframes> hold fallback content that
+    # browsers and Gmail never show.
+    for tag in soup(
+        ["style", "script", "head", "noscript", "title", "iframe", "noembed", "noframes"]
+    ):
         tag.decompose()
     # Line breaks where the page breaks lines: a forward's marker line
     # ("---------- Forwarded message ---------") must start a line for
@@ -91,8 +95,9 @@ def html_link_groups(html_src: str) -> tuple[list[str], list[str]]:
     maps = shown_maps(soup, hidden_ids)
     visible, hidden, unknown = [], [], []
     shown, checked = set(), 0
-    # Every link is looked at; at most 20,000 get the visibility check (a
-    # cap on links once let 20,000 copies of a decoy hide the one after).
+    # Every link is looked at, and at most 20,000 get the visibility check.
+    # Capping the links themselves would let copies of a decoy hide the
+    # real one behind them.
     for tag in soup.find_all(["a", "area"]):
         # SVG links use xlink:href.
         href = tag.get("href") or tag.get("xlink:href")
@@ -127,10 +132,10 @@ def html_link_groups(html_src: str) -> tuple[list[str], list[str]]:
 
 
 def absolute_http(href: str) -> str:
-    """An http(s) URL from an href, as a browser reads it, or "": control
-    characters and spaces removed, "//host/..." read as https, and the
-    forms browsers accept ("HTTPS:evil.tk", backslashes, an encoded host)
-    normalised (link_alignment.browser_url)."""
+    """Return the http(s) URL of an href as a browser reads it, or "".
+    Control characters and spaces are removed, "//host/..." is read as
+    https, and the forms browsers accept ("HTTPS:evil.tk", backslashes, an
+    encoded host) are normalised (link_alignment.browser_url)."""
     href = "".join(c for c in str(href)[:2048] if c > " " and c != "\x7f")
     if href.startswith(("//", "\\\\", "/\\", "\\/")):
         href = "https://" + href.lstrip("/\\")
@@ -157,9 +162,10 @@ _TAG_RE = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]{0,20}(?P<inner>\s[^<>]{0,2000})?(?
 
 _ATTR_START = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
 _ATTR_NAME = _ATTR_START | frozenset("0123456789:.-")
-# Page texts are cut at 4,000 characters (content_scripts/core.js): a tag
-# cut there may have lost its closing quote.
-_CUT_AT = 3900
+# Page texts are cut at MAX_PAGE_TEXT_CHARS (PL.MAX_RAW_TEXT in
+# content_scripts/core.js): a tag cut there may have lost its closing
+# quote.
+_CUT_AT = MAX_PAGE_TEXT_CHARS - 100
 
 
 def _attributes(inner: str, cut_off: bool = False) -> bool:
@@ -231,8 +237,8 @@ def _sentence(value: str) -> bool:
 
 
 def _markup(m: re.Match) -> str:
-    """The tag removed when it is markup: no attributes ("<p>", "</div>")
-    or real ones; left as words otherwise."""
+    """Remove the tag when it is markup, with no attributes ("<p>",
+    "</div>") or real ones. Anything else is left as words."""
     inner = m.group("inner") or ""
     cut_off = m.end() == len(m.string) and len(m.string) >= _CUT_AT
     if not m.group(0).endswith(">") and not cut_off and not _short_cut_tag(inner):
@@ -241,8 +247,8 @@ def _markup(m: re.Match) -> str:
 
 
 def _short_cut_tag(inner: str) -> bool:
-    """A tag the text ends in without its ">": markup only when it is
-    short and carries no address (a source page cut inside an <img>), not
+    """True when a tag the text ends in, without its ">", is markup. It is
+    when it is short and carries no address (a source page cut inside an <img>), not
     a sentence written after "<a x="."""
     return len(inner.split()) <= 12 and "http" not in inner.lower()
 
@@ -277,37 +283,99 @@ def without_inline_data(html_src: str) -> str:
     return _without_long_comments(_INLINE_DATA_RE.sub("", html_src[:10_000_000]))
 
 
-_STYLE_OPEN_RE = re.compile(r"<style\b", re.IGNORECASE)
+# Where markup starts, as a browser reads HTML: a comment, a start or
+# end tag, or a bogus comment: "<!", "<?" or "</" not followed by an
+# ASCII letter, read up to the next ">" (html.parser does the same).
+# "</>" is such a comment, empty; "</" at the end is text.
+_MARKUP_START_RE = re.compile(r"<(?:!--|[a-zA-Z]|/[a-zA-Z]|[!?/])")
+# Elements whose content is text up to their end tag, for browsers and
+# for html.parser (which html_to_text uses): "<!--" or "<style" inside
+# opens nothing. <noscript> is not one of them: html.parser reads it as
+# markup (scripting off), and so does a mail reader, which runs no script.
+# <plaintext> makes the rest of the document text.
+_RAW_TEXT_OPEN_RE = re.compile(
+    r"<(style|script|title|textarea|xmp|iframe|noembed|noframes|plaintext)(?=[\t\n\f\r />])",
+    re.IGNORECASE | re.ASCII,
+)
+_RAW_TEXT_CLOSE_RE = {
+    name: re.compile(rf"</{name}(?=[\t\n\f\r />])", re.IGNORECASE | re.ASCII)
+    for name in ("style", "script", "title", "textarea", "xmp", "iframe", "noembed", "noframes")
+}
+# The rest of a tag after "<" or "</", as the HTML tokenizer reads it:
+# the tag name, then attributes, each a name with an optional "=" and a
+# value. Only a value that starts with a quote is quoted, so the "=" in
+# a=b=" is part of the value b=" and opens nothing. A quote left open
+# runs to the end of the text.
+_TAG_REST_RE = re.compile(
+    r"""[^\t\n\f\r />]*"""
+    r"""(?:[\t\n\f\r /]+"""
+    r"""|[^\t\n\f\r />][^\t\n\f\r />=]*"""
+    r"""(?:[\t\n\f\r ]*=[\t\n\f\r ]*(?:"[^"]*(?:"|\Z)|'[^']*(?:'|\Z)|[^\t\n\f\r >]*))?)*""",
+)
+# A comment ends at "-->" or "--!>"; "<!-->" and "<!--->" are whole
+# (empty) comments.
+_COMMENT_END_RE = re.compile(r"--!?>")
+
+
+def _tag_end(src: str, i: int) -> int:
+    """Where the tag starting at src[i] ends, just after its ">". A ">"
+    inside a quoted attribute value does not end it. len(src) when it
+    never ends."""
+    m = _TAG_REST_RE.match(src, i + 2 if src.startswith("</", i) else i + 1)
+    end = m.end()
+    return end + 1 if end < len(src) and src[end] == ">" else len(src)
+
+
+def _comment_end(src: str, start: int) -> int:
+    """Where the comment starting at src[start] ("<!--") ends, just after
+    its last character. len(src) when it never ends."""
+    if src.startswith(">", start + 4):
+        return start + 5
+    if src.startswith("->", start + 4):
+        return start + 6
+    m = _COMMENT_END_RE.search(src, start + 4)
+    return len(src) if m is None else m.end()
 
 
 def _without_long_comments(src: str) -> str:
-    """Long comments out; "<!--" inside a <style> sheet is not a comment
-    for the browser (its rules apply) and stays, sheet and all."""
-    out, pos = [], 0
-    lower = src.lower()
+    """Remove long comments, bogus ones ("<!x", "<?x", "</1") included:
+    one that a browser does not show can still push the text and links
+    past _MAX_PARSED, or glue what is around it into one tag for
+    html.parser. The HTML is read in order, as a browser does:
+    "<!--" inside <style>, <script>, <title> and the other raw text
+    elements is not a comment (a sheet's rules apply), and "<style" or
+    "<!--" inside a tag's attribute value, or "<style" inside a comment,
+    opens nothing. One pass; the case of the original text is searched as
+    it is (a lowercased copy can be longer than the text)."""
+    out, pos, i, n = [], 0, 0, len(src)
     while True:
-        start = src.find("<!--", pos)
-        if start < 0:
+        m = _MARKUP_START_RE.search(src, i)
+        if not m:
             break
-        style = _STYLE_OPEN_RE.search(src, pos, start)
-        if style:
-            close = lower.find("</style", style.end())
-            close = len(src) if close < 0 else close
-            if close > start:
-                out.append(src[pos:close])
-                pos = close
-                continue
-        end = src.find("-->", start + 4)
-        end = len(src) if end < 0 else end + 3
-        if end - start > 500:
-            out.append(src[pos:start])
-            for m in _LINK_ATTR_RE.finditer(src, start, end):
-                url = _attr_value(m)
-                if url:
-                    out.append(f'<a href="{html_lib.escape(url)}"></a>')
+        start = m.start()
+        if m.group() in ("<!--", "<!", "<?", "</"):
+            if m.group() == "<!--":
+                end = _comment_end(src, start)
+            else:
+                end = src.find(">", start + 2)
+                end = n if end < 0 else end + 1
+            if end - start > 500:
+                out.append(src[pos:start])
+                for link in _LINK_ATTR_RE.finditer(src, start, end):
+                    url = _attr_value(link)
+                    if url:
+                        out.append(f'<a href="{html_lib.escape(url)}"></a>')
+                pos = end
+            i = end
         else:
-            out.append(src[pos:end])
-        pos = end
+            i = _tag_end(src, start)
+            raw = _RAW_TEXT_OPEN_RE.match(src, start)
+            if raw:
+                name = raw.group(1).lower()
+                if name == "plaintext":
+                    break
+                close = _RAW_TEXT_CLOSE_RE[name].search(src, i)
+                i = n if close is None else close.start()
     out.append(src[pos:])
     return "".join(out)
 
@@ -348,8 +416,8 @@ def is_page_source(text: str) -> bool:
 
 
 def _body_text(msg, raw_bytes: bytes) -> str:
-    """Visible text of the email: the rendered HTML part first, the plain
-    text part otherwise."""
+    """Return the visible text of the email, from the rendered HTML part
+    when there is one, from the plain text part otherwise."""
     if not msg.is_multipart():
         try:
             body = msg.get_content()
@@ -391,8 +459,8 @@ def _link_targets(msg, body: str) -> list[str]:
 
 
 def _raw_items(msg) -> list[tuple[str, str]]:
-    """The headers as written, not as the standard parser rebuilds them:
-    it drops what it cannot parse ('"PayPal" <service@paypal.com>
+    """Return the headers as written, not as the standard parser rebuilds
+    them. That parser drops what it cannot parse ('"PayPal" <service@paypal.com>
     <scam@evil.example>' became '"PayPal" <service@paypal.com>'), and the
     checks must read what mail programs read. 8-bit bytes are read as
     UTF-8; encoded words are decoded by header_dict."""
@@ -474,9 +542,12 @@ _TOPMOST_WINS = frozenset(
 # MAX_HEADER_CHARS once its spaces are collapsed. Same name as
 # auth_headers.FROM_UNPROVEN (not imported: no cycle).
 FROM_UNPROVEN = "x-phishlens-from-unproven"
-# Every header value is kept with its runs of spaces collapsed, cut here:
-# 2,000 spaces in a From: used to push the real address past what the
-# checks read.
+# Set by the backend when the text it scores is shorter than the message
+# and only the part left out holds a forward marker. Like FROM_UNPROVEN,
+# never taken from the message itself.
+FORWARDED_ELSEWHERE = "x-phishlens-forwarded"
+# Header values are cut here after runs of spaces are collapsed, so
+# padding cannot push the real address past what the checks read.
 MAX_HEADER_CHARS = 8000
 _MAX_RAW_HEADER = 1_000_000
 
@@ -496,7 +567,7 @@ def header_dict(items) -> dict[str, str]:
     headers: dict[str, str] = {}
     for k, v in items:
         key = k.lower()
-        if key == FROM_UNPROVEN:
+        if key in (FROM_UNPROVEN, FORWARDED_ELSEWHERE):
             continue
         if key in _TOPMOST_WINS and key in headers:
             if key == "from":
@@ -585,10 +656,8 @@ def _decoded_header(value: str, address: bool = False) -> str:
     return _ENCODED_RUN_RE.sub(run, value)
 
 
-# ---------------------------------------------------------------------
 # Forwarded emails. The From: of a forward is the person who forwarded it,
 # not the author of the content, so sender trust must not cover it.
-# ---------------------------------------------------------------------
 _FORWARD_MARKERS = re.compile(
     r"^[ \t]*(?:-{2,}[ \t]*(?:forwarded message|original message|message transf[ée]r[ée]|"
     r"message d'origine|mensaje reenviado|mensaje original)[ \t]*-{2,}"
@@ -596,7 +665,10 @@ _FORWARD_MARKERS = re.compile(
     r"|d[ée]but du message (?:r[ée]exp[ée]di[ée]|transf[ée]r[ée])\s*:)",
     re.IGNORECASE | re.MULTILINE,
 )
-_FORWARD_SUBJECT = re.compile(r"^\s*(?:fwd?|tr|wg|rv|enc)\s*:", re.IGNORECASE)
+# Fwd:, TR:, WG:... possibly after reply prefixes ("Re: Fwd:", "AW: WG:").
+_FORWARD_SUBJECT = re.compile(
+    r"^\s*(?:(?:re|res|aw|sv|antw|r)\s*:\s*){0,10}(?:fwd?|tr|wg|rv|enc)\s*:", re.IGNORECASE
+)
 _FORWARD_FROM_KEYS = ("from", "de", "von")
 
 
@@ -631,12 +703,10 @@ def detect_forwarded(body: str, subject: str | None = None) -> dict[str, Any]:
     return {"detected": detected, "original_sender": original}
 
 
-# ---------------------------------------------------------------------
 # Links to file-sharing and form services. The domain is
 # legitimate (Google, Microsoft, Dropbox), so the URL agent and threat
 # intel rarely flag it, but the shared file or form is often the lure.
 # Informational: surfaced to the user, not added to the score.
-# ---------------------------------------------------------------------
 _SHARE_SERVICES = [
     (re.compile(r"(?:^|\.)docs\.google\.com$"), r"^/forms/", "Google Forms"),
     (re.compile(r"(?:^|\.)forms\.gle$"), None, "Google Forms"),
@@ -683,8 +753,9 @@ def detect_shared_links(urls: list[str]) -> dict[str, Any]:
 def client_links(extra: Any) -> list[str]:
     """Link targets sent by the client (client_context.link_urls).
 
-    Untrusted input: only http(s) strings under 2048 characters are kept,
-    at most MAX_LINK_URLS of them, duplicates dropped (order kept).
+    Untrusted input: only http(s) strings are kept, cut at 2048 characters
+    (a longer link keeps its host, which is what the checks read), at most
+    MAX_LINK_URLS of them, duplicates dropped (order kept).
     """
     if not isinstance(extra, list):
         return []
@@ -692,9 +763,9 @@ def client_links(extra: Any) -> list[str]:
     for u in extra:
         if len(out) >= MAX_LINK_URLS:
             break
-        if not isinstance(u, str) or len(u) > 2048:
+        if not isinstance(u, str):
             continue
-        u = u.strip()
+        u = u[:20_000].strip()[:2048]
         u = browser_url(u)
         if re.match(r"https?://", u) and u not in out:
             out.append(u)

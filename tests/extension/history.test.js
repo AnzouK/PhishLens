@@ -160,3 +160,24 @@ test("two scans saved at the same moment are both kept", async () => {
     ]);
     assert.equal(store[H.STORAGE_KEY].length, 2);
 });
+
+test("clearing history removes email caches, not the settings", async () => {
+    const store = installFakeChrome();
+    const H = loadLib("history.js");
+    Object.assign(store, {
+        "limeCache.v2": { a: 1 }, "autoScanCache.v5": { t: 1 }, "autoScanCache.v4": { t: 1 }, backend: "cloud",
+    });
+    await H.saveScan({ verdict: "safe" });
+    await H.clearHistory();
+    assert.equal((await H.getHistory()).length, 0);
+    for (const k of ["limeCache.v2", "autoScanCache.v5", "autoScanCache.v4"]) assert.ok(!(k in store), k);
+    assert.equal(store.backend, "cloud");
+});
+
+test("pasted text is saved under its first line", () => {
+    installFakeChrome();
+    const H = loadLib("history.js");
+    assert.equal(H.pasteSubject("\n  \n  Urgent: verify your account  \nBody text"), "Urgent: verify your account");
+    assert.equal(H.pasteSubject("x".repeat(300)).length, 120);
+    assert.equal(H.pasteSubject(""), "");
+});

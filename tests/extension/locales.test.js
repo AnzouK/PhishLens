@@ -111,8 +111,8 @@ test("no HTML is built from strings", () => {
 });
 
 test("nothing hides the translation function t()", () => {
-    // A local named t (let t = ..., (t) => ...) silently replaces the
-    // translator: the automatic scan broke that way once.
+    // A local named t (let t = ..., (t) => ...) silently shadows the
+    // translator.
     const files = ["background.js"]
         .concat(fs.readdirSync(path.join(EXT, "popup")).filter((f) => f.endsWith(".js")).map((f) => `popup/${f}`))
         .concat(fs.readdirSync(path.join(EXT, "content_scripts")).filter((f) => f.endsWith(".js")).map((f) => `content_scripts/${f}`));

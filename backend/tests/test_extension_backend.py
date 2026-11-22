@@ -38,13 +38,8 @@ def b64(data: bytes) -> str:
 @pytest.fixture(autouse=True)
 def _fresh_result_cache():
     """Each test patches the agents differently: never reuse a result.
-    The rate limiter is reset too, so a long run never hits 429."""
+    The rate limits are reset by conftest._fresh_rate_limits."""
     eb._RESULT_CACHE.clear()
-    if getattr(eb, "_RATE_LIMIT_OK", False):
-        try:
-            eb._limiter.reset()
-        except Exception:
-            pass
     yield
     eb._RESULT_CACHE.clear()
 
@@ -63,9 +58,7 @@ def text_score(monkeypatch, p: float):
     monkeypatch.setattr(tm, "text_agent", lambda _body: p)
 
 
-# ---------------------------------------------------------------------
 # Small pure helpers
-# ---------------------------------------------------------------------
 class TestHelpers:
     def test_sender_domain(self):
         assert st.sender_domain('"Bank" <alerts@GTBank.com>') == "gtbank.com"
@@ -110,9 +103,7 @@ class TestHelpers:
         assert "dmarc=pass" not in h
 
 
-# ---------------------------------------------------------------------
 # Heuristic agents
-# ---------------------------------------------------------------------
 class TestHeuristicAgents:
     def test_url_agent_no_urls_is_low(self, monkeypatch):
         monkeypatch.setattr(sa, "_URL_AGENT", None)
@@ -177,9 +168,7 @@ class TestHeuristicAgents:
         assert 0.0 <= sa.metadata_agent({"from": evil}) <= 1.0
 
 
-# ---------------------------------------------------------------------
 # Simple endpoints
-# ---------------------------------------------------------------------
 class TestSimpleEndpoints:
     def test_health(self, client):
         r = client.get("/health")
@@ -199,9 +188,7 @@ class TestSimpleEndpoints:
         assert r.json()["enabled"] is False
 
 
-# ---------------------------------------------------------------------
 # Request limits and error responses
-# ---------------------------------------------------------------------
 class TestLimitsAndErrors:
     def test_oversized_text_field_is_refused(self, client):
         r = client.post("/analyse", json={"raw_text": "a" * (eb.MAX_TEXT_CHARS + 1)})
@@ -232,9 +219,7 @@ class TestLimitsAndErrors:
         assert r.status_code == 400 and "base64" in r.json()["detail"]
 
 
-# ---------------------------------------------------------------------
 # /analyse
-# ---------------------------------------------------------------------
 class TestAnalyse:
     def test_requires_a_payload(self, client):
         r = client.post("/analyse", json={})
@@ -411,9 +396,7 @@ class TestAnalyse:
         assert j["agents"]["metadata"]["phishing_probability"] >= 0.85
 
 
-# ---------------------------------------------------------------------
 # /analyse_attachment
-# ---------------------------------------------------------------------
 LOGIN_PAGE = (
     b"<html><body><form action='http://attacker.tld/login'>"
     b"<input type='password' name='p'></form></body></html>"
@@ -522,9 +505,7 @@ class TestAnalyseAttachment:
         assert j["verdict"] == "phishing"
 
 
-# ---------------------------------------------------------------------
 # /metrics (only when the Prometheus instrumentator is installed)
-# ---------------------------------------------------------------------
 class TestMetrics:
     def test_metrics_exposes_verdict_counter(self, client):
         pytest.importorskip("prometheus_fastapi_instrumentator")
@@ -534,9 +515,7 @@ class TestMetrics:
         assert "phishlens_verdicts_total" in r.text
 
 
-# ---------------------------------------------------------------------
 # Link targets sent by the Gmail extension (client_context.link_urls)
-# ---------------------------------------------------------------------
 class TestLinkUrls:
     def test_client_links_are_filtered_and_deduped(self):
         out = ep.rank_links(
@@ -552,7 +531,12 @@ class TestLinkUrls:
             ),
             ["https://a.example/x"],
         )
-        assert out == ["https://a.example/x", "https://c.example/login"]
+        # A very long link is cut at 2048 characters, not dropped.
+        assert out == [
+            "https://a.example/x",
+            ("http://b.example/" + "p" * 3000)[:2048],
+            "https://c.example/login",
+        ]
 
     def test_client_links_are_capped_and_must_be_a_list(self):
         many = [f"https://h{i}.example/" for i in range(200)]
@@ -580,11 +564,8 @@ class TestLinkUrls:
         assert seen["urls"] == ["https://parcel-redelivery.example/track"]
 
 
-# ---------------------------------------------------------------------
-# v1.14: forwarded emails, near-empty bodies, shared-file links,
-# archives through the endpoint
-# ---------------------------------------------------------------------
-class TestV114:
+# Forwarded emails, near-empty bodies, shared-file links, archives
+class TestForwardsAndArchives:
     def test_forwarded_from_trusted_sender_gets_no_discount(self, client, monkeypatch):
         text_score(monkeypatch, 0.95)
         body = (
@@ -657,6 +638,101 @@ class TestV114:
         assert j["attachment"]["kind"] == "archive"
         assert j["attachment"]["dropper_techniques"] == ["script_in_archive"]
         assert j["verdict"] == "phishing"
+
+
+def test_reply_prefixes_before_a_forward_prefix_count():
+    for subject in ("Re: Fwd: invoice", "AW: WG: Rechnung", "SV: SV: Fw: faktura", "RE:FWD: x"):
+        assert ep.detect_forwarded("hello", subject)["detected"], subject
+    for subject in ("Re: meeting", "AW: Termin", "Re: forward planning", "Fwdx: no"):
+        assert not ep.detect_forwarded("hello", subject)["detected"], subject
+
+
+def _eml_with_forward_at(offset: int) -> tuple[str, str]:
+    lead = ("Hello team, please review the quarterly figures before Friday. " * 200)[:offset]
+    body = (
+        lead
+        + "\n---------- Forwarded message ---------\n"
+        + "From: GTBank <alerts@gtbank-secure.xyz>\n"
+        + "Your account is suspended, verify your identity immediately.\n"
+    )
+    eml = (
+        b"From: colleague@gtbank.com\r\nSubject: quarterly\r\n"
+        b"Content-Type: text/plain; charset=utf-8\r\n\r\n" + body.encode()
+    )
+    return base64.b64encode(eml).decode(), lead
+
+
+def test_short_page_text_keeps_eml_forward_marker(client, monkeypatch):
+    text_score(monkeypatch, 0.2)
+    eml_b64, lead = _eml_with_forward_at(4500)
+    req = eb.AnalyseRequest(raw_email_b64=eml_b64, raw_text=lead[:4000])
+    body, _u, headers, _raw = eb._resolve_email(req)
+    assert "Forwarded message" not in body
+    assert headers[ep.FORWARDED_ELSEWHERE] == "alerts@gtbank-secure.xyz"
+    j = client.post(
+        "/analyse",
+        json={
+            "raw_email_b64": eml_b64,
+            "raw_text": lead[:4000],
+            "sender_email": "colleague@gtbank.com",
+        },
+    ).json()
+    assert j["forwarded"] == {"detected": True, "original_sender": "alerts@gtbank-secure.xyz"}
+
+
+def test_page_text_is_capped_server_side():
+    req = eb.AnalyseRequest(raw_text="word " * 10_000)
+    body, _u, headers, _raw = eb._resolve_email(req)
+    assert len(body) <= eb.MAX_PAGE_TEXT_CHARS
+    eml_b64, _lead = _eml_with_forward_at(100)
+    req = eb.AnalyseRequest(raw_email_b64=eml_b64, raw_text="Some page words here. " * 2000)
+    body, _u, _h, _raw = eb._resolve_email(req)
+    assert len(body) <= eb.MAX_PAGE_TEXT_CHARS
+    marker_late = "x " * 15_000 + "\n---------- Forwarded message ---------\nFrom: a@b.example\n"
+    _b, _u, headers, _raw = eb._resolve_email(eb.AnalyseRequest(raw_text=marker_late))
+    assert headers[ep.FORWARDED_ELSEWHERE] == "a@b.example"
+
+
+def test_health_purges_expired_cache_entries_hourly(client, monkeypatch):
+    now = [5000.0]
+    monkeypatch.setattr(eb.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(eb, "_last_purge", 0.0)
+    purged = []
+    monkeypatch.setattr(eb._RESULT_CACHE, "purge_expired", lambda: purged.append(now[0]))
+    for step in (0, 600, 600, 2400, 600):
+        now[0] += step
+        assert client.get("/health").status_code == 200
+    assert purged == [5000.0, 8600.0]
+
+
+def test_links_past_the_scored_text_are_kept():
+    late = "word " * 6_000 + "Pay here: https://evil.tk/pay now."
+    _b, urls, _h, _raw = eb._resolve_email(eb.AnalyseRequest(raw_text=late))
+    assert "https://evil.tk/pay" in urls
+    eml_b64, _lead = _eml_with_forward_at(100)
+    req = eb.AnalyseRequest(raw_email_b64=eml_b64, raw_text=late)
+    body, urls, _h, _raw = eb._resolve_email(req)
+    assert "evil.tk" not in body and "https://evil.tk/pay" in urls
+
+
+def test_fwd_subject_keeps_left_out_marker_sender(client, monkeypatch):
+    text_score(monkeypatch, 0.2)
+    eml_b64, lead = _eml_with_forward_at(4500)
+    eml = base64.b64decode(eml_b64).replace(b"Subject: quarterly", b"Subject: Fwd: quarterly")
+    j = client.post(
+        "/analyse",
+        json={
+            "raw_email_b64": b64(eml),
+            "raw_text": lead[:4000],
+            "sender_email": "colleague@gtbank.com",
+        },
+    ).json()
+    assert j["forwarded"] == {"detected": True, "original_sender": "alerts@gtbank-secure.xyz"}
+
+
+def test_a_message_cannot_set_the_forward_hint_itself():
+    headers = ep.header_dict([(ep.FORWARDED_ELSEWHERE, "1"), ("From", "a@b.example")])
+    assert ep.FORWARDED_ELSEWHERE not in headers
 
 
 def test_forwarded_sender_parsing_is_bounded():
@@ -809,7 +885,7 @@ class TestUrlOverrideNeedsConfirmation:
 class TestOutlookInternal:
     BODY = "Dear student, please find your attendance details below and have a fruitful day."
 
-    def test_internal_sender_of_an_allowlisted_org_is_not_trusted_sender(self, client, monkeypatch):
+    def test_internal_sender_of_allowlisted_org_not_trusted(self, client, monkeypatch):
         # "Internal" is read from the page (no address shown), not proven:
         # the soft path, never the allowlist's.
         text_score(monkeypatch, 0.99)
@@ -894,9 +970,7 @@ def test_is_hostname():
     assert not st.is_hostname("-" * 300 + ".com")
 
 
-# ---------------------------------------------------------------------
-# v1.15.2: result cache
-# ---------------------------------------------------------------------
+# Result cache
 class TestResultCache:
     BODY = "Your account is suspended, verify your payment details immediately at our page."
 
@@ -941,9 +1015,7 @@ class TestResultCache:
         eb._stats_cache.clear()
 
 
-# ---------------------------------------------------------------------
-# v1.15.4: which files inside an archive are the problem
-# ---------------------------------------------------------------------
+# Which files inside an archive are the problem
 class TestArchiveFileReport:
     def _zip(self, files):
         import io
@@ -988,9 +1060,7 @@ class TestArchiveFileReport:
         assert r.json()["attachment"]["suspicious_files"] == []
 
 
-# ---------------------------------------------------------------------
-# Alignment from Gmail's signed-by, and which checks ran (v1.15.5)
-# ---------------------------------------------------------------------
+# Alignment from Gmail's signed-by, and which checks ran
 class TestGmailSignedByAlignment:
     def test_synthetic_header_no_dmarc_pass_across_organisations(self):
         h = st.synthesize_auth_results(

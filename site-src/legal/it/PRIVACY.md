@@ -1,6 +1,6 @@
 # Informativa sulla privacy di PhishLens
 
-Ultimo aggiornamento: 21 novembre 2026.
+Ultimo aggiornamento: 22 novembre 2026.
 
 PhishLens è un'estensione di Chrome che controlla se le email sono
 phishing. Questa pagina spiega quali dati tratta, dove vanno e cosa
@@ -84,7 +84,12 @@ Le segnalazioni vanno a PhishLens Cloud, qualunque server tu usi per le
 analisi. Il server anonimizza il testo una seconda volta con le stesse
 regole, salva la segnalazione senza il tuo indirizzo IP né altri dati
 della richiesta (i log delle richieste descritti più sotto registrano
-comunque la richiesta per 30 giorni) e restituisce un riferimento. Le
+comunque la richiesta per 30 giorni) e restituisce un riferimento.
+Per ogni nuova segnalazione il responsabile riceve un breve avviso
+tramite un servizio di notifiche (ntfy): tipo, verdetto segnalato,
+lingua, dove è stata analizzata l'email e riferimento (per le
+statistiche, il numero di analisi), mai il contenuto dell'email.
+Le
 segnalazioni servono solo a misurare e migliorare PhishLens (per esempio
 ad addestrare il modello del testo su email legittime giudicate male);
 non vengono mai pubblicate né condivise. Sono conservate al massimo due
@@ -103,10 +108,10 @@ a meno che tu non segnali quell'analisi.
 | Dati | Dove | Per quanto tempo |
 | --- | --- | --- |
 | Cronologia delle analisi (oggetto, mittente, verdetto, punteggi, parole principali della spiegazione, lingua rilevata e la tua risposta) | Il tuo browser (`chrome.storage.local`) | Finché non la cancelli (Statistiche, **Cancella**), al massimo le ultime 500 analisi |
-| Cache delle spiegazioni | Il tuo browser | Finché l'estensione non viene rimossa |
+| Cache delle spiegazioni (le parole che spiegano un verdetto, indicizzate da un'impronta del testo) | Il tuo browser | 30 giorni, al massimo 200 voci; cancellata con la cronologia |
 | Testo anonimizzato delle analisi recenti di Gmail e Outlook, per le segnalazioni | Il tuo browser | 7 giorni, al massimo 50 email; cancellato con la cronologia |
-| Segnalazioni che hai inviato (testo anonimizzato o statistiche, vedi sopra) | PhishLens Cloud (Google Cloud Storage, Stati Uniti) | Al massimo due anni; cancellate su richiesta con il riferimento |
-| Risultati dell'analisi automatica (identificativo della conversazione, verdetto, punteggio) | Il tuo browser | Le ultime 500 email |
+| Segnalazioni che hai inviato (testo anonimizzato o statistiche, vedi sopra) | PhishLens Cloud (Google Cloud Storage, Stati Uniti; un file per segnalazione) | Al massimo due anni; cancellate su richiesta con il riferimento |
+| Risultati dell'analisi automatica (identificativo della conversazione, verdetto, punteggio, una breve impronta della riga della posta in arrivo) | Il tuo browser | Le ultime 500 email; cancellati con la cronologia |
 | Impostazioni | Il tuo browser | Finché non vengono modificate |
 | Verdetti dei link (URL, verdetto, fonte) | Cache del server (SQLite) | 24 ore |
 | Risultati restituiti (verdetto, punteggi, verdetti dei link, parole della spiegazione), indicizzati da un'impronta dell'email; non l'email stessa | Memoria del server | 24 ore, o fino al riavvio del server |
@@ -137,7 +142,8 @@ browser.
 | `scripting` | Dopo un aggiornamento, inserire la nuova versione dei pulsanti di analisi nelle schede di Gmail e Outlook già aperte, così non devi ricaricarle. |
 | Accesso a `mail.google.com` | Aggiungere i pulsanti di analisi e gli avvisi a Gmail e leggere l'email che analizzi. |
 | Accesso a Outlook sul web (`outlook.office.com`, `outlook.office365.com`, `outlook.live.com`) | Lo stesso, in Outlook (solo analisi manuali). |
-| Accesso a `127.0.0.1:8000`, `localhost:8000`, `phishlens.dev` | Inviare le analisi al server che hai scelto. |
+| Accesso a `phishlens.dev` | Inviare le analisi a PhishLens Cloud, il server predefinito. |
+| Facoltativo: `127.0.0.1`, `localhost` o l'indirizzo del tuo server | Richiesto solo quando scegli un server locale o personalizzato nelle impostazioni, e solo per quell'host, su qualsiasi porta. |
 
 ## Le tue scelte
 

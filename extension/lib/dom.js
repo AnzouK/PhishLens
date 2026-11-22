@@ -1,4 +1,4 @@
-// Building DOM nodes without HTML strings: text from emails and from the
+// DOM nodes built without HTML strings. Text from emails and from the
 // server only ever becomes a text node or an attribute value, so nothing
 // has to be escaped by hand.
 (function () {
@@ -6,7 +6,8 @@
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SVG_TAGS = new Set(["svg", "path", "use", "g", "circle", "rect"]);
-// Set as properties: the attribute would not change the current state.
+// Set as properties, because the attribute would not change the current
+// state.
 const PROPERTIES = new Set(["value", "checked", "disabled", "hidden", "readOnly"]);
 
 function append(node, children) {
@@ -47,8 +48,8 @@ function h(spec, props, ...children) {
     return node;
 }
 
-// Inline icons of the mail-page banners (no emoji: they render
-// differently on every system).
+// Inline icons for the mail-page banners. Emoji are avoided because they
+// render differently on every system.
 const ICON_PATHS = {
     shield: ["M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z"],
     shieldCheck: ["M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z", "M9 12l2 2 4-4"],
@@ -68,9 +69,9 @@ function spriteIcon(name) {
     return h("svg.i", { "aria-hidden": "true" }, h("use", { href: `#i-${name}` }));
 }
 
-// Translated texts with markup (keys ending in _html: <strong>, <em>,
-// <code>, <br>, <span id>). They ship with the extension, and are still
-// rebuilt from an allowlist rather than assigned as HTML.
+// Translated texts with markup (keys ending in _html, using <strong>,
+// <em>, <code>, <br> and <span id>). They ship with the extension but are
+// still rebuilt from an allowlist rather than assigned as HTML.
 const ALLOWED_TAGS = new Set(["STRONG", "EM", "CODE", "BR", "SPAN", "B", "I"]);
 
 function copyAllowed(from, to) {

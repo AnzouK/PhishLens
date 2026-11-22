@@ -53,9 +53,9 @@ def test_pickle_refused_when_disabled(tmp_path, monkeypatch, no_hub):
     joblib.dump({"model": None, "scaler": None, "feature_names": []}, path)
     monkeypatch.setattr(sa, "AGENTS_ALLOW_PICKLE", False)
     monkeypatch.setenv("URL_AGENT_PATH", str(path))
-    from url_agent import URLAgent
+    from rf_agent import RandomForestAgent
 
-    assert sa._init_agent("url_agent", "URL_AGENT_PATH", URLAgent) is None
+    assert sa._init_agent("url_agent", "URL_AGENT_PATH", RandomForestAgent) is None
 
 
 def test_trained_url_agent_scores_visible_links(tmp_path, monkeypatch, no_hub):

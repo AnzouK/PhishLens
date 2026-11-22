@@ -76,9 +76,9 @@ def browser_url(url: str) -> str:
             authority, extra = authority.split(mark, 1)
             tail, sep = mark + extra + sep + tail, ""
     userinfo, at, hostport = authority.rpartition("@")
-    # Percent-encoded as browsers do: a character such as "\u2105" (c/o
-    # under NFKC) made Python refuse the address, and the fallback read
-    # the host after a later "@" ("https://\u2105@evil.tk#@paypal.com").
+    # Percent-encoded as browsers do. Python refuses a character such as
+    # "\u2105" (c/o under NFKC), and the fallback would then read the host
+    # after a later "@" ("https://\u2105@evil.tk#@paypal.com").
     userinfo = quote(userinfo, safe="!$&'()*+,;=:%")
     host, port = _split_port(hostport)
     if not host.startswith("["):
@@ -104,8 +104,8 @@ def _split_port(hostport: str) -> tuple[str, str]:
 
 
 def authority_of(url: str) -> str:
-    """The "user@host:port" part of an address: up to the first "/", "?"
-    or "#" after the scheme."""
+    """Return the "user@host:port" part of an address, up to the first "/",
+    "?" or "#" after the scheme."""
     return re.split(r"[/\\?#]", url.split("://", 1)[-1], maxsplit=1)[0]
 
 
@@ -129,8 +129,8 @@ _host = link_host
 
 
 def ip_host(host: str) -> bool:
-    """An IP address as host, in any form a browser accepts: dotted,
-    IPv6, or a single number (http://3232235777/ is 192.168.1.1),
+    """Return the IP address used as host, in any form a browser accepts:
+    dotted, IPv6, or a single number (http://3232235777/ is 192.168.1.1),
     decimal, octal or hexadecimal."""
     if not host:
         return False
@@ -214,7 +214,7 @@ def well_known_link(url: str) -> bool:
 
 
 def link_profile(urls: list[str], from_header: str) -> dict[str, int]:
-    """Counts of distinct links: to the sender's own organisational domain
+    """Count the distinct links: to the sender's own organisational domain
     ("aligned"), to large known sites, to public file hosts, through
     click tracking, elsewhere."""
     domain = sender_domain(from_header or "")
@@ -222,9 +222,9 @@ def link_profile(urls: list[str], from_header: str) -> dict[str, int]:
     counts = {"links": 0, "aligned": 0, "well_known": 0, "cloud": 0, "tracking": 0, "other": 0}
     for url in dict.fromkeys(urls):
         host = _host(url)
-        # Only links reach here (<a>, <area>, addresses in the text): a
-        # path ending in ".css" was once skipped, and "#.css" after a
-        # phishing page hid it from the link rule.
+        # Only links reach here (<a>, <area>, addresses in the text), so a
+        # path ending in ".css" is not skipped as an asset. Otherwise "#.css"
+        # after a phishing page would hide it from the link rule.
         if not host or host in ASSET_HOSTS:
             continue
         org = org_domain(host)

@@ -7,40 +7,117 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-22
+
 ### Added
-- `.github/workflows/backend-image.yml` builds the backend image
-  (`backend/Dockerfile.cloud`, linux/amd64) and publishes it as
-  `ghcr.io/anzouk/phishlens-backend` on each version tag or by hand. The
-  image holds the code only: the model is downloaded at start-up and the
-  keys come from the host.
+- Backend image: `.github/workflows/backend-image.yml` publishes
+  `backend/Dockerfile.cloud` (code only) as
+  `ghcr.io/anzouk/phishlens-backend` on each version tag or by hand.
 
 ### Changed
-- The API runs on Google Cloud Run. A Pages Function
-  (`functions/[[path]].js`, routes in `site/_routes.json`) forwards the
-  API paths of phishlens.dev to it, so the extension and the website
-  keep the same address; `/metrics` stays private. The function replaces
-  any client-sent `X-Forwarded-For` with the address Cloudflare saw.
-- The documentation and the legal pages describe the new hosting: the
-  website on Cloudflare Pages, PhishLens Cloud on Google Cloud Run in
-  Belgium (europe-west1), reports in Google Cloud Storage (United
-  States). The privacy policy and the terms name these providers in
-  every language, with a new "Last updated" date; the operations guide
-  covers the Cloud Run deployment (the public ghcr.io image pulled
-  directly, its settings with `/metrics` turned off, the reports bucket
-  mounted as a volume, the warm-up job), and `scripts/redeploy.sh` and
-  `scripts/backup.sh` are marked as being for a self-hosted server.
-- The website is served by Cloudflare Pages. Page addresses no longer
-  end in `.html` (`/privacy`, `/fr/terms`); the old addresses redirect
-  to the new ones. `site/_headers` sets the security headers the
-  previous server sent: HSTS, a Content-Security-Policy that allows only
-  the site's own files, the PhishLens API and the GitHub API, and
-  no framing.
+- Hosting: the API runs on Google Cloud Run behind a Pages Function
+  (`functions/[[path]].js`) that forwards the API paths of
+  phishlens.dev, so the extension and the website keep the same address.
+  The website is served by Cloudflare Pages at addresses without `.html`
+  (the old ones redirect), with its security headers in `site/_headers`.
+  The documentation, the privacy policy and the terms describe the new
+  hosting in every language (Cloudflare Pages, Google Cloud Run in
+  Belgium, reports in Google Cloud Storage in the United States).
+- Local and custom servers: localhost is an optional permission
+  (`http://127.0.0.1/*` and `http://localhost/*`, without a port, which
+  Firefox refuses), asked for only when a local or custom server is
+  chosen, for that host alone, with one prompt when the address is saved
+  or tested. A custom address is saved when it is complete, trimmed,
+  without trailing slashes and with its scheme in lower case; http:// to
+  a server outside the user's network needs a confirmation (Tailscale
+  and private IPv6 addresses count as the user's network).
+- User reports: each one is stored as its own file,
+  `YYYY-MM/<reference>.json`, created once and never rewritten, so
+  deleting one cannot affect another (the old monthly `.jsonl` files are
+  still read). The folder is measured at most every 5 minutes, and a
+  report deleted meanwhile no longer turns POST /feedback into a 503.
+- Privacy: desktop notifications show the sender only, not the subject;
+  the privacy notice says that results are kept for 24 hours; the
+  automatic scan says when it waits for that notice; "Share my
+  statistics" shows every row it sends. The privacy policy, in every
+  language, gives the real lifetime of each local cache and describes
+  the notice sent for each new report, the one-file-per-report storage
+  and the scope of the custom server permission.
+- Page text: Gmail and Outlook send up to 20,000 characters instead of
+  4,000, and the server reads that much too. Links written further on
+  are still checked (up to 200,000 characters), and a tag cut at the end
+  is judged against the new limit.
+- Self-hosting: `RATE_LIMIT_DEFAULT` is now enforced on every route
+  without its own limit (60/minute when unset; `/health` is exempt), so
+  a shared server may need a higher value.
+- Documentation and website: SPF, DKIM and DMARC are named as Gmail
+  checks, the false-alarm figure leads with the real inboxes (0 of 117,
+  at most 3.2%) in the README, the website and docs/project-overview.md,
+  docs/evaluation.md lists what is not measured yet, and
+  docs/operations.md gives the role the service account really has on
+  the reports bucket.
+
+### Fixed
+- Gmail attachments: each file gets its own result card (two names that
+  differ only in spaces or punctuation, or written in a non-Latin
+  script, shared one). Tiles that load in two waves, during a scan or
+  just after it are all scanned, with the right count. A double click on
+  "Scan attachments" opens one privacy notice and runs one scan, and a
+  notice closed or replaced by another banner leaves the button usable.
+- Automatic scan: a thread is scanned again when a new reply arrives,
+  its old pill is taken down, and an email Gmail would not serve is
+  retried later (three times at most). The row print reads only the
+  senders, the subject and the snippet, so a sender named like the pill
+  or the date Gmail rewrites each day no longer makes a thread look
+  changed.
+- Gmail's sender hints ("via", "signed-by", "mailed-by") are never read
+  from the sender's name or the subject.
+- Forwards: "Re: Fwd:", "AW: WG:" and other reply prefixes before a
+  forward prefix count as a forward subject, and a forward marker the
+  page text leaves out but the .eml holds still counts, with its
+  original sender.
+- HTML email comments are found as a browser finds them: the content of
+  raw text elements (`<style>`, `<script>`, `<title>`, `<textarea>`,
+  `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`, `<plaintext>`) and of
+  attribute values is skipped, `--!>` ends a comment, the empty comments
+  `<!-->` and `<!--->` hide nothing, and a dotted capital I before a
+  sheet no longer shifts the scan. Long bogus comments (`<!x`, `<?x`,
+  `</` not followed by a letter) are removed like long comments, their
+  links kept as hidden ones, so they can no longer push the text out of
+  the parsed part or hide the link or hidden block after them.
+- The fallback content of `<iframe>`, `<noembed>` and `<noframes>`,
+  which browsers and Gmail never show, is not read as email text, and a
+  link that shows only such content counts as hidden.
+- Links longer than 2,048 characters, in markup or written in the text,
+  are cut, not dropped from the checks.
+- Caches and history: "Clear history" also clears the cached
+  explanations and the automatic scan's verdicts; popup changes to the
+  history go through the service worker, so two windows no longer write
+  over each other; expired link verdicts and results are deleted while
+  the server runs (on writes, on stats calls and at most hourly from
+  `/health`), not only at startup; the reputation cache takes one thread
+  lock for every database call.
+- Extension: a click on a notification brings back its Gmail tab even
+  after the service worker was stopped; with almost no text, the wording
+  score shows "not checked" and the popup no longer asks for an
+  explanation; pasted text is saved in the history under its first line.
+- API: the 411, 413 and 429 answers carry CORS headers, and
+  `RATE_LIMIT_DEFAULT` (60/minute unless set) now applies to the routes
+  without their own limit; `/health` is exempt for the keep-warm job.
+- CI installs slowapi so the rate limit tests run, and every backend
+  test starts with empty rate limit counters.
 
 ### Security
-- The backend refuses with 403 any request without the shared secret
-  (`PROXY_SECRET`, header `X-PhishLens-Proxy`) that the Pages Function
-  adds, so calling the Cloud Run address directly with a forged
-  `X-Forwarded-For` no longer dodges the rate limits. Off when unset.
+- With `PROXY_SECRET` set, the backend refuses with 403 any request
+  without that secret in the `X-PhishLens-Proxy` header (added by the
+  Pages Function), so calling the Cloud Run address directly with a
+  forged `X-Forwarded-For` no longer dodges the rate limits. Off when
+  unset.
+- The Pages Function adds HSTS, `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY` and `Referrer-Policy` to the API answers, never
+  forwards `Cookie` or `Authorization`, and answers 405 to methods other
+  than GET, HEAD, POST and OPTIONS. `BACKEND_ORIGIN` can override the
+  backend address.
 
 ## [2.0.12] - 2026-11-01
 
@@ -792,8 +869,6 @@ Attachment analysis, phase 2, and the end of pickle.
   latency) up front, a small diagram instead of the ASCII art, scoring
   details moved to the architecture doc, release history left to this
   changelog.
-- Em dashes removed from the whole repository (code comments, docs, UI
-  strings).
 - Dependabot also ignores major versions of pandas and numpy (their
   objects live inside the pickled Random Forest agents).
 
@@ -871,9 +946,6 @@ No change to detection behaviour or to the extension's features.
   and the `phishlens.*` loggers now get a handler, so INFO lines (model
   loaded, agents loaded, PhishTank feed size) actually reach `docker
   logs`.
-
-### Changed
-- Extension manifest description no longer uses an em dash.
 
 ## [1.9.0] - 2026-09-21
 
@@ -971,7 +1043,9 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.0.11...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/AnzouK/PhishLens/compare/v2.0.12...v2.1.0
+[2.0.12]: https://github.com/AnzouK/PhishLens/compare/v2.0.11...v2.0.12
 [2.0.11]: https://github.com/AnzouK/PhishLens/compare/v2.0.10...v2.0.11
 [2.0.10]: https://github.com/AnzouK/PhishLens/compare/v2.0.9...v2.0.10
 [2.0.9]: https://github.com/AnzouK/PhishLens/compare/v2.0.8...v2.0.9

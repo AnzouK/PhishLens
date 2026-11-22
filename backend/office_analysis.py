@@ -1,6 +1,5 @@
 """
 PhishLens: Office document analysis.
-=====================================================================
 Extracts text and links from Word, Excel and PowerPoint attachments and
 flags the features attackers use to turn a document into a dropper.
 Standard library only (zipfile + ElementTree): no python-docx or
@@ -120,7 +119,7 @@ _READ_SECONDS = 4.0
 _RUN_ACTION_RE = re.compile(rb"ppaction://(?:program|macro|ole)", re.IGNORECASE)
 
 
-# XML namespaces: we match on local names so we don't depend on them.
+# Elements are matched on local names, so namespaces do not matter.
 def _local(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
 
@@ -135,9 +134,7 @@ def _urls_from(text: str, into: list[str]) -> None:
                 return
 
 
-# =====================================================================
 # OOXML (zip + xml)
-# =====================================================================
 # The part each kind of document opens from. Names are compared in lower
 # case: Office resolves part names without regard to case.
 _MAIN_PART = {
@@ -212,8 +209,8 @@ def part_name(name: str) -> str:
 
 
 def is_office_part(name: str) -> bool:
-    """The entry is one an Office package holds: under one of its folders,
-    with a part's extension, and no ".." in its path."""
+    """True when the entry is one an Office package holds. It is under one
+    of its folders, has a part's extension and no ".." in its path."""
     n = part_name(name)
     return (
         n.startswith(OOXML_ROOTS)
@@ -309,8 +306,9 @@ def _text_from_xml(data: bytes, text_tags: set[str] | None, block_tags: set[str]
 
 
 class _Fields:
-    """Word fields being read: one frame per open field, with its
-    instruction parts, its result parts and whether its separate was seen."""
+    """Tracks the Word fields being read. Each open field has one frame with
+    its instruction parts, its result parts and whether its separate was
+    seen."""
 
     def __init__(self) -> None:
         self.codes: list[str] = []
@@ -377,9 +375,9 @@ def _field_codes(data: bytes) -> str:
 
 
 def _field_urls(codes: str, urls: list[str]) -> None:
-    """Addresses of HYPERLINK / INCLUDEPICTURE / INCLUDETEXT fields: the
-    first argument that is not a switch, quoted or not, plus any address
-    written elsewhere in the codes."""
+    """Return the addresses of HYPERLINK / INCLUDEPICTURE / INCLUDETEXT
+    fields. That is the first argument that is not a switch, quoted or
+    not, plus any address written elsewhere in the codes."""
     for m in _LINK_FIELD_RE.finditer(codes):
         args = _FIELD_SWITCH_RE.sub(" ", m.group(1))
         for a in _FIELD_ARG_RE.finditer(args):
@@ -509,7 +507,7 @@ def _add(flags: list[str], flag: str) -> None:
 def _scan_relationships(
     zf: zipfile.ZipFile, names: list[str], flags: list[str], urls: list[str]
 ) -> None:
-    """Relationships: hyperlinks, remote templates and frames, external OLE
+    """Read the relationships: hyperlinks, remote templates and frames, external OLE
     links, macro projects whatever their part is named, and programs or
     shares a click or the opening reaches (a target that is not a web
     address: "\\\\host\\share", file:, ms-msdt:, mhtml:, or a program)."""
@@ -579,7 +577,6 @@ def _embedded_files(zf: zipfile.ZipFile, names: list[str], flags: list[str]) -> 
         data = _read_part(zf, name, flags)
         if not data:
             continue
-        # Any part that is an OLE file, whatever its name or folder.
         for flag in _cfb_flags(data) or []:
             if flag != "encrypted_document":
                 _add(flags, flag)
@@ -651,7 +648,7 @@ def _other_parts(
 
 
 def _active_content(kind: str, name: str, data: bytes, flags: list[str], urls: list[str]) -> None:
-    """What a part makes Office do: "Run program" actions, DDE fields and
+    """Find what a part makes Office do: "Run program" actions, DDE fields and
     formulas, and the addresses of link fields."""
     if _RUN_ACTION_RE.search(data):
         _add(flags, "launch_external_action")
@@ -741,9 +738,7 @@ def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
     }
 
 
-# =====================================================================
 # OLE2 (legacy .doc/.xls/.ppt, or an encrypted modern file)
-# =====================================================================
 def _utf16(s: str) -> bytes:
     return s.encode("utf-16-le")
 
@@ -867,17 +862,16 @@ def analyse_ole(raw: bytes, filename: str) -> dict[str, Any]:
             _add(flags, flag)
 
     # Binary formats keep text in either cp1252 or UTF-16LE runs (a field
-    # starts with U+0013). We only pull URLs and DDE fields out of them,
+    # starts with U+0013). Only URLs and DDE fields are pulled out of them,
     # in any case; the text agent is skipped (too noisy).
     texts = [raw.decode("latin-1", errors="ignore")]
     # UTF-16 runs start at an even or an odd offset.
     texts += [raw[k:].decode("utf-16-le", errors="ignore") for k in (0, 1)]
     if any(_LEGACY_DDE_RE.search(t) for t in texts):
         flags.append("dde_field")
-    # Addresses from the text runs, each on its own line: read over the
-    # whole file, a NUL that ends a string was dropped as invisible and
-    # glued the address to what followed ("https://evil.tk" + NUL +
-    # "Click" gave evil.tkclick).
+    # Addresses are read from the text runs, one per line. Reading the
+    # whole file would drop the NUL ending a string as invisible and glue
+    # the address to the next word ("https://evil.tk" + NUL + "Click").
     urls: list[str] = []
     _urls_from(_binary_strings(raw), urls)
 

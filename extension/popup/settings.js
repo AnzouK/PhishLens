@@ -1,9 +1,9 @@
-// The Settings view: server, language, Gmail options. Every choice is
-// saved in chrome.storage.local at once; the service worker and the
+// The Settings view (server, language, Gmail options). Every choice is
+// saved in chrome.storage.local at once, and the service worker and the
 // content scripts read it from there.
 import { $, I18N, t, STORAGE, storageGet, openView, goBack } from "./ui.js";
 
-const { DEFAULT_BACKEND } = window.PhishLensShared;
+const { DEFAULT_BACKEND, normalizeBaseUrl, hostPattern } = window.PhishLensShared;
 const BACKENDS = ["cloud", "local", "custom"];
 
 export const backend = { choice: DEFAULT_BACKEND, customUrl: "" };
@@ -14,25 +14,9 @@ export async function loadBackend() {
     if (typeof s.backend_custom_url === "string") backend.customUrl = s.backend_custom_url;
 }
 
-// http:// to a remote server would send emails in clear text. Local and
-// private-network addresses are fine: nothing leaves the home network.
-export function isPlainRemoteUrl(value) {
-    let u;
-    try {
-        u = new URL(value);
-    } catch {
-        return false;            // not a URL yet (still being typed)
-    }
-    if (u.protocol !== "http:") return false;
-    const host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-    if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host === "::1") return false;
-    const m = host.match(/^(\d+)\.(\d+)\.\d+\.\d+$/);
-    if (m) {
-        const a = Number(m[1]), b = Number(m[2]);
-        if (a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31)) return false;
-    }
-    return true;
-}
+// The rule lives in lib/shared.js because the service worker applies it
+// too.
+export const isPlainRemoteUrl = window.PhishLensShared.isPlainRemoteUrl;
 
 const customUrlInput = $("custom-url");
 const connStatus = $("conn-status");
@@ -69,6 +53,32 @@ async function testConnection() {
     }
 }
 
+const LOCAL_ORIGINS = ["http://127.0.0.1/*", "http://localhost/*"];
+
+// Optional host permissions, requested during a click. A refusal breaks
+// nothing, since the server's CORS headers still apply. The promise
+// settles once the user has answered, never with an error. Leaving the
+// address field by clicking "Test connection" asks twice at once (change,
+// then click): the second call gets the prompt already open.
+const pendingRequests = new Map();
+
+export function requestOrigins(origins) {
+    origins = origins.filter(Boolean);
+    if (!origins.length || !chrome.permissions?.request) return Promise.resolve(false);
+    const key = origins.join(" ");
+    if (pendingRequests.has(key)) return pendingRequests.get(key);
+    let request;
+    try {
+        request = Promise.resolve(chrome.permissions.request({ origins })).catch(() => false);
+    } catch (e) {
+        console.debug("[PhishLens] permission not requested:", e?.message || e);
+        return Promise.resolve(false);
+    }
+    const shared = request.finally(() => pendingRequests.delete(key));
+    pendingRequests.set(key, shared);
+    return shared;
+}
+
 function fillLanguageMenu(choice) {
     const select = $("ui-lang");
     select.replaceChildren(new Option(t("language_auto"), "auto"),
@@ -84,18 +94,50 @@ export function initSettings() {
         r.addEventListener("change", () => {
             if (!r.checked) return;
             backend.choice = r.value;
+            // The optional permission for a local server is requested
+            // during the choice itself, which is a user gesture. Without it
+            // the server's CORS headers still let the extension in.
+            if (backend.choice === "local") requestOrigins(LOCAL_ORIGINS);
             customUrlInput.disabled = backend.choice !== "custom";
             STORAGE?.set({ backend: backend.choice });
             if (backend.choice === "custom" && !customUrlInput.value) customUrlInput.focus();
             updateCustomUrlWarn();
         });
     });
-    customUrlInput.addEventListener("input", () => {
-        backend.customUrl = customUrlInput.value.trim();
-        STORAGE?.set({ backend_custom_url: backend.customUrl });
+    // Saved when the address is complete (Enter or leaving the field)
+    // rather than at every key, so a half-typed address never becomes the
+    // server. http:// over the internet needs a confirmation, remembered
+    // for that address.
+    customUrlInput.addEventListener("input", updateCustomUrlWarn);
+    customUrlInput.addEventListener("change", () => {
+        const url = normalizeBaseUrl(customUrlInput.value);
+        if (url && !/^https?:\/\/[^/\s]+/i.test(url)) {
+            setConnStatus("err", t("url_scheme"));
+            return;
+        }
+        if (isPlainRemoteUrl(url)) {
+            if (!confirm(t("custom_url_http_confirm"))) {
+                customUrlInput.value = backend.customUrl;
+                updateCustomUrlWarn();
+                return;
+            }
+            STORAGE?.set({ backend_http_ok: url });
+        }
+        backend.customUrl = url;
+        customUrlInput.value = url;
+        STORAGE?.set({ backend_custom_url: url });
+        if (url) requestOrigins([hostPattern(url)]);
+        setConnStatus(null);
         updateCustomUrlWarn();
     });
-    $("test-conn-btn").addEventListener("click", testConnection);
+    $("test-conn-btn").addEventListener("click", async () => {
+        // Asked during the click, and answered before the test runs, so the
+        // test sees the permission. Not a URL yet: no pattern, and the test
+        // below says so.
+        if (backend.choice === "custom") await requestOrigins([hostPattern(backend.customUrl)]);
+        else if (backend.choice === "local") await requestOrigins(LOCAL_ORIGINS);
+        testConnection();
+    });
 
     const fullHeaders = $("opt-full-headers");
     const autoScan = $("opt-auto-scan");
@@ -106,7 +148,7 @@ export function initSettings() {
     fullHeaders.addEventListener("change", () => STORAGE?.set({ opt_full_headers: fullHeaders.checked }));
     autoScan.addEventListener("change", () => STORAGE?.set({ opt_auto_scan: autoScan.checked }));
 
-    // The static texts carry data-i18n attributes; the dynamic ones are
+    // The static texts carry data-i18n attributes. The dynamic ones are
     // built with t() each time they are shown.
     const select = $("ui-lang");
     select.addEventListener("change", () => {

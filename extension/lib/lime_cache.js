@@ -12,8 +12,9 @@ const CACHE_KEY = "limeCache.v2";
 const MAX_ENTRIES = 200;
 const TTL_MS = 30 * 24 * 3600 * 1000;
 
-// Only what changes the explanation: the server, the text and the subject
-// the text model reads with it (the sender does not reach the model).
+// Hashes only what changes the explanation: the server, the text and the
+// subject the text model reads with it. The sender never reaches the
+// model.
 async function hashPayload(backendBase, payload) {
     const canon = JSON.stringify({
         b: (backendBase || "").replace(/\/$/, ""),
@@ -33,7 +34,8 @@ function save(store) {
     return new Promise((resolve) => chrome.storage.local.set({ [CACHE_KEY]: store }, resolve));
 }
 
-// { features, cached: true } or null. A cache that cannot be read is a miss.
+// Resolves to { features, cached: true } or null. A cache that cannot be
+// read counts as a miss.
 async function get(backendBase, payload) {
     try {
         const entry = (await load())[await hashPayload(backendBase, payload)];

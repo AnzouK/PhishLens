@@ -1,15 +1,15 @@
 # The multilingual text model
 
-How the text model of PhishLens 2 was built and measured, what was
-tried and rejected, and what is still open. The training code is not in
-this repository; this page gives the method and the results so they can
-be checked.
+This page describes how the text model of PhishLens 2 was built and
+measured, what was tried and rejected, and what is still open. The
+training code is not in this repository, so the method and the results
+are given here to be checked.
 
 ## Why
 
 PhishLens 1 read the text with a DistilBERT fine-tuned on English
 corpora mostly older than 2010. On real 2026 mail it no longer told
-legitimate mail from phishing: in 129 real scans it scored 52 of the 76
+legitimate mail from phishing. In 129 real scans it scored 52 of the 76
 legitimate ones above 0.95, and almost every French email. Verdicts were
 still mostly right only because the sender and link checks decided.
 
@@ -20,29 +20,30 @@ still mostly right only because the sender and link checks decided.
 
 The Horizon-Labs model (mmBERT-base, 70+ languages) separates real mail
 well but is four times too slow for a CPU-only server where LIME runs
-the model a hundred times per explanation. Hence distillation: a small
+the model a hundred times per explanation. Hence distillation, a small
 model trained to imitate it.
 
-Goals, fixed at the start: French and Portuguese first, then 20 more
+The goals were fixed at the start: French and Portuguese first, then 20 more
 languages (`en fr pt es de it nl pl ru uk tr ar hi id vi zh ja ko ha yo
 ig sw`), about 250 ms per email on a CPU, measured on real recent mail,
 and no published model trained on personal mail.
 
 ## Method
 
-| Part | Choice |
-| --- | --- |
-| Teacher | [Horizon-Labs/phishing-scam-detector-base](https://huggingface.co/Horizon-Labs/phishing-scam-detector-base) |
-| Student | [jhu-clsp/mmBERT-small](https://huggingface.co/jhu-clsp/mmBERT-small), two classes |
-| Teacher score | P(fraud) + 0.5 x P(spam): with the full spam weight, newsletters looked like phishing |
-| Loss | 0.7 x cross-entropy on the true label + 0.3 x towards the teacher |
-| Training | 2 epochs, learning rate 3e-5, batch 32, 256 tokens; rare languages repeated |
-| Calibration | temperature fitted on validation data |
-| Input | links, addresses and phone numbers masked the same way everywhere (`backend/text_normalize.py`) |
+- Teacher: [Horizon-Labs/phishing-scam-detector-base](https://huggingface.co/Horizon-Labs/phishing-scam-detector-base).
+- Student: [jhu-clsp/mmBERT-small](https://huggingface.co/jhu-clsp/mmBERT-small), two classes.
+- Teacher score: P(fraud) + 0.5 x P(spam). With the full spam weight,
+  newsletters looked like phishing.
+- Loss: 0.7 x cross-entropy on the true label + 0.3 x towards the teacher.
+- Training: 2 epochs, learning rate 3e-5, batch 32, 256 tokens; rare
+  languages repeated.
+- Calibration: temperature fitted on validation data.
+- Input: links, addresses and phone numbers masked the same way
+  everywhere (`backend/text_normalize.py`).
 
 One model for every language replaced the first plan (DistilBERT for
 English, a multilingual model for the rest) once the student beat v1 in
-English too: AUC 0.986 against 0.62.
+English too, with an AUC of 0.986 against 0.62.
 
 ## Sources
 
@@ -63,15 +64,16 @@ English too: AUC 0.986 against 0.62.
 | [OPUS-MT](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-fr), [NLLB-200](https://huggingface.co/facebook/nllb-200-distilled-600M) translations | 21 | CC BY 4.0 / CC BY-NC 4.0 | both classes translated in equal numbers |
 | The maintainer's mailboxes | en, fr | private | legitimate test mail; private models only |
 
-Rules: nothing dated 2026 trains a model; a text found in a test set is
-removed from training; test sets are real messages (synthetic and
-translated ones are reported apart); both classes are translated alike
-so translation style does not reveal the label; commercial spam is not
-phishing.
+A few rules apply throughout. Nothing dated 2026 trains a model, and a
+text found in a test set is removed from training. Test sets are real
+messages (synthetic and translated ones are reported apart). Both
+classes are translated alike so translation style does not reveal the
+label, and commercial spam is not phishing.
 
 ## Rounds
 
-Real mail, threshold 0.7 (false alarms / phishing caught), unless stated.
+Results are on real mail at threshold 0.7 (false alarms / phishing
+caught) unless stated otherwise.
 
 | Round | What changed | Result | Kept? |
 | --- | --- | --- | --- |
@@ -91,34 +93,34 @@ The benchmark comparisons of r6, r7h and r7b are in
 
 ### Confidence intervals
 
-r4 on mail no model saw (95% Wilson intervals): the legitimate side is
-mailbox mail with no close copy in training, the phishing Nazario 2025
-and phishing_pot 2026.
+These are r4's results on mail no model saw, with 95% Wilson intervals.
+The legitimate side is mailbox mail with no close copy in training, and
+the phishing comes from Nazario 2025 and phishing_pot 2026.
 
 | Set | Threshold | Legitimate flagged | Phishing caught |
 | --- | --- | --- | --- |
 | English | 0.7 | 1/255 = 0.4% (0.1% to 2.2%) | 1,805/1,952 = 92.5% (91.2% to 93.6%) |
 | French | 0.7 | 1/63 = 1.6% (0.3% to 8.5%) | 202/231 = 87.4% (82.6% to 91.1%) |
 
-The phishing side gives tight intervals; the legitimate side does not,
-especially in French. Only 7 of the 334 legitimate test emails have a
-close copy in training, but the model knows that mailbox's world (its
-banks, its services): other users may see more false alarms.
+The phishing side gives tight intervals and the legitimate side does
+not, especially in French. Only 7 of the 334 legitimate test emails have
+a close copy in training, but the model knows that mailbox's world (its
+banks, its services), so other users may see more false alarms.
 
 ## Privacy
 
 Personal mail is anonymised twice (links, addresses, numbers, names,
 handles, and a list of personal words stored only as hashes) and raw
 mailboxes are deleted after conversion. Models trained with it stay
-private; public candidates refuse any row from it, checked before the
-data is written.
+private. Public candidates refuse any row from it, which is checked
+before the data is written.
 
 ## Open
 
-- A public model: it waits for real public legitimate mail, such as
+- A public model waits for real public legitimate mail, such as
   reviewed user reports. Until then a self-hosted server uses v1.
-- One person's mailboxes as the legitimate reference; little French,
-  almost no Portuguese.
-- No real phishing to test Hausa, Yoruba, Igbo or Swahili; the Hausa
-  interface awaits a native speaker.
+- The legitimate reference is one person's mailboxes, with little
+  French and almost no Portuguese.
+- There is no real phishing to test Hausa, Yoruba, Igbo or Swahili, and
+  the Hausa interface awaits a native speaker.
 - Scams without a link (call this number) remain hard.

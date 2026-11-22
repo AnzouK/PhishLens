@@ -12,8 +12,9 @@ const ATTACHMENT_EXTS = Object.freeze([
 ]);
 
 // Files that run or mount when opened (programs, scripts, shortcuts, disk
-// images): nothing to read, the server flags them by type. Same list as
-// backend/archive_analysis.py (EXECUTABLE, SCRIPT, SHORTCUT, DISK_IMAGE).
+// images). There is nothing to read, so the server flags them by type.
+// Same list as backend/archive_analysis.py (EXECUTABLE, SCRIPT, SHORTCUT,
+// DISK_IMAGE).
 const DANGEROUS_EXTS = Object.freeze((
     "apk app appinstaller application appx appxbundle bat chm cmd com command cpl desktop diagcab " +
     "dll dmg drv exe gadget hta img inetloc inf iso jar jnlp js jse library-ms lnk msc msh mshxml " +
@@ -22,8 +23,9 @@ const DANGEROUS_EXTS = Object.freeze((
     "xlam xll"
 ).split(" "));
 
-// Attachment flags meaning "PhishLens could not look inside": a low score
-// is not reassuring, so these get a caution verdict instead of "safe".
+// Attachment flags meaning PhishLens could not look inside. A low score
+// is then not reassuring, so these get a caution verdict instead of
+// "safe".
 const CAUTION_FLAGS = Object.freeze([
     "encrypted_archive", "encrypted_document", "uninspectable_archive",
     "disk_image_attachment", "disk_image_in_archive", "zip_bomb_suspected", "inner_files_not_extracted",
@@ -43,12 +45,13 @@ const SOURCE_LABELS = Object.freeze({
 // eslint-disable-next-line no-undef
 const { withoutInvisible } = globalThis.PhishLensShared || require("./shared.js");
 
-// The extension a system would open the file by: compatibility form,
-// invisible characters out, ideographic full stops read as dots, the last
-// part of the path, trailing dots and white space of any kind dropped
-// ("invoice.exe ." and "invoice.exe\r" are .exe files, so is
-// "invoice.pdf.exe" + zero-width space). Same as
-// backend/archive_analysis._ext (tests/fixtures/file_name_cases.json).
+// The extension a system would use to open the file. The name is put in
+// compatibility form, invisible characters are removed, ideographic full
+// stops count as dots, only the last part of the path is kept, and
+// trailing dots and white space of any kind are dropped. So "invoice.exe .",
+// "invoice.exe\r" and "invoice.pdf.exe" followed by a zero-width space are
+// all .exe files. Same as backend/archive_analysis._ext
+// (tests/fixtures/file_name_cases.json).
 function fileExt(name) {
     const norm = withoutInvisible(String(name || "").normalize("NFKC")).replace(/[\u3002\uff61\ufe52]/g, ".");
     const base = norm.split(/[/\\]/).pop().replace(/[.\s]+$/u, "");

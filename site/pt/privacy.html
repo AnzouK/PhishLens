@@ -31,7 +31,7 @@
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../style.css?v=876364fc54">
-<script src="../i18n/pt.js?v=be469f1892" defer></script>
+<script src="../i18n/pt.js?v=80e0f4966c" defer></script>
 <script src="../lang.js?v=074b2a25f3" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 </head>
@@ -66,7 +66,7 @@
 <article class="prose">
 <p class="legal-note">Esta tradução é fornecida por conveniência. Se diferir da <a href="../privacy">versão inglesa</a>, prevalece a versão inglesa.</p>
 <h1 id="política-de-privacidade-do-phishlens">Política de privacidade do PhishLens</h1>
-<p>Última atualização: 21 de novembro de 2026.</p>
+<p>Última atualização: 22 de novembro de 2026.</p>
 <p>O PhishLens é uma extensão do Chrome que verifica se os e-mails são phishing. Esta página explica que dados trata, para onde vão e o que é guardado. Aplica-se à extensão e ao servidor alojado, PhishLens Cloud, em <code>phishlens.dev</code>.</p>
 <h2 id="em-resumo">Em resumo</h2>
 <ul>
@@ -141,7 +141,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>As comunicações vão para o PhishLens Cloud, seja qual for o servidor que usa para as análises. O servidor anonimiza o texto uma segunda vez com as mesmas regras, guarda a comunicação sem o seu endereço IP nem outros dados do pedido (os registos de pedidos descritos abaixo continuam a registar o pedido durante 30 dias) e devolve uma referência. As comunicações servem apenas para medir e melhorar o PhishLens (por exemplo, para treinar o modelo de texto com e-mails legítimos que avaliou mal); nunca são publicadas nem partilhadas. São guardadas no máximo dois anos. Para apagar uma comunicação, escreva para <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> com a respetiva referência, ou abra um pedido em <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (a referência por si só não revela nada da comunicação).</p>
+<p>As comunicações vão para o PhishLens Cloud, seja qual for o servidor que usa para as análises. O servidor anonimiza o texto uma segunda vez com as mesmas regras, guarda a comunicação sem o seu endereço IP nem outros dados do pedido (os registos de pedidos descritos abaixo continuam a registar o pedido durante 30 dias) e devolve uma referência. Um breve aviso de cada nova comunicação é enviado ao responsável através de um serviço de notificações (ntfy): o tipo, o veredicto comunicado, o idioma, onde o e-mail foi analisado e a referência (para estatísticas, o número de análises), nunca o conteúdo do e-mail. As comunicações servem apenas para medir e melhorar o PhishLens (por exemplo, para treinar o modelo de texto com e-mails legítimos que avaliou mal); nunca são publicadas nem partilhadas. São guardadas no máximo dois anos. Para apagar uma comunicação, escreva para <a href="mailto:privacy@phishlens.dev">privacy@phishlens.dev</a> com a respetiva referência, ou abra um pedido em <a href="https://github.com/AnzouK/PhishLens/issues">https://github.com/AnzouK/PhishLens/issues</a> (a referência por si só não revela nada da comunicação).</p>
 <p>Para permitir comunicar a partir da vista Estatísticas, o texto anonimizado das suas últimas análises no Gmail e no Outlook fica no seu navegador durante 7 dias (no máximo 50 e-mails). Nunca sai do navegador, a menos que comunique essa análise.</p>
 <h2 id="o-que-é-guardado-e-durante-quanto-tempo">O que é guardado, e durante quanto tempo</h2>
 <div class="table-wrap"><table>
@@ -159,9 +159,9 @@
 <td>Até o limpar (Estatísticas, <strong>Limpar</strong>), no máximo as últimas 500 análises</td>
 </tr>
 <tr class="even">
-<td>Cache das explicações</td>
+<td>Cache das explicações (as palavras que explicam um veredito, indexadas por uma impressão digital do texto)</td>
 <td>O seu navegador</td>
-<td>Até a extensão ser removida</td>
+<td>30 dias, no máximo 200 entradas; apagada com o histórico</td>
 </tr>
 <tr class="odd">
 <td>Texto anonimizado das análises recentes no Gmail e no Outlook, para comunicações</td>
@@ -170,13 +170,13 @@
 </tr>
 <tr class="even">
 <td>Comunicações que enviou (texto anonimizado ou estatísticas, ver acima)</td>
-<td>PhishLens Cloud (Google Cloud Storage, Estados Unidos)</td>
+<td>PhishLens Cloud (Google Cloud Storage, Estados Unidos; um ficheiro por comunicação)</td>
 <td>No máximo dois anos; apagadas a pedido com a referência</td>
 </tr>
 <tr class="odd">
-<td>Resultados da análise automática (identificador da conversa, veredito, pontuação)</td>
+<td>Resultados da análise automática (identificador da conversa, veredito, pontuação, uma impressão curta da linha da caixa de entrada)</td>
 <td>O seu navegador</td>
-<td>Os últimos 500 e-mails</td>
+<td>Os últimos 500 e-mails; apagados com o histórico</td>
 </tr>
 <tr class="even">
 <td>Definições</td>
@@ -238,8 +238,12 @@
 <td>O mesmo, no Outlook (apenas análises manuais).</td>
 </tr>
 <tr class="even">
-<td>Acesso a <code>127.0.0.1:8000</code>, <code>localhost:8000</code>, <code>phishlens.dev</code></td>
-<td>Enviar as análises para o servidor que escolheu.</td>
+<td>Acesso a <code>phishlens.dev</code></td>
+<td>Enviar as análises para o PhishLens Cloud, o servidor predefinido.</td>
+</tr>
+<tr class="odd">
+<td>Opcional: <code>127.0.0.1</code>, <code>localhost</code> ou o endereço do seu próprio servidor</td>
+<td>Pedido só quando escolhe um servidor local ou personalizado nas definições, e só para esse servidor, em qualquer porta.</td>
 </tr>
 </tbody>
 </table></div>

@@ -33,7 +33,7 @@ def blend(fg: str, bg: str, alpha: float) -> str:
     )
 
 
-# --- Gmail-side illustrations: light colour -> dark colour (banner.css) ---
+# Gmail-side illustrations: light colour -> dark colour (banner.css)
 SURFACE = "#1f2329"
 BAD, GOOD, WARN = "#ff8a80", "#81c995", "#fdd663"
 GMAIL_DARK = {
@@ -63,7 +63,7 @@ def to_dark(svg: str, mapping: dict) -> str:
     return pattern.sub(lambda m: mapping[m.group(0).lower()], svg)
 
 
-# --- Popup: real palettes from popup.css ---
+# Popup: real palettes from popup.css
 POPUP = {
     "dark": dict(
         bg="#16181c",

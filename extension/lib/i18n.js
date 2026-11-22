@@ -1,6 +1,6 @@
 // Interface translations. The texts live in lib/locales/<lang>.js.
 // t("key", {name: value}) returns the text in the chosen language, then
-// English, then the key; tn("key", count) picks "key_one" or "key_other".
+// English, then the key. tn("key", count) picks "key_one" or "key_other".
 // The language is the one chosen in Settings ("ui_lang"), or the
 // browser's. PhishLens does not use chrome.i18n for this because Chrome
 // does not support every language PhishLens has (Hausa).
@@ -65,9 +65,9 @@ function tn(key, count, vars) {
     return t(`${key}_${count === 1 ? "one" : "other"}`, { count, ...vars });
 }
 
-// Static HTML: data-i18n (text), data-i18n-html (markup from the
-// dictionaries, rebuilt by lib/dom.js from an allowlist of tags),
-// data-i18n-title, data-i18n-placeholder, data-i18n-aria-label.
+// Translates static HTML through data-i18n (text), data-i18n-html (markup
+// from the dictionaries, rebuilt by lib/dom.js from an allowlist of tags),
+// data-i18n-title, data-i18n-placeholder and data-i18n-aria-label.
 function applyTo(root) {
     if (!root?.querySelectorAll) return;
     root.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
@@ -81,7 +81,7 @@ function applyTo(root) {
 }
 
 // Reads the saved choice and follows later changes. Resolves once the
-// language is known; t() works before that (in the browser's language).
+// language is known. Until then t() uses the browser's language.
 function init() {
     current = browserLanguage();
     return new Promise((done) => {

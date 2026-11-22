@@ -368,7 +368,7 @@ def test_a_body_without_length_is_refused(client):
     assert r.status_code == 411
 
 
-def test_a_decoy_link_to_the_own_domain_does_not_hide_a_file_host():
+def test_own_domain_decoy_does_not_hide_file_host():
     from link_alignment import link_profile, links_elsewhere_only
 
     counts = link_profile(

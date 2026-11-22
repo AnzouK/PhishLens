@@ -1,6 +1,6 @@
 // Small pieces every popup view uses: element lookup, view switching,
-// the status line, and the shared libraries (classic scripts in lib/,
-// loaded by popup.html before the modules).
+// the status line, and the shared libraries (classic scripts in lib/
+// that popup.html loads before the modules).
 
 export const I18N = window.PhishLensI18n;
 export const { t, tn } = I18N;
@@ -43,7 +43,8 @@ export function hideStatus() {
     status.textContent = "";
 }
 
-// chrome.storage.local.get as a promise; {} when storage is unavailable.
+// chrome.storage.local.get as a promise. Resolves to {} when storage is
+// unavailable.
 export function storageGet(keys) {
     return new Promise((resolve) => {
         if (!STORAGE) return resolve({});

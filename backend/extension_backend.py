@@ -53,6 +53,7 @@ import fusion
 import structured_agents
 import text_model
 from email_parsing import (
+    FORWARDED_ELSEWHERE,
     FROM_UNPROVEN,
     Ranked,
     client_links,
@@ -87,7 +88,9 @@ from settings import (
     MAX_BODY_BYTES,
     MAX_EMAIL_B64_CHARS,
     MAX_LINK_URLS,
+    MAX_PAGE_TEXT_CHARS,
     MAX_TEXT_CHARS,
+    MAX_URL_SCAN_CHARS,
     METADATA_MODEL_ENABLED,
     METRICS_ENABLED,
     MIN_TEXT_WORDS,
@@ -139,9 +142,7 @@ except Exception as _e:
     logger.warning("attachment_analysis not loaded (%s): /analyse_attachment returns 501.", _e)
 
 
-# ---------------------------------------------------------------------
 # Application
-# ---------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     text_model.load()
@@ -163,49 +164,14 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="PhishLens API", version=VERSION, lifespan=lifespan)
 
-# Extensions call from chrome-extension://<id>; the public backend accepts
-# any origin (no cookies are used). Self-hosted servers can restrict it.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ALLOW_ORIGINS,
-    allow_credentials=False,
-    allow_methods=["POST", "GET", "OPTIONS"],
-    allow_headers=["*"],
-)
-
-
-@app.middleware("http")
-async def _limit_body_size(request: Request, call_next):
-    """Refuse a body above MAX_BODY_BYTES before reading it. A body sent
-    without a length (chunked) is refused too: its size could only be
-    known by reading it. Browsers and the extension always send one."""
-    length = request.headers.get("content-length")
-    if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
-        return JSONResponse({"detail": "Request too large."}, status_code=413)
-    if request.method in ("POST", "PUT", "PATCH") and not length:
-        return JSONResponse({"detail": "Content-Length required."}, status_code=411)
-    return await call_next(request)
-
-
-# Added last, so it runs first: a request that did not come through the
-# proxy is refused before the size check and any route.
-@app.middleware("http")
-async def _require_proxy_secret(request: Request, call_next):
-    """With PROXY_SECRET set, only requests carrying it in the
-    X-PhishLens-Proxy header are served (constant-time comparison).
-    Neither the expected nor the received value is ever logged."""
-    if PROXY_SECRET:
-        sent = request.headers.get("x-phishlens-proxy", "")
-        if not hmac.compare_digest(sent.encode(), PROXY_SECRET.encode()):
-            return JSONResponse({"detail": "Forbidden."}, status_code=403)
-    return await call_next(request)
-
-
-# Rate limiting per client IP on the expensive endpoints (slowapi,
-# in memory; SLOWAPI_STORAGE_URI=redis://... when scaling out).
+# Rate limiting per client IP (slowapi, in memory; SLOWAPI_STORAGE_URI=
+# redis://... when scaling out): the expensive endpoints have their own
+# limit, every other route RATE_LIMIT_DEFAULT through the middleware
+# below, except /health (keep-warm calls and uptime monitors).
 try:
     from slowapi import Limiter, _rate_limit_exceeded_handler
     from slowapi.errors import RateLimitExceeded
+    from slowapi.middleware import SlowAPIMiddleware
     from slowapi.util import get_remote_address
 
     _limiter = Limiter(
@@ -224,6 +190,55 @@ except Exception as _e:
 
 def _rate_limited(limit: str):
     return _limiter.limit(limit) if _RATE_LIMIT_OK else (lambda f: f)
+
+
+def _not_rate_limited(f):
+    return _limiter.exempt(f) if _RATE_LIMIT_OK else f
+
+
+@app.middleware("http")
+async def _limit_body_size(request: Request, call_next):
+    """Refuse a body above MAX_BODY_BYTES before reading it. A body sent
+    without a length (chunked) is refused too: its size could only be
+    known by reading it. Browsers and the extension always send one."""
+    length = request.headers.get("content-length")
+    if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
+        return JSONResponse({"detail": "Request too large."}, status_code=413)
+    if request.method in ("POST", "PUT", "PATCH") and not length:
+        return JSONResponse({"detail": "Content-Length required."}, status_code=411)
+    return await call_next(request)
+
+
+# Middleware added later runs earlier. From the outside in: the proxy
+# secret, CORS, the default rate limit, the body size check. CORS wraps
+# the size check and the rate limit so a browser can read their 411, 413
+# and 429 answers.
+if _RATE_LIMIT_OK:
+    app.add_middleware(SlowAPIMiddleware)
+
+# Extensions call from chrome-extension://<id>; the public backend accepts
+# any origin (no cookies are used). Self-hosted servers can restrict it.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ALLOW_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["POST", "GET", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+
+# Added last, so it runs first: a request that did not come through the
+# proxy is refused before CORS, the size check and any route.
+@app.middleware("http")
+async def _require_proxy_secret(request: Request, call_next):
+    """With PROXY_SECRET set, only requests carrying it in the
+    X-PhishLens-Proxy header are served (constant-time comparison).
+    Neither the expected nor the received value is ever logged."""
+    if PROXY_SECRET:
+        sent = request.headers.get("x-phishlens-proxy", "")
+        if not hmac.compare_digest(sent.encode(), PROXY_SECRET.encode()):
+            return JSONResponse({"detail": "Forbidden."}, status_code=403)
+    return await call_next(request)
 
 
 # Prometheus metrics: standard HTTP metrics plus the verdicts per endpoint
@@ -270,9 +285,7 @@ def _verdict_label(p: float) -> str:
     return "Phishing" if p >= 0.5 else "Safe"
 
 
-# ---------------------------------------------------------------------
 # Requests
-# ---------------------------------------------------------------------
 class AnalyseRequest(BaseModel):
     """An email: raw_email_b64 (a base64 .eml) and/or raw_text (the text
     as the page shows it).
@@ -298,16 +311,16 @@ class AnalyseRequest(BaseModel):
 
 
 def _from_value(email: str, name: str | None, original: str = "") -> str:
-    """From: built from the address the client sent and the name it shows
+    """Build a From: value from the address the client sent and the name it shows
     (or the name of the original header), so that the name can be checked
     against the address (impersonation)."""
     display = name or parseaddr(original)[0] or ""
-    # Invisible characters out before the cut: 200 zero-width spaces used
-    # to push the brand name past it.
+    # Invisible characters are removed before the cut so zero-width padding
+    # cannot push the brand name past it.
     display = without_invisible(display)
     display = " ".join(display.split())[:200]
-    # Quoted as RFC 5322 says: a name ending in a backslash escaped the
-    # closing quote, and the name was lost (with the impersonation check).
+    # Quoted per RFC 5322. An unescaped trailing backslash would escape the
+    # closing quote and drop the name, and the impersonation check with it.
     display = display.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{display}" <{email}>' if display else email
 
@@ -324,8 +337,8 @@ class AttachmentRequest(BaseModel):
 
 
 def _client_link_groups(ctx: dict[str, Any]) -> tuple[list[str], list[str]]:
-    """Visible and hidden link targets the page sent, apart: no hidden one
-    is ranked before a visible one (older extensions send them all in
+    """Return the visible and hidden link targets the page sent, apart, so
+    no hidden one is ranked before a visible one (older extensions send them all in
     link_urls, visible first)."""
     return client_links(ctx.get("link_urls")), client_links(ctx.get("hidden_link_urls"))
 
@@ -341,11 +354,14 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     """
     ctx = req.client_context or {}
     if req.raw_text and not req.raw_email_b64:
-        body = req.raw_text.strip()
-        if looks_like_source(body):
-            body = strip_markup_noise(body)
-        urls = rank_links(*_client_link_groups(ctx), urls_in_text(body))
+        full = req.raw_text.strip()
+        if looks_like_source(full):
+            full = strip_markup_noise(full)
+        body = full[:MAX_PAGE_TEXT_CHARS]
+        # The text model reads the start; links written further down count.
+        urls = rank_links(*_client_link_groups(ctx), urls_in_text(full[:MAX_URL_SCAN_CHARS]))
         headers: dict[str, str] = {}
+        _keep_forward_marker(full, body, headers)
         if req.sender_email:
             headers["from"] = _from_value(req.sender_email, req.sender_name)
         synth = synthesize_auth_results(ctx, req.sender_email)
@@ -390,10 +406,15 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     text_urls: list[str] = []
     page = (req.raw_text or "").strip()
     if page and not is_page_source(page):
-        page = strip_markup_noise(page) if looks_like_source(page) else page
+        page_full = strip_markup_noise(page) if looks_like_source(page) else page
+        page = page_full[:MAX_PAGE_TEXT_CHARS]
         if len(page.split()) >= MIN_TEXT_WORDS:
+            # The page text can be shorter than the message (the client
+            # sends at most MAX_PAGE_TEXT_CHARS): a forward marker further
+            # down the message still counts.
+            _keep_forward_marker(body, page, headers)
             body = page
-            text_urls = urls_in_text(body)
+            text_urls = urls_in_text(page_full[:MAX_URL_SCAN_CHARS])
     # Visible links of the page, then those of the message (its own
     # visible ones first), then the page's hidden ones.
     # A link the browser saw hidden (a 1 px image, a rule for screens)
@@ -404,6 +425,16 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     # Without invisible characters, as the reader sees it: for the text
     # model, the forward and language checks alike.
     return collapse_invisible(body), urls, headers, raw_bytes
+
+
+def _keep_forward_marker(full: str, used: str, headers: dict[str, str]) -> None:
+    """Record in headers a forward marker that only the text left out
+    holds (detect_forwarded on the scored text alone would miss it)."""
+    if detect_forwarded(used)["detected"]:
+        return
+    found = detect_forwarded(full)
+    if found["detected"]:
+        headers[FORWARDED_ELSEWHERE] = found["original_sender"] or "1"
 
 
 def _model_text(body: str, headers: dict[str, str], ctx: dict[str, Any]) -> str:
@@ -436,9 +467,7 @@ async def _check_urls(urls: list[str]) -> list[dict[str, Any]]:
     return await _reputation.check_urls(urls)
 
 
-# ---------------------------------------------------------------------
 # Small endpoints
-# ---------------------------------------------------------------------
 @app.api_route("/", methods=["GET", "HEAD"])
 def root():
     return {
@@ -454,10 +483,33 @@ def root():
     }
 
 
+_PURGE_EVERY_S = 3600.0
+_last_purge = 0.0
+
+
+def _purge_expired_caches() -> None:
+    """Expired cache entries out at most once an hour. /health is called
+    every 10 minutes by the warm-up job, so an instance that scans nothing
+    drops them too."""
+    global _last_purge
+    now = time.monotonic()
+    if _last_purge and now - _last_purge < _PURGE_EVERY_S:
+        return
+    _last_purge = now
+    _RESULT_CACHE.purge_expired()
+    if _REPUTATION_AVAILABLE:
+        try:
+            _reputation.purge_if_due()
+        except Exception as e:
+            logger.debug("reputation cache purge failed: %s", e)
+
+
 # HEAD too: uptime monitors (UptimeRobot's free plan) probe with HEAD.
 @app.api_route("/health", methods=["GET", "HEAD"])
+@_not_rate_limited
 def health():
     """Liveness, version, and which agents run a trained model."""
+    _purge_expired_caches()
     return {
         "status": "ok",
         "version": VERSION,
@@ -525,8 +577,8 @@ def send_feedback(request: Request, req: feedback.FeedbackRequest):
 @app.post("/explain")
 @_rate_limited(RATE_LIMIT_EXPLAIN)
 def explain(request: Request, req: AnalyseRequest):
-    """Top words behind the text agent's score (LIME). A sync endpoint:
-    FastAPI runs it in a worker thread."""
+    """Top words behind the text agent's score (LIME). The endpoint is sync,
+    so FastAPI runs it in a worker thread."""
     body, _, headers, _ = _resolve_email(req)
     if not body:
         raise HTTPException(400, "Could not extract any text from this email.")
@@ -543,9 +595,7 @@ def explain(request: Request, req: AnalyseRequest):
     return result
 
 
-# ---------------------------------------------------------------------
 # /analyse
-# ---------------------------------------------------------------------
 @dataclass
 class _Scores:
     """The three agents' scores, after threat intelligence and sender
@@ -658,8 +708,8 @@ async def _score(
 
 
 def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict) -> _Sender:
-    """Who the sender is and whether it is proven: the inputs of the
-    trust path."""
+    """Work out who the sender is and whether it is proven. These are the
+    inputs of the trust path."""
     domain = sender_domain(headers.get("from", ""))
     allowlisted = is_trusted_domain(domain)
     crypto_verified = bool(auth.get("cryptographically_verified"))
@@ -681,6 +731,11 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
 
     subject = headers.get("subject") or ctx.get("subject")
     forwarded = detect_forwarded(body, subject if isinstance(subject, str) else None)
+    hint = headers.get(FORWARDED_ELSEWHERE)
+    # The hint also names the original sender when only the subject
+    # ("Fwd:") was seen in the scored text.
+    if hint and (not forwarded["detected"] or (not forwarded["original_sender"] and "@" in hint)):
+        forwarded = {"detected": True, "original_sender": hint if "@" in hint else None}
     # A brand's name over another domain's address: authentication only
     # proves who the impostor is, so no softer path. Checked on forwards
     # too: a "TR:" in the subject must not hide it.
@@ -764,8 +819,8 @@ def _sender_auth_block(s: _Scores, who: _Sender) -> dict[str, Any]:
 
 
 def _auth_source(headers: dict[str, str]) -> str:
-    """Where the sender checks came from: real headers, or the values
-    Gmail shows (Gmail verified them, we did not)."""
+    """Say where the sender checks came from: real headers, or the values
+    Gmail shows (verified by Gmail, not here)."""
     auth_header = headers.get("authentication-results", "") or ""
     if auth_header.startswith("gmail-client-context"):
         return "gmail_ui"
@@ -867,9 +922,7 @@ async def analyse(request: Request, req: AnalyseRequest):
     return result
 
 
-# ---------------------------------------------------------------------
 # /analyse_attachment
-# ---------------------------------------------------------------------
 # Inner-file features worth naming in the per-file report of an archive.
 _INNER_REASONS = {
     "contains_macros": "macros",
@@ -888,7 +941,7 @@ _INNER_REASONS = {
 
 
 def _archive_file_report(extracted: dict, reputation_verdicts: list[dict]) -> list[dict]:
-    """Members of an archive that explain the verdict: risky names,
+    """List the members of an archive that explain the verdict: risky names,
     risky inner documents, phishing wording, or a link flagged by threat
     intelligence. Most reasons first; at most 20."""
     bad_urls = {v.get("url") for v in reputation_verdicts if v.get("malicious")}
@@ -946,7 +999,8 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
             mime_type=req.mime_type,
         )
     except ValueError as e:
-        # Unsupported type, oversized, bad base64: our own messages, for the user.
+        # Unsupported type, oversized, bad base64. These messages are
+        # written for the user.
         raise HTTPException(400, str(e)) from e
     except RuntimeError as e:
         # A valid request whose file does not parse (corrupt PDF...).
@@ -968,7 +1022,7 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
     notable = extracted.get("notable_features", []) or []
     feature_bonus = fusion.attachment_feature_bonus(notable)
     dropper = fusion.dropper_techniques(notable)
-    # parent_email is a client hint we cannot verify: a false claim only
+    # parent_email is an unverifiable client hint. A false claim only
     # softens the caller's own result, and Safe Browsing hits and dropper
     # techniques override it. Never use it for anything shared.
     parent = req.parent_email or {}

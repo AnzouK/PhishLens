@@ -1,6 +1,7 @@
-// A small stand-in for the DOM, enough for lib/dom.js and the banners:
-// elements with attributes, classes, children, text and listeners. No
-// HTML parser on purpose: nothing in the extension should need one.
+// A small stand-in for the DOM, enough for lib/dom.js and the banners
+// (elements with attributes, classes, children, text and listeners).
+// There is deliberately no HTML parser, since nothing in the extension
+// should need one.
 "use strict";
 
 class Node {
@@ -65,7 +66,7 @@ class Element extends Node {
         return this.childNodes.map((c) => (c.nodeType === 3 ? c.data : c.innerText)).join("");
     }
     removeAttribute(k) { delete this.attributes[k]; }
-    // Laid out by default; a test hides an element by replacing these.
+    // Laid out by default. A test hides an element by replacing these.
     getClientRects() { return [{ width: 10, height: 10 }]; }
     getBoundingClientRect() { return { width: 10, height: 10 }; }
     getRootNode() {
@@ -90,6 +91,20 @@ class Element extends Node {
         }
     }
     appendChild(n) { this.append(n); return n; }
+    insertAdjacentElement(where, n) {
+        if (where !== "afterend" || !this.parentNode) return null;
+        const parent = this.parentNode;
+        parent.append(n);
+        const list = parent.childNodes;
+        list.splice(list.indexOf(this) + 1, 0, list.pop());
+        return n;
+    }
+    // In the document when an ancestor is a document's <body>.
+    get isConnected() {
+        let n = this;
+        while (n.parentNode) n = n.parentNode;
+        return n.tagName === "BODY";
+    }
     prepend(n) { this.append(n); this.childNodes.unshift(this.childNodes.pop()); }
     insertBefore(n, ref) {
         this.append(n);
@@ -103,11 +118,11 @@ class Element extends Node {
     }
     get textContent() { return this.childNodes.map((c) => c.textContent).join(""); }
     set textContent(v) { this.replaceChildren(String(v)); }
-    // Selectors: "tag", ".class", "tag.class", "tag[attr]", "*", lists and
-    // descendant combinators only, enough for tests.
+    // Supports "tag", ".class", "tag.class", "tag[attr]", "*", lists and
+    // descendant combinators, which is enough for the tests.
     matchesCompound(one) {
         if (one === "*") return true;
-        // "a[href]": attribute presence (an attribute or a property set).
+        // "a[href]" checks presence (an attribute or a property set).
         const attrs = [...one.matchAll(/\[([\w-]+)\]/g)].map((m) => m[1]);
         if (attrs.some((a) => !(a in this.attributes) && this[a] == null)) return false;
         one = one.replace(/\[[\w-]+\]/g, "");
@@ -138,7 +153,7 @@ class Element extends Node {
         for (let n = this; n; n = n.parentNode) if (n.matches?.(sel)) return n;
         return null;
     }
-    // Every text of the subtree, attributes included: what a test checks
+    // All text of the subtree, attributes included, for tests that look
     // for leaked markup.
     dump() {
         const attrs = Object.entries(this.attributes).map(([k, v]) => ` ${k}="${v}"`).join("");

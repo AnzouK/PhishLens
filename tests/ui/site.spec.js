@@ -1,4 +1,4 @@
-// Website smoke tests: every language version loads, app.js speaks the
+// Website smoke tests. Every language version loads, app.js uses the
 // page's language, the language menu links work and an English page
 // offers the visitor's language. The site is served over HTTP and every
 // call to PhishLens Cloud or GitHub is intercepted.
@@ -20,7 +20,7 @@ test.beforeAll(async () => {
     server = http.createServer((req, res) => {
         let rel = decodeURIComponent(new URL(req.url, "http://x").pathname);
         if (rel.endsWith("/")) rel += "index.html";
-        // Like Cloudflare Pages: /privacy serves privacy.html
+        // As on Cloudflare Pages, /privacy serves privacy.html.
         else if (!path.extname(rel)) rel += ".html";
         const file = path.join(SITE, rel);
         if (!file.startsWith(SITE)) { res.writeHead(403); return res.end(); }
