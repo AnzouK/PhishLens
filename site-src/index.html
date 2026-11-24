@@ -45,7 +45,10 @@
         <p class="lbl">{{r_caught}}<span class="ci">{{r_caught_ci}}</span></p>
       </div>
       <p class="facts">{{r_facts}}</p>
-      <p class="note">{{results_note_html}}</p>
+      <details class="note method">
+        <summary>{{results_note_summary}}</summary>
+        <p>{{results_note_html}}</p>
+      </details>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> {{live_h}}</h3>
       <div class="strip" id="live" aria-live="polite">
