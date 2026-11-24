@@ -100,6 +100,31 @@ test("email text in a banner stays text", () => {
     assert.ok(view.querySelector(".pll-banner").textContent.includes(evil));
 });
 
+test("banner chips are sorted bad, then warn, then good", () => {
+    const { PL, ctx } = load(manifest.content_scripts[0]);
+    const view = mailView(ctx.document);
+    // Clean links (good) and a forward (warn) come before the DMARC
+    // failure (bad) in the code; the banner shows them worst first.
+    PL.showBanner(view, {
+        ...PHISHING,
+        forwarded: { detected: true },
+        sender_auth: { dmarc: "fail" },
+    });
+    const kinds = view.querySelectorAll(".pll-chip").map((c) => c.className.replace("pll-chip pll-chip--", ""));
+    assert.deepEqual(kinds, ["bad", "warn", "good"]);
+});
+
+test("the privacy notice is a neutral notice, not an error", async () => {
+    const { PL, ctx } = load(manifest.content_scripts[0]);
+    ctx.chrome.storage.local = { get: (keys, cb) => cb({}), set: () => {} };
+    const view = mailView(ctx.document);
+    PL.confirmCloudUse(view);
+    await new Promise((r) => setTimeout(r, 0));
+    const banner = view.querySelector(".pll-banner");
+    assert.ok(banner.classList.contains("pll-banner--notice"));
+    assert.ok(!banner.classList.contains("pll-banner--error"));
+});
+
 test("the explanation words are shown with their relative weight", () => {
     const { PL, ctx } = load(manifest.content_scripts[0]);
     const view = mailView(ctx.document);

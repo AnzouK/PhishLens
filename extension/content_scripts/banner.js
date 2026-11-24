@@ -118,9 +118,11 @@ function closeButton(banner) {
     }, icon("close"));
 }
 
-function errorContent(data) {
+// An error, or a neutral notice ({ verdict: "notice" }) such as the
+// privacy notice before the first scan.
+function errorContent(data, notice = false) {
     return [
-        h("span.pll-banner__icon", null, icon("alert")),
+        h("span.pll-banner__icon", null, icon(notice ? "info" : "alert")),
         h("div.pll-banner__main", null,
             h("div.pll-banner__title", null, data.title || t("error_title")),
             h("div.pll-banner__lead", null, data.error || "")),
@@ -151,20 +153,21 @@ function verdictContent(data, phishing) {
     ];
 }
 
-// Shows the banner for `data` (an /analyse answer, or { verdict: "error",
-// title, error }) in `emailView`, replacing any earlier one. On Outlook it
-// is inserted before `anchor`; on Gmail it finds its own place.
+// Shows the banner for `data` (an /analyse answer, or { verdict: "error"
+// or "notice", title, error }) in `emailView`, replacing any earlier one.
+// On Outlook it is inserted before `anchor`; on Gmail it finds its own
+// place.
 PL.showBanner = function showBanner(emailView, data, anchor = null) {
     const old = emailView.querySelector(".pll-banner");
     // A privacy notice replaced by another banner was not accepted.
     old?._pllCancel?.();
     old?.remove();
-    const isError = data.verdict === "error";
+    const notice = data.verdict === "notice";
+    const isError = notice || data.verdict === "error";
     const phishing = data.verdict === "phishing";
-    const banner = h("div", {
-        class: "pll-banner " + (isError ? "pll-banner--error" : phishing ? "pll-banner--danger" : "pll-banner--safe"),
-    });
-    banner.append(...(isError ? errorContent(data) : verdictContent(data, phishing)), closeButton(banner));
+    const kind = notice ? "notice" : isError ? "error" : phishing ? "danger" : "safe";
+    const banner = h("div", { class: `pll-banner pll-banner--${kind}` });
+    banner.append(...(isError ? errorContent(data, notice) : verdictContent(data, phishing)), closeButton(banner));
 
     const { SEL } = PhishLensGmail;
     const headerBar = emailView.querySelector(SEL.headerBar);
@@ -242,7 +245,7 @@ PL.confirmCloudUse = async function confirmCloudUse(view, anchor = null) {
     if (s[NOTICE_KEY] || (s.backend && s.backend !== "cloud")) return true;
     return new Promise((resolve) => {
         const banner = PL.showBanner(view, {
-            verdict: "error", title: t("privacy_notice_title"), error: t("privacy_notice_text"),
+            verdict: "notice", title: t("privacy_notice_title"), error: t("privacy_notice_text"),
         }, anchor);
         const lang = PhishLensI18n.language();
         const ok = h("button.pll-att-btn", {

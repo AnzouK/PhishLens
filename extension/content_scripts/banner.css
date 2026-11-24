@@ -113,11 +113,13 @@ html[data-phishlens-theme="dark"] {
 .pll-banner--danger { border-color: var(--pll-bad-line); border-left-color: var(--pll-bad); background: linear-gradient(0deg, var(--pll-bad-soft), var(--pll-bad-soft)), var(--pll-surface); }
 .pll-banner--safe   { border-color: var(--pll-good-line); border-left-color: var(--pll-good); }
 .pll-banner--error  { border-color: var(--pll-warn-line); border-left-color: var(--pll-warn); }
+.pll-banner--notice { border-color: var(--pll-line); border-left-color: var(--pll-text-2); }
 
 .pll-banner__icon { flex: none; display: grid; place-items: center; width: 34px; height: 34px; padding: 7px; border-radius: 10px; box-sizing: border-box; }
 .pll-banner--danger .pll-banner__icon { color: var(--pll-bad); background: var(--pll-bad-soft); }
 .pll-banner--safe   .pll-banner__icon { color: var(--pll-good); background: var(--pll-good-soft); }
 .pll-banner--error  .pll-banner__icon { color: var(--pll-warn); background: var(--pll-warn-soft); }
+.pll-banner--notice .pll-banner__icon { color: var(--pll-text-2); background: var(--pll-surface-2); }
 
 .pll-banner__main { flex: 1; min-width: 0; }
 .pll-banner__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
