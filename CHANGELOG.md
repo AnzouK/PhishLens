@@ -7,6 +7,10 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Removed
+- Unused code, styles, a string and the old self-hosted VM redeploy and
+  backup scripts; no behaviour change.
+
 ## [2.1.0] - 2026-11-22
 
 ### Added
