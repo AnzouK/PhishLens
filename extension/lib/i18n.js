@@ -100,7 +100,6 @@ function onChange(fn) { listeners.push(fn); }
 
 const PhishLensI18n = Object.freeze({
     LANGUAGES, STORAGE_KEY, t, tn, has, flagLabel, reasonLabel, init, setLanguage, applyTo, onChange,
-    browserLanguage,
     language: () => current,
 });
 globalThis.PhishLensI18n = PhishLensI18n;

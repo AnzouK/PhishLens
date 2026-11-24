@@ -60,7 +60,6 @@ const PhishLensApi = Object.freeze({
         clear: () => call("phishlens.history.clear", undefined, {}),
     }),
     notify: (title, message) => call("phishlens.notify", undefined, { title, message }),
-    isContextLost,
 });
 globalThis.PhishLensApi = PhishLensApi;
 

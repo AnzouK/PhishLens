@@ -64,7 +64,7 @@ function isCaution(flags) {
 }
 
 const PhishLensConstants = Object.freeze({
-    ATTACHMENT_EXTS, CAUTION_FLAGS, DANGEROUS_EXTS, MAX_FILE_MB, SOURCE_LABELS, fileExt, isCaution,
+    ATTACHMENT_EXTS, DANGEROUS_EXTS, MAX_FILE_MB, SOURCE_LABELS, fileExt, isCaution,
 });
 globalThis.PhishLensConstants = PhishLensConstants;
 
