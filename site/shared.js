@@ -140,10 +140,80 @@ function collapseInvisible(text) {
     return String(text ?? "").replace(new RegExp(INVISIBLE_SOURCE + "+", "gu"), (run) => [...run][0]);
 }
 
+// A score as the meters show it: "high" (red) from 70%, "mid" from 40%,
+// "low" below. Compared on the rounded percentage the user reads.
+const HIGH_SCORE_PCT = 70;
+const MID_SCORE_PCT = 40;
+function scoreLevel(probability) {
+    const pct = Math.round((Number(probability) || 0) * 100);
+    return pct >= HIGH_SCORE_PCT ? "high" : pct >= MID_SCORE_PCT ? "mid" : "low";
+}
+
+// Attachment flags meaning PhishLens could not look inside. A low score
+// is then not reassuring.
+const CAUTION_FLAGS = Object.freeze([
+    "encrypted_archive", "encrypted_document", "uninspectable_archive",
+    "disk_image_attachment", "disk_image_in_archive", "zip_bomb_suspected", "inner_files_not_extracted",
+    "document_not_fully_read",
+]);
+
+function isCaution(flags) {
+    return (flags || []).some((f) => CAUTION_FLAGS.includes(f));
+}
+
+// Attachment flags that only describe the file (text read by OCR, links,
+// an invite, an old Office format). They are shown as neutral chips; any
+// other flag is a warning sign, shown in orange.
+const NEUTRAL_FLAGS = Object.freeze([
+    "text_from_ocr", "contains_link_annotation", "calendar_invite", "legacy_office_format",
+]);
+const isWarningFlag = (flag) => !NEUTRAL_FLAGS.includes(flag);
+
+// The agent scores shown next to a verdict. The text score is not shown
+// when the text model did not count (almost no text), nor the sender
+// score when there was no sender information.
+function shownScores(data) {
+    const a = data?.agents || {};
+    return [
+        data?.text_agent_used === false ? null : a.text?.phishing_probability,
+        a.url?.phishing_probability,
+        a.metadata?.checked === false ? null : a.metadata?.phishing_probability,
+    ].filter((p) => p != null);
+}
+
+// The unusual signs shown as orange or red chips: a brand impersonated, a
+// forward, a shared file or form, links flagged by threat intelligence,
+// failed sender authentication, a sender listed by Spamhaus, and the
+// warning flags of an attachment (a file PhishLens could not look inside,
+// macros, a program in an archive...).
+function unusualSigns(data) {
+    const auth = data?.sender_auth || {};
+    const signs = [];
+    if (auth.impersonation?.brand) signs.push("impersonation");
+    if (data?.forwarded?.detected) signs.push("forwarded");
+    if (data?.shared_links?.count) signs.push("shared_links");
+    if (data?.url_reputation?.malicious_count > 0) signs.push("flagged_links");
+    if ([auth.spf, auth.dkim, auth.dmarc].includes("fail")) signs.push("auth_fail");
+    if (auth.spamhaus_dbl_listed) signs.push("spamhaus");
+    if ((data?.attachment?.notable_features || []).some(isWarningFlag)) signs.push("file_flags");
+    return signs;
+}
+
+// How a verdict is shown: "danger" for phishing; "caution" for a safe
+// verdict next to a red meter or an unusual sign, since a green "looks
+// safe" above them would read as a contradiction; "safe" otherwise. The
+// verdict and scores from the server are never changed.
+function displayVerdict(data) {
+    if (data?.verdict === "phishing") return "danger";
+    const high = shownScores(data).some((p) => scoreLevel(p) === "high");
+    return high || unusualSigns(data).length ? "caution" : "safe";
+}
+
 const PhishLensShared = Object.freeze({
     BACKEND_PRESETS, DEFAULT_BACKEND, resolveBackend, getBackendBase, apiErrorMessage, debug, safeName,
     INVISIBLE_SOURCE, withoutInvisible, collapseInvisible, isPlainRemoteUrl,
     normalizeBaseUrl, hostPattern, privacyUrl,
+    scoreLevel, isCaution, isWarningFlag, shownScores, unusualSigns, displayVerdict,
 });
 globalThis.PhishLensShared = PhishLensShared;
 

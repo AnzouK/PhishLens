@@ -36,6 +36,8 @@
     "badge_gmail_title": "Gmail ya isar da shi cikin akwatin saƙo, don haka binciken SPF/DKIM/DMARC nasa ya wuce. Alama ce mai rauni fiye da cikakken binciken sirri.",
     "verdict_phishing": "Wannan imel yana kama da phishing",
     "verdict_safe": "Wannan imel yana kama da amintacce",
+    "verdict_caution": "Wataƙila amintacce ne, amma ka duba",
+    "lead_caution": "Wasu alamomi ba na yau da kullum ba ne. Ka duba cikakken bayani kafin ka danna ko ka ba da amsa.",
     "meter_wording": "Rubutu",
     "meter_links": "Hanyoyin haɗi",
     "meter_sender": "Mai aikawa",

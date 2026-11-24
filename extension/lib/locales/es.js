@@ -35,6 +35,8 @@
     "badge_gmail_title": "Gmail lo entregó en la bandeja de entrada, así que sus propias comprobaciones SPF/DKIM/DMARC se superaron. Señal más débil que una verificación criptográfica completa.",
     "verdict_phishing": "Este correo parece phishing",
     "verdict_safe": "Este correo parece seguro",
+    "verdict_caution": "Probablemente seguro, pero compruébelo",
+    "lead_caution": "Algunas señales son inusuales. Revise los detalles antes de hacer clic o responder.",
     "meter_wording": "Texto",
     "meter_links": "Enlaces",
     "meter_sender": "Remitente",

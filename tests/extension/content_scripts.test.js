@@ -114,6 +114,35 @@ test("banner chips are sorted bad, then warn, then good", () => {
     assert.deepEqual(kinds, ["bad", "warn", "good"]);
 });
 
+test("a safe verdict with a red meter or an orange chip uses the caution style", () => {
+    const { PL, ctx } = load(manifest.content_scripts[0]);
+    const view = mailView(ctx.document);
+    const SAFE = {
+        verdict: "safe",
+        agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.1 }, metadata: { phishing_probability: 0.1 } },
+        sender_auth: {}, url_reputation: { checked: 1 },
+    };
+    const kind = () => view.querySelector(".pll-banner").className.replace("pll-banner pll-banner--", "");
+    const title = () => view.querySelector(".pll-banner__title").textContent;
+    PL.showBanner(view, SAFE);
+    assert.equal(kind(), "safe");
+    assert.equal(title(), "This email looks safe");
+    // A 76% wording meter (red) under a safe verdict.
+    PL.showBanner(view, { ...SAFE, agents: { ...SAFE.agents, text: { phishing_probability: 0.76 } } });
+    assert.equal(kind(), "caution");
+    assert.equal(title(), "Probably safe, but check");
+    assert.match(view.querySelector(".pll-banner__lead").textContent, /^Some signs are unusual\. Look at the details before you click or reply\./);
+    assert.equal(view.querySelector(".pll-meter__fill--high").style.getPropertyValue("width"), "76%");
+    // A warn chip (forwarded email).
+    PL.showBanner(view, { ...SAFE, forwarded: { detected: true } });
+    assert.equal(kind(), "caution");
+    assert.ok(view.querySelector(".pll-chip--warn"));
+    assert.match(view.querySelector(".pll-banner__lead").textContent, /forwarded email/);
+    // Phishing stays danger.
+    PL.showBanner(view, PHISHING);
+    assert.equal(kind(), "danger");
+});
+
 test("the privacy notice is a neutral notice, not an error", async () => {
     const { PL, ctx } = load(manifest.content_scripts[0]);
     ctx.chrome.storage.local = { get: (keys, cb) => cb({}), set: () => {} };

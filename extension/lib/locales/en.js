@@ -35,6 +35,8 @@
     "badge_gmail_title": "Gmail delivered this to Inbox, so its own SPF/DKIM/DMARC verification passed. Softer signal than a full crypto verification.",
     "verdict_phishing": "This email looks like phishing",
     "verdict_safe": "This email looks safe",
+    "verdict_caution": "Probably safe, but check",
+    "lead_caution": "Some signs are unusual. Look at the details before you click or reply.",
     "meter_wording": "Wording",
     "meter_links": "Links",
     "meter_sender": "Sender",

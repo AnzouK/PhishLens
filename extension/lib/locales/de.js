@@ -35,6 +35,8 @@
     "badge_gmail_title": "Gmail hat sie in den Posteingang zugestellt, also wurden die eigenen SPF/DKIM/DMARC-Prüfungen bestanden. Schwächeres Signal als eine vollständige kryptografische Prüfung.",
     "verdict_phishing": "Diese E-Mail wirkt wie Phishing",
     "verdict_safe": "Diese E-Mail wirkt sicher",
+    "verdict_caution": "Wahrscheinlich sicher, aber prüfen Sie es",
+    "lead_caution": "Einige Anzeichen sind ungewöhnlich. Sehen Sie sich die Details an, bevor Sie klicken oder antworten.",
     "meter_wording": "Text",
     "meter_links": "Links",
     "meter_sender": "Absender",

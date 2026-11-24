@@ -112,12 +112,14 @@ html[data-phishlens-theme="dark"] {
 @keyframes pll-in { from { transform: translateY(-4px); opacity: 0; } }
 .pll-banner--danger { border-color: var(--pll-bad-line); border-left-color: var(--pll-bad); background: linear-gradient(0deg, var(--pll-bad-soft), var(--pll-bad-soft)), var(--pll-surface); }
 .pll-banner--safe   { border-color: var(--pll-good-line); border-left-color: var(--pll-good); }
+.pll-banner--caution { border-color: var(--pll-warn-line); border-left-color: var(--pll-warn); }
 .pll-banner--error  { border-color: var(--pll-warn-line); border-left-color: var(--pll-warn); }
 .pll-banner--notice { border-color: var(--pll-line); border-left-color: var(--pll-text-2); }
 
 .pll-banner__icon { flex: none; display: grid; place-items: center; width: 34px; height: 34px; padding: 7px; border-radius: 10px; box-sizing: border-box; }
 .pll-banner--danger .pll-banner__icon { color: var(--pll-bad); background: var(--pll-bad-soft); }
 .pll-banner--safe   .pll-banner__icon { color: var(--pll-good); background: var(--pll-good-soft); }
+.pll-banner--caution .pll-banner__icon { color: var(--pll-warn); background: var(--pll-warn-soft); }
 .pll-banner--error  .pll-banner__icon { color: var(--pll-warn); background: var(--pll-warn-soft); }
 .pll-banner--notice .pll-banner__icon { color: var(--pll-text-2); background: var(--pll-surface-2); }
 
@@ -125,6 +127,7 @@ html[data-phishlens-theme="dark"] {
 .pll-banner__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pll-banner__title { font-size: 15px; font-weight: 600; }
 .pll-banner--danger .pll-banner__title { color: var(--pll-bad); }
+.pll-banner--caution .pll-banner__title { color: var(--pll-warn); }
 .pll-banner__lead { color: var(--pll-text-2); margin-top: 2px; }
 
 .pll-trusted {
@@ -218,7 +221,8 @@ html[data-phishlens-theme="dark"] {
     box-shadow: var(--pll-shadow) !important;
 }
 .pll-att-banner--loading { border-top-color: var(--pll-text-2) !important; }
-.pll-att-banner--error   { border-top-color: var(--pll-warn) !important; }
+.pll-att-banner--error,
+.pll-att-banner--caution { border-top-color: var(--pll-warn) !important; }
 .pll-att-banner--safe    { border-top-color: var(--pll-good) !important; }
 .pll-att-banner--danger  { border-top-color: var(--pll-bad) !important; background: linear-gradient(0deg, var(--pll-bad-soft), var(--pll-bad-soft)), var(--pll-surface) !important; }
 
@@ -226,7 +230,9 @@ html[data-phishlens-theme="dark"] {
 .pll-att-banner__icon { flex: none !important; display: inline-flex !important; width: 18px !important; height: 18px !important; color: var(--pll-text-2) !important; }
 .pll-att-banner--safe   .pll-att-banner__icon { color: var(--pll-good) !important; }
 .pll-att-banner--danger .pll-att-banner__icon { color: var(--pll-bad) !important; }
-.pll-att-banner--error  .pll-att-banner__icon { color: var(--pll-warn) !important; }
+.pll-att-banner--error  .pll-att-banner__icon,
+.pll-att-banner--caution .pll-att-banner__icon { color: var(--pll-warn) !important; }
+.pll-att-banner--caution .pll-att-banner__title { color: var(--pll-warn) !important; }
 .pll-att-banner__main  { flex: 1 !important; min-width: 0 !important; }
 .pll-att-banner__title { font-weight: 600 !important; font-size: 12.5px !important; margin: 0 !important; color: var(--pll-text) !important; }
 .pll-att-banner--safe   .pll-att-banner__title { color: var(--pll-good) !important; }
@@ -241,8 +247,9 @@ html[data-phishlens-theme="dark"] {
 
 .pll-att-chip {
     display: inline-flex !important; align-items: center !important;
-    padding: 2px 8px !important; border-radius: 999px !important; border: 1px solid transparent !important;
+    padding: 2px 8px !important; border-radius: 999px !important; border: 1px solid var(--pll-line) !important;
     font-size: 11px !important; font-weight: 500 !important; line-height: 1.4 !important;
+    color: var(--pll-text-2) !important;
 }
 .pll-att-chip--good { color: var(--pll-good) !important; background: var(--pll-good-soft) !important; border-color: var(--pll-good-line) !important; }
 .pll-att-chip--warn { color: var(--pll-warn) !important; background: var(--pll-warn-soft) !important; border-color: var(--pll-warn-line) !important; }

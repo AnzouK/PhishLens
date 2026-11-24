@@ -2,7 +2,8 @@
 // badges, the files of an archive and the words behind the text score.
 import { $, h, t, tn, I18N, spriteIcon } from "./ui.js";
 
-const { SOURCE_LABELS, isCaution } = window.PhishLensConstants;
+const { SOURCE_LABELS } = window.PhishLensConstants;
+const { displayVerdict, isCaution, scoreLevel } = window.PhishLensShared;
 
 const THREAT_KEYS = {
     MALWARE: "threat_malware",
@@ -33,10 +34,13 @@ function renderTrustPill(data) {
     }
 }
 
+// caution: false, or "not_read" for a file PhishLens could not look
+// inside, or "signs" for any other unusual sign.
 function subline(data, isPhishing, caution, flags) {
     const flagText = flags.length ? t("found_flags", { flags: flags.map(I18N.flagLabel).join(", ") }) : "";
     if (isPhishing) return t(data.links_elsewhere && !(data.link_alignment?.aligned > 0) ? "lead_links_elsewhere" : "sub_phishing") + flagText;
-    if (caution) return t("sub_caution") + flagText;
+    if (caution === "not_read") return t("sub_caution") + flagText;
+    if (caution) return t("lead_caution") + flagText;
     if (data.forwarded?.detected) return t("sub_forwarded");
     if (data.shared_links?.count) return t("sub_shared", { services: (data.shared_links.services || []).join(", ") });
     if (data.trusted_sender) return t("sub_trusted");
@@ -66,7 +70,7 @@ function fillAgent(key, agent, data) {
     $(`${prefix}-score`).textContent = `${pct}%`;
     bar.style.width = `${pct}%`;
     card.dataset.flagged = agent?.verdict === "Phishing" ? "phishing" : "safe";
-    $(`${prefix}-hint`).textContent = t(`${prefix}_${p >= 0.7 ? "high" : p >= 0.4 ? "mid" : "low"}`);
+    $(`${prefix}-hint`).textContent = t(`${prefix}_${scoreLevel(p)}`);
 }
 
 function renderUrlBadges(rep) {
@@ -142,13 +146,18 @@ export function renderResult(data) {
     const isPhishing = data.verdict === "phishing";
     const isAttachment = !!data.attachment;
     const flags = data.attachment?.notable_features || [];
-    const caution = isAttachment && !isPhishing && isCaution(flags);
+    // Same rule as the banner in Gmail and Outlook: a safe verdict next to
+    // a high score or an unusual sign is shown with caution.
+    const caution = displayVerdict(data) === "caution" && (isAttachment && isCaution(flags) ? "not_read" : "signs");
 
     $("verdict-card").classList.toggle("verdict-card--danger", isPhishing);
-    $("verdict-icon").replaceChildren(spriteIcon(isPhishing ? "alert" : "shield-check"));
+    $("verdict-card").classList.toggle("verdict-card--caution", !!caution);
+    $("verdict-icon").replaceChildren(spriteIcon(isPhishing || caution ? "alert" : "shield-check"));
     $("verdict-label").textContent = isPhishing
         ? t(isAttachment ? "verdict_file_phishing" : "verdict_phishing")
-        : caution ? t("verdict_file_caution") : t(isAttachment ? "verdict_file_safe" : "verdict_safe");
+        : caution === "not_read" ? t("verdict_file_caution")
+        : caution ? t("verdict_caution")
+        : t(isAttachment ? "verdict_file_safe" : "verdict_safe");
     $("verdict-sub").textContent = subline(data, isPhishing, caution, flags);
     renderTrustPill(data);
     renderArchiveFiles(data.attachment, isPhishing);

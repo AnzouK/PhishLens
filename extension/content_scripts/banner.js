@@ -15,18 +15,30 @@ const { SOURCE_LABELS } = PhishLensConstants;
 const allLinksElsewhere = (data) => data.links_elsewhere && !(data.link_alignment?.aligned > 0);
 
 // Line under the title. On a safe verdict with a high agent score it
-// explains why that score did not count, since red meters under "looks
-// safe" would read as a contradiction.
-function bannerLead(data, phishing) {
+// explains why that score did not count. In the caution style it starts
+// with "Some signs are unusual", followed by that reason when there is
+// one.
+function bannerLead(data, phishing, caution) {
     if (phishing) return t(allLinksElsewhere(data) ? "lead_links_elsewhere" : "lead_phishing");
-    if (data.forwarded?.detected) return t("lead_forwarded");
-    if (data.shared_links?.count) return t("lead_shared", { services: (data.shared_links.services || []).join(", ") });
-    if (data.text_agent_used === false) return t("lead_no_text");
-    const high = ["text", "url", "metadata"].some((k) => (data.agents?.[k]?.phishing_probability || 0) >= 0.7);
-    if (!high) return t("lead_safe");
-    if (data.trust_path === "trusted_sender" || data.trusted_sender) return t("lead_trusted");
+    const reason = safeReason(data);
+    if (!caution) return t(reason || "lead_safe", { services: sharedServices(data) });
+    return [t("lead_caution"), reason && reason !== "lead_one_signal" ? t(reason, { services: sharedServices(data) }) : ""]
+        .filter(Boolean).join(" ");
+}
+
+const sharedServices = (data) => (data.shared_links?.services || []).join(", ");
+
+// Key of the line that explains a safe verdict, or null for the plain
+// "no strong phishing signals".
+function safeReason(data) {
+    if (data.forwarded?.detected) return "lead_forwarded";
+    if (data.shared_links?.count) return "lead_shared";
+    if (data.text_agent_used === false) return "lead_no_text";
+    const high = PhishLensShared.shownScores(data).some((p) => PhishLensShared.scoreLevel(p) === "high");
+    if (!high) return null;
+    if (data.trust_path === "trusted_sender" || data.trusted_sender) return "lead_trusted";
     const byPath = { crypto_verified: "lead_crypto", outlook_internal: "lead_internal", gmail_inbox_soft: "lead_gmail" };
-    return t(byPath[data.trust_path] || "lead_one_signal");
+    return byPath[data.trust_path] || "lead_one_signal";
 }
 
 // Brand names come from the server in lower case ("la poste" becomes
@@ -41,7 +53,7 @@ function meter(label, value, offTitle = "meter_not_checked_title") {
             h("span.pll-meter__off", null, t("meter_not_checked")));
     }
     const p = Math.max(0, Math.min(100, Number(value) || 0));
-    const level = p >= 70 ? "high" : p >= 40 ? "mid" : "low";
+    const level = PhishLensShared.scoreLevel(p / 100);
     return h("div.pll-meter", { title: t("meter_title", { label, pct: p }) },
         h("span.pll-meter__l", null, label),
         h("span.pll-meter__track", null, h(`span.pll-meter__fill.pll-meter__fill--${level}`, { style: { width: `${p}%` } })),
@@ -129,18 +141,21 @@ function errorContent(data, notice = false) {
     ];
 }
 
-function verdictContent(data, phishing) {
+// kind: "danger", "caution" or "safe" (PhishLensShared.displayVerdict).
+function verdictContent(data, kind) {
+    const phishing = kind === "danger";
+    const caution = kind === "caution";
     const meta = data.agents?.metadata?.checked === false ? null : PL.pct(data.agents?.metadata?.phishing_probability);
     // With almost no text the text model did not count, so its meter
     // reads "not checked".
     const wording = data.text_agent_used === false ? null : PL.pct(data.agents?.text?.phishing_probability);
     return [
-        h("span.pll-banner__icon", null, icon(phishing ? "alert" : "shieldCheck")),
+        h("span.pll-banner__icon", null, icon(phishing || caution ? "alert" : "shieldCheck")),
         h("div.pll-banner__main", null,
             h("div.pll-banner__head", null,
-                h("span.pll-banner__title", null, t(phishing ? "verdict_phishing" : "verdict_safe")),
+                h("span.pll-banner__title", null, t(phishing ? "verdict_phishing" : caution ? "verdict_caution" : "verdict_safe")),
                 trustBadge(data)),
-            h("div.pll-banner__lead", null, bannerLead(data, phishing)),
+            h("div.pll-banner__lead", null, bannerLead(data, phishing, caution)),
             h("div.pll-meters", null,
                 meter(t("meter_wording"), wording, "meter_text_not_checked_title"),
                 meter(t("meter_links"), PL.pct(data.agents?.url?.phishing_probability)),
@@ -164,10 +179,11 @@ PL.showBanner = function showBanner(emailView, data, anchor = null) {
     old?.remove();
     const notice = data.verdict === "notice";
     const isError = notice || data.verdict === "error";
-    const phishing = data.verdict === "phishing";
-    const kind = notice ? "notice" : isError ? "error" : phishing ? "danger" : "safe";
+    // A safe verdict next to a red meter or an orange or red chip is
+    // shown in the caution style (PhishLensShared.displayVerdict).
+    const kind = notice ? "notice" : isError ? "error" : PhishLensShared.displayVerdict(data);
     const banner = h("div", { class: `pll-banner pll-banner--${kind}` });
-    banner.append(...(isError ? errorContent(data, notice) : verdictContent(data, phishing)), closeButton(banner));
+    banner.append(...(isError ? errorContent(data, notice) : verdictContent(data, kind)), closeButton(banner));
 
     const { SEL } = PhishLensGmail;
     const headerBar = emailView.querySelector(SEL.headerBar);

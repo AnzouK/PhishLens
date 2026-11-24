@@ -35,6 +35,8 @@
     "badge_gmail_title": "Gmail heeft hem in het Postvak IN bezorgd, dus de eigen SPF/DKIM/DMARC-controles zijn geslaagd. Zwakker signaal dan een volledige cryptografische controle.",
     "verdict_phishing": "Deze e-mail lijkt op phishing",
     "verdict_safe": "Deze e-mail lijkt veilig",
+    "verdict_caution": "Waarschijnlijk veilig, maar controleer het",
+    "lead_caution": "Sommige signalen zijn ongebruikelijk. Bekijk de details voordat u klikt of antwoordt.",
     "meter_wording": "Tekst",
     "meter_links": "Links",
     "meter_sender": "Afzender",

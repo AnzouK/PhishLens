@@ -12,6 +12,9 @@
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const num = (n) => Number(n || 0).toLocaleString(SITE.lang);
   const pct = (v) => Math.round((Number(v) || 0) * 100);
+  // Shared with the extension (extension/lib/shared.js, copied by
+  // scripts/build_site.py): meter levels and the caution display.
+  const SHARED = window.PhishLensShared;
   // Same-origin on the real site; PhishLens Cloud when the page is opened
   // elsewhere (local preview), which the server allows (CORS).
   const API = location.hostname === "phishlens.dev" ? "" : "https://phishlens.dev";
@@ -146,12 +149,15 @@
     if (v === null) {
       return `<div class="meter"><span>${esc(label)}</span><span class="meter__off">${esc(t("js_m_not_checked"))}</span></div>`;
     }
-    const p = pct(v), cls = p >= 70 ? " meter__fill--high" : p >= 40 ? " meter__fill--mid" : "";
+    const level = SHARED.scoreLevel(v);
+    const p = pct(v), cls = level === "low" ? "" : ` meter__fill--${level}`;
     return `<div class="meter"><span>${esc(label)}</span><span class="meter__track"><span class="meter__fill${cls}" data-w="${p}"></span></span><span class="meter__v">${p}%</span></div>`;
   }
 
   function render(d, isEmail) {
-    const bad = d.verdict === "phishing";
+    // "danger", "caution" (a safe verdict next to a red meter or an
+    // orange or red tag) or "safe", as in the extension.
+    const shown = SHARED.displayVerdict(d);
     const tags = [];
     const sa = d.sender_auth || {};
     if (sa.impersonation?.brand) {
@@ -165,14 +171,15 @@
     if (d.forwarded?.detected) tags.push(["warn", t("js_tag_forwarded")]);
     if (d.shared_links?.count) tags.push(["warn", t("js_tag_shared", { services: (d.shared_links.services || []).join(", ") })]);
     const a = d.attachment;
-    if (a) (a.notable_features || []).forEach((f) => tags.push(["warn", f.replace(/_/g, " ")]));
+    if (a) (a.notable_features || []).forEach((f) => tags.push([SHARED.isWarningFlag(f) ? "warn" : "", f.replace(/_/g, " ")]));
     out.innerHTML = `
-      <p class="verdict verdict--${bad ? "bad" : "good"}"><svg class="ic"><use href="#i-shield"/></svg>${esc(t(bad ? "js_verdict_bad" : "js_verdict_good"))}</p>
+      <p class="verdict verdict--${{ danger: "bad", caution: "warn", safe: "good" }[shown]}"><svg class="ic"><use href="#i-shield"/></svg>${esc(t({ danger: "js_verdict_bad", caution: "js_verdict_caution", safe: "js_verdict_good" }[shown]))}</p>
+      ${shown === "caution" ? `<p class="small">${esc(t("js_caution_sub"))}</p>` : ""}
       <p class="small muted">${esc(t("js_overall", { pct: pct(d.fused_score) }))}</p>
-      ${meter(t("js_m_wording"), d.agents?.text?.phishing_probability)}
+      ${meter(t("js_m_wording"), d.text_agent_used === false ? null : d.agents?.text?.phishing_probability)}
       ${meter(t("js_m_links"), d.agents?.url?.phishing_probability)}
       ${a ? "" : meter(t("js_m_sender"), d.agents?.metadata?.checked === false ? null : d.agents?.metadata?.phishing_probability)}
-      ${tags.length ? `<ul class="tags">${tags.map(([c, t]) => `<li class="${c}">${esc(t)}</li>`).join("")}</ul>` : ""}
+      ${tags.length ? `<ul class="tags">${tags.map(([c, t]) => `<li${c ? ` class="${c}"` : ""}>${esc(t)}</li>`).join("")}</ul>` : ""}
       ${isEmail ? `<h3>${esc(t("js_lime_h"))}</h3><p class="small muted">${esc(t("js_lime_hint"))}</p><div id="lime" class="status"><span class="spinner" aria-hidden="true"></span> ${esc(t("js_computing"))}</div>` : ""}`;
     out.querySelectorAll(".meter__fill").forEach((el) => { el.style.width = `${el.dataset.w}%`; });
   }

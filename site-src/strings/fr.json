@@ -143,6 +143,8 @@
   "js_tag_shared": "Fichier partagé : {services}",
   "js_verdict_bad": "Ressemble à du phishing",
   "js_verdict_good": "Semble sûr",
+  "js_verdict_caution": "Probablement sûr, mais vérifiez",
+  "js_caution_sub": "Certains signes sont inhabituels. Regardez les détails avant de cliquer ou de répondre.",
   "js_overall": "Risque de phishing : {pct} %.",
   "js_m_wording": "Texte",
   "js_m_links": "Liens",

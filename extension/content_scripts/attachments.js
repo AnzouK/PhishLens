@@ -312,7 +312,11 @@ function renderResult(card, data, filename) {
     const bad = data.verdict === "phishing";
     const a = data.attachment || {};
     const flags = a.notable_features || [];
-    const caution = !bad && isCaution(flags);
+    // Same rule as the email banner and the popup: a safe verdict next to
+    // a high score, a flagged link or a warning flag (orange chip) is
+    // shown with caution (PhishLensShared.displayVerdict).
+    const caution = PhishLensShared.displayVerdict(data) === "caution";
+    const notRead = caution && isCaution(flags);
     const isEmail = !data.attachment && !!data.agents?.metadata;   // an attached .eml
     const pct = (v) => Math.round((Number(v) || 0) * 100);
     const meta = [
@@ -326,16 +330,16 @@ function renderResult(card, data, filename) {
     const score = (label, value) => [`${label} `, h("strong", null, `${pct(value)}%`)];
     const chips = [
         data.parent_trusted && h("span.pll-att-chip.pll-att-chip--good", { title: t("att_trusted_email_title") }, t("att_trusted_email")),
-        ...flags.map((f) => h("span.pll-att-chip.pll-att-chip--warn", null, flagLabel(f))),
+        ...flags.map((f) => h(`span.pll-att-chip${PhishLensShared.isWarningFlag(f) ? ".pll-att-chip--warn" : ""}`, null, flagLabel(f))),
         ...(data.url_reputation?.sources_hit || []).map((s) => h("span.pll-att-chip.pll-att-chip--bad", null, SOURCE_LABELS[s] || s)),
     ].filter(Boolean);
 
-    setCard(card, bad ? "danger" : caution ? "error" : "safe",
+    setCard(card, bad ? "danger" : caution ? "caution" : "safe",
         cardHead(bad || caution ? "alert" : "shieldCheck",
-            t(bad ? "att_looks_phishing" : caution ? "att_cannot_look" : "att_looks_safe"), filename),
+            t(bad ? "att_looks_phishing" : notRead ? "att_cannot_look" : caution ? "verdict_caution" : "att_looks_safe"), filename),
         h("div.pll-att-banner__sub", null,
             meta && [meta, h("br")],
-            caution && [t("att_caution_text"), h("br")],
+            caution && [t(notRead ? "att_caution_text" : "lead_caution"), h("br")],
             score(t("meter_wording"), data.agents?.text?.phishing_probability), " · ",
             score(t("meter_links"), data.agents?.url?.phishing_probability),
             isEmail && [" · ", score(t("meter_sender"), data.agents?.metadata?.phishing_probability)]),

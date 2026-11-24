@@ -7,6 +7,15 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Added
+- Caution state: a safe verdict next to a red meter (70% or more) or an
+  orange or red sign (forward, shared file, failed authentication,
+  flagged link, impersonation, warning flag on a file) is shown in
+  orange, "Probably safe, but check", in the Gmail and Outlook banner,
+  the attachment cards, the popup and the website demo. One shared rule
+  (`displayVerdict` in `extension/lib/shared.js`); the verdict and the
+  scores from the server do not change.
+
 ### Changed
 - Popup: the language and report box comes after the explanation; tab
   switches have no entry animation; the 30-day chart writes one date in

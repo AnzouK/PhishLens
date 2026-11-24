@@ -82,3 +82,39 @@ test("a confirmed http:// address with a trailing slash counts", async () => {
     const refused = await new Promise((resolve) => onMessage({ type: "phishlens.health" }, { id: "test" }, resolve));
     assert.equal(refused.ok, false);
 });
+
+test("caution display: a safe verdict with a red meter or an unusual sign", () => {
+    const S = loadLib("shared.js");
+    const safe = (extra = {}) => ({
+        verdict: "safe",
+        agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.05 }, metadata: { phishing_probability: 0.2 } },
+        sender_auth: {}, url_reputation: { checked: 2, malicious_count: 0 },
+        ...extra,
+    });
+    // The meters turn red from 70% (rounded as shown).
+    assert.equal(S.scoreLevel(0.695), "high");
+    assert.equal(S.scoreLevel(0.69), "mid");
+    assert.equal(S.scoreLevel(0.39), "low");
+    assert.equal(S.displayVerdict(safe()), "safe");
+    const highText = safe();
+    highText.agents.text.phishing_probability = 0.76;
+    assert.equal(S.displayVerdict(highText), "caution");
+    // A score that is not shown does not count.
+    assert.equal(S.displayVerdict({ ...highText, text_agent_used: false }), "safe");
+    const highMeta = safe();
+    highMeta.agents.metadata = { phishing_probability: 0.9, checked: false };
+    assert.equal(S.displayVerdict(highMeta), "safe");
+    // Orange or red chips.
+    assert.equal(S.displayVerdict(safe({ forwarded: { detected: true } })), "caution");
+    assert.equal(S.displayVerdict(safe({ shared_links: { count: 1, services: ["Google Drive"] } })), "caution");
+    assert.equal(S.displayVerdict(safe({ sender_auth: { spf: "fail" } })), "caution");
+    assert.equal(S.displayVerdict(safe({ sender_auth: { impersonation: { brand: "paypal" } } })), "caution");
+    assert.equal(S.displayVerdict(safe({ url_reputation: { checked: 1, malicious_count: 1 } })), "caution");
+    // Files: a file PhishLens could not read, or another warning flag.
+    assert.equal(S.displayVerdict(safe({ attachment: { notable_features: ["encrypted_archive"] } })), "caution");
+    assert.equal(S.displayVerdict(safe({ attachment: { notable_features: ["contains_macros"] } })), "caution");
+    assert.equal(S.displayVerdict(safe({ attachment: { notable_features: ["text_from_ocr"] } })), "safe");
+    // Phishing stays danger, whatever the scores.
+    assert.equal(S.displayVerdict({ verdict: "phishing", agents: {} }), "danger");
+    assert.equal(S.displayVerdict({ ...highText, verdict: "phishing" }), "danger");
+});

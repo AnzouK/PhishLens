@@ -142,6 +142,19 @@ test("pasted text: safe verdict", async ({ page }) => {
     await expect(page.locator("#verdict-label")).toHaveText("This email looks safe");
 });
 
+test("pasted text: a safe verdict with a red score is shown with caution", async ({ page }) => {
+    const body = analyseResponse("safe");
+    body.agents.text.phishing_probability = 0.76;
+    await page.route(`${API}/analyse`, (route) => route.fulfill({ json: body }));
+    await page.goto(`${base}/popup/popup.html`);
+    await page.click('.tab[data-tab="paste"]');
+    await page.fill("#paste-input", "Hi team, please confirm the new payment details before Friday.");
+    await page.click("#analyze-btn");
+    await expect(page.locator("#verdict-label")).toHaveText("Probably safe, but check");
+    await expect(page.locator("#verdict-card")).toHaveClass(/verdict-card--caution/);
+    await expect(page.locator("#verdict-sub")).toContainText("Some signs are unusual");
+});
+
 test("an Office attachment is sent to /analyse_attachment", async ({ page }) => {
     let sent = null;
     await page.route(`${API}/analyse_attachment`, async (route) => {
