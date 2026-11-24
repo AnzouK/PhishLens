@@ -54,7 +54,9 @@ extension/                Chrome MV3 extension (plain JS, no build step)
                             PhishLensPage namespace the other files add to
   popup/                    the popup, as ES modules (one per view)
 site/                     website in 8 languages, generated from site-src/
-tests/                    extension unit tests (node:test), popup and website UI tests (Playwright)
+functions/                Cloudflare Pages Function: the API proxy of phishlens.dev
+tests/                    extension and Pages Function unit tests (node:test), popup and
+                          website UI tests (Playwright)
 docs/                     architecture, threat model, operations, languages, model
 scripts/                  website and extension builds, benchmark, load test,
                           translation review, report deletion, version check
@@ -77,7 +79,7 @@ For extension changes, lint the JavaScript too (from the repo root):
 ```bash
 npm install --no-save --no-package-lock eslint@9 globals@15
 npx eslint . --max-warnings 0
-node --test tests/extension/*.test.js
+node --test tests/extension/*.test.js tests/functions/*.test.mjs
 ```
 
 The popup and website UI tests need Playwright: `npm install --no-save @playwright/test@1`,

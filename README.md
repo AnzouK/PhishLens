@@ -156,7 +156,7 @@ JavaScript with no build step, so `extension/` in this repository is the
 same code, with its tests and lint configuration next to it.
 
 ```bash
-node --test tests/extension/*.test.js                      # unit tests, no dependency
+node --test tests/extension/*.test.js tests/functions/*.test.mjs  # unit tests, no dependency
 npx eslint . --max-warnings 0                              # eslint.config.mjs
 npx playwright test --config tests/ui/playwright.config.js # popup and website
 ```
