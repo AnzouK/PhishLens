@@ -27,8 +27,11 @@
         <span class="status" aria-live="polite"><span id="status"><span class="spinner" aria-hidden="true"></span> {{status_checking}}</span><span id="version"></span></span>
       </div>
       <figure class="shot">
-        <img src="{{b}}img/gmail-verdicts.svg" width="860" height="648"
-             alt="{{shot_alt}}">
+        <picture>
+          <source media="(max-width: 600px)" srcset="{{b}}img/gmail-verdicts-mobile.svg" width="860" height="340">
+          <img src="{{b}}img/gmail-verdicts.svg" width="860" height="648"
+               alt="{{shot_alt}}">
+        </picture>
         <figcaption>{{shot_caption}}</figcaption>
       </figure>
     </div>

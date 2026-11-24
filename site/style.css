@@ -85,7 +85,7 @@ p { margin: 0 0 1em; }
 .dot--up { background: var(--good); }
 .dot--down { background: var(--bad); }
 .shot { margin: 40px 0 0; border: 1px solid var(--line); background: var(--bg-2); padding: 14px; border-radius: var(--radius); }
-.shot img { display: block; width: 100%; height: auto; }
+.shot picture, .shot img { display: block; width: 100%; height: auto; }
 figcaption { font-size: 0.85rem; color: var(--ink-3); margin-top: 10px; }
 
 /* sections */

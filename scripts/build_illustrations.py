@@ -10,7 +10,8 @@
   light and dark.
 
 Writes docs/<name>-light.svg and docs/<name>-dark.svg, and copies the dark
-versions to site/img/ (the website is dark).
+versions to site/img/ (the website is dark). The website also gets
+gmail-verdicts-mobile.svg, the phishing banner alone, for narrow screens.
 """
 
 import base64
@@ -211,6 +212,35 @@ def popup_svg(theme: str, logo_b64: str) -> str:
 '''
 
 
+def first_banner(svg: str) -> str:
+    """The Gmail drawing cut after its first (phishing) banner, for phones,
+    where two banners side by side in height are too small to read."""
+    top, found, _ = svg.partition("  <!-- ======================= SAFE")
+    if not found:
+        raise SystemExit("gmail-verdicts.svg: no SAFE marker to cut at")
+    top = top.replace(
+        'width="860" height="648" viewBox="0 0 860 648"',
+        'width="860" height="340" viewBox="0 0 860 340"',
+        1,
+    )
+    top = top.replace('width="860" height="648" rx="18"', 'width="860" height="340" rx="18"', 1)
+    top = top.replace(
+        '<title id="t">PhishLens verdict banners in Gmail</title>',
+        '<title id="t">PhishLens phishing verdict banner in Gmail</title>',
+        1,
+    )
+    top = re.sub(
+        r'<desc id="d">.*?</desc>',
+        '<desc id="d">A PhishLens banner as it appears above an email in Gmail: a phishing '
+        "verdict with per-agent meters, threat-intelligence chips and the words that drove "
+        "the decision, then the detected language and a link to report a wrong verdict.</desc>",
+        top,
+        count=1,
+        flags=re.S,
+    )
+    return top.rstrip() + "\n</svg>\n"
+
+
 def main():
     logo = base64.b64encode((ROOT / "extension" / "icons" / "48.png").read_bytes()).decode()
     outputs = {}
@@ -229,6 +259,8 @@ def main():
         for theme, svg in variants.items():
             (DOCS / f"{name}-{theme}.svg").write_text(svg)
         shutil.copyfile(DOCS / f"{name}-dark.svg", SITE_IMG / f"{name}.svg")
+    mobile = first_banner(outputs["gmail-verdicts"]["dark"])
+    (SITE_IMG / "gmail-verdicts-mobile.svg").write_text(mobile)
     print("illustrations built:", ", ".join(f"{n}-{t}" for n in outputs for t in outputs[n]))
 
 
