@@ -141,6 +141,7 @@
     "flag_disk_image_attachment": "hoton faifai",
     "flag_disk_image_in_archive": "hoton faifai a ciki",
     "flag_double_extension": "ƙarshen suna na ƙarya",
+    "flag_embedded_ole_object": "abin da aka saka",
     "flag_embeds_another_file": "fayil da aka saka",
     "flag_encrypted_archive": "ma'ajiya mai kalmar sirri",
     "flag_encrypted_document": "takarda mai kalmar sirri",

@@ -140,6 +140,7 @@
     "flag_disk_image_attachment": "schijfkopie",
     "flag_disk_image_in_archive": "schijfkopie erin",
     "flag_double_extension": "valse extensie",
+    "flag_embedded_ole_object": "ingesloten object",
     "flag_embeds_another_file": "ingesloten bestand",
     "flag_encrypted_archive": "archief met wachtwoord",
     "flag_encrypted_document": "document met wachtwoord",

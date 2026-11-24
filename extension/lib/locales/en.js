@@ -140,6 +140,7 @@
     "flag_disk_image_attachment": "disk image",
     "flag_disk_image_in_archive": "disk image inside",
     "flag_double_extension": "fake extension",
+    "flag_embedded_ole_object": "embedded object",
     "flag_embeds_another_file": "embedded file",
     "flag_encrypted_archive": "password-protected archive",
     "flag_encrypted_document": "password-protected document",
