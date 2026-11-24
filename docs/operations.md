@@ -92,18 +92,6 @@ headers of `site/_headers`.
 
 ### Deploy or update
 
-On a Docker host, `scripts/redeploy.sh` does it in one command. It pulls
-`origin/main`, builds, restarts, waits for `/health`, runs a test scan,
-and goes back to the previous image if the new one is not healthy.
-
-```bash
-bash ~/PhishLens/scripts/redeploy.sh              # update and redeploy
-bash ~/PhishLens/scripts/redeploy.sh --no-pull    # rebuild the current checkout
-bash ~/PhishLens/scripts/redeploy.sh --rollback   # back to the previous image
-```
-
-By hand:
-
 ```bash
 cd ~/PhishLens/backend
 docker build -f Dockerfile.cloud -t phishlens .
@@ -244,10 +232,9 @@ email of about 250 tokens takes about 190 ms
 
 ## Backups
 
-On a self-hosted server, `scripts/backup.sh` archives what the
-repository cannot rebuild (env file, proxy configuration, data folder)
-to an [rclone](https://rclone.org) remote. Use a crypt remote, because
-the archive holds the env file.
+On a self-hosted server, back up what the repository cannot rebuild: the
+env file and the data folder (encrypted, because the env file holds the
+keys).
 
 PhishLens Cloud has no such files. The code and the image are on GitHub,
 the settings on the Cloud Run service, the keys in Secret Manager, and
