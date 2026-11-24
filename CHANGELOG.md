@@ -41,6 +41,14 @@ backend share one version number.
   in 8 languages); closing it or picking a language is remembered in
   localStorage, so the bar does not come back. The privacy policy says
   so (8 languages).
+- Popup CSS is one layer: the `!important` overrides at the end of
+  `popup.css` are merged into the rules they replaced (961 lines instead
+  of 1033, no `!important`, no gradient or shadow left). Same look, except
+  the last rounded leftovers (trusted-sender tag, ratio and word bars,
+  tabs frame, language menu, server URL field, words, small buttons) now
+  use the 4 px radius, the language menu has no glow when clicked, and
+  the light theme's raised surfaces are off-white (#fbf9f4) instead of
+  pure white.
 
 ### Fixed
 - Popup: signal badges were dark red on the dark background when no
