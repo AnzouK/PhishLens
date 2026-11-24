@@ -30,8 +30,8 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../style.css?v=71cb21ed88">
-<script src="../i18n/it.js?v=80e0f4966c" defer></script>
+<link rel="stylesheet" href="../style.css?v=01e5c53b34">
+<script src="../i18n/it.js?v=7206f88421" defer></script>
 <script src="../lang.js?v=074b2a25f3" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -121,7 +121,7 @@
 
   <section class="hero">
     <div class="wrap">
-      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> Estensione di Chrome · Gmail + Outlook · 8 lingue · open source</p>
+      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> <span class="nw">Estensione di Chrome</span> · <span class="nw">Gmail + Outlook</span> · <span class="nw">8 lingue</span> · <span class="nw">open source</span></p>
       <h1>Scopri perché un'email è phishing.</h1>
       <p class="lead">PhishLens aggiunge un verdetto sopra ogni email in Gmail e Outlook: un punteggio per controllo, i segnali trovati e le parole che hanno pesato di più. Fai clic su Analizza, o lascia che controlli da solo le nuove email.</p>
       <div class="row">
@@ -129,8 +129,11 @@
         <span class="status" aria-live="polite"><span id="status"><span class="spinner" aria-hidden="true"></span> verifica del server</span><span id="version"></span></span>
       </div>
       <figure class="shot">
-        <img src="../img/gmail-verdicts.svg" width="860" height="648"
-             alt="Due avvisi di PhishLens sopra delle email in Gmail. Il primo dice che l'email sembra phishing, con punteggi del 97% per il testo, 88% per i link e 74% per il mittente, etichette per un rilevamento di Safe Browsing, un errore DMARC e una presenza in Spamhaus, e le parole che hanno portato al verdetto. Il secondo dice che l'email sembra sicura perché il mittente è nella lista di fiducia.">
+        <picture>
+          <source media="(max-width: 600px)" srcset="../img/gmail-verdicts-mobile.svg" width="860" height="340">
+          <img src="../img/gmail-verdicts.svg" width="860" height="648"
+               alt="Due avvisi di PhishLens sopra delle email in Gmail. Il primo dice che l'email sembra phishing, con punteggi del 97% per il testo, 88% per i link e 74% per il mittente, etichette per un rilevamento di Safe Browsing, un errore DMARC e una presenza in Spamhaus, e le parole che hanno portato al verdetto. Il secondo dice che l'email sembra sicura perché il mittente è nella lista di fiducia.">
+        </picture>
         <figcaption>L'avviso che PhishLens aggiunge sopra un'email (disegno dell'interfaccia reale, in inglese; prova la stessa analisi più in basso).</figcaption>
       </figure>
     </div>
@@ -144,7 +147,10 @@
         <p class="lbl">del phishing rilevato dal sistema completo, in email reali recenti<span class="ci">intervallo di confidenza al 95%: dall'88,8% al 91,4%</span></p>
       </div>
       <p class="facts">0 email su 117 da caselle reali segnalate (al massimo 3,2%), 1 su 297 da mailing list · circa 190 ms per email sul server · verificato su phishing reale in 6 delle 22 lingue che legge il modello del testo</p>
-      <p class="note">Misurato su PhishLens Cloud il 1º novembre 2026 con il benchmark pubblico: 1.804 su 2.000 email di phishing recenti, in più lingue, scelte tra quelle che nessuno aveva esaminato durante le regolazioni (intervallo di confidenza al 95%: 88,8% - 91,4%), e 1 su 414 email legittime (297 da mailing list pubbliche, 117 da caselle reali; 0,0% - 1,4%). Il tempo di analisi è la mediana per una email tipica (circa 250 token); una breve richiede circa 65 ms. Le email delle mailing list sono servite durante le regolazioni, e quelle di phishing sono state rimisurate dopo le modifiche della 2.0.12: la prossima misura userà un insieme nuovo. Un ordine di grandezza, non una garanzia: vedi <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">come è stato misurato</a> e i <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limiti noti</a>.</p>
+      <details class="note method">
+        <summary>Come è stato misurato</summary>
+        <p>Misurato su PhishLens Cloud il 1º novembre 2026 con il benchmark pubblico: 1.804 su 2.000 email di phishing recenti, in più lingue, scelte tra quelle che nessuno aveva esaminato durante le regolazioni (intervallo di confidenza al 95%: 88,8% - 91,4%), e 1 su 414 email legittime (297 da mailing list pubbliche, 117 da caselle reali; 0,0% - 1,4%). Il tempo di analisi è la mediana per una email tipica (circa 250 token); una breve richiede circa 65 ms. Le email delle mailing list sono servite durante le regolazioni, e quelle di phishing sono state rimisurate dopo le modifiche della 2.0.12: la prossima misura userà un insieme nuovo. Un ordine di grandezza, non una garanzia: vedi <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">come è stato misurato</a> e i <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limiti noti</a>.</p>
+      </details>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, in questo momento</h3>
       <div class="strip" id="live" aria-live="polite">

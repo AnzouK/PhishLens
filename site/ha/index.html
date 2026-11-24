@@ -30,8 +30,8 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../style.css?v=71cb21ed88">
-<script src="../i18n/ha.js?v=80e0f4966c" defer></script>
+<link rel="stylesheet" href="../style.css?v=01e5c53b34">
+<script src="../i18n/ha.js?v=7206f88421" defer></script>
 <script src="../lang.js?v=074b2a25f3" defer></script>
 <script src="../nav.js?v=a5d4bfcf41" defer></script>
 <script type="application/ld+json">
@@ -121,7 +121,7 @@
 
   <section class="hero">
     <div class="wrap">
-      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> Ƙarin Chrome · Gmail + Outlook · harsuna 8 · buɗaɗɗen tushe</p>
+      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> <span class="nw">Ƙarin Chrome</span> · <span class="nw">Gmail + Outlook</span> · <span class="nw">harsuna 8</span> · <span class="nw">buɗaɗɗen tushe</span></p>
       <h1>Ga dalilin da yasa imel yake phishing.</h1>
       <p class="lead">PhishLens yana ƙara hukunci a saman kowane imel a Gmail da Outlook: maki ɗaya ga kowane bincike, alamun da ya samu, da kalmomin da suka fi nauyi. Danna Duba, ko bari ya duba sababbin imel da kansa.</p>
       <div class="row">
@@ -129,8 +129,11 @@
         <span class="status" aria-live="polite"><span id="status"><span class="spinner" aria-hidden="true"></span> ana duba sabar</span><span id="version"></span></span>
       </div>
       <figure class="shot">
-        <img src="../img/gmail-verdicts.svg" width="860" height="648"
-             alt="Tutoci biyu na PhishLens a saman imel a Gmail. Na farko ya ce imel ɗin yana kama da phishing, da maki 97% na rubutu, 88% na hanyoyin haɗi da 74% na mai aikawa, alamomi na gano Safe Browsing, gazawar DMARC da kasancewa cikin jerin Spamhaus, da kalmomin da suka kawo hukuncin. Na biyu ya ce imel ɗin yana kama da amintacce saboda mai aikawa yana cikin jerin amintattu.">
+        <picture>
+          <source media="(max-width: 600px)" srcset="../img/gmail-verdicts-mobile.svg" width="860" height="340">
+          <img src="../img/gmail-verdicts.svg" width="860" height="648"
+               alt="Tutoci biyu na PhishLens a saman imel a Gmail. Na farko ya ce imel ɗin yana kama da phishing, da maki 97% na rubutu, 88% na hanyoyin haɗi da 74% na mai aikawa, alamomi na gano Safe Browsing, gazawar DMARC da kasancewa cikin jerin Spamhaus, da kalmomin da suka kawo hukuncin. Na biyu ya ce imel ɗin yana kama da amintacce saboda mai aikawa yana cikin jerin amintattu.">
+        </picture>
         <figcaption>Tutar da PhishLens ke ƙarawa a saman imel (zanen ainihin manhajar, da Turanci; gwada irin wannan bincike a ƙasa).</figcaption>
       </figure>
     </div>
@@ -144,7 +147,10 @@
         <p class="lbl">na phishing da cikakken tsarin ya gano, a imel na gaske na baya-bayan nan<span class="ci">tazarar amincewa ta 95%: 88.8% zuwa 91.4%</span></p>
       </div>
       <p class="facts">imel 0 cikin 117 daga akwatunan gaske aka yi wa alama (a mafi yawa 3.2%), 1 cikin 297 daga jerin aikawa · kusan 190 ms ga kowane imel a sabar · an gwada da phishing na gaske a harsuna 6 cikin 22 da samfurin rubutu ke karantawa</p>
-      <p class="note">An auna a PhishLens Cloud ranar 1 ga Nuwamba, 2026 da benchmark na jama'a: imel na phishing 1,804 daga cikin 2,000 na baya-bayan nan, a harsuna da dama, waɗanda babu wanda ya duba lokacin gyare-gyare (tazarar amincewa ta 95%: 88.8% zuwa 91.4%), da imel na halal 1 daga cikin 414 (297 daga jerin aikawa na jama'a, 117 daga akwatunan gaske; 0.0% zuwa 1.4%). Lokacin bincike shi ne matsakaici na imel na yau da kullum (kusan tokens 250); gajeren imel yana ɗaukar kusan 65 ms. An yi amfani da imel na jerin aikawa lokacin gyare-gyare, kuma an sake auna imel na phishing bayan sauye-sauyen 2.0.12: auna na gaba zai yi amfani da sabon rukuni. Ƙiyasi ne, ba tabbaci ba: duba <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">yadda aka auna</a> da <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">iyakokin da aka sani</a>.</p>
+      <details class="note method">
+        <summary>Yadda aka auna</summary>
+        <p>An auna a PhishLens Cloud ranar 1 ga Nuwamba, 2026 da benchmark na jama'a: imel na phishing 1,804 daga cikin 2,000 na baya-bayan nan, a harsuna da dama, waɗanda babu wanda ya duba lokacin gyare-gyare (tazarar amincewa ta 95%: 88.8% zuwa 91.4%), da imel na halal 1 daga cikin 414 (297 daga jerin aikawa na jama'a, 117 daga akwatunan gaske; 0.0% zuwa 1.4%). Lokacin bincike shi ne matsakaici na imel na yau da kullum (kusan tokens 250); gajeren imel yana ɗaukar kusan 65 ms. An yi amfani da imel na jerin aikawa lokacin gyare-gyare, kuma an sake auna imel na phishing bayan sauye-sauyen 2.0.12: auna na gaba zai yi amfani da sabon rukuni. Ƙiyasi ne, ba tabbaci ba: duba <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">yadda aka auna</a> da <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">iyakokin da aka sani</a>.</p>
+      </details>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, a yanzu</h3>
       <div class="strip" id="live" aria-live="polite">
