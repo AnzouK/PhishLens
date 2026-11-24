@@ -18,7 +18,7 @@
   "f_security": "Segurança",
   "f_model": "Modelo",
   "hero_tag": "Extensão do Chrome · Gmail + Outlook · 8 idiomas · código aberto",
-  "hero_h1": "Veja porque um e-mail é phishing.",
+  "hero_h1": "Veja porque um e‑mail é phishing.",
   "hero_lead": "O PhishLens acrescenta um veredito sobre cada e-mail no Gmail e no Outlook: uma pontuação por verificação, os sinais encontrados e as palavras que mais pesaram. Clique em Analisar, ou deixe-o verificar sozinho os novos e-mails.",
   "status_checking": "a verificar o servidor",
   "shot_alt": "Duas faixas do PhishLens sobre e-mails no Gmail. A primeira diz que o e-mail parece phishing, com pontuações de 97% para o texto, 88% para os links e 74% para o remetente, etiquetas para uma deteção do Safe Browsing, uma falha DMARC e uma listagem no Spamhaus, e as palavras que levaram ao veredito. A segunda diz que o e-mail parece seguro porque o remetente está na lista de confiança.",

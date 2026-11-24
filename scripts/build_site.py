@@ -304,7 +304,11 @@ def build_lang(lang: str, strings: dict[str, dict[str, str]]) -> None:
     )
     page = page.replace("{{>header}}", header(lang, s, base=base, page="index.html"))
     page = page.replace("{{>footer}}", footer(lang, s, base=base).lstrip("\n"))
-    write(folder / "index.html", fill(page, s, b=base))
+    # Each item of the hero tag line stays on one line ("8 talen").
+    tag_items = " · ".join(
+        f'<span class="nw">{esc(item)}</span>' for item in s["hero_tag"].split(" · ")
+    )
+    write(folder / "index.html", fill(page, s, b=base, tag_items=tag_items))
 
     for name, md in (("privacy.html", "PRIVACY.md"), ("terms.html", "TERMS.md")):
         source = ROOT / md if lang == "en" else SRC / "legal" / lang / md

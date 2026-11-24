@@ -18,7 +18,7 @@
   "f_security": "Beveiliging",
   "f_model": "Model",
   "hero_tag": "Chrome-extensie · Gmail + Outlook · 8 talen · open source",
-  "hero_h1": "Zie waarom een e-mail phishing is.",
+  "hero_h1": "Zie waarom een e‑mail phishing is.",
   "hero_lead": "PhishLens zet een oordeel boven elke e-mail in Gmail en Outlook: een score per controle, de gevonden signalen en de woorden die het zwaarst wogen. Klik op Controleren, of laat het nieuwe e-mails zelf controleren.",
   "status_checking": "server wordt gecontroleerd",
   "shot_alt": "Twee PhishLens-meldingen boven e-mails in Gmail. De eerste zegt dat de e-mail op phishing lijkt, met scores van 97% voor de tekst, 88% voor de links en 74% voor de afzender, labels voor een Safe Browsing-melding, een mislukte DMARC-controle en een Spamhaus-vermelding, en de woorden achter het oordeel. De tweede zegt dat de e-mail veilig lijkt omdat de afzender op de vertrouwde lijst staat.",
