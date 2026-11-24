@@ -87,7 +87,6 @@
     "att_err_no_url": "Link di download dell'allegato non trovato: prova ad aggiornare Gmail",
     "att_err_download": "Download non riuscito (HTTP {status})",
     "att_err_too_large": "File troppo grande ({size} MB, massimo {max} MB)",
-    "att_err_backend": "Errore del server",
     "att_could_not_scan": "Analisi impossibile",
     "retry": "Riprova",
     "att_trusted_email": "Email attendibile",

@@ -87,7 +87,6 @@
     "att_err_no_url": "Link de transferência do anexo não encontrado: tente atualizar o Gmail",
     "att_err_download": "Falha na transferência (HTTP {status})",
     "att_err_too_large": "Ficheiro demasiado grande ({size} MB, máximo {max} MB)",
-    "att_err_backend": "Erro do servidor",
     "att_could_not_scan": "Não foi possível analisar",
     "retry": "Tentar novamente",
     "att_trusted_email": "E-mail de confiança",

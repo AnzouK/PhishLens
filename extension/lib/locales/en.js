@@ -87,7 +87,6 @@
     "att_err_no_url": "Could not find the attachment download URL: try refreshing Gmail",
     "att_err_download": "Download failed (HTTP {status})",
     "att_err_too_large": "File too large ({size} MB, max {max} MB)",
-    "att_err_backend": "Server error",
     "att_could_not_scan": "Could not scan",
     "retry": "Retry",
     "att_trusted_email": "Trusted email",

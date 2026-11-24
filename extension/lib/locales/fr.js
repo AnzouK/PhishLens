@@ -87,7 +87,6 @@
     "att_err_no_url": "Lien de téléchargement de la pièce jointe introuvable : essayez d'actualiser Gmail",
     "att_err_download": "Échec du téléchargement (HTTP {status})",
     "att_err_too_large": "Fichier trop volumineux ({size} Mo, {max} Mo au maximum)",
-    "att_err_backend": "Erreur du serveur",
     "att_could_not_scan": "Analyse impossible",
     "retry": "Réessayer",
     "att_trusted_email": "E-mail de confiance",

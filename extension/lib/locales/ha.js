@@ -88,7 +88,6 @@
     "att_err_no_url": "Ba a sami hanyar sauke haɗe-haɗen ba: gwada sabunta Gmail",
     "att_err_download": "Saukewa ya kasa (HTTP {status})",
     "att_err_too_large": "Fayil ya yi girma sosai ({size} MB, mafi yawa {max} MB)",
-    "att_err_backend": "Kuskuren sabar",
     "att_could_not_scan": "Ba a iya dubawa ba",
     "retry": "Sake gwadawa",
     "att_trusted_email": "Amintaccen imel",

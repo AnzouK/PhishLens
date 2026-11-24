@@ -87,7 +87,6 @@
     "att_err_no_url": "Download-Link des Anhangs nicht gefunden: Laden Sie Gmail neu",
     "att_err_download": "Download fehlgeschlagen (HTTP {status})",
     "att_err_too_large": "Datei zu groß ({size} MB, höchstens {max} MB)",
-    "att_err_backend": "Serverfehler",
     "att_could_not_scan": "Prüfung nicht möglich",
     "retry": "Erneut versuchen",
     "att_trusted_email": "Vertrauenswürdige E-Mail",

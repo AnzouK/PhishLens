@@ -87,7 +87,6 @@
     "att_err_no_url": "Downloadlink van de bijlage niet gevonden: probeer Gmail te vernieuwen",
     "att_err_download": "Downloaden mislukt (HTTP {status})",
     "att_err_too_large": "Bestand te groot ({size} MB, maximaal {max} MB)",
-    "att_err_backend": "Serverfout",
     "att_could_not_scan": "Controle niet mogelijk",
     "retry": "Opnieuw proberen",
     "att_trusted_email": "Vertrouwde e-mail",
