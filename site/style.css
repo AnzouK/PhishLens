@@ -286,8 +286,11 @@ main, section, .wrap > * { min-width: 0; }
 .lang-menu li a:hover { color: var(--ink); background: var(--bg-3); }
 .lang-menu li a[aria-current="page"] { color: var(--accent); }
 .site-nav .lang-menu a { display: block; }
-.lang-suggest { margin: 0; padding: 8px 28px; text-align: center; font-size: 0.93rem;
-  background: var(--bg-2); border-bottom: 1px solid var(--line); }
+.lang-suggest { margin: 0; padding: 8px 28px; display: flex; justify-content: center; align-items: center;
+  gap: 14px; font-size: 0.93rem; background: var(--bg-2); border-bottom: 1px solid var(--line); }
+.lang-suggest__close { font: 1.1rem/1 var(--sans); color: var(--ink-2); background: none; padding: 3px 8px;
+  border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
+.lang-suggest__close:hover { color: var(--ink); border-color: var(--ink-3); }
 .legal-note { font-size: 0.9rem; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius); }
 
 /* back to top */

@@ -114,6 +114,7 @@
   "nf_p1": "Non c'è nulla a questo indirizzo. La pagina potrebbe essere stata spostata, o il link potrebbe contenere un errore.",
   "nf_p2_html": "Puoi andare alla <a href=\"{home}\">pagina iniziale</a>, <a href=\"{home}#try\">controllare un'email</a> o leggere l'<a href=\"{b}privacy\">informativa sulla privacy</a>.",
   "suggest": "Leggi questa pagina in italiano",
+  "suggest_dismiss": "Chiudi questo suggerimento",
   "js_online": "server online",
   "js_offline": "server non raggiungibile al momento",
   "js_version": " · versione {v}",

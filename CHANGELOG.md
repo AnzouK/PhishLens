@@ -37,6 +37,10 @@ backend share one version number.
 - Website: the button at the end of the install steps says "Download
   from GitHub", since it opens the releases page; the header and hero
   buttons keep "Install PhishLens" and lead to the install steps.
+- Website: the "Read this page in ..." bar has a close button (labelled
+  in 8 languages); closing it or picking a language is remembered in
+  localStorage, so the bar does not come back. The privacy policy says
+  so (8 languages).
 
 ### Fixed
 - Popup: signal badges were dark red on the dark background when no

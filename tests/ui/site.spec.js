@@ -1,6 +1,7 @@
 // Website smoke tests. Every language version loads, app.js uses the
 // page's language, the language menu links work and an English page
-// offers the visitor's language. The site is served over HTTP and every
+// offers the visitor's language (until it is closed or a language is
+// picked). The site is served over HTTP and every
 // call to PhishLens Cloud or GitHub is intercepted.
 "use strict";
 const { test, expect } = require("@playwright/test");
@@ -90,6 +91,26 @@ test.describe("a French browser on an English page", () => {
         const link = page.locator(".lang-suggest a");
         await expect(link).toHaveText("Lire cette page en français");
         await expect(link).toHaveAttribute("href", "fr/terms");
+    });
+
+    test("can close the suggestion, which then stays closed", async ({ page }) => {
+        await page.goto(`${base}/`);
+        const close = page.getByRole("button", { name: "Fermer cette suggestion" });
+        await close.focus();
+        await page.keyboard.press("Enter");
+        await expect(page.locator(".lang-suggest")).toHaveCount(0);
+        await page.goto(`${base}/terms`);
+        await expect(page.locator(".site-head")).toBeVisible();
+        await expect(page.locator(".lang-suggest")).toHaveCount(0);
+    });
+
+    test("is not offered again once a language was picked", async ({ page }) => {
+        await page.goto(`${base}/`);
+        await page.click(".lang-suggest a");
+        await expect(page).toHaveURL(`${base}/fr/`);
+        await page.goto(`${base}/privacy`);
+        await expect(page.locator(".site-head")).toBeVisible();
+        await expect(page.locator(".lang-suggest")).toHaveCount(0);
     });
 });
 

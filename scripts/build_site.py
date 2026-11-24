@@ -332,6 +332,8 @@ def build_lang(lang: str, strings: dict[str, dict[str, str]]) -> None:
         "langs": {code: {"name": name, "path": prefix(code)} for code, name in LANGS.items()},
         # "Read this page in ..." in every language, for lang.js
         "suggest": {code: strings[code]["suggest"] for code in LANGS},
+        # the label of its close button, in the same language
+        "suggestDismiss": {code: strings[code]["suggest_dismiss"] for code in LANGS},
     }
     write(
         OUT / "i18n" / f"{lang}.js",

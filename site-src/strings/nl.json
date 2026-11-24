@@ -114,6 +114,7 @@
   "nf_p1": "Er staat niets op dit adres. De pagina is misschien verplaatst, of de link bevat een typefout.",
   "nf_p2_html": "U kunt naar de <a href=\"{home}\">startpagina</a> gaan, <a href=\"{home}#try\">een e-mail controleren</a> of het <a href=\"{b}privacy\">privacybeleid</a> lezen.",
   "suggest": "Deze pagina in het Nederlands lezen",
+  "suggest_dismiss": "Deze suggestie sluiten",
   "js_online": "server online",
   "js_offline": "server op dit moment niet bereikbaar",
   "js_version": " · versie {v}",

@@ -114,6 +114,7 @@
   "nf_p1": "Babu komai a wannan adireshi. Wataƙila an motsa shafin, ko hanyar haɗin tana da kuskure.",
   "nf_p2_html": "Za ka iya zuwa <a href=\"{home}\">shafin farko</a>, <a href=\"{home}#try\">duba imel</a>, ko karanta <a href=\"{b}privacy\">manufar sirri</a>.",
   "suggest": "Karanta wannan shafin da Hausa",
+  "suggest_dismiss": "Rufe wannan shawara",
   "js_online": "sabar tana aiki",
   "js_offline": "ba a iya kai wa sabar a yanzu ba",
   "js_version": " · siga {v}",

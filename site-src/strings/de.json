@@ -114,6 +114,7 @@
   "nf_p1": "Unter dieser Adresse gibt es nichts. Die Seite wurde vielleicht verschoben, oder der Link enthält einen Tippfehler.",
   "nf_p2_html": "Sie können zur <a href=\"{home}\">Startseite</a> gehen, <a href=\"{home}#try\">eine E-Mail prüfen</a> oder die <a href=\"{b}privacy\">Datenschutzerklärung</a> lesen.",
   "suggest": "Diese Seite auf Deutsch lesen",
+  "suggest_dismiss": "Diesen Vorschlag schließen",
   "js_online": "Server online",
   "js_offline": "Server gerade nicht erreichbar",
   "js_version": " · Version {v}",
