@@ -19,9 +19,11 @@ function timeAgo(ts) {
 }
 
 // One column per day. The chart is 84 px high, 18 of them for the date.
+// One date in seven is written, counted back from today, so the labels
+// do not overlap.
 function dailyChart(days) {
     const maxDaily = Math.max(1, ...days.map((d) => d.phishing + d.safe));
-    return days.map((d) => {
+    return days.map((d, i) => {
         const total = d.phishing + d.safe;
         const height = total ? Math.max(3, Math.round((total / maxDaily) * 62)) : 0;
         const phishH = total ? Math.round((d.phishing / total) * 100) : 0;
@@ -29,7 +31,7 @@ function dailyChart(days) {
             h("div.dc-stack", { style: { height: `${height}px` } },
                 h("span.dc-phishing", { style: { height: `${phishH}%` } }),
                 h("span.dc-safe", { style: { height: `${100 - phishH}%` } })),
-            h("div.dc-label", null, d.date.slice(5)));
+            h("div.dc-label", null, (days.length - 1 - i) % 7 === 0 ? d.date.slice(5) : ""));
     });
 }
 
