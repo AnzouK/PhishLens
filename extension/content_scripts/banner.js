@@ -65,6 +65,13 @@ function trustBadge(data) {
 
 const chip = (kind, text, title) => h(`span.pll-chip${kind ? ".pll-chip--" + kind : ""}`, { title }, text);
 
+// Chips are shown worst first: bad, then warn, then good, then neutral.
+const CHIP_ORDER = ["pll-chip--bad", "pll-chip--warn", "pll-chip--good"];
+const chipRank = (c) => {
+    const i = CHIP_ORDER.findIndex((cls) => c.classList.contains(cls));
+    return i < 0 ? CHIP_ORDER.length : i;
+};
+
 function signalChips(data) {
     const chips = [];
     const imp = data.sender_auth?.impersonation;
@@ -100,6 +107,8 @@ function signalChips(data) {
     else if (auth.dkim === "fail") chips.push(chip("bad", t("chip_dkim_fail"), t("chip_dkim_fail_title")));
     else if (auth.spf === "fail") chips.push(chip("warn", t("chip_spf_fail"), t("chip_spf_fail_title")));
     if (auth.spamhaus_dbl_listed) chips.push(chip("bad", t("chip_spamhaus"), t("chip_spamhaus_title")));
+    // Array.prototype.sort is stable, so chips of one kind keep their order.
+    chips.sort((a, b) => chipRank(a) - chipRank(b));
     return chips.length ? h("div.pll-signals", null, chips) : null;
 }
 
