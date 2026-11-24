@@ -21,13 +21,16 @@
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16.5px/1.6 var(--sans); }
+/* The footer stays at the bottom of short pages (404). */
+body { display: flex; flex-direction: column; min-height: 100vh; }
+body > main { flex: 1 0 auto; width: 100%; }
 img, svg { max-width: 100%; height: auto; }
 a { color: var(--accent); text-underline-offset: 3px; }
 a:hover { text-decoration-thickness: 2px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 code, kbd, pre { font-family: var(--mono); font-size: 0.88em; }
 code { background: var(--bg-3); padding: 0.1em 0.4em; border-radius: var(--radius); }
-pre { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; overflow-x: auto; }
+pre { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; overflow-x: auto; white-space: pre; }
 h1, h2, h3 { line-height: 1.15; letter-spacing: -0.01em; }
 h1 { font-size: clamp(2.4rem, 6.4vw, 3.6rem); letter-spacing: -0.025em; line-height: 1.04; margin: 0 0 20px; max-width: 16ch; }
 h2 { font-size: clamp(1.4rem, 2.6vw, 1.7rem); margin: 0 0 22px; display: flex; gap: 14px; align-items: baseline; }
@@ -161,7 +164,8 @@ td.num { font-family: var(--mono); white-space: nowrap; color: var(--ink); }
 .prose ul { padding-left: 1.2em; }
 
 /* footer */
-.site-foot { border-top: 1px solid var(--line); padding: 28px 0 40px; font-size: 0.88rem; color: var(--ink-3); }
+/* The bottom padding keeps the links clear of the back-to-top button. */
+.site-foot { border-top: 1px solid var(--line); padding: 28px 0 72px; font-size: 0.88rem; color: var(--ink-3); }
 .site-foot .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; }
 .site-foot nav { display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .site-foot a { color: var(--ink-2); }
@@ -235,6 +239,8 @@ textarea:focus { outline: none; border-color: var(--ink-3); }
 .error-msg { color: var(--bad); font-size: 0.9rem; margin: 6px 0 0; min-height: 1.4em; }
 .foot { margin-top: 6px; }
 .result { min-height: 100%; }
+/* Before the first run the result panel only holds one line. */
+.result:has(> .result-empty) { align-self: start; min-height: 0; }
 
 /* install */
 .install { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px; }
@@ -249,7 +255,7 @@ ol.steps b { color: var(--ink); }
 .hp { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
 
 /* mobile: nothing may be wider than the screen */
-pre { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
+pre { max-width: 100%; }
 main, section, .wrap > * { min-width: 0; }
 @media (max-width: 600px) {
   .wrap { padding: 0 18px; }
