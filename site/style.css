@@ -39,7 +39,6 @@ p { margin: 0 0 1em; }
 .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 28px; }
 .muted { color: var(--ink-2); }
 .small { font-size: 0.88rem; }
-.mono { font-family: var(--mono); }
 .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 .mt { margin-top: 14px; }
 .row { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; }
