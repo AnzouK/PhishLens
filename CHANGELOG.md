@@ -17,6 +17,10 @@ backend share one version number.
   scores from the server do not change.
 
 ### Changed
+- Words that point to phishing are red everywhere: the popup showed
+  them in orange while the banner, the website and the drawings used
+  red. Every sentence about the colours now says red (8 languages), and
+  the Gmail drawing's phishing words are red too.
 - Popup: the language and report box comes after the explanation; tab
   switches have no entry animation; the 30-day chart writes one date in
   seven; history rows space their details and keep Right and Wrong on

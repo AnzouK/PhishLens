@@ -55,7 +55,7 @@ GMAIL_DARK = {
     "#dadce0": "#3a4049",  # lines
     "#e8eaed": "#3a4049",  # meter tracks
     "#e8590c": "#ff8a4c",  # accent
-    "#9c2c00": "#ffb08a",  # text on orange token
+    "#8c1d18": "#ffb4ab",  # text on red (phishing) token
 }
 
 

@@ -17,6 +17,7 @@
   --success:      #3fb950;
   --success-soft: rgba(63, 185, 80, 0.14);
   --danger:       #f85149;
+  --danger-rgb:   248, 81, 73;
   --danger-soft:  rgba(248, 81, 73, 0.14);
   --warn:         #d29922;
   --warn-soft:    rgba(210, 153, 34, 0.14);
@@ -576,9 +577,9 @@ body {
   white-space: nowrap;
 }
 .token--phishing {
-  background: rgba(255, 107, 53, var(--a, 0.14));
-  border-color: var(--accent-fade);
-  color: var(--accent);
+  background: rgba(var(--danger-rgb), var(--a, 0.14));
+  border-color: rgba(var(--danger-rgb), 0.3);
+  color: var(--danger);
 }
 .token--safe {
   background: rgba(63, 185, 80, var(--a, 0.14));
@@ -936,6 +937,7 @@ body {
   --success:      #6fcf8a;
   --success-soft: rgba(111, 207, 138, 0.14);
   --danger:       #f2877b;
+  --danger-rgb:   242, 135, 123;
   --danger-soft:  rgba(242, 135, 123, 0.14);
   --warn:         #e3b55b;
   --warn-soft:    rgba(227, 181, 91, 0.14);
@@ -956,6 +958,7 @@ body {
   --accent-2:     #a83d0e;
   --success:      #2c6b38;
   --danger:       #a3271c;
+  --danger-rgb:   163, 39, 28;
   --warn:         #7a5200;
   --accent-soft:  rgba(168, 61, 14, 0.10);
   --accent-fade:  rgba(168, 61, 14, 0.16);

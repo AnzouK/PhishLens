@@ -49,12 +49,12 @@
   <text x="98" y="218" font-size="12.5" font-weight="600" fill="#e8590c">Why this verdict?</text>
   <path d="M212 212l4 4 4-4" class="ic" stroke="#e8590c" stroke-width="1.6"/>
   <g class="mono" font-size="12">
-    <rect x="98" y="230" width="62" height="24" rx="6" fill="#e8590c" fill-opacity=".42" stroke="#e8590c" stroke-opacity=".35"/><text x="108" y="246" class="mono" fill="#9c2c00">verify</text>
-    <rect x="166" y="230" width="90" height="24" rx="6" fill="#e8590c" fill-opacity=".34" stroke="#e8590c" stroke-opacity=".35"/><text x="176" y="246" class="mono" fill="#9c2c00">suspended</text>
-    <rect x="262" y="230" width="106" height="24" rx="6" fill="#e8590c" fill-opacity=".26" stroke="#e8590c" stroke-opacity=".35"/><text x="272" y="246" class="mono" fill="#9c2c00">immediately</text>
-    <rect x="374" y="230" width="72" height="24" rx="6" fill="#e8590c" fill-opacity=".2" stroke="#e8590c" stroke-opacity=".35"/><text x="384" y="246" class="mono" fill="#9c2c00">payment</text>
+    <rect x="98" y="230" width="62" height="24" rx="6" fill="#c5221f" fill-opacity=".42" stroke="#c5221f" stroke-opacity=".3"/><text x="108" y="246" class="mono" fill="#8c1d18">verify</text>
+    <rect x="166" y="230" width="90" height="24" rx="6" fill="#c5221f" fill-opacity=".34" stroke="#c5221f" stroke-opacity=".3"/><text x="176" y="246" class="mono" fill="#8c1d18">suspended</text>
+    <rect x="262" y="230" width="106" height="24" rx="6" fill="#c5221f" fill-opacity=".26" stroke="#c5221f" stroke-opacity=".3"/><text x="272" y="246" class="mono" fill="#8c1d18">immediately</text>
+    <rect x="374" y="230" width="72" height="24" rx="6" fill="#c5221f" fill-opacity=".2" stroke="#c5221f" stroke-opacity=".3"/><text x="384" y="246" class="mono" fill="#8c1d18">payment</text>
     <rect x="452" y="230" width="72" height="24" rx="6" fill="#137333" fill-opacity=".14" stroke="#137333" stroke-opacity=".3"/><text x="462" y="246" class="mono" fill="#137333">meeting</text>
-    <rect x="530" y="230" width="62" height="24" rx="6" fill="#e8590c" fill-opacity=".14" stroke="#e8590c" stroke-opacity=".35"/><text x="540" y="246" class="mono" fill="#9c2c00">access</text>
+    <rect x="530" y="230" width="62" height="24" rx="6" fill="#c5221f" fill-opacity=".14" stroke="#c5221f" stroke-opacity=".3"/><text x="540" y="246" class="mono" fill="#8c1d18">access</text>
   </g>
 
   <!-- language and report -->

@@ -17,6 +17,7 @@ html {
     --pll-bad: #c5221f;
     --pll-bad-soft: #fce8e6;
     --pll-bad-line: #f5c2bf;
+    --pll-bad-rgb: 197, 34, 31;
     --pll-good: #137333;
     --pll-good-soft: #e6f4ea;
     --pll-good-line: #b7dfc2;
@@ -38,6 +39,7 @@ html {
         --pll-bad: #ff8a80;
         --pll-bad-soft: rgba(242, 139, 130, .12);
         --pll-bad-line: rgba(242, 139, 130, .35);
+        --pll-bad-rgb: 255, 138, 128;
         --pll-good: #81c995;
         --pll-good-soft: rgba(129, 201, 149, .12);
         --pll-good-line: rgba(129, 201, 149, .35);
@@ -59,6 +61,7 @@ html[data-phishlens-theme="dark"] {
     --pll-bad: #ff8a80;
     --pll-bad-soft: rgba(242, 139, 130, .12);
     --pll-bad-line: rgba(242, 139, 130, .35);
+    --pll-bad-rgb: 255, 138, 128;
     --pll-good: #81c995;
     --pll-good-soft: rgba(129, 201, 149, .12);
     --pll-good-line: rgba(129, 201, 149, .35);
@@ -184,7 +187,7 @@ html[data-phishlens-theme="dark"] {
     font-family: var(--pll-mono); font-size: 12px;
     padding: 2px 8px; border-radius: 6px; border: 1px solid transparent; white-space: nowrap;
 }
-.pll-tok--phishing { color: var(--pll-bad);  background: rgba(232, 89, 12, var(--pll-a, .15)); border-color: rgba(232, 89, 12, .3); }
+.pll-tok--phishing { color: var(--pll-bad);  background: rgba(var(--pll-bad-rgb), var(--pll-a, .15)); border-color: rgba(var(--pll-bad-rgb), .3); }
 .pll-tok--safe     { color: var(--pll-good); background: rgba(19, 115, 51, var(--pll-a, .15)); border-color: rgba(19, 115, 51, .3); }
 .pll-cache-hint { align-self: center; font-size: 11px; color: var(--pll-text-2); margin-left: 4px; }
 
