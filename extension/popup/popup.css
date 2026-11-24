@@ -129,7 +129,7 @@ body {
 .tab__icon { font-size: 13px; }
 
 .tab-panel { display: none; flex-direction: column; gap: 12px; }
-.tab-panel--active { display: flex; animation: fadeIn .2s ease; }
+.tab-panel--active { display: flex; }
 
 /* paste mode */
 .paste-input {
