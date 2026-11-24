@@ -7,6 +7,32 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Changed
+- Popup: the language and report box comes after the explanation; tab
+  switches have no entry animation; the 30-day chart writes one date in
+  seven; history rows space their details and keep Right and Wrong on
+  one line under the subject, without a scroll area of their own.
+- Banner: chips are sorted worst first (bad, warn, good); the language
+  and report line is one compact row with the report link on the right;
+  the privacy notice before the first scan is a neutral notice with an
+  info icon instead of an error.
+- Website: the header stays on one line on phones (its button is hidden
+  under 420 px, the hero has one); the mobile layout is left-aligned; the
+  methodology note is folded under "How it was measured" in every
+  language; figures and notes are at most 68 characters wide; phones get
+  a drawing with the phishing banner alone.
+
+### Fixed
+- Popup: signal badges were dark red on the dark background when no
+  theme had been saved; ghost buttons lost their border and padding; the
+  agent score was orange next to a red bar.
+- Extension: the `embedded_ole_object` attachment flag had no label.
+- Website: "e-mail" and tag line items no longer break across lines; the
+  install command scrolls instead of breaking mid-word; the back-to-top
+  button no longer covers footer links; the 404 footer sits at the
+  bottom; the empty "Try it" result panel no longer reserves the height
+  of the form.
+
 ### Removed
 - Unused code, styles, a string and the old self-hosted VM redeploy and
   backup scripts; no behaviour change.
