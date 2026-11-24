@@ -34,6 +34,9 @@ backend share one version number.
   methodology note is folded under "How it was measured" in every
   language; figures and notes are at most 68 characters wide; phones get
   a drawing with the phishing banner alone.
+- Website: the button at the end of the install steps says "Download
+  from GitHub", since it opens the releases page; the header and hero
+  buttons keep "Install PhishLens" and lead to the install steps.
 
 ### Fixed
 - Popup: signal badges were dark red on the dark background when no
