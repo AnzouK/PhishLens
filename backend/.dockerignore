@@ -18,16 +18,11 @@ env/
 Thumbs.db
 
 # Big artefacts
-phishing_model.zip
 *.zip
-.gradio/
 
 # Notebooks, training-only scripts (not part of the runtime backend)
 *.ipynb
 .ipynb_checkpoints/
-save_model_cell.py
-# the Gradio demo, not used by the backend image
-app.py
 
 # Git
 .git/

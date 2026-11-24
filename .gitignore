@@ -41,24 +41,16 @@ phishing_pot/
 nazario_phishing/
 umbrella-top-1m.csv*
 *.parquet
-phishing_model.zip
-
-# Keep curated, small artefacts that are part of the repo:
-!synthetic_legit_emails.csv
 
 # ---- Outputs / logs ----
 outputs/
 results/
-lime_outputs/
-lime_outputs.zip
 summary.json
 summary-*.json
-demo_qr.png
 *.zip
 wandb/
 runs/
 *.log
-.gradio/
 
 # ---- Hugging Face cache ----
 .cache/
@@ -74,19 +66,12 @@ huggingface/
 .DS_Store
 Thumbs.db
 
-# ---- Chrome extension build artefacts ----
-extension/*.zip
-# legacy React build output (the extension itself has no build step)
-extension/dist/
-
 # ---- Local secrets ----
 .env
 .env.local
 *.secret
 # holds GSB_API_KEY etc. on a self-hosted server, never commit it
 .phishlens.env
-**/.venv/
-**/.DS_Store
 
 # ---- Test / coverage artefacts ----
 .coverage
