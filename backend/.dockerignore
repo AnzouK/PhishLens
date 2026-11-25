@@ -19,6 +19,11 @@ Thumbs.db
 
 # Big artefacts
 *.zip
+# Local model and agent downloads: the text model is mounted
+# (docker-compose.yml) or downloaded at startup (Dockerfile.cloud), like
+# the agents.
+model/
+agents/
 
 # Notebooks, training-only scripts (not part of the runtime backend)
 *.ipynb
