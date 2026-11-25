@@ -88,6 +88,8 @@ backend share one version number.
   credits and licenses" (now a Credits section), the website's
   quickstart link (8 languages) and the release notes' pointer to the
   tests. A test now checks every link to a README or doc heading.
+- The README install steps now mention the Firefox zip (Firefox 140 or
+  later) published with each release.
 
 ### Removed
 - Unused code, styles, a string and the old self-hosted VM redeploy and

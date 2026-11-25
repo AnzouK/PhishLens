@@ -40,6 +40,10 @@ PhishLens is not on the Chrome Web Store yet.
    PhishLens** next to the subject. You can also drop a `.eml` file or an
    attachment, or paste text, in the popup.
 
+On Firefox 140 or later, take `PhishLens-firefox-<version>.zip` from the
+same release and load it under `about:debugging`, This Firefox, Load
+Temporary Add-on.
+
 The [user guide](https://github.com/AnzouK/PhishLens/wiki) goes through
 each step in more detail.
 
