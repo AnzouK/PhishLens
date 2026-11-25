@@ -60,7 +60,7 @@
   "f_auto_b": "Automatische controle",
   "f_auto": "Optioneel: nieuwe e-mails worden bij aankomst gecontroleerd, in de lijst gemarkeerd als Veilig of Phishing?, met een melding.",
   "f_private_b": "Privacy vanaf het ontwerp",
-  "f_private": "Geen account. Mails worden in het geheugen gecontroleerd en niet bewaard; je geschiedenis blijft in je browser. Met je eigen server verlaat geen enkele mail je computer.",
+  "f_private": "Geen account. Mails worden in het geheugen gecontroleerd en niet bewaard; uw geschiedenis blijft in uw browser. Met uw eigen server verlaat geen enkele mail uw computer.",
   "f_acc_b": "Uw eigen nauwkeurigheid",
   "f_acc": "Geef bij elk oordeel aan of het juist of onjuist was en zie hoe PhishLens presteert op uw echte e-mails, met CSV-export.",
   "f_open_b": "Open en getest",

@@ -382,7 +382,7 @@
     "review_report_title": "Enviar este e-mail, anonimizado, para análise",
     "review_reported": "Comunicado",
     "privacy_notice_title": "Antes da primeira análise",
-    "privacy_notice_text": "Para verificar um email, o PhishLens envia o texto, os links e os cabeçalhos para o PhishLens Cloud. O email é analisado em memória e não é guardado. Para que nenhum email saia do seu computador, execute o seu próprio servidor e escolha-o nas definições. A resposta, não o email, é guardada 24 horas para que uma segunda análise do mesmo email seja imediata; o que fica no seu navegador, e por quanto tempo, está na política de privacidade.",
+    "privacy_notice_text": "Para verificar um e-mail, o PhishLens envia o texto, os links e os cabeçalhos para o PhishLens Cloud. O e-mail é analisado em memória e não é guardado. Para que nenhum e-mail saia do seu computador, execute o seu próprio servidor e escolha-o nas definições. A resposta, não o e-mail, é guardada 24 horas para que uma segunda análise do mesmo e-mail seja imediata; o que fica no seu navegador, e por quanto tempo, está na política de privacidade.",
     "privacy_notice_ok": "Entendi",
     "privacy_notice_link": "Política de privacidade",
     "lead_links_elsewhere": "O domínio é autêntico (DKIM), mas nenhum dos links leva a esse domínio e o texto parece phishing. Não clique nem responda antes de confirmar o remetente por outro meio."

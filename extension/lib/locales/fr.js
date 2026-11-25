@@ -382,7 +382,7 @@
     "review_report_title": "Envoyer cet e-mail, anonymisé, pour examen",
     "review_reported": "Signalé",
     "privacy_notice_title": "Avant votre premier scan",
-    "privacy_notice_text": "Pour vérifier un email, PhishLens envoie son texte, ses liens et ses en-têtes à PhishLens Cloud. L'email est analysé en mémoire et n'est pas conservé. Pour qu'aucun email ne quitte votre ordinateur, lancez votre propre serveur et choisissez-le dans les réglages. La réponse, pas l'e-mail, est gardée 24 heures pour qu'une deuxième analyse du même e-mail soit immédiate ; ce qui reste dans votre navigateur, et combien de temps, est dans la politique de confidentialité.",
+    "privacy_notice_text": "Pour vérifier un e-mail, PhishLens envoie son texte, ses liens et ses en-têtes à PhishLens Cloud. L'e-mail est analysé en mémoire et n'est pas conservé. Pour qu'aucun e-mail ne quitte votre ordinateur, lancez votre propre serveur et choisissez-le dans les réglages. La réponse, pas l'e-mail, est gardée 24 heures pour qu'une deuxième analyse du même e-mail soit immédiate ; ce qui reste dans votre navigateur, et combien de temps, est dans la politique de confidentialité.",
     "privacy_notice_ok": "J'ai compris",
     "privacy_notice_link": "Politique de confidentialité",
     "lead_links_elsewhere": "Son domaine est authentique (DKIM), mais aucun de ses liens ne mène à ce domaine et sa formulation ressemble à du phishing. Ne cliquez pas et ne répondez pas avant d'avoir vérifié l'expéditeur par un autre moyen."
