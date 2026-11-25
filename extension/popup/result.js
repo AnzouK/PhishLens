@@ -121,7 +121,8 @@ function renderMetaBadges(data) {
         // to a DMARC pass (a mailing list) is shown, but not as a warning.
         const kind = name === "SPF" && verdict === "fail" && !authFailed(auth) ? "neutral"
             : { pass: "good", fail: "bad", softfail: "warn" }[verdict];
-        if (kind) badges.push(badge(t(`auth_${verdict}`, { name }), kind, t(`auth_${verdict}_title`, { name })));
+        const title = kind === "neutral" ? t("auth_spf_fail_list_title") : t(`auth_${verdict}_title`, { name });
+        if (kind) badges.push(badge(t(`auth_${verdict}`, { name }), kind, title));
     }
     if (auth?.spamhaus_dbl_listed) badges.push(badge(t("chip_spamhaus"), "bad", t("chip_spamhaus_title")));
     if ((auth?.reasons || []).includes("no_auth_header") && !badges.length) {

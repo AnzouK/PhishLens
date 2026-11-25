@@ -294,6 +294,7 @@
     "auth_pass_title": "Comprobación {name} superada",
     "auth_fail": "Fallo {name}",
     "auth_fail_title": "La comprobación {name} falló: posible suplantación",
+    "auth_spf_fail_list_title": "SPF falló, pero DMARC se superó: habitual en listas de correo y reenvíos",
     "auth_softfail": "{name} dudoso",
     "auth_softfail_title": "{name} con fallo leve: remitente no autorizado, pero no bloqueado",
     "no_auth_header": "sin encabezado de autenticación",

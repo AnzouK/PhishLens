@@ -294,6 +294,7 @@
     "auth_pass_title": "{name}-Prüfung bestanden",
     "auth_fail": "{name} fehlgeschlagen",
     "auth_fail_title": "{name}-Prüfung fehlgeschlagen: mögliche Fälschung",
+    "auth_spf_fail_list_title": "SPF fehlgeschlagen, aber DMARC bestanden: üblich bei Mailinglisten und Weiterleitungen",
     "auth_softfail": "{name} unsicher",
     "auth_softfail_title": "{name}-Softfail: Absender nicht berechtigt, aber nicht blockiert",
     "no_auth_header": "kein Authentifizierungs-Header",

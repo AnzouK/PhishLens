@@ -294,6 +294,7 @@
     "auth_pass_title": "Verificação {name} aprovada",
     "auth_fail": "Falha {name}",
     "auth_fail_title": "A verificação {name} falhou: possível falsificação",
+    "auth_spf_fail_list_title": "O SPF falhou, mas o DMARC passou: habitual em listas de correio e reencaminhamentos",
     "auth_softfail": "{name} incerto",
     "auth_softfail_title": "{name} em falha leve: remetente não autorizado, mas não bloqueado",
     "no_auth_header": "sem cabeçalho de autenticação",

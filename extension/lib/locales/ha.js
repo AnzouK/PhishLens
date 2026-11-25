@@ -295,6 +295,7 @@
     "auth_pass_title": "Binciken {name} ya wuce",
     "auth_fail": "{name} ya kasa",
     "auth_fail_title": "Binciken {name} ya kasa: mai yiwuwa an yi kwaikwayo",
+    "auth_spf_fail_list_title": "SPF ya kasa, amma DMARC ya wuce: abu ne na yau da kullum ga jerin wasiku da turawa",
     "auth_softfail": "{name} ba tabbas",
     "auth_softfail_title": "{name} ya ɗan kasa: mai aikawa ba shi da izini amma ba a toshe shi ba",
     "no_auth_header": "babu kanun tabbatarwa",

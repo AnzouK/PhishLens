@@ -108,4 +108,8 @@ test("SPF failing next to a DMARC pass stays safe, its badge is neutral", () => 
     renderResult(safe({ sender_auth: { spf: "fail", dkim: "pass", dmarc: "pass" } }));
     assert.ok(!$("verdict-card").classList.contains("verdict-card--caution"));
     assert.deepEqual(badges("meta-badges").map(([kind]) => kind), ["neutral", "good", "good"]);
+    // Its tooltip does not speak of spoofing.
+    const spf = $("meta-badges").children[0];
+    assert.doesNotMatch(spf.getAttribute("title"), /spoof/i);
+    assert.match(spf.getAttribute("title"), /mailing lists/);
 });

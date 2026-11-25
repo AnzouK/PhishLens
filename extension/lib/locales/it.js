@@ -294,6 +294,7 @@
     "auth_pass_title": "Controllo {name} superato",
     "auth_fail": "{name} non superato",
     "auth_fail_title": "Controllo {name} non superato: possibile falsificazione",
+    "auth_spf_fail_list_title": "SPF non superato, ma DMARC superato: normale per mailing list e inoltri",
     "auth_softfail": "{name} incerto",
     "auth_softfail_title": "{name} in softfail: mittente non autorizzato ma non bloccato",
     "no_auth_header": "nessuna intestazione di autenticazione",

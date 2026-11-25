@@ -294,6 +294,7 @@
     "auth_pass_title": "{name} check passed",
     "auth_fail": "{name} fail",
     "auth_fail_title": "{name} check FAILED: possible spoofing",
+    "auth_spf_fail_list_title": "SPF failed, but DMARC passed: usual for mailing lists and forwarding",
     "auth_softfail": "{name} softfail",
     "auth_softfail_title": "{name} soft-failed: sender not authorised but not blocked",
     "no_auth_header": "no auth header",

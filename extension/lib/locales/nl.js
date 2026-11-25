@@ -294,6 +294,7 @@
     "auth_pass_title": "{name}-controle geslaagd",
     "auth_fail": "{name} mislukt",
     "auth_fail_title": "{name}-controle mislukt: mogelijke vervalsing",
+    "auth_spf_fail_list_title": "SPF mislukt, maar DMARC geslaagd: gebruikelijk bij mailinglijsten en doorsturen",
     "auth_softfail": "{name} twijfelachtig",
     "auth_softfail_title": "{name}-softfail: afzender niet toegestaan, maar niet geblokkeerd",
     "no_auth_header": "geen authenticatieheader",

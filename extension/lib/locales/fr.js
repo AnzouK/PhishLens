@@ -294,6 +294,7 @@
     "auth_pass_title": "Vérification {name} réussie",
     "auth_fail": "Échec {name}",
     "auth_fail_title": "Échec de la vérification {name} : usurpation possible",
+    "auth_spf_fail_list_title": "Échec SPF, mais DMARC validé : courant pour les listes de diffusion et les transferts",
     "auth_softfail": "{name} incertain",
     "auth_softfail_title": "{name} en échec léger : expéditeur non autorisé mais pas bloqué",
     "no_auth_header": "pas d'en-tête d'authentification",
