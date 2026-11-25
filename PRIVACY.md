@@ -1,6 +1,6 @@
 # PhishLens privacy policy
 
-Last updated: November 22, 2026.
+Last updated: November 24, 2026.
 
 PhishLens is a Chrome extension that checks emails for phishing. This
 page explains what data it handles, where that data goes and what is
@@ -121,6 +121,10 @@ IP address) to deliver it, and PhishLens sees only Cloudflare's
 aggregated visit counts, which are never shared. The page
 asks GitHub's public API for the latest version number, which GitHub
 sees as a normal request from your browser.
+
+If you close the bar that suggests your language, or choose a language,
+the site remembers it in your browser's local storage (one setting,
+never sent anywhere).
 
 ## Permissions
 

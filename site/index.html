@@ -30,10 +30,10 @@
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" href="icon.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=876364fc54">
-<script src="i18n/en.js?v=80e0f4966c" defer></script>
-<script src="lang.js?v=074b2a25f3" defer></script>
-<script src="nav.js?v=a5d4bfcf41" defer></script>
+<link rel="stylesheet" href="style.css?v=4a8f4dbf1b">
+<script src="i18n/en.js?v=6615e24ede" defer></script>
+<script src="lang.js?v=c4e3ae6499" defer></script>
+<script src="nav.js?v=214564e91e" defer></script>
 <script type="application/ld+json">
 {
  "@context": "https://schema.org",
@@ -69,9 +69,9 @@
  ]
 }
 </script>
-<script src="shared.js?v=b5e6174b96" defer></script>
-<script src="redact.js?v=33f436e8d1" defer></script>
-<script src="app.js?v=1ca3b08526" defer></script>
+<script src="shared.js?v=f1041f15c9" defer></script>
+<script src="redact.js?v=f79018a64c" defer></script>
+<script src="app.js?v=b631cf9655" defer></script>
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false">
@@ -121,7 +121,7 @@
 
   <section class="hero">
     <div class="wrap">
-      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> Chrome extension · Gmail + Outlook · 8 languages · open source</p>
+      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> <span class="nw">Chrome extension</span> · <span class="nw">Gmail + Outlook</span> · <span class="nw">8 languages</span> · <span class="nw">open source</span></p>
       <h1>See why an email is phishing.</h1>
       <p class="lead">PhishLens adds a verdict above every email in Gmail and Outlook: one score per check, the signals it found, and the words that weighed most. Click Scan, or let it check new mail on its own.</p>
       <div class="row">
@@ -129,8 +129,11 @@
         <span class="status" aria-live="polite"><span id="status"><span class="spinner" aria-hidden="true"></span> checking the server</span><span id="version"></span></span>
       </div>
       <figure class="shot">
-        <img src="img/gmail-verdicts.svg" width="860" height="648"
-             alt="Two PhishLens banners above emails in Gmail. The first says the email looks like phishing, with scores for wording 97%, links 88% and sender 74%, chips for a Safe Browsing hit, a DMARC failure and a Spamhaus listing, and the words that drove the verdict. The second says the email looks safe because the sender is on the trusted list.">
+        <picture>
+          <source media="(max-width: 600px)" srcset="img/gmail-verdicts-mobile.svg" width="860" height="340">
+          <img src="img/gmail-verdicts.svg" width="860" height="648"
+               alt="Two PhishLens banners above emails in Gmail. The first says the email looks like phishing, with scores for wording 97%, links 88% and sender 74%, chips for a Safe Browsing hit, a DMARC failure and a Spamhaus listing, and the words that drove the verdict. The second says the email looks safe because the sender is on the trusted list.">
+        </picture>
         <figcaption>The banner PhishLens adds above an email (drawing of the real interface; try the same analysis below).</figcaption>
       </figure>
     </div>
@@ -144,7 +147,10 @@
         <p class="lbl">phishing caught by the whole system, in recent real emails<span class="ci">95% confidence interval: 88.8% to 91.4%</span></p>
       </div>
       <p class="facts">0 of 117 real inbox emails flagged (at most 3.2%), 1 of 297 mailing-list emails · about 190 ms per email on the server · checked on real phishing in 6 of the 22 languages the text model reads</p>
-      <p class="note">Measured on PhishLens Cloud on November 1, 2026 with the public benchmark: 1,804 of 2,000 recent phishing emails in several languages, drawn from those nobody looked at while tuning (95% confidence interval 88.8% to 91.4%), and 1 of 414 legitimate emails (297 from public mailing lists, 117 from real inboxes; 0.0% to 1.4%). The scan time is the median for a typical email (about 250 tokens); a short one takes about 65 ms. The mailing-list emails were used while tuning, and the phishing emails were measured again after the 2.0.12 changes, and the next run uses a fresh set. These figures give an order of magnitude and are not a guarantee. See <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">how it was measured</a> and the <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">known limitations</a>.</p>
+      <details class="note method">
+        <summary>How it was measured</summary>
+        <p>Measured on PhishLens Cloud on November 1, 2026 with the public benchmark: 1,804 of 2,000 recent phishing emails in several languages, drawn from those nobody looked at while tuning (95% confidence interval 88.8% to 91.4%), and 1 of 414 legitimate emails (297 from public mailing lists, 117 from real inboxes; 0.0% to 1.4%). The scan time is the median for a typical email (about 250 tokens); a short one takes about 65 ms. The mailing-list emails were used while tuning, and the phishing emails were measured again after the 2.0.12 changes, and the next run uses a fresh set. These figures give an order of magnitude and are not a guarantee. See <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">how it was measured</a> and the <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">known limitations</a>.</p>
+      </details>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, right now</h3>
       <div class="strip" id="live" aria-live="polite">
@@ -293,10 +299,10 @@
 huggingface-cli download AnzouKiona/phishlens-distilbert \
   --local-dir backend/model
 cd backend &amp;&amp; docker compose up --build</pre>
-          <p class="small muted">For Python without Docker, configuration and deployment, see the <a href="https://github.com/AnzouK/PhishLens#run-your-own-server">quickstart</a>.</p>
+          <p class="small muted">For Python without Docker, configuration and deployment, see the <a href="https://github.com/AnzouK/PhishLens#running-your-own-server">quickstart</a>.</p>
         </div>
       </div>
-      <p class="mt"><a class="cta" href="https://github.com/AnzouK/PhishLens/releases/latest">Install PhishLens</a></p>
+      <p class="mt"><a class="cta" href="https://github.com/AnzouK/PhishLens/releases/latest">Download from GitHub</a></p>
     </div>
   </section>
 </main>

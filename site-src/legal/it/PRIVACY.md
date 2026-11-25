@@ -1,6 +1,6 @@
 # Informativa sulla privacy di PhishLens
 
-Ultimo aggiornamento: 22 novembre 2026.
+Ultimo aggiornamento: 24 novembre 2026.
 
 PhishLens è un'estensione di Chrome che controlla se le email sono
 phishing. Questa pagina spiega quali dati tratta, dove vanno e cosa
@@ -132,6 +132,10 @@ vede solo i conteggi aggregati delle visite forniti da Cloudflare, mai
 condivisi. La pagina chiede all'API pubblica di GitHub il numero
 dell'ultima versione, che GitHub vede come una normale richiesta del tuo
 browser.
+
+Se chiudi la barra che propone la tua lingua, o scegli una lingua, il
+sito lo ricorda nella memoria locale del tuo browser (una sola
+impostazione, mai inviata).
 
 ## Autorizzazioni
 

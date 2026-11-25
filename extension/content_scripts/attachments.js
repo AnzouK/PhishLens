@@ -1,6 +1,6 @@
-// Gmail attachments. Each email gets one "Scan attachments" button; each
-// file is downloaded from the same origin, so Gmail's session cookie goes
-// with it, and gets a result card below the attachment strip.
+// Gmail attachments. Each email gets one "Scan attachments" button. Files
+// are downloaded from the same origin so Gmail's session cookie goes with
+// the request, and each one gets a result card below the attachment strip.
 (function () {
 "use strict";
 
@@ -111,9 +111,9 @@ const scanLabel = (n) => (n > 1 ? t("att_scan_n", { count: n }) : t("att_scan_si
 
 function installScanAllButton(emailView, targets) {
     let existing = emailView.querySelector(".pll-scan-btn--all");
-    // A button left by an older copy of the scripts, or one whose scan has
-    // ended (shown 2.5 s more, then removed), gets no new tiles: a new
-    // button takes them.
+    // Don't add tiles to a button from an older copy of the scripts, or to
+    // one whose scan has ended and is about to be removed after 2.5 s. A
+    // new button will take them.
     if (existing && (existing.dataset.pllInstance !== PL.instance || existing.dataset.pllDone === "1")) {
         existing.remove();
         existing = null;
@@ -143,8 +143,8 @@ function installScanAllButton(emailView, targets) {
 }
 
 async function scanAll(btn) {
-    // Disabled at once: a second click while the privacy notice is open
-    // would open a second notice and start a second scan.
+    // Disable right away. A second click while the privacy notice is open
+    // would open another notice and start a second scan.
     if (btn.disabled) return;
     btn.disabled = true;
     const view = (btn._pllTargets || [])[0]?.emailView;
@@ -160,9 +160,9 @@ async function scanAll(btn) {
         return stop();
     }
     const label = btn.querySelector(".pll-scan-btn__label");
-    // Read from btn._pllTargets at each step: tiles Gmail loads during the
-    // scan are added there (installScanAllButton) and scanned in the same
-    // run, up to MAX_PER_EMAIL in all.
+    // Re-read btn._pllTargets at each step. installScanAllButton adds tiles
+    // that Gmail loads during the scan, and they are scanned in the same
+    // run, up to MAX_PER_EMAIL in total.
     const done = new Set();
     for (;;) {
         const pending = (btn._pllTargets || []).filter((f) => !done.has(f));
@@ -312,7 +312,11 @@ function renderResult(card, data, filename) {
     const bad = data.verdict === "phishing";
     const a = data.attachment || {};
     const flags = a.notable_features || [];
-    const caution = !bad && isCaution(flags);
+    // Same rule as the email banner and the popup: a safe verdict next to
+    // a high score, a flagged link or a warning flag (orange chip) is
+    // shown with caution (PhishLensShared.displayVerdict).
+    const caution = PhishLensShared.displayVerdict(data) === "caution";
+    const notRead = caution && isCaution(flags);
     const isEmail = !data.attachment && !!data.agents?.metadata;   // an attached .eml
     const pct = (v) => Math.round((Number(v) || 0) * 100);
     const meta = [
@@ -324,24 +328,35 @@ function renderResult(card, data, filename) {
         a.extracted_urls_count ? tn("att_urls", a.extracted_urls_count) : "",
     ].filter(Boolean).join(" · ");
     const score = (label, value) => [`${label} `, h("strong", null, `${pct(value)}%`)];
-    const chips = [
+    // An attached email gets the banner's chips (forward, shared file,
+    // impersonation, failed sender checks, Spamhaus, flagged links), so a
+    // caution card always shows its reason.
+    const chips = isEmail ? PL.signChips(data, "pll-att-chip") : PL.byRank([
         data.parent_trusted && h("span.pll-att-chip.pll-att-chip--good", { title: t("att_trusted_email_title") }, t("att_trusted_email")),
-        ...flags.map((f) => h("span.pll-att-chip.pll-att-chip--warn", null, flagLabel(f))),
+        ...flags.map((f) => h(`span.pll-att-chip${PhishLensShared.isWarningFlag(f) ? ".pll-att-chip--warn" : ""}`, null, flagLabel(f))),
         ...(data.url_reputation?.sources_hit || []).map((s) => h("span.pll-att-chip.pll-att-chip--bad", null, SOURCE_LABELS[s] || s)),
-    ].filter(Boolean);
+    ].filter(Boolean));
+    // The line under the title in the caution style: the banner's line
+    // for an attached email, the file wording for anything else.
+    const cautionText = !caution ? null
+        : notRead ? t("att_caution_text")
+        : isEmail ? PL.bannerLead(data, false, true)
+        : t("lead_caution_file");
 
-    setCard(card, bad ? "danger" : caution ? "error" : "safe",
+    setCard(card, bad ? "danger" : caution ? "caution" : "safe",
         cardHead(bad || caution ? "alert" : "shieldCheck",
-            t(bad ? "att_looks_phishing" : caution ? "att_cannot_look" : "att_looks_safe"), filename),
+            t(bad ? "att_looks_phishing" : notRead ? "att_cannot_look" : caution ? "verdict_caution" : "att_looks_safe"), filename),
         h("div.pll-att-banner__sub", null,
             meta && [meta, h("br")],
-            caution && [t("att_caution_text"), h("br")],
+            cautionText && [cautionText, h("br")],
             score(t("meter_wording"), data.agents?.text?.phishing_probability), " · ",
             score(t("meter_links"), data.agents?.url?.phishing_probability),
             isEmail && [" · ", score(t("meter_sender"), data.agents?.metadata?.phishing_probability)]),
         chips.length && h("div.pll-att-banner__chips", null, chips),
         ...archiveFiles(a, bad));
 }
+
+PL.renderAttachmentResult = renderResult;
 
 // Files inside an archive. Those that explain the verdict ("Do not open")
 // come first, then the full list, folded.

@@ -336,9 +336,9 @@ async function exportCSV() {
 }
 
 const PhishLensHistory = {
-    saveScan, entryFrom, pasteSubject, attachTokens, setLabel, updateScan, saveDraft, getDraft, statsRows, EMAIL_DATA_KEYS,
+    saveScan, entryFrom, pasteSubject, attachTokens, setLabel, updateScan, saveDraft, getDraft, statsRows,
     liveEvaluation, getHistory, getStats, clearHistory, deleteScan, exportJSON, exportCSV,
-    STORAGE_KEY, DRAFTS_KEY, MAX_ENTRIES,
+    STORAGE_KEY, MAX_ENTRIES,
 };
 globalThis.PhishLensHistory = PhishLensHistory;
 

@@ -1,5 +1,5 @@
-// PhishLens interface strings: ha (Hausa). Draft translation, awaiting review by a native speaker.
-// Keys and placeholders mirror en.js.
+// PhishLens interface strings in Hausa, same keys and placeholders as en.js.
+// Draft translation, awaiting review by a native speaker.
 (globalThis.PhishLensLocales ||= {}).ha = {
     "scan_button": "Duba da PhishLens",
     "scan_button_title": "Duba ko wannan imel na phishing ne",
@@ -36,11 +36,14 @@
     "badge_gmail_title": "Gmail ya isar da shi cikin akwatin saƙo, don haka binciken SPF/DKIM/DMARC nasa ya wuce. Alama ce mai rauni fiye da cikakken binciken sirri.",
     "verdict_phishing": "Wannan imel yana kama da phishing",
     "verdict_safe": "Wannan imel yana kama da amintacce",
+    "verdict_caution": "Wataƙila amintacce ne, amma ka duba",
+    "lead_caution": "Wasu alamomi ba na yau da kullum ba ne. Ka duba cikakken bayani kafin ka danna ko ka ba da amsa.",
+    "lead_caution_file": "Wasu alamomi ba na yau da kullum ba ne. Ka duba cikakken bayani kafin ka buɗe shi.",
     "meter_wording": "Rubutu",
     "meter_links": "Hanyoyin haɗi",
     "meter_sender": "Mai aikawa",
     "why_verdict": "Me yasa wannan hukunci?",
-    "why_hint": "Kalmomin da suka fi tasiri a kan samfurin rubutu. Launi mai ƙarfi yana nufin tasiri mai ƙarfi; ruwan lemu yana nuna phishing, kore yana nuna amintacce.",
+    "why_hint": "Kalmomin da suka fi tasiri a kan samfurin rubutu. Launi mai ƙarfi yana nufin tasiri mai ƙarfi; ja yana nuna phishing, kore yana nuna amintacce.",
     "computing_explanation": "Ana lissafin bayani…",
     "no_tokens": "Ba a dawo da wata kalma mai muhimmanci ba.",
     "no_meaningful_words": "Babu kalmomi masu ma'ana da za a nuna don wannan imel.",
@@ -88,7 +91,6 @@
     "att_err_no_url": "Ba a sami hanyar sauke haɗe-haɗen ba: gwada sabunta Gmail",
     "att_err_download": "Saukewa ya kasa (HTTP {status})",
     "att_err_too_large": "Fayil ya yi girma sosai ({size} MB, mafi yawa {max} MB)",
-    "att_err_backend": "Kuskuren sabar",
     "att_could_not_scan": "Ba a iya dubawa ba",
     "retry": "Sake gwadawa",
     "att_trusted_email": "Amintaccen imel",
@@ -142,6 +144,7 @@
     "flag_disk_image_attachment": "hoton faifai",
     "flag_disk_image_in_archive": "hoton faifai a ciki",
     "flag_double_extension": "ƙarshen suna na ƙarya",
+    "flag_embedded_ole_object": "abin da aka saka",
     "flag_embeds_another_file": "fayil da aka saka",
     "flag_encrypted_archive": "ma'ajiya mai kalmar sirri",
     "flag_encrypted_document": "takarda mai kalmar sirri",
@@ -209,7 +212,7 @@
     "agent_url_hint": "Ana duba hanyoyin haɗi a bayanan barazana da kuma ta ƙa'idoji.",
     "agent_meta": "Mai aikawa da kanun saƙo",
     "agent_meta_hint": "From / Reply-To / Authentication-Results.",
-    "explain_intro_html": "Kalmomin da suka fi tasiri a kan samfurin rubutu. Launi mai ƙarfi yana nufin tasiri mai ƙarfi; ruwan lemu yana nuna <em>phishing</em>, kore yana nuna <em>amintacce</em>.",
+    "explain_intro_html": "Kalmomin da suka fi tasiri a kan samfurin rubutu. Launi mai ƙarfi yana nufin tasiri mai ƙarfi; ja yana nuna <em>phishing</em>, kore yana nuna <em>amintacce</em>.",
     "analyze_another": "Duba wani imel",
     "back": "Koma baya",
     "insights": "Ƙididdiga",
@@ -292,6 +295,7 @@
     "auth_pass_title": "Binciken {name} ya wuce",
     "auth_fail": "{name} ya kasa",
     "auth_fail_title": "Binciken {name} ya kasa: mai yiwuwa an yi kwaikwayo",
+    "auth_spf_fail_list_title": "SPF ya kasa, amma DMARC ya wuce: abu ne na yau da kullum ga jerin wasiku da turawa",
     "auth_softfail": "{name} ba tabbas",
     "auth_softfail_title": "{name} ya ɗan kasa: mai aikawa ba shi da izini amma ba a toshe shi ba",
     "no_auth_header": "babu kanun tabbatarwa",

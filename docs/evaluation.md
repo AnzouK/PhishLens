@@ -1,13 +1,11 @@
 # Evaluation
 
-This page explains how PhishLens is measured, how far each figure can be
-trusted, and how to measure it yourself.
-
-| Measure | What it covers | Where |
-| --- | --- | --- |
-| Public benchmark | The whole system as users see it, on emails anyone can download | this page, `scripts/benchmark.py` |
-| Model evaluation | The text model alone, on held-out mail | [multilingual-model.md](multilingual-model.md) |
-| Live evaluation | Scans a user marked right or wrong in their own history | `scripts/live_eval.py` |
+PhishLens is measured in three ways. The public benchmark on this page
+(`scripts/benchmark.py`) tests the whole system as users see it, on
+emails anyone can download. The model evaluation in
+[multilingual-model.md](multilingual-model.md) tests the text model
+alone on held-out mail. The live evaluation (`scripts/live_eval.py`)
+counts the scans a user marked right or wrong in their own history.
 
 Every rate comes with its count and a 95% Wilson confidence interval.
 "1 of 297 (0.1% to 1.9%)" shows how little one error in a few hundred
@@ -32,11 +30,13 @@ earlier runs, and `--show-errors` lists the misses on your machine only.
 Run it against your own server, because PhishLens Cloud is rate-limited
 and its Safe Browsing quota is shared.
 
-| Side | Source |
-| --- | --- |
-| Phishing | [phishing_pot](https://github.com/rf-peixoto/phishing_pot) (real `.eml`, mostly English and Portuguese), [Nazario](https://monkey.org/~jose/phishing/) |
-| Legitimate | Apache mailing-list archives, real and recent but technical, with no bank or delivery mail |
-| Legitimate | Personal inboxes, the most realistic (counts only, never the emails) |
+The phishing side comes from
+[phishing_pot](https://github.com/rf-peixoto/phishing_pot) (real `.eml`
+files, mostly English and Portuguese) and
+[Nazario](https://monkey.org/~jose/phishing/). The legitimate side has
+two sources. Apache mailing-list archives are real and recent, but
+technical, with no bank or delivery mail. Personal inboxes are the most
+realistic, and only their counts are published, never the emails.
 
 There is no public, recent collection of everyday legitimate mail (bank
 notices, deliveries, newsletters) in several languages. That is the
@@ -60,7 +60,7 @@ emails.
 The runs behind the website's figures are in [`docs/benchmark/`](benchmark/),
 one line per email (id, label, verdict, scores), nothing of the email.
 The id is the first 16 hex digits of the SHA-256 of the raw message, so
-anyone with the same dataset finds the same emails and can compare:
+anyone with the same dataset finds the same emails and can compare runs.
 
 ```bash
 python3 scripts/export_benchmark.py --compare docs/benchmark/fresh-phishing.jsonl my-run.jsonl
@@ -83,40 +83,43 @@ Apache mailing lists and 117 inbox emails, all sent from 2026-01-01.
 | 10-24 | 2.0.10 (link rule) | 1 of 297; inbox 0 of 117 | fresh sample, 1,812 of 2,000, 90.6% (89.2% to 91.8%) |
 | 11-01 | 2.0.12 (whole bodies read, text read as shown and as written) | 1 of 297; inbox 0 of 117 | same fresh sample, 1,804 of 2,000, 90.2% (88.8% to 91.4%) |
 
-Each step taught something.
+The 92.2% of 2.0.7 was mostly an artefact. Of its 130 false alarms, 121
+were decided by the trained header model alone, which scored modern
+mailing-list headers near 1.0. With that model switched off, false
+alarms fell to 4.7% and detection to 45%, so it had been flagging almost
+everything. The text model, for its part, was fed the wrong text: it was
+trained on subject plus body but given the body only. On 120 missed
+emails its score went from 10% to 94% on average once the subject was
+added.
 
-- Reading the whole email cost some "phishing". 2.0.10 read only the
-  subject of 74 HTML emails whose body it could not reach, and 2.0.11
-  and 2.0.12 read them whole. Most were casino and insurance ads that
-  phishing_pot files as phishing. On the full text the model calls 45 of
-  them safe, and it finds 29 others it had missed.
-- Removing invisible characters also removed a sign. The model learned
-  runs of zero-width and byte-order-mark characters as a mark of dubious
-  mail (0.98 with them, 0.05 without on the same email). The text is now
-  read both as shown and as written and the higher score is kept, which
-  gives 1,804 caught instead of 1,797 with no new false alarm.
-- The 92.2% was mostly an artefact. In 2.0.7, 121 of the 130 false
-  alarms were decided by the trained header model alone, which scored
-  modern mailing-list headers near 1.0. With it switched off, false
-  alarms fell to 4.7% and detection to 45%, so that model had been
-  flagging almost everything.
-- The text model was fed the wrong text. It was trained on subject plus
-  body but given the body only. On 120 missed emails the score went from
-  10% to 94% on average once the subject was added.
-- The link model alone is not evidence. All 14 remaining false alarms
-  were decided by it, on written-out links in plain-text mail. Requiring
-  a threat-intel hit or a strong sign removed 13 and lost no phishing.
-- The tuned figure held on unseen mail, with 85.5% on 2,000 control
-  emails nobody had looked at against 87.2% on the studied 500.
-- The inbox mail revealed one real-world bug. 2 of 117 inbox emails were
-  flagged because a Microsoft 365 relay added a lower
-  `Authentication-Results` header that the parser read first. The
-  topmost one is now used (0 of 117).
-- DKIM-signed attackers were the largest group of misses (190 of 290),
-  because attackers sign mail from their own domains. Flagging signed
-  senders whose links all lead elsewhere, with phishing-like wording,
-  took fresh-sample detection from 85.4% to 90.6% with no new false
-  alarm, exactly as the replay on cached scores had predicted.
+All 14 false alarms left after that were decided by the link model, on
+written-out links in plain-text mail, so a link score alone is not
+treated as evidence any more. Requiring a threat-intel hit or a strong
+sign removed 13 of them and lost no phishing. The tuned figure then held
+on unseen mail: 85.5% on 2,000 control emails nobody had looked at,
+against 87.2% on the studied 500.
+
+The inbox mail turned up one real-world bug. Two of the 117 inbox emails
+were flagged because a Microsoft 365 relay added a lower
+`Authentication-Results` header that the parser read first. The topmost
+one is now used (0 of 117).
+
+The largest group of misses (190 of 290) was DKIM-signed mail, because
+attackers sign mail from their own domains. Flagging signed senders
+whose links all lead elsewhere, when the wording also looks like
+phishing, took fresh-sample detection from 85.4% to 90.6% with no new
+false alarm, as the replay on cached scores had predicted.
+
+Reading the whole email then cost some "phishing". 2.0.10 read only the
+subject of 74 HTML emails whose body it could not reach; 2.0.11 and
+2.0.12 read them whole. Most were casino and insurance ads that
+phishing_pot files as phishing, and on the full text the model calls 45
+of them safe while finding 29 others it had missed. Removing invisible
+characters also removed a sign the model relies on: it learned runs of
+zero-width and byte-order-mark characters as a mark of dubious mail
+(0.98 with them, 0.05 without, on the same email). The text is now read
+both as shown and as written and the higher score is kept, which gives
+1,804 caught instead of 1,797 with no new false alarm.
 
 ## Measured and rejected
 
@@ -141,9 +144,8 @@ signed notice scored 0.56, where the current model stays below 0.5.
   reads 22.
 - The 297 Apache emails were used while tuning (the 2.0.8 change was
   made on them), so they are not an unseen set. The 117 inbox emails
-  are unseen, and 0 of 117 were flagged (at most 3.2% at 95%). That is
-  the figure to expect on everyday mail, not the 0.2% of the two
-  together.
+  are unseen, and 0 of 117 were flagged (at most 3.2% at 95%). Expect
+  that on everyday mail, not the 0.2% of the two together.
 - The 2,000 phishing emails of the 2.0.12 run are the sample of the
   2.0.10 run, measured again after looking at the emails whose verdict
   changed (and one change, the text read as shown and as written, came
@@ -157,8 +159,8 @@ signed notice scored 0.56, where the current model stays below 0.5.
   (visible text, links and Gmail's own signals) and Outlook are not
   measured yet. Outlook gives only the visible text and links, with no
   SPF, DKIM or DMARC, so the softer path for authenticated senders never
-  applies there. A false alarm
-  rate per channel needs the same legitimate mail scanned both ways.
+  applies there. A false-alarm rate per channel needs the same
+  legitimate mail scanned both ways.
 - The misses are counted by trust path in each run (122 by default, 74
   on `crypto_verified` in 2.0.12) but not yet published as rates.
 - The multilingual text model's weights are not public. Anyone can
@@ -167,5 +169,5 @@ signed notice scored 0.56, where the current model stays below 0.5.
   model. A self-hosted server uses the public English model, which
   flags more legitimate mail ([languages](languages.md#text-model)).
 - The text model reads the first 256 tokens, so a long benign preamble
-  can push the lure out of its window (threat model, R10). The links and the
-  sender are checked whatever the length.
+  can push the lure out of its window (threat model, R10). The links and
+  the sender are checked whatever the length.

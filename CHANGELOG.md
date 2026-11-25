@@ -7,6 +7,101 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-25
+
+### Added
+- Caution state: a safe verdict next to a red meter (70% or more) or an
+  orange or red sign (forward, shared file, failed authentication,
+  flagged link, impersonation, warning flag on a file) is shown in
+  orange, "Probably safe, but check", in the Gmail and Outlook banner,
+  the attachment cards, the popup and the website demo. One shared rule
+  (`displayVerdict` in `extension/lib/shared.js`); the verdict and the
+  scores from the server do not change. The line under the title always
+  gives the reason (forward, shared file, trusted or DKIM-proven sender
+  next to a high score), with its chip or badge; files say "before you
+  open it". SPF failing next to a DMARC pass (mailing lists) is not a
+  sign.
+
+### Changed
+- Words that point to phishing are red everywhere: the popup showed
+  them in orange while the banner, the website and the drawings used
+  red. Every sentence about the colours now says red (8 languages), and
+  the Gmail drawing's phishing words are red too.
+- Popup: the language and report box comes after the explanation; tab
+  switches have no entry animation; the 30-day chart writes one date in
+  seven; history rows space their details and keep Right and Wrong on
+  one line under the subject, without a scroll area of their own.
+- Banner: chips are sorted worst first (bad, warn, good); the language
+  and report line is one compact row with the report link on the right;
+  the privacy notice before the first scan is a neutral notice with an
+  info icon instead of an error.
+- Website: the header stays on one line on phones (its button is hidden
+  under 420 px, the hero has one); the mobile layout is left-aligned; the
+  methodology note is folded under "How it was measured" in every
+  language; figures and notes are at most 68 characters wide; phones get
+  a drawing with the phishing banner alone.
+- Website: the button at the end of the install steps says "Download
+  from GitHub", since it opens the releases page; the header and hero
+  buttons keep "Install PhishLens" and lead to the install steps.
+- Website: the "Read this page in ..." bar has a close button (labelled
+  in 8 languages); closing it or picking a language is remembered in
+  localStorage, so the bar does not come back. The privacy policy says
+  so (8 languages).
+- Popup CSS is one layer: the `!important` overrides at the end of
+  `popup.css` are merged into the rules they replaced (no `!important`,
+  no gradient or shadow left). Same look, except the last rounded
+  leftovers (trusted-sender tag, ratio and word bars, tabs frame,
+  language menu, server URL field, words, small buttons) now use the
+  4 px radius, the language menu has no glow when clicked, and
+  the light theme's raised surfaces are off-white (#fbf9f4) instead of
+  pure white.
+
+### Fixed
+- Popup: signal badges were dark red on the dark background when no
+  theme had been saved; ghost buttons (Got it, Paste, Share stats) lost
+  their border, padding and small size; the agent score was orange next
+  to a red bar. Agent cards now use the meter levels (orange from 40%,
+  red from 70%), as the banner does.
+- Contrast: explanation words, the banner's filled button and warn
+  chips reach 4.5:1 in both themes; keyboard focus rings on the banner's
+  close, attachment and report controls; the popup tabs set
+  `aria-selected`.
+- Extension: the `embedded_ole_object` attachment flag had no label.
+- Website: "e-mail" and tag line items no longer break across lines; the
+  install command scrolls instead of breaking mid-word; the back-to-top
+  button no longer covers footer links; the 404 footer sits at the
+  bottom; the empty "Try it" result panel no longer reserves the height
+  of the form.
+- Popup: light-theme green and orange badges reach 4.5:1 on the card;
+  the neutral SPF badge (SPF fail next to a DMARC pass) explains mailing
+  lists instead of "possible spoofing" (8 languages).
+- Attachment cards, for files and attached emails, sort their chips
+  worst first, like the banner.
+- Website: the "Read this page in ..." bar no longer appears on the 404
+  page (it linked to a page that does not exist); the demo shows a
+  "Sender on Spamhaus list" tag and, for a file PhishLens could not look
+  inside, the same title and line as the popup (8 languages).
+- Translations: Spanish uses usted and Dutch u everywhere (the privacy
+  notice mixed in tú and je); Italian "safe" no longer clashes with the
+  gender of email and file; French and Portuguese write "e-mail"
+  throughout.
+- The README and website drawings use the current orange and the
+  popup's real light card colour.
+- Links to README sections that no longer existed: the popup's "All
+  credits and licenses" (now a Credits section), the website's
+  quickstart link (8 languages) and the release notes' pointer to the
+  tests. A test now checks every link to a README or doc heading.
+- The README install steps now mention the Firefox zip (Firefox 140 or
+  later) published with each release.
+- Italian: two verbs used the wrong person ("installi", "aspettati"),
+  and "Looks safe" and "Probably safe, but check" read "Sembra a posto"
+  and "Probabilmente a posto, ma controlla" in the extension and on the
+  website.
+
+### Removed
+- Unused code, styles, a string and the old self-hosted VM redeploy and
+  backup scripts; no behaviour change.
+
 ## [2.1.0] - 2026-11-22
 
 ### Added
@@ -1043,7 +1138,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/AnzouK/PhishLens/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/AnzouK/PhishLens/compare/v2.0.12...v2.1.0
 [2.0.12]: https://github.com/AnzouK/PhishLens/compare/v2.0.11...v2.0.12
 [2.0.11]: https://github.com/AnzouK/PhishLens/compare/v2.0.10...v2.0.11

@@ -1,13 +1,6 @@
-# =====================================================================
-# PhishLens release
-# =====================================================================
-# On a version tag (v2.0.4...), or by hand from the Actions tab ("Run
-# workflow", on main: the tag is made from the code's version): checks
-# that the tag matches the version of the backend and the extension, zips
-# extension/ and publishes the GitHub release with that zip and the
-# version's CHANGELOG section. If the release already exists, only the
-# zip is (re)attached.
-# =====================================================================
+# On a version tag, or by hand on main: checks the tag against the code's
+# version, builds the Chrome and Firefox zips and publishes them with the
+# version's CHANGELOG section (an existing release only gets the zips again).
 name: Release
 
 on:
@@ -58,7 +51,7 @@ jobs:
 
           `PhishLens-firefox-VERSION.zip` is the same add-on for Firefox 140 or later (`about:debugging`, This Firefox, Load Temporary Add-on, until it is on addons.mozilla.org).
 
-          The zips hold only what the browser loads; the tests and the lint configuration are in the repository ([Source and tests](https://github.com/AnzouK/PhishLens#source-and-tests)).
+          The zips hold only what the browser loads; the tests and the lint configuration are in the repository (see [Contributing](https://github.com/AnzouK/PhishLens#contributing)).
           TXT
           sed -i "s/VERSION\.zip/$VERSION.zip/g; s/^          //" notes.md
 

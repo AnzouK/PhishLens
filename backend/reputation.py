@@ -1,6 +1,7 @@
 """
-URL reputation: several threat-intelligence sources are checked in
-turn, so no single one decides alone.
+PhishLens: URL reputation.
+
+We ask several threat feeds in turn so that no single one decides alone.
 
     1. Local SQLite cache (24 h TTL)
     2. Google Safe Browsing v4 (10,000 lookups a day)
@@ -8,19 +9,14 @@ turn, so no single one decides alone.
     4. URLhaus (abuse.ch), malware URLs
     5. Spamhaus DBL (DNS), domain level
 
-When the Safe Browsing daily quota runs out, tiers 2 to 4 run in
-parallel and a URL flagged by any of them is flagged. The cache answers
-most repeat lookups, so a normal day stays well under the 10,000 limit.
+Sources 3 to 5 check whatever Safe Browsing did not flag, and all URLs
+when Safe Browsing is off or out of quota. A hit from any of them flags
+the URL. The cache answers most repeat lookups, so a normal day stays
+well under the 10,000 limit.
 
-Every result is written back to the cache for 24 hours, so the same URL
-is not looked up again across scans, restarts or users of a shared
-backend.
-
-Public API:
-    ReputationEngine
-        .startup()               : download the PhishTank feed, purge the cache
-        .check_urls(urls) -> list: cascade lookup
-        .stats()                 : quota and cache hit rate (GET /reputation/stats)
+Results are cached for 24 hours across scans, restarts and users of a
+shared backend. A clean result is only cached when Safe Browsing (if
+configured) actually checked the URL.
 """
 
 from __future__ import annotations
@@ -56,25 +52,24 @@ except ImportError:
     logger.warning("httpx not installed: reputation lookups disabled. pip install httpx>=0.27")
 
 
-# Configuration (env-tunable)
+# Configuration, overridable through environment variables
 GSB_API_KEY = os.environ.get("GSB_API_KEY", "").strip()
 GSB_DAILY_LIMIT = int(os.environ.get("GSB_DAILY_LIMIT", "10000"))
 GSB_SAFETY_BUFFER = int(os.environ.get("GSB_SAFETY_BUFFER", "500"))
 GSB_MAX_PER_SCAN = int(os.environ.get("GSB_MAX_PER_SCAN", "30"))
-# Per-user cache folder by default, not the shared /tmp.
+# Default to a per-user cache folder rather than the shared /tmp.
 CACHE_DB_PATH = os.environ.get(
     "REPUTATION_CACHE_DB",
     os.path.join(os.path.expanduser("~"), ".cache", "phishlens", "reputation.db"),
 )
 CACHE_TTL_SEC = int(os.environ.get("REPUTATION_CACHE_TTL", str(24 * 3600)))
 PHISHTANK_API_KEY = os.environ.get("PHISHTANK_API_KEY", "").strip()  # optional
-# Without an application key PhishTank allows only a few downloads a day:
-# every 6 hours then, every hour with a key (the feed changes hourly).
+# Without a key PhishTank only allows a few downloads a day, so we refresh
+# every 6 hours. With a key we follow the hourly feed.
 PHISHTANK_REFRESH_S = int(
     os.environ.get("PHISHTANK_REFRESH_S") or (3600 if PHISHTANK_API_KEY else 6 * 3600)
 )
-# The last good feed, kept next to the cache so a restart does not
-# download it again.
+# Last good feed, saved next to the cache so a restart skips the download.
 PHISHTANK_FEED_PATH = os.environ.get(
     "PHISHTANK_FEED_PATH", os.path.join(os.path.dirname(CACHE_DB_PATH), "phishtank.json.gz")
 )
@@ -86,18 +81,20 @@ HTTP_TIMEOUT = float(os.environ.get("REPUTATION_HTTP_TIMEOUT", "3.0"))
 USER_AGENT = f"PhishLens/{VERSION} (+https://github.com/AnzouK/PhishLens)"
 
 
-# SQLite cache: persistent across restarts, thread-safe via lock.
+# SQLite cache, kept across restarts.
 class Cache:
-    """Tiny SQLite cache with TTL. One row per URL. Expired rows are
-    deleted at startup, then at most once an hour by a write, a stats()
-    call or /health, so none is kept much past the TTL however long the
-    instance runs, busy or idle.
+    """SQLite cache with a TTL and one row per URL.
 
-    One threading lock covers every database call: the async methods run
-    in worker threads (asyncio.to_thread), and /health and
-    /reputation/stats call stats() and purge_if_due() from the threads
-    of sync routes. Reentrant, as a write purges and a read can re-create
-    the table while holding it."""
+    Expired rows are deleted at startup and then at most once an hour, on a
+    write, a stats() call or /health. That keeps old rows from lingering
+    whether the instance is busy or idle.
+
+    A single lock guards every database call. The async methods run in
+    worker threads via asyncio.to_thread, and the sync routes call stats()
+    and purge_if_due() from their own threads. The lock is reentrant
+    because a write can trigger a purge and a read can re-create the table
+    while holding it.
+    """
 
     PURGE_EVERY_SEC = 3600
 
@@ -139,8 +136,8 @@ class Cache:
                     (url, cutoff),
                 ).fetchone()
         except sqlite3.OperationalError as e:
-            # The DB file was deleted or corrupted after startup, or the
-            # volume was remounted: re-create the schema and count a miss.
+            # The file was deleted, corrupted or remounted after startup.
+            # Re-create the schema and count a miss.
             if "no such table" in str(e).lower():
                 self._init_db()
                 return None
@@ -174,8 +171,8 @@ class Cache:
                 )
         except sqlite3.OperationalError as e:
             if "no such table" in str(e).lower():
-                # Re-create the schema and retry once. A second failure is a
-                # real filesystem problem and is raised.
+                # Re-create the schema and retry once. If that fails too, the
+                # filesystem is broken and we let it raise.
                 self._init_db()
                 with sqlite3.connect(self.path) as db:
                     db.execute(
@@ -225,16 +222,13 @@ class Cache:
         return {"cache_entries": total}
 
 
-# Google Safe Browsing v4: quota-tracked client.
+# Google Safe Browsing v4, with a daily quota counter.
 class GsbQuota:
-    """
-    Simple daily counter, resets at 00:00 UTC.
+    """Daily lookup counter that resets at 00:00 UTC.
 
-    Kept in-process (not Redis) because a single instance handles all
-    backend traffic (PhishLens Cloud runs at most one Cloud Run
-    instance). The count starts again at zero when the instance
-    restarts. With several replicas this would become a Redis INCR with
-    EX=86400 behind the same interface.
+    It lives in process memory because PhishLens Cloud runs at most one
+    Cloud Run instance. A restart resets the count. With several replicas
+    this would need a Redis INCR with EX=86400 behind the same interface.
     """
 
     def __init__(self, limit: int, buffer: int):
@@ -270,8 +264,8 @@ class GsbQuota:
 
 
 class GoogleSafeBrowsing:
-    """
-    Google Safe Browsing Lookup API v4 client.
+    """Client for the Safe Browsing Lookup API v4.
+
     https://developers.google.com/safe-browsing/v4/lookup-api
     """
 
@@ -300,13 +294,11 @@ class GoogleSafeBrowsing:
             await self._client.aclose()
 
     async def check_batch(self, urls: list[str]) -> dict[str, dict[str, Any]] | None:
-        """
-        Query GSB for a batch of URLs. Returns {url: verdict} for URLs that
-        matched a threat; URLs not in the dict were checked and are clean.
+        """Look up a batch of URLs and return {url: verdict} for the matches.
 
-        None when GSB did not answer (no key, quota exhausted, transport
-        error): those URLs were not checked, and must not be cached as
-        clean.
+        URLs missing from the dict were checked and are clean. Returns None
+        when GSB gave no answer (no key, no quota, network error). Those
+        URLs were never checked and must not be cached as clean.
         """
         if not self.api_key:
             return None
@@ -326,8 +318,8 @@ class GoogleSafeBrowsing:
         }
         try:
             client = await self._get_client()
-            # The key in a header, not in the URL: transport errors quote
-            # the URL, and they are logged.
+            # Send the key in a header. Transport errors quote the URL and
+            # end up in the logs.
             r = await client.post(
                 self.ENDPOINT, json=payload, headers={"X-Goog-Api-Key": self.api_key}
             )
@@ -337,8 +329,8 @@ class GoogleSafeBrowsing:
             logger.warning(f"GSB request failed: {_safe_error(e)}")
             return None
 
-        # GSB_DEBUG=1 logs every call and its match count, to diagnose a
-        # phishing URL that is not flagged. Off by default.
+        # GSB_DEBUG=1 logs every call and its match count. Useful when a
+        # phishing URL isn't flagged.
         if os.environ.get("GSB_DEBUG", "0") != "0":
             n_matches = len(body.get("matches", []))
             logger.debug(f"[GSB] sent {len(urls)} URL(s), got {n_matches} match(es). URLs={urls}")
@@ -363,13 +355,12 @@ class GoogleSafeBrowsing:
         return results
 
 
-# PhishTank: verified phishing feed, in-memory set.
-# Hosts where one domain serves many unrelated owners, told apart by the
-# path (storage buckets, link shorteners, form and file-sharing services,
-# email click trackers, big platforms). A PhishTank entry on such a host
-# says nothing about the other links of that host, so only the exact URL
-# is matched there. Subdomain-based hosting (name.web.app, name.github.io)
-# is not listed: its full host name already belongs to one owner.
+# PhishTank, held as an in-memory set.
+# On these hosts one domain serves many unrelated owners, told apart by
+# the path. A PhishTank entry on such a host says nothing about its other
+# links, so we only match the exact URL there. Subdomain hosting like
+# name.web.app or name.github.io is not listed because the full host name
+# already belongs to one owner.
 SHARED_PATH_HOSTS = frozenset(
     {
         # cloud storage and static hosting by path
@@ -465,13 +456,13 @@ def is_shared_path_host(netloc: str) -> bool:
 
 
 class PhishTank:
-    """
-    PhishTank's public feed of verified phishing URLs. The full JSON dump
-    is downloaded at startup and refreshed in the background; lookups are
-    answered from an in-memory set.
+    """PhishTank's feed of verified phishing URLs.
+
+    We download the JSON dump at startup, refresh it in the background and
+    answer lookups from memory.
     """
 
-    # HTTPS: over plain HTTP anyone on the path could rewrite the list.
+    # Over plain HTTP anyone on the path could rewrite the list.
     FEED_URL = "https://data.phishtank.com/data/online-valid.json.gz"
     FEED_URL_AUTH = "https://data.phishtank.com/data/{key}/online-valid.json.gz"
 
@@ -499,7 +490,7 @@ class PhishTank:
         return data
 
     def load_saved(self) -> int:
-        """Loads the last good feed saved on disk. Returns its entries."""
+        """Load the last good feed from disk and return the entry count."""
         if not self.feed_path or not os.path.exists(self.feed_path):
             return 0
         try:
@@ -529,8 +520,10 @@ class PhishTank:
             logger.warning(f"PhishTank feed not saved: {e}")
 
     async def refresh(self) -> int:
-        """Download and load the feed. Returns the number of entries; on a
-        failure the previous list stays and the reason is kept for /stats."""
+        """Download and load the feed, returning the entry count.
+
+        On failure the previous list stays and the error is kept for /stats.
+        """
         try:
             async with httpx.AsyncClient(
                 timeout=60, headers={"User-Agent": USER_AGENT}, follow_redirects=True
@@ -570,7 +563,7 @@ class PhishTank:
         return len(urls)
 
     async def start_refresh_loop(self, first_wait: float = 0.0):
-        """Background task: refresh every PHISHTANK_REFRESH_S seconds."""
+        """Refresh the feed every PHISHTANK_REFRESH_S seconds."""
         await asyncio.sleep(first_wait)
         while True:
             try:
@@ -582,11 +575,11 @@ class PhishTank:
             await asyncio.sleep(PHISHTANK_REFRESH_S)
 
     def check(self, url: str) -> dict[str, Any] | None:
-        """O(1) lookup: returns a verdict dict if listed, None otherwise."""
+        """Return a verdict dict if the URL is listed, otherwise None."""
         if url in self._urls:
             return {"source": "phishtank", "match": "url", "threat_types": ["PHISHING"]}
-        # The host as a browser reads it: "user@", a port or a final dot
-        # around a listed domain no longer hide it (the netloc kept them).
+        # Use the host a browser would use. With the raw netloc, "user@",
+        # a port or a trailing dot hid a listed domain.
         host = link_host(url)
         if host and host in self._domains and not is_shared_path_host(host):
             return {"source": "phishtank", "match": "domain", "threat_types": ["PHISHING"]}
@@ -601,10 +594,10 @@ class PhishTank:
         }
 
 
-# URLhaus: abuse.ch malware URL feed.
+# URLhaus, the abuse.ch malware URL feed.
 class URLhaus:
-    """
-    URLhaus lookup API: free, no key required, generous rate limit.
+    """Client for the URLhaus lookup API. It is free and needs no key.
+
     https://urlhaus.abuse.ch/api/
     """
 
@@ -646,7 +639,7 @@ class URLhaus:
 
 
 async def _spamhaus_dbl(host: str) -> dict[str, Any] | None:
-    """A link's domain in the Spamhaus DBL, as a reputation source."""
+    """Check a link's domain against the Spamhaus DBL."""
     listing = await spamhaus_dbl(host)
     if not listing:
         return None
@@ -684,9 +677,10 @@ class UrlVerdict:
 
 
 class ReputationEngine:
-    """
-    Top-level cascade. Instantiate once at startup, call check_urls() per
-    scan. Cache and quota state live for the process lifetime.
+    """Run the lookup cascade.
+
+    Create one at startup and call check_urls() for each scan. Cache and
+    quota state last as long as the process.
     """
 
     def __init__(self):
@@ -703,9 +697,9 @@ class ReputationEngine:
         self._misses = 0
 
     async def startup(self):
-        """Warm PhishTank + purge stale cache entries. Idempotent."""
+        """Load PhishTank and purge stale cache rows. Safe to call twice."""
         if self.phishtank and _HTTPX_AVAILABLE:
-            # The saved feed first: a restart then costs no download.
+            # Load the saved feed first so a restart costs no download.
             n = self.phishtank.load_saved()
             age = self.phishtank.saved_age()
             wait = 0.0
@@ -737,7 +731,7 @@ class ReputationEngine:
         return url
 
     async def _from_cache(self, norm: list[str], verdicts: dict[str, UrlVerdict]) -> list[str]:
-        """Fill `verdicts` from the cache; return the URLs it did not have."""
+        """Fill `verdicts` from the cache and return the URLs it missed."""
         uncached: list[str] = []
         for u in norm:
             cached = await self.cache.get(u)
@@ -759,8 +753,7 @@ class ReputationEngine:
         return uncached
 
     async def _fallback(self, v: UrlVerdict) -> None:
-        """PhishTank, URLhaus and the Spamhaus DBL for one URL Safe
-        Browsing did not flag."""
+        """Check one URL against PhishTank, URLhaus and the Spamhaus DBL."""
         u = v.url
         pt_result = self.phishtank.check(u) if self.phishtank else None
         uh_result_task = self.urlhaus.check(u) if self.urlhaus else None
@@ -782,7 +775,7 @@ class ReputationEngine:
                 v.sources.append(r["source"])
                 v.raw_matches.append(r)
 
-        # Score: 1.0 from GSB, 0.4 per fallback source (capped at 1.0)
+        # Score: 1.0 from GSB, else 0.2 + 0.4 per fallback source (capped at 1.0)
         if v.malicious:
             if "google_safe_browsing" in v.sources:
                 v.score = 1.0
@@ -793,7 +786,7 @@ class ReputationEngine:
                 v.score = min(1.0, 0.4 * n_fallback + 0.2)
 
     async def check_urls(self, urls: Iterable[str]) -> list[dict[str, Any]]:
-        """Cascade lookup: returns one verdict dict per input URL."""
+        """Return one verdict dict per input URL."""
         if not _HTTPX_AVAILABLE:
             return [
                 {
@@ -821,9 +814,9 @@ class ReputationEngine:
         if not uncached:
             return [verdicts[u].to_dict() for u in norm]
 
-        # Google Safe Browsing, in one batch. At most GSB_MAX_PER_SCAN URLs per scan, the first ones in the
-        # caller's rank order: the daily quota is shared by every user, and
-        # one request with hundreds of links must not spend it.
+        # One Safe Browsing batch of at most GSB_MAX_PER_SCAN URLs, in the
+        # caller's order. Every user shares the daily quota, so one email
+        # with hundreds of links must not spend it.
         gsb_hits: dict[str, dict[str, Any]] = {}
         gsb_checked: set[str] = set()
         if self.gsb:
@@ -832,17 +825,18 @@ class ReputationEngine:
             if answer is not None:
                 gsb_hits, gsb_checked = answer, set(batch)
 
-        # The other feeds check what Safe Browsing did not flag, or
-        # everything when it is disabled or out of quota.
+        # The other feeds check what Safe Browsing didn't flag, or every
+        # URL when it is disabled or out of quota.
         need_fallback = _apply_gsb(verdicts, uncached, gsb_hits, gsb_checked)
         if need_fallback:
             await asyncio.gather(
                 *(self._fallback(verdicts[u]) for u in need_fallback), return_exceptions=True
             )
 
-        # A clean verdict is kept only when Safe Browsing (when configured)
-        # checked the URL: otherwise exhausting the quota with junk links,
-        # then sending a phishing link, would store it as clean for a day.
+        # Only cache a clean verdict if Safe Browsing (when configured)
+        # checked the URL. Otherwise an attacker could burn the quota with
+        # junk links, then send a phishing link and have it cached as
+        # clean for a day.
         for u in uncached:
             if verdicts[u].malicious or not self.gsb or u in gsb_checked:
                 await self.cache.put(u, verdicts[u].to_dict())
@@ -864,7 +858,7 @@ class ReputationEngine:
         }
 
 
-# Module-level singleton: the FastAPI app pulls this in lifespan.
+# Module-level singleton. The FastAPI app fetches it in its lifespan.
 _ENGINE: ReputationEngine | None = None
 
 
@@ -891,7 +885,7 @@ async def check_urls(urls: Iterable[str]) -> list[dict[str, Any]]:
 
 
 def fully_checked(verdicts: list[dict[str, Any]]) -> bool:
-    """Every URL is flagged, or Safe Browsing (when configured) checked it."""
+    """Return True if every URL is flagged or was checked by Safe Browsing (when configured)."""
     if not (_ENGINE and _ENGINE.gsb):
         return True
     return all(v.get("malicious") or "gsb_clean" in (v.get("tiers_run") or []) for v in verdicts)
@@ -902,7 +896,7 @@ def stats() -> dict[str, Any]:
 
 
 def purge_if_due() -> None:
-    """Expired cache rows out, at most once an hour (Cache.purge_if_due)."""
+    """Purge expired cache rows, at most once an hour."""
     if _ENGINE:
         _ENGINE.cache.purge_if_due()
 
@@ -913,8 +907,7 @@ def _apply_gsb(
     gsb_hits: dict[str, dict[str, Any]],
     gsb_checked: set[str],
 ) -> list[str]:
-    """Mark Safe Browsing matches; return the URLs left for the fallback
-    sources."""
+    """Mark Safe Browsing matches and return the URLs left for the other feeds."""
     need_fallback: list[str] = []
     for u in uncached:
         if u in gsb_hits:
@@ -933,15 +926,18 @@ def _apply_gsb(
 
 
 def _gsb_batch(urls: list[str], limit: int) -> list[str]:
-    """The first `limit` URLs, in the order given: the caller ranks them
-    (extension_backend.rank_links: visible links first, one per host
-    first). Ranking them again here put hidden links on new hosts before
-    a second visible one."""
+    """Return the first `limit` URLs in the caller's order.
+
+    extension_backend.rank_links already ranks them. Ranking again here
+    used to put hidden links on new hosts ahead of a second visible link.
+    """
     return list(urls)[:limit]
 
 
 def _safe_error(e: Exception) -> str:
-    """An error for the logs without the request URL, which can carry an
-    API key (PhishTank's is in the feed's path)."""
+    """Describe an error for the logs without the request URL.
+
+    The URL can hold an API key. PhishTank puts it in the feed path.
+    """
     status = getattr(getattr(e, "response", None), "status_code", None)
     return f"{type(e).__name__}" + (f" (HTTP {status})" if status else "")

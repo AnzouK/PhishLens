@@ -15,18 +15,26 @@ const { SOURCE_LABELS } = PhishLensConstants;
 const allLinksElsewhere = (data) => data.links_elsewhere && !(data.link_alignment?.aligned > 0);
 
 // Line under the title. On a safe verdict with a high agent score it
-// explains why that score did not count, since red meters under "looks
-// safe" would read as a contradiction.
-function bannerLead(data, phishing) {
+// explains why that score did not count. In the caution style it starts
+// with "Some signs are unusual", followed by that reason when there is
+// one.
+function bannerLead(data, phishing, caution) {
     if (phishing) return t(allLinksElsewhere(data) ? "lead_links_elsewhere" : "lead_phishing");
-    if (data.forwarded?.detected) return t("lead_forwarded");
-    if (data.shared_links?.count) return t("lead_shared", { services: (data.shared_links.services || []).join(", ") });
-    if (data.text_agent_used === false) return t("lead_no_text");
-    const high = ["text", "url", "metadata"].some((k) => (data.agents?.[k]?.phishing_probability || 0) >= 0.7);
-    if (!high) return t("lead_safe");
-    if (data.trust_path === "trusted_sender" || data.trusted_sender) return t("lead_trusted");
-    const byPath = { crypto_verified: "lead_crypto", outlook_internal: "lead_internal", gmail_inbox_soft: "lead_gmail" };
-    return t(byPath[data.trust_path] || "lead_one_signal");
+    const reason = safeReason(data);
+    if (!caution) return t(reason || "lead_safe", { services: sharedServices(data) });
+    return [t("lead_caution"), reason && reason !== "lead_one_signal" ? t(reason, { services: sharedServices(data) }) : ""]
+        .filter(Boolean).join(" ");
+}
+
+PL.bannerLead = bannerLead;
+
+const sharedServices = (data) => (data.shared_links?.services || []).join(", ");
+
+// Key of the line that explains a safe verdict, or null for the plain
+// "no strong phishing signals" (PhishLensShared.safeReason).
+function safeReason(data) {
+    const reason = PhishLensShared.safeReason(data);
+    return reason ? `lead_${reason}` : null;
 }
 
 // Brand names come from the server in lower case ("la poste" becomes
@@ -41,7 +49,7 @@ function meter(label, value, offTitle = "meter_not_checked_title") {
             h("span.pll-meter__off", null, t("meter_not_checked")));
     }
     const p = Math.max(0, Math.min(100, Number(value) || 0));
-    const level = p >= 70 ? "high" : p >= 40 ? "mid" : "low";
+    const level = PhishLensShared.scoreLevel(p / 100);
     return h("div.pll-meter", { title: t("meter_title", { label, pct: p }) },
         h("span.pll-meter__l", null, label),
         h("span.pll-meter__track", null, h(`span.pll-meter__fill.pll-meter__fill--${level}`, { style: { width: `${p}%` } })),
@@ -63,43 +71,70 @@ function trustBadge(data) {
     return null;
 }
 
-const chip = (kind, text, title) => h(`span.pll-chip${kind ? ".pll-chip--" + kind : ""}`, { title }, text);
+// `base` is "pll-chip" in the banner and "pll-att-chip" on an attachment card.
+const chipOf = (base) => (kind, text, title) => h(`span.${base}${kind ? `.${base}--${kind}` : ""}`, { title }, text);
+const chip = chipOf("pll-chip");
 
-function signalChips(data) {
+// Chips are shown worst first: bad, then warn, then good, then neutral,
+// in the banner (pll-chip--bad...) and on attachment cards (pll-att-chip--bad...).
+const CHIP_ORDER = ["bad", "warn", "good"];
+const chipRank = (c) => {
+    const i = CHIP_ORDER.findIndex((kind) => String(c.className).split(" ").some((cls) => cls.endsWith(`--${kind}`)));
+    return i < 0 ? CHIP_ORDER.length : i;
+};
+// Array.prototype.sort is stable, so chips of one kind keep their order.
+const byRank = (chips) => chips.sort((a, b) => chipRank(a) - chipRank(b));
+PL.byRank = byRank;
+
+// One orange or red chip per unusual sign (PhishLensShared.unusualSigns).
+// attachments.js reuses this for the card of an attached email.
+function signChips(data, base = "pll-chip") {
+    const make = chipOf(base);
     const chips = [];
     const imp = data.sender_auth?.impersonation;
     if (imp?.brand) {
         const vars = { brand: brandName(imp.brand), domain: imp.domain || "?" };
-        chips.push(chip("bad", t("chip_impersonation", vars), t("chip_impersonation_title", vars)));
+        chips.push(make("bad", t("chip_impersonation", vars), t("chip_impersonation_title", vars)));
     }
     if (data.forwarded?.detected) {
         const orig = data.forwarded.original_sender;
-        chips.push(chip("warn",
+        chips.push(make("warn",
             orig ? t("chip_forwarded_from", { sender: orig }) : t("chip_forwarded"),
             orig ? t("chip_original_sender", { sender: orig }) : t("chip_original_unknown")));
     }
     if (data.shared_links?.count) {
-        chips.push(chip("warn", t("chip_shared", { services: (data.shared_links.services || []).join(", ") }),
+        chips.push(make("warn", t("chip_shared", { services: (data.shared_links.services || []).join(", ") }),
             (data.shared_links.urls || []).join("\n")));
-    }
-    if (data._fullHeaders) chips.push(chip("good", t("chip_full_headers"), t("chip_full_headers_title")));
-    if (data._threadMessages > 1) {
-        chips.push(chip("", t("chip_latest", { count: data._threadMessages }), t("chip_latest_title")));
     }
     const rep = data.url_reputation || {};
     if (rep.malicious_count > 0) {
         for (const src of rep.sources_hit || []) {
             const source = SOURCE_LABELS[src] || src;
-            chips.push(chip("bad", t("chip_flagged_by", { source }), t("chip_flagged_title", { source, count: rep.malicious_count })));
+            chips.push(make("bad", t("chip_flagged_by", { source }), t("chip_flagged_title", { source, count: rep.malicious_count })));
         }
-    } else if (rep.checked > 0) {
-        chips.push(chip("good", t("chip_links_clean"), t("chip_links_clean_title")));
     }
     const auth = data.sender_auth || {};
-    if (auth.dmarc === "fail") chips.push(chip("bad", t("chip_dmarc_fail"), t("chip_dmarc_fail_title")));
-    else if (auth.dkim === "fail") chips.push(chip("bad", t("chip_dkim_fail"), t("chip_dkim_fail_title")));
-    else if (auth.spf === "fail") chips.push(chip("warn", t("chip_spf_fail"), t("chip_spf_fail_title")));
-    if (auth.spamhaus_dbl_listed) chips.push(chip("bad", t("chip_spamhaus"), t("chip_spamhaus_title")));
+    if (PhishLensShared.authFailed(auth)) {
+        if (auth.dmarc === "fail") chips.push(make("bad", t("chip_dmarc_fail"), t("chip_dmarc_fail_title")));
+        else if (auth.dkim === "fail") chips.push(make("bad", t("chip_dkim_fail"), t("chip_dkim_fail_title")));
+        else chips.push(make("warn", t("chip_spf_fail"), t("chip_spf_fail_title")));
+    }
+    if (auth.spamhaus_dbl_listed) chips.push(make("bad", t("chip_spamhaus"), t("chip_spamhaus_title")));
+    return byRank(chips);
+}
+PL.signChips = signChips;
+
+function signalChips(data) {
+    const chips = signChips(data);
+    if (data._fullHeaders) chips.push(chip("good", t("chip_full_headers"), t("chip_full_headers_title")));
+    if (data._threadMessages > 1) {
+        chips.push(chip("", t("chip_latest", { count: data._threadMessages }), t("chip_latest_title")));
+    }
+    const rep = data.url_reputation || {};
+    if (!(rep.malicious_count > 0) && rep.checked > 0) {
+        chips.push(chip("good", t("chip_links_clean"), t("chip_links_clean_title")));
+    }
+    byRank(chips);
     return chips.length ? h("div.pll-signals", null, chips) : null;
 }
 
@@ -109,27 +144,32 @@ function closeButton(banner) {
     }, icon("close"));
 }
 
-function errorContent(data) {
+// An error, or a neutral notice ({ verdict: "notice" }) such as the
+// privacy notice before the first scan.
+function errorContent(data, notice = false) {
     return [
-        h("span.pll-banner__icon", null, icon("alert")),
+        h("span.pll-banner__icon", null, icon(notice ? "info" : "alert")),
         h("div.pll-banner__main", null,
             h("div.pll-banner__title", null, data.title || t("error_title")),
             h("div.pll-banner__lead", null, data.error || "")),
     ];
 }
 
-function verdictContent(data, phishing) {
+// `kind` is "danger", "caution" or "safe" (PhishLensShared.displayVerdict).
+function verdictContent(data, kind) {
+    const phishing = kind === "danger";
+    const caution = kind === "caution";
     const meta = data.agents?.metadata?.checked === false ? null : PL.pct(data.agents?.metadata?.phishing_probability);
     // With almost no text the text model did not count, so its meter
     // reads "not checked".
     const wording = data.text_agent_used === false ? null : PL.pct(data.agents?.text?.phishing_probability);
     return [
-        h("span.pll-banner__icon", null, icon(phishing ? "alert" : "shieldCheck")),
+        h("span.pll-banner__icon", null, icon(phishing || caution ? "alert" : "shieldCheck")),
         h("div.pll-banner__main", null,
             h("div.pll-banner__head", null,
-                h("span.pll-banner__title", null, t(phishing ? "verdict_phishing" : "verdict_safe")),
+                h("span.pll-banner__title", null, t(phishing ? "verdict_phishing" : caution ? "verdict_caution" : "verdict_safe")),
                 trustBadge(data)),
-            h("div.pll-banner__lead", null, bannerLead(data, phishing)),
+            h("div.pll-banner__lead", null, bannerLead(data, phishing, caution)),
             h("div.pll-meters", null,
                 meter(t("meter_wording"), wording, "meter_text_not_checked_title"),
                 meter(t("meter_links"), PL.pct(data.agents?.url?.phishing_probability)),
@@ -142,20 +182,22 @@ function verdictContent(data, phishing) {
     ];
 }
 
-// Shows the banner for `data` (an /analyse answer, or { verdict: "error",
-// title, error }) in `emailView`, replacing any earlier one. On Outlook it
-// is inserted before `anchor`; on Gmail it finds its own place.
+// Shows the banner for `data` in `emailView`, replacing any earlier one.
+// `data` is an /analyse answer or { verdict: "error" or "notice", title,
+// error }. On Outlook it goes before `anchor`. On Gmail it finds its own
+// place.
 PL.showBanner = function showBanner(emailView, data, anchor = null) {
     const old = emailView.querySelector(".pll-banner");
     // A privacy notice replaced by another banner was not accepted.
     old?._pllCancel?.();
     old?.remove();
-    const isError = data.verdict === "error";
-    const phishing = data.verdict === "phishing";
-    const banner = h("div", {
-        class: "pll-banner " + (isError ? "pll-banner--error" : phishing ? "pll-banner--danger" : "pll-banner--safe"),
-    });
-    banner.append(...(isError ? errorContent(data) : verdictContent(data, phishing)), closeButton(banner));
+    const notice = data.verdict === "notice";
+    const isError = notice || data.verdict === "error";
+    // A safe verdict next to a red meter or an orange or red chip is
+    // shown in the caution style (PhishLensShared.displayVerdict).
+    const kind = notice ? "notice" : isError ? "error" : PhishLensShared.displayVerdict(data);
+    const banner = h("div", { class: `pll-banner pll-banner--${kind}` });
+    banner.append(...(isError ? errorContent(data, notice) : verdictContent(data, kind)), closeButton(banner));
 
     const { SEL } = PhishLensGmail;
     const headerBar = emailView.querySelector(SEL.headerBar);
@@ -172,8 +214,8 @@ PL.showBanner = function showBanner(emailView, data, anchor = null) {
 
 // Words behind the text score. LIME weights are tiny (often below 0.01),
 // so the colour strength shows each word's weight relative to the
-// strongest. Single characters and bare numbers mean nothing to a reader;
-// they stay in the history but are not shown.
+// strongest. Single characters and bare numbers mean nothing to a reader,
+// so we keep them in the history but don't show them.
 PL.attachExplanation = function attachExplanation(emailView, features, cached = false) {
     const slot = emailView.querySelector(".pll-banner .pll-banner__tokens");
     if (!slot) return;
@@ -198,8 +240,8 @@ PL.attachExplanation = function attachExplanation(emailView, features, cached = 
     if (cached) slot.append(h("span.pll-cache-hint", { title: t("cached_title") }, t("cached")));
 };
 
-// After a scan: the explanation (computed in the background, or from the
-// cache) and its top words in the history entry.
+// Fetches the explanation after a scan, from the cache or the server, and
+// stores its top words in the history entry.
 PL.explainInBackground = async function explainInBackground(view, payload, data, historyId) {
     if (data.text_agent_used === false) {
         const slot = view.querySelector(".pll-banner .pll-banner__tokens");
@@ -233,7 +275,7 @@ PL.confirmCloudUse = async function confirmCloudUse(view, anchor = null) {
     if (s[NOTICE_KEY] || (s.backend && s.backend !== "cloud")) return true;
     return new Promise((resolve) => {
         const banner = PL.showBanner(view, {
-            verdict: "error", title: t("privacy_notice_title"), error: t("privacy_notice_text"),
+            verdict: "notice", title: t("privacy_notice_title"), error: t("privacy_notice_text"),
         }, anchor);
         const lang = PhishLensI18n.language();
         const ok = h("button.pll-att-btn", {

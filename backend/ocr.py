@@ -1,23 +1,21 @@
 """
 PhishLens: OCR and QR code decoding for attachments.
-Two evasion tricks this module closes:
 
-* **Image-only content.** A phishing PDF that is just a scanned picture
-  of a fake invoice, or a PNG of a login page, has no extractable text,
-  so the text agent has nothing to read. The pages are rendered and run
-  through Tesseract OCR.
-* **QR codes ("quishing").** The link is drawn as a QR code so that
-  neither the text nor the link annotations contain it. QR codes are
-  decoded with OpenCV and the URLs go to the reputation cascade.
+A phishing PDF that is only a scanned picture of a fake invoice, or a
+PNG of a login page, has no text to extract, so the text agent would
+have nothing to read. Such pages are rendered and run through Tesseract.
+A link can also be drawn as a QR code ("quishing") so that neither the
+text nor the link annotations contain it. QR codes are decoded with
+OpenCV and their URLs go to the reputation cascade.
 
-Every dependency is optional. If Tesseract, OpenCV or pypdfium2 is
-missing, the matching step is skipped and ``capabilities()`` says so;
-the endpoint keeps working on whatever text is available.
+Tesseract, OpenCV and pypdfium2 are all optional. When one is missing
+the matching step is skipped, capabilities() says so, and the endpoint
+works on whatever text it has.
 
-Resource limits (all env-tunable) protect the shared CPU-only demo:
-at most ``OCR_MAX_PAGES`` pages rendered, images downscaled so the long
-side is at most ``OCR_MAX_SIDE`` pixels, a Tesseract timeout per page,
-and Pillow's decompression-bomb guard.
+The server is CPU only, so the work is capped (each limit can be set in
+the environment): at most OCR_MAX_PAGES pages are rendered, images are
+scaled down to OCR_MAX_SIDE pixels on the long side, each page has a
+Tesseract timeout, and Pillow's decompression-bomb guard stays on.
 """
 
 from __future__ import annotations
@@ -240,7 +238,7 @@ def qr_urls(payloads: list[str]) -> list[str]:
 
 # PDF pages
 def render_pdf_pages(raw: bytes, max_pages: int = OCR_MAX_PAGES) -> list[Image.Image]:
-    """Render the first ``max_pages`` pages of a PDF to Pillow images.
+    """Render the first max_pages pages of a PDF to Pillow images.
 
     The scale is chosen per page so that the long side never exceeds
     OCR_MAX_SIDE, whatever size the PDF declares for its pages.

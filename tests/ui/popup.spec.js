@@ -142,6 +142,19 @@ test("pasted text: safe verdict", async ({ page }) => {
     await expect(page.locator("#verdict-label")).toHaveText("This email looks safe");
 });
 
+test("pasted text: a safe verdict with a red score is shown with caution", async ({ page }) => {
+    const body = analyseResponse("safe");
+    body.agents.text.phishing_probability = 0.76;
+    await page.route(`${API}/analyse`, (route) => route.fulfill({ json: body }));
+    await page.goto(`${base}/popup/popup.html`);
+    await page.click('.tab[data-tab="paste"]');
+    await page.fill("#paste-input", "Hi team, please confirm the new payment details before Friday.");
+    await page.click("#analyze-btn");
+    await expect(page.locator("#verdict-label")).toHaveText("Probably safe, but check");
+    await expect(page.locator("#verdict-card")).toHaveClass(/verdict-card--caution/);
+    await expect(page.locator("#verdict-sub")).toContainText("Some signs are unusual");
+});
+
 test("an Office attachment is sent to /analyse_attachment", async ({ page }) => {
     let sent = null;
     await page.route(`${API}/analyse_attachment`, async (route) => {
@@ -329,4 +342,28 @@ test("a DKIM-signed sender flagged by its links says why", async ({ page }) => {
     await page.click("#analyze-btn");
     await expect(page.locator("#verdict-label")).toHaveText("This email looks like phishing");
     await expect(page.locator("#verdict-sub")).toContainText("none of its links lead to that domain");
+});
+
+test("the File and Paste tabs say which one is selected", async ({ page }) => {
+    await page.goto(`${base}/popup/popup.html`);
+    await expect(page.locator("#tab-file")).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#tab-paste")).toHaveAttribute("aria-selected", "false");
+    await page.click("#tab-paste");
+    await expect(page.locator("#tab-paste")).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#tab-file")).toHaveAttribute("aria-selected", "false");
+    await expect(page.locator("#tab-paste")).toHaveAttribute("aria-controls", "panel-paste");
+});
+
+test("a forwarded email shown with caution says why and shows a warn badge", async ({ page }) => {
+    const body = analyseResponse("safe");
+    body.forwarded = { detected: true, original_sender: "boss@example.com" };
+    await page.route(`${API}/analyse`, (route) => route.fulfill({ json: body }));
+    await page.goto(`${base}/popup/popup.html`);
+    await page.click('.tab[data-tab="paste"]');
+    await page.fill("#paste-input", "Forwarded message: please review the attached schedule for next week.");
+    await page.click("#analyze-btn");
+    await expect(page.locator("#verdict-card")).toHaveClass(/verdict-card--caution/);
+    await expect(page.locator("#verdict-sub")).toContainText("Forwarded email");
+    await expect(page.locator("#meta-badges .badge--warn")).toHaveText("Forwarded: boss@example.com");
+    await expect(page.locator('.agent[data-agent="text"]')).toHaveAttribute("data-level", "low");
 });

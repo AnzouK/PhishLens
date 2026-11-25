@@ -1,24 +1,17 @@
 """
-Email authentication headers and the Spamhaus DBL lookup.
+PhishLens: email authentication headers and the Spamhaus DBL lookup.
 
-The domain in the From: line proves nothing by itself. This module reads
-the Authentication-Results header that Gmail (and most modern mail
-servers) adds to every message and reports whether SPF, DKIM and DMARC
-passed.
+The domain in From: proves nothing by itself. Gmail and most modern mail
+servers add an Authentication-Results header to every message, and we
+read SPF, DKIM and DMARC from it.
 
-A domain counts as "cryptographically legitimate" only when SPF passes,
-DKIM passes and the From: domain aligns with one of them (DMARC pass, or
-aligned SPF or DKIM). This is the alignment rule of RFC 7489: a message
-signed by attacker.tld cannot pass as "From: paypal.com".
+We follow the alignment rule of RFC 7489. The From: domain has to match
+a domain that actually passed, so a message signed by attacker.tld can't
+pass as "From: paypal.com". We only call a message cryptographically
+verified when DKIM passed for a domain aligned with From:.
 
-The Spamhaus DBL (Domain Block List) lookup is a DNS query against
-dbl.spamhaus.org. A sender or link domain listed there is a known spam,
-malware or phishing source.
-
-Public API:
-    parse_authentication_results(headers) -> AuthVerdict
-    spamhaus_dbl(domain)                  -> Awaitable[dict | None]
-    build_metadata_auth_signal(headers)   -> dict   (ready for JSON output)
+The Spamhaus DBL is a DNS block list at dbl.spamhaus.org. A sender or
+link domain listed there is a known spam, malware or phishing source.
 """
 
 from __future__ import annotations
@@ -31,7 +24,7 @@ from dataclasses import asdict, dataclass
 from email.utils import getaddresses
 from typing import Any
 
-# Set by email_parsing.header_dict when a message has several From: headers.
+# email_parsing.header_dict sets this when a message has several From: headers.
 FROM_UNPROVEN = "x-phishlens-from-unproven"
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
@@ -39,7 +32,7 @@ logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
 # Authentication-Results parsing
 
-# Extracts the authenticated identity for each method.
+# Authenticated identity for each method.
 _SPF_ID_RE = re.compile(r"smtp\.mailfrom=([^\s;]+)", re.IGNORECASE)
 _DKIM_ID_RE = re.compile(r"header\.(?:i|d)=@?([^\s;]+)", re.IGNORECASE)
 _DMARC_ID_RE = re.compile(r"header\.from=([^\s;]+)", re.IGNORECASE)
@@ -47,12 +40,13 @@ _ID_RE = {"spf": _SPF_ID_RE, "dkim": _DKIM_ID_RE, "dmarc": _DMARC_ID_RE}
 
 
 def _without_comments(value: str) -> str:
-    """The value with its comments "(...)", nested or not, and the
-    contents of its quoted strings removed (RFC 5322). Both are free text
-    the sender can influence: a quoted local part in the envelope address
-    ('"dkim=pass header.i=@bank.example"@attacker.example') or a comment
-    the receiving server copies from the message must not read as a
-    result. Linear on any input."""
+    """Strip RFC 5322 comments and the contents of quoted strings.
+
+    The sender controls both. A quoted local part such as
+    '"dkim=pass header.i=@bank.example"@attacker.example', or a comment the
+    receiving server copies from the message, must not read as a result.
+    Runs in linear time.
+    """
     out: list[str] = []
     depth, quoted, escaped = 0, False, False
     for ch in value:
@@ -89,11 +83,12 @@ _CLAUSE_RE = re.compile(
 
 
 def _clauses(ar: str):
-    """(method, result, rest of the clause) for each result of an
-    Authentication-Results value: one result per ";"-separated clause,
-    each starting with its method (RFC 8601). The server's name comes
-    first (Microsoft 365 leaves it out); a "dkim=pass" anywhere else in a
-    clause is not a result."""
+    """Yield (method, result, rest) for each clause of an Authentication-Results value.
+
+    RFC 8601 puts one result per ";"-separated clause, starting with the
+    method. The server name comes first, though Microsoft 365 omits it. A
+    "dkim=pass" in the middle of a clause is not a result.
+    """
     for segment in _without_comments(ar[:20_000]).split(";"):
         m = _CLAUSE_RE.match(segment)
         if m:
@@ -102,9 +97,9 @@ def _clauses(ar: str):
 
 @dataclass
 class AuthVerdict:
-    """Structured result of Authentication-Results parsing."""
+    """Parsed Authentication-Results."""
 
-    # Verdicts as reported by the receiving MTA.
+    # Results as the receiving MTA reported them.
     spf: str = "none"  # "pass" | "fail" | "softfail" | "none" | ...
     dkim: str = "none"
     dmarc: str = "none"
@@ -117,7 +112,7 @@ class AuthVerdict:
     from_domain: str = ""
     aligned: bool = False  # From: domain matches at least one authenticated domain
     all_pass: bool = False  # all three of SPF/DKIM/DMARC are "pass"
-    cryptographically_verified: bool = False  # aligned AND at least DKIM pass
+    cryptographically_verified: bool = False  # DKIM pass from a domain aligned with From:
     header_present: bool = False  # Authentication-Results was actually there
 
     # The raw header, for logging.
@@ -132,32 +127,35 @@ _AT_DOMAIN_RE = re.compile(r"@([A-Za-z0-9.\-_]+)")
 
 
 def _address_domain(addr: str) -> str:
-    """The domain of one address: after its last "@", since a quoted local
-    part can hold another one ('"service@paypal.com"@evil.example' is
-    evil.example)."""
+    """Return the domain after the last "@".
+
+    A quoted local part can contain its own "@", so
+    '"service@paypal.com"@evil.example' belongs to evil.example.
+    """
     m = _AT_DOMAIN_RE.match("@" + addr.rsplit("@", 1)[-1].strip()) if "@" in addr else None
     return m.group(1).lower().rstrip(".") if m else ""
 
 
 def sender_domains(value: str) -> list[str]:
-    """Every domain a From: value names, in order: the domain of each
-    address the header parses into, of each <...> block (two blocks with
-    no comma between them are two addresses, whatever the parser makes of
-    them), and, when nothing parses, of each "@" of the line. More than
-    one means the header does not name one sender."""
+    """Return every domain a From: value names, in order.
+
+    We take each parsed address and each <...> block, since two blocks
+    with no comma are two addresses whatever the parser thinks. If nothing
+    parses we fall back to every "@" in the line. More than one domain
+    means the header doesn't name a single sender.
+    """
     if not value:
         return []
     value = value[:8000]
-    # <...> blocks and stray "@" are looked for outside quoted names and
-    # comments: '"Jane <jane@gmail.com> (via Docs)" <drive@google.com>'
-    # names one sender, google.com.
+    # Only look outside quoted names and comments.
+    # '"Jane <jane@gmail.com> (via Docs)" <drive@google.com>' names one
+    # sender, google.com.
     bare = _without_comments(value)
     addrs = [a for _n, a in getaddresses([value]) if "@" in a]
     addrs += [a for a in _ANGLE_RE.findall(bare) if "@" in a]
     found = []
     for a in addrs:
-        # A quoted local part holding an address ('"ceo@victim.example"@
-        # evil.example') names that domain too: such a From: names two.
+        # '"ceo@victim.example"@evil.example' names two domains.
         local = a.rpartition("@")[0]
         found += [d.lower().rstrip(".") for d in _AT_DOMAIN_RE.findall(local)]
         found.append(_address_domain(a))
@@ -169,12 +167,13 @@ def sender_domains(value: str) -> list[str]:
 
 
 def sender_domain(value: str) -> str | None:
-    """Domain of a bare address or a 'Name <addr@domain>' header: the
-    address itself (after its last "@"), not the first "@" of the line,
-    since a display name can carry another one ('"support@gtbank.com"
-    <scam@attacker.example>'). When the header does not parse, the last
-    domain it names: the address part comes after the name. Every check
-    of the sender reads it from here; sender_domains gives them all."""
+    """Return the sender domain of an address or a 'Name <addr@domain>' header.
+
+    We use the address, not the first "@" in the line, because the display
+    name can hold a fake one ('"support@gtbank.com" <scam@attacker.example>').
+    If the header doesn't parse we take the last domain, since the address
+    follows the name. All sender checks go through here.
+    """
     if not value:
         return None
     value = value[:8000]
@@ -195,9 +194,9 @@ def _domain_of(addr: str) -> str:
     return addr.rstrip(".").split(">")[0].strip()
 
 
-# Second-level labels that registries use under country-code TLDs
-# (paypal.co.uk, firstbank.com.ng, unilag.edu.ng, uct.ac.za, ...): under a
-# two-letter TLD, a domain ending in one of these keeps three labels.
+# Second-level labels used under country-code TLDs (paypal.co.uk,
+# firstbank.com.ng, unilag.edu.ng, uct.ac.za). Under a two-letter TLD, a
+# domain ending in one of these keeps three labels.
 _GENERIC_SLDS = {
     "co",
     "com",
@@ -229,8 +228,8 @@ _GENERIC_SLDS = {
     "police",
     "nhs",
 }
-# Shared hosting suffixes where every customer gets a subdomain: the
-# customer label is the organisation, never the suffix itself.
+# Shared hosting suffixes where each customer gets a subdomain. The
+# customer label is the organisation, not the suffix.
 SHARED_SUFFIXES = {
     "github.io",
     "herokuapp.com",
@@ -251,17 +250,13 @@ SHARED_SUFFIXES = {
 
 
 def org_domain(domain: str) -> str:
-    """
-    Organisational domain ("registrable" domain): 'mail.paypal.com' ->
-    'paypal.com', 'billing.paypal.co.uk' -> 'paypal.co.uk',
-    'x.firstbank.com.ng' -> 'firstbank.com.ng'.
+    """Return the organisational domain, e.g. 'billing.paypal.co.uk' -> 'paypal.co.uk'.
 
-    Not the full Public Suffix List, but it covers every country-code
-    registry that uses generic second-level labels (co, com, org, gov, edu,
-    ac, ...) and common shared-hosting suffixes, so two different
-    organisations under the same public suffix never compare equal
-    (attacker.co.uk vs paypal.co.uk). Used by every alignment check,
-    including the one built from Gmail's "signed-by".
+    This is not the full Public Suffix List. It covers the country-code
+    registries that use generic second-level labels and the common shared
+    hosting suffixes, which is enough to keep attacker.co.uk and
+    paypal.co.uk apart. Every alignment check uses it, including the one
+    built from Gmail's "signed-by".
     """
     if not domain:
         return ""
@@ -277,24 +272,19 @@ def org_domain(domain: str) -> str:
 
 
 def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
-    """
-    Parse the Authentication-Results header into a structured verdict.
+    """Parse Authentication-Results from the lowercased header dict of parse_eml().
 
-    `headers` should be the parsed header dict from parse_eml(): keys
-    lowercased. Missing header -> AuthVerdict(header_present=False) with
-    all verdicts defaulting to "none".
+    Without the header, every result stays "none" and header_present is False.
     """
     verdict = AuthVerdict()
 
-    # From: domain first, needed for the alignment check. The address
-    # itself, not the first "@" of the line: a display name can carry
-    # another address ('"support@paypal.com" <scam@attacker.example>').
+    # The alignment check needs the From: domain.
     verdict.from_domain = sender_domain(headers.get("from", "")) or ""
 
     ar = headers.get("authentication-results", "") or ""
-    # Without Authentication-Results, the ARC copy is shown, but it proves
-    # nothing: no receiving server vouched for it, and a sender can write
-    # one in its own message.
+    # Without Authentication-Results we show the ARC copy, but it proves
+    # nothing. No receiving server vouched for it and a sender can write
+    # one into the message.
     arc_only = not ar
     if arc_only:
         ar = headers.get("arc-authentication-results", "") or ""
@@ -302,13 +292,13 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
         return verdict
 
     verdict.header_present = True
-    verdict.raw = ar[:500]  # cap for logging
+    verdict.raw = ar[:500]  # capped for logging
 
-    # One result per method, each with the identity written in its own
-    # clause. An email can carry several DKIM signatures: a failing one in
-    # the brand's name next to a passing one for the sender's own domain
-    # must not combine into "pass for the brand". Per method, the result
-    # kept is an aligned pass, else any pass, else the first one listed.
+    # Keep one result per method, read with the identity from the same
+    # clause. An email can carry a failing DKIM signature for the brand and
+    # a passing one for the sender's own domain, and those must not merge
+    # into "pass for the brand". We prefer an aligned pass, then any pass,
+    # then the first result listed.
     fod = org_domain(verdict.from_domain)
     chosen: dict[str, tuple[int, str, str]] = {}
     for method, result, clause in _clauses(ar):
@@ -325,12 +315,10 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
 
     verdict.all_pass = verdict.spf == "pass" and verdict.dkim == "pass" and verdict.dmarc == "pass"
 
-    # Alignment: the visible From: domain must match an authenticated one at
-    # the organizational-domain level, AND that method must have passed.
-    # An attacker who DKIM-signs their own attacker.tld would otherwise pass
-    # this check just because their spoofed header.from=paypal.com happens
-    # to appear in the DMARC identifier field (which is copied from From:,
-    # not authenticated). Only "pass" verdicts count.
+    # The From: domain must match the organisational domain of a method that
+    # passed. Otherwise an attacker who DKIM-signs attacker.tld would pass
+    # because header.from=paypal.com appears in the DMARC field, which is
+    # copied from From: and never authenticated.
     aligned_domains = []
     if verdict.spf == "pass" and verdict.spf_domain:
         aligned_domains.append(verdict.spf_domain)
@@ -338,9 +326,9 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
         aligned_domains.append(verdict.dkim_domain)
     if verdict.dmarc == "pass" and verdict.dmarc_domain:
         aligned_domains.append(verdict.dmarc_domain)
-    # Two From: headers: a mail program shows one, the checks read the
-    # other. DMARC treats such a message as failing; so does PhishLens.
-    # A From: with several addresses is the same trick in one header.
+    # With two From: headers a mail program shows one while checks read the
+    # other. DMARC fails such a message and so do we. A From: with several
+    # addresses is the same trick in one header.
     from_value = headers.get("from", "")[:8000]
     from_addresses = {a.lower() for _n, a in getaddresses([from_value]) if a}
     proven = (
@@ -351,9 +339,9 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     )
     verdict.aligned = proven and bool(fod) and any(org_domain(d) == fod for d in aligned_domains)
 
-    # Cryptographic verification requires DKIM (the only crypto method: SPF
-    # is envelope-only, DMARC is a policy layer on top of the other two) to
-    # have passed AND the DKIM-signing domain to align with From:.
+    # DKIM is the only cryptographic method. SPF covers the envelope only
+    # and DMARC is a policy on top of the other two. So we need a DKIM pass
+    # from a domain aligned with From:.
     dkim_aligned = (
         verdict.dkim == "pass" and verdict.dkim_domain and org_domain(verdict.dkim_domain) == fod
     )
@@ -366,7 +354,7 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
 
 DBL_ZONE = "dbl.spamhaus.org"
 
-# Listing codes: (threat type, category).
+# Listing codes mapped to (threat type, category).
 # https://www.spamhaus.org/faq/section/Spamhaus%20DBL#291
 _DBL_CODES = {
     "127.0.1.2": ("SPAM", "spam"),
@@ -383,13 +371,15 @@ _policy_logged = False
 
 
 async def spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any] | None:
-    """The Spamhaus DBL listing of a domain: {"threat_type", "category",
-    "code"}, or None when it is not listed or the lookup gave no answer.
-    Used for the sender's domain here and for link domains in reputation.
+    """Look a domain up in the Spamhaus DBL.
 
-    127.255.255.x answers are not listings: Spamhaus refuses queries from
-    public or anonymous resolvers that way. Counting them would flag every
-    domain; they are logged once and treated as no answer.
+    Returns {"threat_type", "category", "code"}, or None when the domain is
+    not listed or there was no answer. reputation.py uses it for link
+    domains too.
+
+    Spamhaus answers 127.255.255.x to refuse queries from public or
+    anonymous resolvers. Counting those would flag every domain, so we log
+    them once and treat them as no answer.
     """
     global _policy_logged
     domain = _domain_of(domain)
@@ -423,12 +413,9 @@ async def spamhaus_dbl(domain: str, timeout: float = 2.0) -> dict[str, Any] | No
 async def build_metadata_auth_signal(
     headers: dict[str, str], enable_dbl: bool = True
 ) -> dict[str, Any]:
-    """
-    Combines Authentication-Results parsing with a Spamhaus DBL lookup on
-    the From: domain, and returns a JSON-serialisable dict ready to attach
-    to the /analyse response.
+    """Build the auth signal for /analyse from Authentication-Results and the DBL.
 
-    Score contribution to the metadata agent:
+    Contribution to the metadata score:
       * cryptographically_verified  -> -0.20   (bonus)
       * all_pass                    -> -0.10   (bonus)
       * SPF fail                    -> +0.15

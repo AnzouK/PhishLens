@@ -9,9 +9,8 @@ const BACKEND_PRESETS = Object.freeze({
 });
 const DEFAULT_BACKEND = "cloud";
 
-// A typed server address as stored and compared everywhere: trimmed,
-// scheme in lowercase ("HTTPS://" is accepted when typed), without
-// trailing slashes.
+// Normalises a typed server address before it is stored or compared. We
+// trim it, lower-case the scheme and drop trailing slashes.
 function normalizeBaseUrl(value) {
     return String(value || "").trim().replace(/\/+$/, "")
         .replace(/^[a-z][a-z0-9+.-]*:/i, (scheme) => scheme.toLowerCase());
@@ -102,17 +101,16 @@ function safeName(name) {
     return String(name || "").replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "\u2420");
 }
 
-// Characters that take no room on screen: what Unicode calls default
-// ignorable (format characters, fillers, variation selectors, tags) and
-// control characters other than tab, line feed, form feed and carriage
-// return. Same rule as backend/unicode_text.py, with shared cases in
-// tests/fixtures/invisible_cases.json.
+// Characters that take no room on screen. That is Unicode's default
+// ignorable set plus control characters other than tab, line feed, form
+// feed and carriage return. backend/unicode_text.py uses the same rule and
+// both are tested against tests/fixtures/invisible_cases.json.
 const INVISIBLE_SOURCE = "[\\p{Cf}\\x00-\\x08\\x0B\\x0E-\\x1F\\x7F-\\x9F\\u034F\\u115F\\u1160\\u17B4\\u17B5" +
     "\\u180B-\\u180D\\u180F\\u0890\\u0891\\u3164\\uFFA0\\uFE00-\\uFE0F\\uFFF0-\\uFFF8\\u{13430}-\\u{1343F}" +
     "\\u{1BCA0}-\\u{1BCA3}\\u{1D173}-\\u{1D17A}\\u{E0000}-\\u{E0FFF}]";
 const INVISIBLE_ONE = new RegExp(INVISIBLE_SOURCE, "u");
-// The scripts whose shape the joiners change: Arabic and Persian (with
-// their presentation forms), the Indic scripts.
+// Scripts whose letter shapes depend on joiners, such as Arabic, Persian
+// and the Indic scripts.
 const SHAPED_BLOCK = /[\u0600-\u08FF\u0900-\u0DFF\uFB50-\uFDFF\uFE70-\uFEFC]/u;
 const shapedLetter = (c) => !!c && SHAPED_BLOCK.test(c) && /\p{L}/u.test(c) && !INVISIBLE_ONE.test(c);
 const shapedMark = (c) => !!c && SHAPED_BLOCK.test(c) && /\p{Mn}|\p{Mc}/u.test(c) && !INVISIBLE_ONE.test(c);
@@ -140,10 +138,104 @@ function collapseInvisible(text) {
     return String(text ?? "").replace(new RegExp(INVISIBLE_SOURCE + "+", "gu"), (run) => [...run][0]);
 }
 
+// Meter level for a score. 70% and up is "high" (red), 40% and up is
+// "mid", the rest is "low". We compare the rounded percentage the user sees.
+const HIGH_SCORE_PCT = 70;
+const MID_SCORE_PCT = 40;
+function scoreLevel(probability) {
+    const pct = Math.round((Number(probability) || 0) * 100);
+    return pct >= HIGH_SCORE_PCT ? "high" : pct >= MID_SCORE_PCT ? "mid" : "low";
+}
+
+// Attachment flags meaning PhishLens could not look inside. A low score
+// is then not reassuring.
+const CAUTION_FLAGS = Object.freeze([
+    "encrypted_archive", "encrypted_document", "uninspectable_archive",
+    "disk_image_attachment", "disk_image_in_archive", "zip_bomb_suspected", "inner_files_not_extracted",
+    "document_not_fully_read",
+]);
+
+function isCaution(flags) {
+    return (flags || []).some((f) => CAUTION_FLAGS.includes(f));
+}
+
+// Attachment flags that only describe the file, such as OCR text, links,
+// an invite or an old Office format. They show as neutral chips. Every
+// other flag is a warning and shows in orange.
+const NEUTRAL_FLAGS = Object.freeze([
+    "text_from_ocr", "contains_link_annotation", "calendar_invite", "legacy_office_format",
+]);
+const isWarningFlag = (flag) => !NEUTRAL_FLAGS.includes(flag);
+
+// The agent scores shown next to a verdict. The text score is not shown
+// when the text model did not count (almost no text), nor the sender
+// score when there was no sender information.
+function shownScores(data) {
+    const a = data?.agents || {};
+    return [
+        data?.text_agent_used === false ? null : a.text?.phishing_probability,
+        a.url?.phishing_probability,
+        a.metadata?.checked === false ? null : a.metadata?.phishing_probability,
+    ].filter((p) => p != null);
+}
+
+// True when sender authentication failed in a way worth warning about.
+// DKIM or DMARC failing counts. SPF failing only counts without a DMARC
+// pass, because mailing lists and forwarders resend from their own
+// servers and break SPF while DKIM still aligns.
+function authFailed(auth) {
+    if (auth?.dkim === "fail" || auth?.dmarc === "fail") return true;
+    return auth?.spf === "fail" && auth?.dmarc !== "pass";
+}
+
+// Names of the signs in the result that we show as an orange or red chip
+// (empty array when there are none): brand impersonation, forwards,
+// shared files or forms, links flagged by threat intelligence, failed
+// sender authentication, a sender on Spamhaus and the warning flags of an
+// attachment.
+function unusualSigns(data) {
+    const auth = data?.sender_auth || {};
+    const signs = [];
+    if (auth.impersonation?.brand) signs.push("impersonation");
+    if (data?.forwarded?.detected) signs.push("forwarded");
+    if (data?.shared_links?.count) signs.push("shared_links");
+    if (data?.url_reputation?.malicious_count > 0) signs.push("flagged_links");
+    if (authFailed(auth)) signs.push("auth_fail");
+    if (auth.spamhaus_dbl_listed) signs.push("spamhaus");
+    if ((data?.attachment?.notable_features || []).some(isWarningFlag)) signs.push("file_flags");
+    return signs;
+}
+
+// Short reason for a safe verdict, or null when nothing needs explaining.
+// "forwarded", "shared" and "no_text" come first. When an agent score is
+// high, the reason says why it didn't count ("trusted", "crypto",
+// "internal", "gmail" or "one_signal"). The banner and the popup each
+// turn it into their own sentence.
+function safeReason(data) {
+    if (data?.forwarded?.detected) return "forwarded";
+    if (data?.shared_links?.count) return "shared";
+    if (data?.text_agent_used === false) return "no_text";
+    if (!shownScores(data).some((p) => scoreLevel(p) === "high")) return null;
+    if (data.trust_path === "trusted_sender" || data.trusted_sender) return "trusted";
+    const byPath = { crypto_verified: "crypto", outlook_internal: "internal", gmail_inbox_soft: "gmail" };
+    return byPath[data.trust_path] || "one_signal";
+}
+
+// Display style for a verdict. Phishing is "danger". A safe verdict next
+// to a red meter or an unusual sign is "caution", because a green "looks
+// safe" above them would contradict the details. Everything else is
+// "safe". The server's verdict and scores are never changed.
+function displayVerdict(data) {
+    if (data?.verdict === "phishing") return "danger";
+    const high = shownScores(data).some((p) => scoreLevel(p) === "high");
+    return high || unusualSigns(data).length ? "caution" : "safe";
+}
+
 const PhishLensShared = Object.freeze({
     BACKEND_PRESETS, DEFAULT_BACKEND, resolveBackend, getBackendBase, apiErrorMessage, debug, safeName,
     INVISIBLE_SOURCE, withoutInvisible, collapseInvisible, isPlainRemoteUrl,
     normalizeBaseUrl, hostPattern, privacyUrl,
+    scoreLevel, isCaution, isWarningFlag, shownScores, authFailed, unusualSigns, safeReason, displayVerdict,
 });
 globalThis.PhishLensShared = PhishLensShared;
 

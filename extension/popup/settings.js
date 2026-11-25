@@ -57,9 +57,9 @@ const LOCAL_ORIGINS = ["http://127.0.0.1/*", "http://localhost/*"];
 
 // Optional host permissions, requested during a click. A refusal breaks
 // nothing, since the server's CORS headers still apply. The promise
-// settles once the user has answered, never with an error. Leaving the
-// address field by clicking "Test connection" asks twice at once (change,
-// then click): the second call gets the prompt already open.
+// settles once the user has answered and never rejects. Leaving the
+// address field by clicking "Test connection" fires change and click
+// together, so the second call finds the prompt already open.
 const pendingRequests = new Map();
 
 export function requestOrigins(origins) {
@@ -131,9 +131,9 @@ export function initSettings() {
         updateCustomUrlWarn();
     });
     $("test-conn-btn").addEventListener("click", async () => {
-        // Asked during the click, and answered before the test runs, so the
-        // test sees the permission. Not a URL yet: no pattern, and the test
-        // below says so.
+        // Ask during the click and wait for the answer, so the test sees the
+        // permission. If the field isn't a URL yet there is no pattern and
+        // the test below reports it.
         if (backend.choice === "custom") await requestOrigins([hostPattern(backend.customUrl)]);
         else if (backend.choice === "local") await requestOrigins(LOCAL_ORIGINS);
         testConnection();

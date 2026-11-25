@@ -49,12 +49,12 @@
   <text x="98" y="218" font-size="12.5" font-weight="600" fill="#ff8a4c">Why this verdict?</text>
   <path d="M212 212l4 4 4-4" class="ic" stroke="#ff8a4c" stroke-width="1.6"/>
   <g class="mono" font-size="12">
-    <rect x="98" y="230" width="62" height="24" rx="6" fill="#ff8a4c" fill-opacity=".42" stroke="#ff8a4c" stroke-opacity=".35"/><text x="108" y="246" class="mono" fill="#ffb08a">verify</text>
-    <rect x="166" y="230" width="90" height="24" rx="6" fill="#ff8a4c" fill-opacity=".34" stroke="#ff8a4c" stroke-opacity=".35"/><text x="176" y="246" class="mono" fill="#ffb08a">suspended</text>
-    <rect x="262" y="230" width="106" height="24" rx="6" fill="#ff8a4c" fill-opacity=".26" stroke="#ff8a4c" stroke-opacity=".35"/><text x="272" y="246" class="mono" fill="#ffb08a">immediately</text>
-    <rect x="374" y="230" width="72" height="24" rx="6" fill="#ff8a4c" fill-opacity=".2" stroke="#ff8a4c" stroke-opacity=".35"/><text x="384" y="246" class="mono" fill="#ffb08a">payment</text>
+    <rect x="98" y="230" width="62" height="24" rx="6" fill="#ff8a80" fill-opacity=".42" stroke="#ff8a80" stroke-opacity=".3"/><text x="108" y="246" class="mono" fill="#ffb4ab">verify</text>
+    <rect x="166" y="230" width="90" height="24" rx="6" fill="#ff8a80" fill-opacity=".34" stroke="#ff8a80" stroke-opacity=".3"/><text x="176" y="246" class="mono" fill="#ffb4ab">suspended</text>
+    <rect x="262" y="230" width="106" height="24" rx="6" fill="#ff8a80" fill-opacity=".26" stroke="#ff8a80" stroke-opacity=".3"/><text x="272" y="246" class="mono" fill="#ffb4ab">immediately</text>
+    <rect x="374" y="230" width="72" height="24" rx="6" fill="#ff8a80" fill-opacity=".2" stroke="#ff8a80" stroke-opacity=".3"/><text x="384" y="246" class="mono" fill="#ffb4ab">payment</text>
     <rect x="452" y="230" width="72" height="24" rx="6" fill="#81c995" fill-opacity=".14" stroke="#81c995" stroke-opacity=".3"/><text x="462" y="246" class="mono" fill="#81c995">meeting</text>
-    <rect x="530" y="230" width="62" height="24" rx="6" fill="#ff8a4c" fill-opacity=".14" stroke="#ff8a4c" stroke-opacity=".35"/><text x="540" y="246" class="mono" fill="#ffb08a">access</text>
+    <rect x="530" y="230" width="62" height="24" rx="6" fill="#ff8a80" fill-opacity=".14" stroke="#ff8a80" stroke-opacity=".3"/><text x="540" y="246" class="mono" fill="#ffb4ab">access</text>
   </g>
 
   <!-- language and report -->
@@ -76,12 +76,12 @@
   <text x="98" y="376" font-size="16" font-weight="600" fill="#e8eaed">This email looks safe</text>
   <rect x="274" y="361" width="108" height="22" rx="11" fill="#2d3a38" stroke="#415d4f"/>
   <text x="287" y="376" font-size="11.5" font-weight="600" fill="#81c995">Trusted sender</text>
-  <text x="98" y="396" font-size="13" fill="#a6adb7">Some wording or links resemble phishing, but the sender is on the trusted list, so they weigh less.</text>
+  <text x="98" y="396" font-size="13" fill="#a6adb7">No strong phishing signals. Stay careful with unexpected requests for money or passwords.</text>
   <g transform="translate(804 358)" class="ic" stroke="#a6adb7"><path d="M2 2l10 10M12 2L2 12"/></g>
 
   <text x="98" y="428" font-size="12" fill="#a6adb7">Wording</text>
-  <rect x="152" y="420" width="120" height="6" rx="3" fill="#3a4049"/><rect x="152" y="420" width="92" height="6" rx="3" fill="#ff8a80"/>
-  <text x="280" y="428" font-size="12" font-weight="600" fill="#e8eaed">76%</text>
+  <rect x="152" y="420" width="120" height="6" rx="3" fill="#3a4049"/><rect x="152" y="420" width="14" height="6" rx="3" fill="#81c995"/>
+  <text x="280" y="428" font-size="12" font-weight="600" fill="#e8eaed">12%</text>
   <text x="330" y="428" font-size="12" fill="#a6adb7">Links</text>
   <rect x="368" y="420" width="120" height="6" rx="3" fill="#3a4049"/><rect x="368" y="420" width="7" height="6" rx="3" fill="#81c995"/>
   <text x="496" y="428" font-size="12" font-weight="600" fill="#e8eaed">5%</text>

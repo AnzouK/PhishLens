@@ -19,7 +19,7 @@
 
   <section class="hero">
     <div class="wrap">
-      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> {{hero_tag}}</p>
+      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> {{tag_items}}</p>
       <h1>{{hero_h1}}</h1>
       <p class="lead">{{hero_lead}}</p>
       <div class="row">
@@ -27,8 +27,11 @@
         <span class="status" aria-live="polite"><span id="status"><span class="spinner" aria-hidden="true"></span> {{status_checking}}</span><span id="version"></span></span>
       </div>
       <figure class="shot">
-        <img src="{{b}}img/gmail-verdicts.svg" width="860" height="648"
-             alt="{{shot_alt}}">
+        <picture>
+          <source media="(max-width: 600px)" srcset="{{b}}img/gmail-verdicts-mobile.svg" width="860" height="340">
+          <img src="{{b}}img/gmail-verdicts.svg" width="860" height="648"
+               alt="{{shot_alt}}">
+        </picture>
         <figcaption>{{shot_caption}}</figcaption>
       </figure>
     </div>
@@ -42,7 +45,10 @@
         <p class="lbl">{{r_caught}}<span class="ci">{{r_caught_ci}}</span></p>
       </div>
       <p class="facts">{{r_facts}}</p>
-      <p class="note">{{results_note_html}}</p>
+      <details class="note method">
+        <summary>{{results_note_summary}}</summary>
+        <p>{{results_note_html}}</p>
+      </details>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> {{live_h}}</h3>
       <div class="strip" id="live" aria-live="polite">
@@ -194,7 +200,7 @@ cd backend &amp;&amp; docker compose up --build</pre>
           <p class="small muted">{{install_more_html}}</p>
         </div>
       </div>
-      <p class="mt"><a class="cta" href="https://github.com/AnzouK/PhishLens/releases/latest">{{cta}}</a></p>
+      <p class="mt"><a class="cta" href="https://github.com/AnzouK/PhishLens/releases/latest">{{cta_download}}</a></p>
     </div>
   </section>
 </main>

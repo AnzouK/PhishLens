@@ -43,8 +43,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from live_eval import fmt  # noqa: E402
 
-LABELS = {"phishing": 1, "legit": 0}
-
 
 def emails_in(source: str) -> Iterator[bytes]:
     """Raw bytes of each email in a .eml file, a folder or an .mbox file."""

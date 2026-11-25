@@ -1,11 +1,11 @@
 // Removes personal data from an email before a report leaves the browser.
-// The server runs the same rules again (backend/redaction.py). Removed:
-//   email addresses, phone numbers, long numbers (accounts, cards, codes,
-//   IBANs), the path and query of every link (the domain stays because it
-//   tells a phishing site from a real one), @handles and usernames,
-//   names after a greeting or a title, and the words given in `terms`
-//   (the user's own name and address, read from the mail page).
-// The person always sees the result before sending it.
+// The server runs the same rules again (backend/redaction.py).
+// We remove email addresses, phone numbers and long numbers such as
+// accounts, cards, codes and IBANs. Links lose their path and query but
+// keep the domain, since that is what tells a phishing site from a real
+// one. @handles, usernames and names after a greeting or a title go too,
+// as do the words in `terms` (the user's own name and address from the
+// mail page). The person always sees the result before sending it.
 (function () {
 "use strict";
 
@@ -59,9 +59,9 @@ function termsFrom(...values) {
 }
 
 function redact(text, terms = []) {
-    // Before any rule, fold compatibility forms (no-break and narrow
-    // spaces become spaces, full-width digits plain ones) and remove
-    // invisible characters. Same as backend/redaction.py.
+    // Fold compatibility forms and remove invisible characters first, so
+    // no-break spaces and full-width digits can't slip past the rules.
+    // backend/redaction.py does the same.
     let t = String(text || "").normalize("NFKC").replace(RE.invisible, "");
     t = t.replace(RE.email, "<EMAIL>");
     t = t.replace(RE.url, (_, host) => `<URL:${host.toLowerCase().replace(/^www\./, "")}>`);

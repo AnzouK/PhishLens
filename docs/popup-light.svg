@@ -20,7 +20,7 @@
   </g>
   <line x1="0" y1="68" x2="400" y2="68" stroke="#d6d0c2"/>
 
-  <rect x="20" y="84" width="360" height="62" rx="4" fill="#f6e9e8" stroke="#a3271c"/>
+  <rect x="20" y="84" width="360" height="62" rx="4" fill="#e5d5cb" stroke="#a3271c"/>
   <path transform="translate(38 101)" class="ic" stroke="#a3271c" d="M10.3 1.9L1.4 17a2 2 0 001.7 3h17.8a2 2 0 001.7-3L13.7 1.9a2 2 0 00-3.4 0zM12 8v4M12 16h.01" stroke-width="2"/>
   <text x="74" y="111" font-size="15" font-weight="700" fill="#1f1e1b">This email looks like phishing</text>
   <text x="74" y="130" font-size="12.5" fill="#4a4740">We recommend not clicking any links.</text>
@@ -34,47 +34,47 @@
   <text x="20" y="202" font-size="11.5" fill="#a83d0e" text-decoration="underline">Wrong verdict? Report it</text>
 
   <g transform="translate(0 56)">
-  <rect x="20" y="160" width="360" height="84" rx="4" fill="#ffffff" stroke="#d6d0c2"/>
+  <rect x="20" y="160" width="360" height="84" rx="4" fill="#ece8de" stroke="#d6d0c2"/>
   <text x="36" y="186" font-size="13.5" font-weight="600" fill="#1f1e1b">Message content</text>
   <text x="364" y="186" font-size="13.5" font-weight="700" fill="#a3271c" text-anchor="end">97%</text>
   <rect x="36" y="196" width="328" height="5" rx="2.5" fill="#e3ddd0"/>
   <rect x="36" y="196" width="316" height="5" rx="2.5" fill="#a3271c"/>
   <text x="36" y="226" font-size="12" fill="#4a4740">The message content reads like a scam.</text>
-  <rect x="20" y="256" width="360" height="84" rx="4" fill="#ffffff" stroke="#d6d0c2"/>
+  <rect x="20" y="256" width="360" height="84" rx="4" fill="#ece8de" stroke="#d6d0c2"/>
   <text x="36" y="282" font-size="13.5" font-weight="600" fill="#1f1e1b">Links in the email</text>
   <text x="364" y="282" font-size="13.5" font-weight="700" fill="#a3271c" text-anchor="end">88%</text>
   <rect x="36" y="292" width="328" height="5" rx="2.5" fill="#e3ddd0"/>
   <rect x="36" y="292" width="287" height="5" rx="2.5" fill="#a3271c"/>
-  <rect x="36" y="308" width="208" height="20" rx="4" fill="#eed8d6"/>
+  <rect x="36" y="308" width="208" height="20" rx="4" fill="#dfc5bb"/>
   <text x="43" y="322" font-size="11" font-weight="600" fill="#a3271c">Flagged by Google Safe Browsing</text>
-  <rect x="20" y="352" width="360" height="84" rx="4" fill="#ffffff" stroke="#d6d0c2"/>
+  <rect x="20" y="352" width="360" height="84" rx="4" fill="#ece8de" stroke="#d6d0c2"/>
   <text x="36" y="378" font-size="13.5" font-weight="600" fill="#1f1e1b">Sender &amp; headers</text>
   <text x="364" y="378" font-size="13.5" font-weight="700" fill="#7a5200" text-anchor="end">64%</text>
   <rect x="36" y="388" width="328" height="5" rx="2.5" fill="#e3ddd0"/>
   <rect x="36" y="388" width="209" height="5" rx="2.5" fill="#7a5200"/>
-  <rect x="36" y="404" width="76" height="20" rx="4" fill="#eed8d6"/>
+  <rect x="36" y="404" width="76" height="20" rx="4" fill="#dfc5bb"/>
   <text x="43" y="418" font-size="11" font-weight="600" fill="#a3271c">DMARC fail</text>
-  <rect x="118.0" y="404" width="63" height="20" rx="4" fill="#e7e0d1"/>
+  <rect x="118.0" y="404" width="63" height="20" rx="4" fill="#d7cdb6"/>
   <text x="125.0" y="418" font-size="11" font-weight="600" fill="#7a5200">SPF fail</text>
 
-  <rect x="20" y="448" width="360" height="152" rx="4" fill="#ffffff" stroke="#d6d0c2"/>
+  <rect x="20" y="448" width="360" height="152" rx="4" fill="#ece8de" stroke="#d6d0c2"/>
   <text x="36" y="474" font-size="13.5" font-weight="600" fill="#1f1e1b">Why this verdict?</text>
   <path d="M356 470l5-5 5 5" class="ic" stroke="#4a4740"/>
   <text x="36" y="496" font-size="11.5" fill="#4a4740">The words that influenced the text model most.</text>
   <text x="36" y="512" font-size="11.5" fill="#4a4740">Red points to phishing, green to safe.</text>
-    <rect x="36" y="528" width="56" height="22" rx="4" fill="#cc8882"/>
+    <rect x="36" y="528" width="56" height="22" rx="4" fill="#c47e73"/>
   <text x="44" y="543" font-size="11.5" fill="#1f1e1b">verify</text>
-  <rect x="98" y="528" width="75" height="22" rx="4" fill="#d69e99"/>
+  <rect x="98" y="528" width="75" height="22" rx="4" fill="#cb9187"/>
   <text x="106" y="543" font-size="11.5" fill="#1f1e1b">suspended</text>
-  <rect x="179" y="528" width="89" height="22" rx="4" fill="#dcada9"/>
+  <rect x="179" y="528" width="89" height="22" rx="4" fill="#d09f94"/>
   <text x="187" y="543" font-size="11.5" fill="#1f1e1b">immediately</text>
-  <rect x="274" y="528" width="62" height="22" rx="4" fill="#e5c3bf"/>
+  <rect x="274" y="528" width="62" height="22" rx="4" fill="#d8b2a8"/>
   <text x="282" y="543" font-size="11.5" fill="#1f1e1b">account</text>
-  <rect x="36" y="556" width="62" height="22" rx="4" fill="#ebcfcd"/>
+  <rect x="36" y="556" width="62" height="22" rx="4" fill="#dcbeb3"/>
   <text x="44" y="571" font-size="11.5" fill="#1f1e1b">payment</text>
-  <rect x="104" y="556" width="42" height="22" rx="4" fill="#c0d3c3"/>
+  <rect x="104" y="556" width="42" height="22" rx="4" fill="#b2c2ac"/>
   <text x="112" y="571" font-size="11.5" fill="#1f1e1b">team</text>
-  <rect x="153" y="556" width="56" height="22" rx="4" fill="#d1ded3"/>
+  <rect x="153" y="556" width="56" height="22" rx="4" fill="#c2ccb9"/>
   <text x="161" y="571" font-size="11.5" fill="#1f1e1b">agenda</text>
   </g>
 </svg>

@@ -4,13 +4,9 @@
 
 # PhishLens
 
-**Detect and explain phishing emails in real time, inside Gmail and Outlook.**
-
 [![CI](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml/badge.svg)](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/AnzouK/PhishLens?color=blueviolet)](https://github.com/AnzouK/PhishLens/releases/latest)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-green.svg)](LICENSE)
-[![Website](https://img.shields.io/badge/Website-phishlens.dev-F80000)](https://phishlens.dev)
-[![Text model](https://img.shields.io/badge/checked%20on%20real%20phishing-6%20languages-yellow)](docs/multilingual-model.md)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/gmail-verdicts-dark.svg">
@@ -19,98 +15,17 @@
 
 </div>
 
-PhishLens is a Chrome extension that checks an email in Gmail or Outlook
-and tells you whether it looks like phishing, and why. It points to the
-words, the links, whether the sender is who it claims to be, and what
-the attachments contain. It is free, open source and available in
-English, French, Portuguese, Spanish, German, Italian, Dutch and Hausa.
+PhishLens is a Chrome extension for people who want a second opinion on
+an email before they click. Open a message in Gmail or Outlook on the
+web, press the scan button, and it tells you whether the email looks
+like phishing and why. It points at the words, the links, whether the
+sender is who it claims to be, and what the attachments contain.
 
-PhishLens does not filter your mail. It gives a verdict with its reasons
-so that you can decide, and it can be wrong.
-
-## What it checks
-
-A multilingual text model scores the wording, and LIME shows the words
-that weighed most. Every real link target, including the one behind
-"Click here", is looked up in Google Safe Browsing, PhishTank, URLhaus
-and Spamhaus and scored by a link model. For the sender, PhishLens reads
-SPF, DKIM and DMARC from Gmail's original headers and checks whether the
-name shown ("Chronopost", "PayPal") matches the address. Outlook gives
-the page only the visible text, so the SPF, DKIM and DMARC results are
-read in Gmail only. Attachments are opened too: PDFs (scanned ones
-through OCR), images, QR codes, Office files and their macros, archives
-and calendar invites.
-
-The text score alone would flag real bank and university emails, because
-they use the same words as phishing. PhishLens lowers it only when the
-sender is proven (DKIM aligned with the From: domain), and a link known
-to be malicious makes the verdict "phishing" whoever sent it. The
-[architecture notes](docs/architecture.md) explain how the checks are
-combined.
-
-## Privacy
-
-To check an email, PhishLens sends its text, links and headers (and the
-attachment, if you scan one) to a server. By default that server is
-**PhishLens Cloud**, which the author runs on Google Cloud Run in
-Belgium, reached through `phishlens.dev` on Cloudflare.
-
-- The email is analysed in memory and not stored. Only the result is
-  kept, for 24 hours, keyed by a hash of the email, so that a second
-  scan answers at once.
-- Threat-intelligence services receive the link addresses only.
-- Your scan history stays in your browser.
-- Nothing else leaves your browser unless you choose to report a wrong
-  verdict. You then see the redacted text, and can edit it, before it
-  is sent.
-
-If you would rather no email leave your computer, run the backend
-yourself (below) and pick **Local** in the settings. The full details
-are in the [privacy policy](PRIVACY.md).
-
-## How good is it?
-
-These figures come from real mail that no model saw during training,
-scored by PhishLens Cloud's text model at its 0.7 threshold.
-
-| Language | Legitimate emails flagged | Phishing caught |
-| --- | --- | --- |
-| English | 1 of 255, 0.4% (95% CI 0.1% to 2.2%) | 1,805 of 1,952, 92.5% (91.2% to 93.6%) |
-| French | 1 of 63, 1.6% (0.3% to 8.5%) | 202 of 231, 87.4% (82.6% to 91.1%) |
-
-The intervals show how much these counts can tell. With one false alarm
-in 63 French emails, the true rate could be anywhere from 0.3% to 8.5%.
-The legitimate emails all come from one mailbox and the phishing from
-recent public collections (Nazario 2025, phishing_pot 2026), so another
-inbox may see more false alarms. The model was trained on 22 languages
-but tested on real phishing only in English, French, German, Dutch,
-Portuguese and Spanish, and its score is less proven in the others. The
-link, sender and threat-intelligence checks do not depend on the
-language.
-
-How the model was built and measured is described in
-[multilingual-model.md](docs/multilingual-model.md), and what can go
-wrong in the [known limitations](docs/threat-model.md#residual-risks-and-known-limitations).
-You can measure it yourself with the public benchmark in
-[evaluation.md](docs/evaluation.md).
-
-The same benchmark measured the whole system (PhishLens Cloud, November
-1, 2026) on real mail sent in 2026:
-
-| Mail | Result |
-| --- | --- |
-| Phishing nobody looked at while tuning (phishing_pot, Nazario) | 1,804 of 2,000 caught, 90.2% (95% CI 88.8% to 91.4%) |
-| Legitimate, public Apache mailing lists (used while tuning) | 1 of 297 flagged, 0.3% (0.1% to 1.9%) |
-| Legitimate, real personal inboxes (bank, university and service notifications), received after the model's training mail | 0 of 117 flagged, 0.0% (0.0% to 3.2%) |
-
-English (81.6%) and French (87.2%) are the weakest languages, and some
-phishing sent from the attacker's own DKIM-signed domain still gets
-through. The runs, their causes and what was rejected are listed in
-[evaluation.md](docs/evaluation.md#results).
-
-A scan of a typical email (about 250 tokens) takes about 190 ms on the
-server (median, CPU only) and a short one about 65 ms, plus the
-threat-intelligence lookups.
+It is free and open source, and the interface comes in English, French,
+Portuguese, Spanish, German, Italian, Dutch and Hausa. Your mail stays
+where it is: you get a verdict and the reasons for it, which can be
+wrong, and decide for yourself. The website is
+[phishlens.dev](https://phishlens.dev).
 
 ## Install
 
@@ -125,6 +40,10 @@ PhishLens is not on the Chrome Web Store yet.
    PhishLens** next to the subject. You can also drop a `.eml` file or an
    attachment, or paste text, in the popup.
 
+On Firefox 140 or later, take `PhishLens-firefox-<version>.zip` from the
+same release and load it under `about:debugging`, This Firefox, Load
+Temporary Add-on.
+
 The [user guide](https://github.com/AnzouK/PhishLens/wiki) goes through
 each step in more detail.
 
@@ -135,7 +54,10 @@ each step in more detail.
   </picture>
 </div>
 
-### Run your own server
+### Running your own server
+
+By default the extension talks to PhishLens Cloud, the server I run. If
+you'd rather keep everything on your machine:
 
 ```bash
 mkdir -p backend/model
@@ -146,69 +68,150 @@ cd backend && docker compose up --build
 
 Then pick **Local** in the extension settings. A self-hosted server uses
 the English text model by default. The multilingual model is private
-because part of its training mail is. Configuration, deployment and
-monitoring are covered in the [operations guide](docs/operations.md).
+because part of its training mail is. The
+[operations guide](docs/operations.md) covers configuration, deployment
+and monitoring.
 
-### Source and tests
+## How it works
 
-The release zip holds only what Chrome loads. The extension is plain
+The extension reads what the mail page shows and sends it to a FastAPI
+server, which does all the scoring. Three checks run side by side.
+
+A multilingual text model scores the wording, and LIME shows the words
+that weighed most. Every real link target, including the one behind
+"Click here", is looked up in Google Safe Browsing, PhishTank, URLhaus
+and Spamhaus and scored by a link model. For the sender, PhishLens reads
+SPF, DKIM and DMARC from Gmail's original headers and checks whether the
+name shown ("Chronopost", "PayPal") matches the address. Outlook only
+gives the page the visible text, so SPF, DKIM and DMARC are read in
+Gmail only. Attachments are opened too, including PDFs (scanned ones
+through OCR), images, QR codes, Office files and their macros, archives
+and calendar invites.
+
+The text score alone would flag real bank and university emails, because
+they use the same words as phishing. So the wording only counts for less
+when the sender is proven (DKIM aligned with the From: domain), and a
+link known to be malicious makes the verdict "phishing" whoever sent it.
+The [architecture notes](docs/architecture.md) explain how the checks
+are combined.
+
+## Results
+
+These figures come from real mail that no model saw during training,
+scored by PhishLens Cloud's text model at its 0.7 threshold.
+
+| Language | Legitimate emails flagged | Phishing caught |
+| --- | --- | --- |
+| English | 1 of 255, 0.4% (95% CI 0.1% to 2.2%) | 1,805 of 1,952, 92.5% (91.2% to 93.6%) |
+| French | 1 of 63, 1.6% (0.3% to 8.5%) | 202 of 231, 87.4% (82.6% to 91.1%) |
+
+The intervals show how little these counts can pin down. With one false
+alarm in 63 French emails, the true rate could be anywhere from 0.3% to
+8.5%. The legitimate emails all come from one mailbox and the phishing
+from recent public collections (Nazario 2025, phishing_pot 2026), so
+another inbox may see more false alarms. The model was trained on 22
+languages but tested on real phishing only in English, French, German,
+Dutch, Portuguese and Spanish, so its score is less proven in the
+others. The link, sender and threat-intelligence checks work the same
+in every language.
+
+The same benchmark measured the whole system (PhishLens Cloud, November
+1, 2026) on real mail sent in 2026:
+
+| Mail | Result |
+| --- | --- |
+| Phishing nobody looked at while tuning (phishing_pot, Nazario) | 1,804 of 2,000 caught, 90.2% (95% CI 88.8% to 91.4%) |
+| Legitimate, public Apache mailing lists (used while tuning) | 1 of 297 flagged, 0.3% (0.1% to 1.9%) |
+| Legitimate, real personal inboxes (bank, university and service notifications), received after the model's training mail | 0 of 117 flagged, 0.0% (0.0% to 3.2%) |
+
+A typical email (about 250 tokens) takes about 190 ms on the server
+(median, CPU only) and a short one about 65 ms, plus the
+threat-intelligence lookups.
+
+[multilingual-model.md](docs/multilingual-model.md) explains how the
+model was built and measured. [evaluation.md](docs/evaluation.md#results)
+lists every run, what caused each change and what was rejected, and you
+can rerun the public benchmark yourself with the instructions in
+[evaluation.md](docs/evaluation.md).
+
+## Privacy
+
+To check an email, PhishLens sends its text, links and headers (and the
+attachment, if you scan one) to a server. By default that is PhishLens
+Cloud, which I run on Google Cloud Run in Belgium, reached through
+`phishlens.dev` on Cloudflare.
+
+The email is analysed in memory and not stored. Only the result is
+kept, for 24 hours, keyed by a hash of the email, so a second scan
+answers at once. Threat-intelligence services only receive the link
+addresses. Your scan history stays in your browser. Nothing else leaves
+it unless you choose to report a wrong verdict, and then you see the
+redacted text, and can edit it, before it is sent.
+
+If you'd rather no email leave your computer, run the backend yourself
+(see above) and pick **Local** in the settings. The
+[privacy policy](PRIVACY.md) has the full details.
+
+## Limitations
+
+English (81.6%) and French (87.2%) are the weakest languages on the
+public benchmark, and some phishing sent from the attacker's own
+DKIM-signed domain still gets through. The false-alarm figures rest on
+a few hundred legitimate emails. The
+[known limitations](docs/threat-model.md#residual-risks-and-known-limitations)
+in the threat model list the rest.
+
+Outlook support is thinner than Gmail's for now. Attachments, full
+headers and automatic scanning there will need Microsoft's mail API.
+After that I'd like to add Yahoo Mail, more reviewed real emails and
+user reports for measurement, SHAP next to LIME, and retraining on OCR
+text and QR-code phishing. I also want a multilingual model trained only
+on public data so it can be published, and a Chrome Web Store release.
+A native review of the Hausa translation is under way.
+
+## Contributing
+
+The release zips only hold what Chrome and Firefox load. The extension is plain
 JavaScript with no build step, so `extension/` in this repository is the
 same code, with its tests and lint configuration next to it.
 
 ```bash
-node --test tests/extension/*.test.js                      # unit tests, no dependency
+node --test tests/extension/*.test.js tests/functions/*.test.mjs  # unit tests, no dependency
 npx eslint . --max-warnings 0                              # eslint.config.mjs
 npx playwright test --config tests/ui/playwright.config.js # popup and website
 ```
 
-CI runs all three on every pull request. See the
-[contributing guide](CONTRIBUTING.md) for setup and the project layout.
+CI runs all three on every pull request. The
+[contributing guide](CONTRIBUTING.md) covers setup, the project layout
+and the checks for the backend.
 
-## Documentation
+Other documents:
 
-| Document | Contents |
-| --- | --- |
-| [User guide (wiki)](https://github.com/AnzouK/PhishLens/wiki) | Install, Gmail and Outlook, reading a verdict, settings, troubleshooting |
-| [Architecture](docs/architecture.md) | Components, scoring, trust paths, design decisions |
-| [Multilingual model](docs/multilingual-model.md) | How the text model was trained and measured |
-| [Evaluation](docs/evaluation.md) | What is measured, confidence intervals, and a public benchmark you can run |
-| [Languages](docs/languages.md) | Translations, OCR languages, adding a language |
-| [Threat model](docs/threat-model.md) | Risks, mitigations, known limitations |
-| [Operations](docs/operations.md) | Deployment, configuration, logs, metrics, load testing |
-| [Contributing](CONTRIBUTING.md) | Setup, project layout, checks |
-| [Changelog](CHANGELOG.md), [Security](SECURITY.md), [Privacy](PRIVACY.md), [Terms](TERMS.md) | |
+- [architecture notes](docs/architecture.md) (components, scoring, trust paths, design decisions)
+- [languages](docs/languages.md) (translations and OCR)
+- [threat model](docs/threat-model.md)
+- [operations guide](docs/operations.md) (deployment, logs, metrics, load testing)
+- [changelog](CHANGELOG.md), [security policy](SECURITY.md) and [terms](TERMS.md)
 
-## Roadmap
+## Background
 
-- Attachments, full headers and automatic scanning in Outlook, through
-  Microsoft's mail API.
-- Yahoo Mail.
-- For measurement and research, more reviewed real emails and the
-  reports users send, SHAP next to LIME, and retraining on OCR text and
-  QR-code phishing.
-- A multilingual model trained only on public data, so that it can be
-  published. A native review of the Hausa translation is under way.
-- A Chrome Web Store release.
-
-## Who makes it
-
-PhishLens is built and run by one person, [AnzouK](https://github.com/AnzouK).
+I build and run PhishLens on my own as [AnzouK](https://github.com/AnzouK).
 It began as our group's final-year project at
 [Nile University of Nigeria](https://nileuniversity.edu.ng/). Of the
 topics we considered, we chose a phishing detector that explains its
 verdict instead of only flagging an email. The team trained the first
 three models in [PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector)
 (maintained by [dodi-ctrl](https://github.com/dodi-ctrl)). When the
-course ended I kept it going on my own, and it is now an independent
-project with no link to the university.
+course ended I kept it going, and it is now an independent project with
+no link to the university.
 
-I write it with the help of an AI coding assistant. I review and test
-every change, and no claim about detection ships before it is measured
-on the public benchmark. The worst run so far (130 of 297 legitimate
-emails flagged in mid-October) and what fixed it are described in
-[evaluation.md](docs/evaluation.md#results).
+An AI coding assistant helps me write PhishLens. I review and test what
+it changes, and a detection figure is only published once the public
+benchmark has measured it; [evaluation.md](docs/evaluation.md#results)
+includes the worst run so far (130 of 297 legitimate emails flagged in
+mid-October) and what fixed it.
 
-## Credits
+### Credits
 
 PhishLens builds on [Google Safe Browsing](https://safebrowsing.google.com/)
 (its warnings are advisories provided by Google),
@@ -225,7 +228,7 @@ listed in PhishingDetector and in the [model documentation](docs/multilingual-mo
 
 ## License
 
-PhishLens is released under the [GNU AGPL-3.0](LICENSE). Anyone may use,
+PhishLens is released under the [GNU AGPL-3.0](LICENSE). You may use,
 study, modify and share it, and a modified version, including one
 offered as an online service, must be published under the same license.
 Versions up to 1.15.5 were released under the MIT license. The text

@@ -110,7 +110,10 @@ async function analyze() {
 function switchTab(tab) {
     if (tab === state.tab) return;
     state.tab = tab;
-    document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("tab--active", b.dataset.tab === tab));
+    document.querySelectorAll(".tab").forEach((b) => {
+        b.classList.toggle("tab--active", b.dataset.tab === tab);
+        b.setAttribute("aria-selected", String(b.dataset.tab === tab));
+    });
     document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("tab-panel--active", p.dataset.panel === tab));
     updateAnalyzeEnabled();
     hideStatus();

@@ -1,10 +1,6 @@
-# =====================================================================
-# PhishLens backend: Docker image
-# =====================================================================
-# Local image: `uvicorn extension_backend:app` on port 8000, with the
-# text model mounted read-only at /app/model (see docker-compose.yml), so
-# models can be swapped without rebuilding.
-# =====================================================================
+# Local image: uvicorn on port 8000, with the text model mounted read-only
+# at /app/model (see docker-compose.yml) so it can be swapped without a
+# rebuild.
 
 FROM python:3.12-slim AS base
 

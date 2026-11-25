@@ -1,41 +1,40 @@
 # Project overview
 
-This page lists where each part of PhishLens lives, which document
-answers which question, and how far each published figure can be
-trusted.
-
 ## Where things live
 
-- [AnzouK/PhishLens](https://github.com/AnzouK/PhishLens): this
-  repository, with the extension, the server, the website and the tests.
-- [dodi-ctrl/PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector):
-  the training notebooks of the original three models.
-- AnzouKiona/phishlens-text-v2 (private): the multilingual text model
-  PhishLens Cloud runs. It is private because part of its training mail
-  is ([how it was built](multilingual-model.md)).
-- [AnzouKiona/phishlens-distilbert](https://huggingface.co/AnzouKiona/phishlens-distilbert):
-  the English v1 text model, the default of a self-hosted server.
-- [AnzouKiona/phishlens-agents](https://huggingface.co/AnzouKiona/phishlens-agents):
-  the URL and header Random Forests (skops).
-- [phishlens.dev](https://phishlens.dev): the website, in 8 languages,
-  and PhishLens Cloud.
-- [Wiki](https://github.com/AnzouK/PhishLens/wiki): the user guide.
+The code for the extension, the server, the website and the tests is in
+this repository, [AnzouK/PhishLens](https://github.com/AnzouK/PhishLens).
+The training notebooks of the original three models are in
+[dodi-ctrl/PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector).
+
+PhishLens Cloud runs the multilingual text model
+AnzouKiona/phishlens-text-v2. It is private because part of its
+training mail is ([how it was built](multilingual-model.md)). A
+self-hosted server uses the English v1 model,
+[AnzouKiona/phishlens-distilbert](https://huggingface.co/AnzouKiona/phishlens-distilbert),
+by default. The URL and header Random Forests are stored as skops files
+in [AnzouKiona/phishlens-agents](https://huggingface.co/AnzouKiona/phishlens-agents).
+
+[phishlens.dev](https://phishlens.dev) hosts the website in 8 languages
+and PhishLens Cloud. The user guide is in the
+[wiki](https://github.com/AnzouK/PhishLens/wiki).
 
 A report on the first version was written at Nile University of
 Nigeria (2025/2026). It is not published here.
 
 ## Where to look
 
-- Install: [README](../README.md#install)
-- Use it day to day: [wiki](https://github.com/AnzouK/PhishLens/wiki)
-- How it decides, and why: [architecture.md](architecture.md)
-- How good it is, and how it was measured: [evaluation.md](evaluation.md)
-- How the text model was built: [multilingual-model.md](multilingual-model.md)
-- Languages and translations: [languages.md](languages.md)
-- What can go wrong: [threat-model.md](threat-model.md)
-- Running a server: [operations.md](operations.md)
-- Reporting a vulnerability, contributing: [SECURITY.md](../SECURITY.md),
-  [CONTRIBUTING.md](../CONTRIBUTING.md)
+The [README](../README.md#install) covers installation and the
+[wiki](https://github.com/AnzouK/PhishLens/wiki) covers daily use.
+[architecture.md](architecture.md) explains how PhishLens decides and
+why. [evaluation.md](evaluation.md) says how good it is and how that
+was measured, and [multilingual-model.md](multilingual-model.md) how
+the text model was built. Languages and translations are in
+[languages.md](languages.md), what can go wrong is in
+[threat-model.md](threat-model.md), and running a server is in
+[operations.md](operations.md). To report a vulnerability or contribute,
+see [SECURITY.md](../SECURITY.md) and
+[CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Which figures to trust
 
@@ -52,8 +51,8 @@ mailbox is the legitimate reference
 ([details](multilingual-model.md#confidence-intervals)).
 
 The original Random Forests reached F1 0.991 and 0.999. Read these as
-upper bounds: phishing and legitimate samples came from different
-corpora and years. The header one flagged most modern legitimate mail
+upper bounds, because the phishing and legitimate samples came from
+different corpora and years. The header one flagged most modern legitimate mail
 and is off.
 
 None of these is live traffic. User reports will give that.

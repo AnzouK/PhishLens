@@ -1,27 +1,25 @@
 """
 PhishLens: archive and calendar-invite attachments.
-Archives are the classic way to get a payload past mail scanners:
 
-  - a password-protected ZIP cannot be opened by Gmail's scanner, so the
-    password is put in the email body ("password: 1234");
-  - executables, scripts and shortcut files (.exe, .js, .lnk, ...) are
-    blocked as direct attachments but slip through inside archives;
-  - disk images (.iso, .img, .vhd) mount as a drive on double-click and
-    bypass the "downloaded from the internet" warning;
-  - double extensions ("invoice.pdf.exe") hide the real type.
+Archives are the classic way to get a payload past mail scanners. Gmail
+can't open a password-protected ZIP, so the attacker puts the password
+in the email body. Programs, scripts and shortcuts are blocked as direct
+attachments but slip through inside an archive. Disk images (.iso, .img,
+.vhd) mount as a drive on double-click and skip the "downloaded from the
+internet" warning. Double extensions like "invoice.pdf.exe" hide the
+real type.
 
-ZIP archives are opened with the standard library (no extraction to
-disk). RAR (rarfile) and 7z (py7zr) archives are listed
-and opened the same way, with the same limits. Supported files inside
-(PDF, HTML, Office, images, text) are analysed one level deep with the
-same dispatcher as a direct attachment. Without those libraries, RAR
-and 7z are recognised and reported as not inspectable.
+ZIP files are read in memory with the standard library. RAR (rarfile)
+and 7z (py7zr) are handled the same way with the same limits, and are
+reported as not inspectable when those libraries are missing. Supported
+files inside are analysed one level deep by the normal attachment
+dispatcher.
 
 Calendar invites (.ics) carry links in their description and location
-fields and land in the calendar even when the email is ignored.
+and land in the calendar even if the email is ignored.
 
-Standard library at import time (rarfile and py7zr are imported lazily):
-safe to import anywhere.
+rarfile and py7zr are imported lazily, so this module is safe to import
+anywhere.
 """
 
 from __future__ import annotations
@@ -38,7 +36,7 @@ from typing import Any
 
 from unicode_text import without_invisible
 
-# Limits (zip-bomb and abuse protection)
+# Limits against zip bombs and abuse
 MAX_ENTRIES = 500  # entries listed
 MAX_INNER_FILES = 5  # supported inner files analysed
 MAX_INNER_BYTES = 5 * 1024 * 1024  # per inner file, uncompressed
@@ -167,10 +165,10 @@ DOCUMENT_EXTS = {
     "csv",
 }
 
-# Inner files read first: what a victim opens and what can carry a form
-# or a link (pages, PDFs, Office files, invites), then text, then
-# pictures (OCR is slow, and a few screenshots must not use up the
-# slots ahead of the login page). Names not listed are not opened.
+# Order in which inner files are read. Pages, PDFs, Office files and
+# invites come first because they can carry a form or a link. Text comes
+# next, then pictures, since OCR is slow and a few screenshots must not
+# take the slots ahead of a login page. Unlisted types are never opened.
 _INNER_ORDER = {
     **dict.fromkeys(("html", "htm", "xhtml", "shtml", "svg", "mht", "mhtml", "eml"), 0),
     "pdf": 1,
@@ -203,7 +201,7 @@ _INNER_ORDER = {
     **dict.fromkeys(("jpg", "jpeg", "png", "gif"), 5),
 }
 
-# Types whose presence forces the phishing verdict (like Office macros).
+# Types that force the phishing verdict, like Office macros do.
 DROPPER_FLAGS = {
     "executable_in_archive",
     "script_in_archive",
@@ -212,25 +210,25 @@ DROPPER_FLAGS = {
 }
 
 
-# Characters that reorder how a name is shown: "invoice\u202efdp.exe" is
-# displayed "invoiceexe.pdf".
+# Bidi controls change how a name is displayed. "invoice\u202efdp.exe"
+# shows as "invoiceexe.pdf".
 _BIDI = frozenset("\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
 
 
-# Full stops drawn like a dot (NFKC already turns the full-width one
-# into "."): "invoice.pdf\u3002exe" is shown as an .exe.
+# Full stops that look like a dot. NFKC already maps the full-width one,
+# but "invoice.pdf\u3002exe" still shows as an .exe.
 _DOTS = str.maketrans({"\u3002": ".", "\uff61": ".", "\ufe52": "."})
 
 
 def _base_name(name: str) -> str:
-    """The file name as Windows reads it, in this order (the extension does
-    the same: lib/constants.js fileExt, cases in
-    tests/fixtures/file_name_cases.json): compatibility form (a
-    full-width "/" is a "/"), invisible characters out ("invoice.pdf.exe"
-    + zero-width space, or + U+202C, is shown as an .exe), ideographic
-    full stops read as dots, the last part of the path, then no trailing
-    white space of any kind or dots ("invoice.exe ." and "invoice.exe\r"
-    are .exe files)."""
+    """Return the file name as Windows will treat it.
+
+    We apply NFKC, remove invisible characters, read ideographic full
+    stops as dots, keep the last path segment, and strip trailing spaces
+    and dots. Windows runs "invoice.exe ." and "invoice.exe\r" as .exe
+    files. The extension does the same in lib/constants.js (fileExt), and
+    both are tested against tests/fixtures/file_name_cases.json.
+    """
     norm = without_invisible(unicodedata.normalize("NFKC", str(name or ""))).translate(_DOTS)
     base = norm.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
     end = len(base)
@@ -240,19 +238,18 @@ def _base_name(name: str) -> str:
 
 
 def is_dir(name: str) -> bool:
-    """A ZIP entry that is a folder (an entry may have an empty name)."""
+    """Return True for a folder entry. Entries can have an empty name."""
     return name.endswith(("/", "\\"))
 
 
 def _ext(name: str) -> str:
-    """The extension Windows would run the file by, in lower case."""
+    """Return the lower-case extension Windows would use to run the file."""
     base = _base_name(name)
     return base.rsplit(".", 1)[-1].strip().lower() if "." in base else ""
 
 
 def _double_extension(name: str) -> bool:
-    """invoice.pdf.exe, "scan.jpg   .js": a document extension followed
-    by an executable, script or shortcut one."""
+    """Return True for a document extension followed by a risky one, like invoice.pdf.exe."""
     parts = _base_name(name).lower().split(".")
     if len(parts) < 3:
         return False
@@ -262,7 +259,7 @@ def _double_extension(name: str) -> bool:
 
 
 def classify_names(names: list[str]) -> list[str]:
-    """Risk flags from a list of file names (archive entries)."""
+    """Return risk flags for a list of archive entry names."""
     flags: list[str] = []
 
     def add(f: str) -> None:
@@ -286,7 +283,7 @@ def classify_names(names: list[str]) -> list[str]:
     return flags
 
 
-# Plain-English reason for each risky name flag (per-file report).
+# Reason shown in the per-file report for each risky name flag.
 NAME_REASONS = {
     "double_extension": "fake extension",
     "executable_in_archive": "program",
@@ -298,7 +295,7 @@ NAME_REASONS = {
 
 
 def entry_reasons(name: str) -> list[str]:
-    """Why one archive member is risky, from its name alone."""
+    """Explain why a member is risky based on its name alone."""
     return [NAME_REASONS[f] for f in classify_names([name]) if f in NAME_REASONS]
 
 
@@ -311,7 +308,7 @@ def is_rar_or_7z(raw: bytes) -> str | None:
 
 
 class _Entry:
-    """One archive member, whatever the format."""
+    """An archive member, independent of the format."""
 
     __slots__ = ("name", "size", "packed", "is_dir")
 
@@ -326,10 +323,12 @@ def _choose_inner(
     skip: Callable[[str], bool] | None = None,
     later: Callable[[str], bool] | None = None,
 ) -> list[str]:
-    """Supported inner files within the size and ratio limits, the most
-    telling kinds first (_INNER_ORDER), in archive order within a kind.
-    `skip(name)` leaves out members another reader covers (the parts of
-    an Office document)."""
+    """Pick supported inner files within the size and ratio limits.
+
+    The most telling kinds come first (_INNER_ORDER), in archive order
+    within a kind. `skip(name)` drops members another reader handles, such
+    as the parts of an Office document.
+    """
     chosen: list[str] = []
     total = 0
     candidates = [
@@ -337,23 +336,23 @@ def _choose_inner(
         for e in entries
         if not e.is_dir and _ext(e.name) in _INNER_ORDER and not (skip and skip(e.name))
     ]
-    # `later(name)`: members read only when slots remain (what Office adds
-    # to its own files must not take the place of a page next to them).
+    # `later(name)` marks members we only read if slots remain. Files Office
+    # adds itself must not take the place of a page next to them.
     candidates.sort(key=lambda e: (bool(later and later(e.name)), _INNER_ORDER[_ext(e.name)]))
     for e in candidates:
         if len(chosen) >= MAX_INNER_FILES:
             break
         if e.size is None:
-            # No size in the listing: it cannot be checked before
-            # extraction, so the file is not extracted.
+            # Without a size in the listing we can't check it first, so we
+            # don't extract it.
             add("inner_files_not_extracted")
             continue
         size = e.size
         if size > MAX_INNER_BYTES or total + size > MAX_TOTAL_INNER:
             add("oversized_inner_file")
             continue
-        # Ratio per member when the format gives it, else against the
-        # whole archive (solid 7z / RAR blocks have no per-file size).
+        # Use the per-member ratio when the format has one. Solid 7z and RAR
+        # blocks don't, so we fall back to the whole archive.
         packed = e.packed if e.packed else len(raw)
         if size / max(packed, 1) > MAX_RATIO:
             add("zip_bomb_suspected")
@@ -376,8 +375,8 @@ def _inner_entry(name: str, res: dict[str, Any]) -> dict[str, Any]:
         "kind": res.get("kind"),
         "notable_features": res.get("notable_features", []),
         "url_count": len(res.get("extracted_urls", []) or []),
-        # Private, for the per-file report; removed by the endpoint before
-        # the response is sent.
+        # Private field for the per-file report. The endpoint removes it
+        # before responding.
         "_text": (res.get("extracted_text") or "")[:4000],
         "_urls": list(res.get("extracted_urls", []) or [])[:50],
     }
@@ -395,9 +394,11 @@ def _analyse_listing(
     skip: Callable[[str], bool] | None = None,
     later: Callable[[str], bool] | None = None,
 ) -> dict[str, Any]:
-    """Shared by ZIP, RAR and 7z: flag risky names, pick the supported
-    inner files within the size limits, read them through `read(names)`
-    (format specific) and analyse them with `inner`."""
+    """Common path for ZIP, RAR and 7z.
+
+    Flags risky names, picks supported inner files within the limits,
+    reads them with the format's `read(names)` and analyses them with `inner`.
+    """
     names = [e.name for e in entries if not e.is_dir]
     flags = list(flags or [])
 
@@ -443,7 +444,7 @@ def _analyse_listing(
         "size_bytes": len(raw),
         "archive_format": fmt,
         "entries": names[:50],
-        # Private, every listed name for the per-file report; never sent.
+        # Private list of every name for the per-file report. Never sent.
         "_all_entries": names,
         "entry_count": len(names),
         "encrypted": encrypted,
@@ -456,11 +457,12 @@ def _analyse_listing(
 
 
 class _NotExtracted(Exception):
-    """The listing worked but the members cannot be decompressed here."""
+    """Raised when we can list the archive but can't decompress its members."""
 
 
 def _encrypted_unlisted(raw: bytes, filename: str, fmt: str) -> dict[str, Any]:
-    """Archive whose file list itself is encrypted (rar -hp, 7z -mhe)."""
+    """The result for an archive whose file list is itself encrypted
+    (rar -hp, 7z -mhe): no entries, entry_count None."""
     r = _analyse_listing(raw, filename, fmt, [], True, None, None)
     r["entry_count"] = None
     return r
@@ -480,15 +482,15 @@ def analyse_zip(
 ) -> dict[str, Any]:
     """List a ZIP archive, flag risky content, analyse supported files.
 
-    `inner(raw, name)` analyses one inner file (the attachment dispatcher,
-    called with depth + 1); it may raise ValueError for unsupported types.
+    `inner(raw, name)` is the attachment dispatcher called with depth + 1.
+    It may raise ValueError for unsupported types.
     """
     try:
         zf = zipfile.ZipFile(io.BytesIO(raw))
         infos = zf.infolist()
         if skip:
-            # Members another reader covers are neither listed nor counted:
-            # a page placed after 500 Office parts is still the 1st member.
+            # Don't list or count members another reader covers. Otherwise a
+            # page placed after 500 Office parts would fall past MAX_ENTRIES.
             infos = [i for i in infos if not skip(i.filename)]
         infos = infos[:MAX_ENTRIES]
     except zipfile.BadZipFile as e:
@@ -501,8 +503,8 @@ def analyse_zip(
         out: dict[str, bytes] = {}
         for n in names:
             try:
-                # Bounded read: never more than the limit is decompressed,
-                # whatever size the archive declares.
+                # Never decompress more than the limit, whatever size the
+                # archive declares.
                 with zf.open(n) as fh:
                     out[n] = fh.read(MAX_INNER_BYTES)
             except (
@@ -525,8 +527,7 @@ def analyse_zip(
 def analyse_7z(
     raw: bytes, filename: str, inner: Callable[[bytes, str], dict[str, Any]] | None = None
 ) -> dict[str, Any]:
-    """7z, with py7zr. Only the chosen supported files (size-checked
-    first) are extracted, in memory."""
+    """Read a 7z archive with py7zr, extracting only the chosen files in memory."""
     try:
         import py7zr
     except ImportError:
@@ -557,8 +558,8 @@ def analyse_7z(
         ]
 
         def read(names: list[str]) -> dict[str, bytes]:
-            # In memory, each member cut at MAX_INNER_BYTES whatever size
-            # the listing declared: nothing is written to disk.
+            # Extract in memory and cut each member at MAX_INNER_BYTES,
+            # whatever the listing says. Nothing touches the disk.
             from py7zr.io import BytesIOFactory
 
             factory = BytesIOFactory(MAX_INNER_BYTES)
@@ -581,11 +582,13 @@ def analyse_7z(
 def analyse_rar(
     raw: bytes, filename: str, inner: Callable[[bytes, str], dict[str, Any]] | None = None
 ) -> dict[str, Any]:
-    """RAR 4 and 5, with rarfile. The listing (names, sizes,
-    encryption) is pure Python; decompressing members needs an external
-    tool (unrar, unar, 7z or bsdtar; the Docker image ships bsdtar). Without
+    """Read a RAR 4 or 5 archive with rarfile.
+
+    Listing is pure Python, but decompression needs an external tool
+    (unrar, unar, 7z or bsdtar). The Docker image ships bsdtar. Without
     one, stored members are still read and the rest is reported as
-    "inner_files_not_extracted"."""
+    "inner_files_not_extracted".
+    """
     try:
         import rarfile
     except ImportError:
@@ -603,7 +606,7 @@ def analyse_rar(
                 return _encrypted_unlisted(raw, filename, "rar")
             return analyse_uninspectable_archive(raw, filename, "rar")
         if not infos and not encrypted:
-            # Nothing listed: truncated or damaged headers.
+            # An empty listing means truncated or damaged headers.
             return analyse_uninspectable_archive(raw, filename, "rar")
 
         entries = [
@@ -631,8 +634,11 @@ def analyse_rar(
 
 
 def analyse_uninspectable_archive(raw: bytes, filename: str, fmt: str) -> dict[str, Any]:
-    """RAR / 7z the server cannot open (library missing, multi-volume or
-    damaged archive): recognised, reported as not inspectable."""
+    """Report a RAR or 7z we can't open as not inspectable.
+
+    That happens when the library is missing or the archive is
+    multi-volume or damaged.
+    """
     return {
         "kind": "archive",
         "filename": filename,
@@ -654,7 +660,7 @@ _HREF_RE = re.compile(r"""(?:href|src)\s*=\s*["']?([^"'\s>]{1,2048})""", re.IGNO
 
 
 def _strip_tags(html: str) -> str:
-    """Drop <...> tags without a regex (linear, safe on crafted input)."""
+    """Drop <...> tags with a plain loop, which stays linear on crafted input."""
     out = []
     for i, chunk in enumerate(html[:20_000].split("<")):
         if i == 0:
@@ -672,12 +678,11 @@ def analyse_ics(
     raw: bytes, filename: str, extract_urls: Callable[[str], list[str]]
 ) -> dict[str, Any]:
     text = without_invisible(raw.decode("utf-8", errors="ignore"))
-    # RFC 5545 line unfolding: a line starting with a space continues the previous one.
+    # RFC 5545 unfolding. A line starting with a space continues the previous one.
     text = re.sub(r"\r?\n[ \t]", "", text)
     kept: list[str] = []
-    # Addresses come from every property (CONFERENCE, IMAGE, URL, a
-    # meeting link in an X- property, the links of the HTML description),
-    # the text from the fields a person reads.
+    # Take URLs from every property, including X- meeting links and the
+    # HTML description. Take text only from fields a person reads.
     values: list[str] = []
     organizer = None
     for line in text.splitlines():

@@ -1,6 +1,6 @@
 # Manufar sirri ta PhishLens
 
-An sabunta ta ƙarshe: 22 ga Nuwamba, 2026.
+An sabunta ta ƙarshe: 24 ga Nuwamba, 2026.
 
 PhishLens ƙarin Chrome ne da ke duba ko imel phishing ne. Wannan shafin
 yana bayyana bayanan da yake sarrafawa, inda suke zuwa da abin da ake
@@ -126,6 +126,10 @@ PhishLens yana ganin jimillar ƙididdigar ziyara ta Cloudflare kawai,
 wadda ba a taɓa raba ta. Shafin yana tambayar API na jama'a na GitHub
 lambar sabuwar siga, wanda GitHub ke gani a matsayin buƙata ta al'ada
 daga burauzarka.
+
+Idan ka rufe sandar da ke ba da shawarar harshenka, ko ka zaɓi harshe,
+shafin yana tunawa da hakan a ma'ajiyar gida ta burauzarka (saiti ɗaya
+kawai, ba a taɓa aika shi ba).
 
 ## Izini
 

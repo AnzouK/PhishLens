@@ -1,6 +1,7 @@
 // Website smoke tests. Every language version loads, app.js uses the
 // page's language, the language menu links work and an English page
-// offers the visitor's language. The site is served over HTTP and every
+// offers the visitor's language (until it is closed or a language is
+// picked). The site is served over HTTP and every
 // call to PhishLens Cloud or GitHub is intercepted.
 "use strict";
 const { test, expect } = require("@playwright/test");
@@ -91,6 +92,34 @@ test.describe("a French browser on an English page", () => {
         await expect(link).toHaveText("Lire cette page en français");
         await expect(link).toHaveAttribute("href", "fr/terms");
     });
+
+    test("is not offered on the page-not-found page", async ({ page }) => {
+        // Pages serves 404.html at any unknown address; there is no
+        // French version of that address to link to.
+        await page.goto(`${base}/404`);
+        await expect(page.locator(".site-head")).toBeVisible();
+        await expect(page.locator(".lang-suggest")).toHaveCount(0);
+    });
+
+    test("can close the suggestion, which then stays closed", async ({ page }) => {
+        await page.goto(`${base}/`);
+        const close = page.getByRole("button", { name: "Fermer cette suggestion" });
+        await close.focus();
+        await page.keyboard.press("Enter");
+        await expect(page.locator(".lang-suggest")).toHaveCount(0);
+        await page.goto(`${base}/terms`);
+        await expect(page.locator(".site-head")).toBeVisible();
+        await expect(page.locator(".lang-suggest")).toHaveCount(0);
+    });
+
+    test("is not offered again once a language was picked", async ({ page }) => {
+        await page.goto(`${base}/`);
+        await page.click(".lang-suggest a");
+        await expect(page).toHaveURL(`${base}/fr/`);
+        await page.goto(`${base}/privacy`);
+        await expect(page.locator(".site-head")).toBeVisible();
+        await expect(page.locator(".lang-suggest")).toHaveCount(0);
+    });
 });
 
 test("the header hides on scroll down, returns on scroll up, and the page has a way back to the top", async ({ page }) => {
@@ -171,4 +200,64 @@ test("the result names an impersonated brand, says the sender was not checked, a
     await expect(page.locator("#demo-result")).toContainText("Risque de phishing : 74 %");
     await expect(page.locator("#demo-result .tags")).toContainText("Se fait passer pour La Poste, envoyé depuis evil.example");
     await expect(page.locator("#demo-result .meter__off")).toHaveText("non vérifié");
+});
+
+test("a safe verdict with an unusual sign is shown with caution, and says why", async ({ page }) => {
+    await page.route(`${API}/analyse`, (r) => r.fulfill({
+        json: {
+            verdict: "safe", fused_score: 0.12, language: { code: "en", confidence: 0.9 },
+            forwarded: { detected: true },
+            sender_auth: { spf: "fail", dkim: "pass", dmarc: "pass" },
+            agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.05 },
+                      metadata: { phishing_probability: 0.2 } },
+        },
+    }));
+    await page.goto(`${base}/`);
+    await page.click('[data-sample="safe"]');
+    await page.click("#demo-submit");
+    const s = strings("en");
+    await expect(page.locator("#demo-result .verdict")).toHaveClass(/verdict--warn/);
+    await expect(page.locator("#demo-result .verdict")).toHaveText(s.js_verdict_caution);
+    await expect(page.locator("#demo-result")).toContainText(s.js_caution_sub);
+    await expect(page.locator("#demo-result .tags li.warn")).toHaveText(s.js_tag_forwarded);
+    // SPF failing next to a DMARC pass is listed, but not in red.
+    await expect(page.locator("#demo-result .tags li.bad")).toHaveCount(0);
+});
+
+test("a sender on the Spamhaus list gets a red tag", async ({ page }) => {
+    await page.route(`${API}/analyse`, (r) => r.fulfill({
+        json: {
+            verdict: "phishing", fused_score: 0.81, language: { code: "en", confidence: 0.9 },
+            sender_auth: { spamhaus_dbl_listed: true },
+            agents: { text: { phishing_probability: 0.9 }, url: { phishing_probability: 0.6 },
+                      metadata: { phishing_probability: 0.7 } },
+        },
+    }));
+    await page.goto(`${base}/`);
+    await page.click('[data-sample="phish"]');
+    await page.click("#demo-submit");
+    await expect(page.locator("#demo-result .tags li.bad")).toHaveText(strings("en").js_tag_spamhaus);
+});
+
+test("a file PhishLens could not look inside gets the popup's title and line", async ({ page }) => {
+    let sent = null;
+    await page.route(`${API}/analyse_attachment`, (r) => {
+        sent = r.request().postDataJSON();
+        return r.fulfill({
+            json: {
+                verdict: "safe", fused_score: 0.1, language: { code: "en", confidence: 0.9 },
+                attachment: { kind: "zip", notable_features: ["encrypted_archive"] },
+                agents: { text: { phishing_probability: 0.05 }, url: { phishing_probability: 0.05 } },
+            },
+        });
+    });
+    await page.goto(`${base}/`);
+    await page.click("#tab-file");
+    await page.setInputFiles("#demo-file", { name: "invoice.zip", mimeType: "application/zip", buffer: Buffer.from("PK\u0003\u0004 locked") });
+    await page.click("#demo-submit");
+    const s = strings("en");
+    await expect(page.locator("#demo-result .verdict")).toHaveClass(/verdict--warn/);
+    await expect(page.locator("#demo-result .verdict")).toHaveText(s.js_verdict_not_read);
+    await expect(page.locator("#demo-result")).toContainText(s.js_caution_sub_not_read);
+    expect(sent.filename).toBe("invoice.zip");
 });

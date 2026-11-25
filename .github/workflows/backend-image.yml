@@ -1,15 +1,6 @@
-# =====================================================================
-# PhishLens backend image
-# =====================================================================
-# Builds backend/Dockerfile.cloud and publishes it to the GitHub
-# Container Registry as ghcr.io/anzouk/phishlens-backend, on a version
-# tag (v2.1.0...) or by hand from the Actions tab ("Run workflow").
-#
-# The image holds the backend code only (already public in this repo):
-# no key, no model. The text model is downloaded at start-up from
-# HF_MODEL_REPO, and the keys come from the host (Cloud Run reads them
-# from Secret Manager). Built for linux/amd64, the platform Cloud Run runs.
-# =====================================================================
+# Builds backend/Dockerfile.cloud for linux/amd64 and pushes it to
+# ghcr.io/anzouk/phishlens-backend. Code only: the model comes from
+# HF_MODEL_REPO at start-up and the keys from the host.
 name: Backend image
 
 on:

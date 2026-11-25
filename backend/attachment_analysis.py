@@ -1,20 +1,22 @@
 """
 PhishLens: email attachment analysis.
-Extract text and URLs from email attachments and reuse the existing
-text / URL / reputation pipeline on the extracted content.
 
-Supported: PDF (with OCR for scanned pages and QR decoding),
-HTML, SVG, web archives (.mht), plain text, images (OCR + QR), Word / Excel / PowerPoint in both
-modern and legacy formats (text, links and macro-style flags; see
-office_analysis.py). OCR and QR live in ocr.py. Also ZIP archives
-(listed, risky entries flagged, supported files inside analysed one level
-deep), RAR / 7z (the same way, when rarfile / py7zr are installed),
-calendar invites (.ics), encrypted PDFs, and executable / script /
-shortcut / disk-image files (flagged by type). See archive_analysis.py.
+Pulls text and URLs out of an attachment so the same text, URL and
+reputation checks used for emails can run on it.
 
-The dispatcher (analyse_attachment) returns a JSON-serialisable dict
-whose shape mirrors /analyse as closely as possible so the extension
-and landing widgets can share their rendering code.
+PDFs get OCR for scanned pages and QR decoding, and so do images. HTML,
+SVG, web archives (.mht) and plain text are read as pages or text. Word,
+Excel and PowerPoint files are handled in office_analysis.py, and OCR
+and QR in ocr.py. ZIP archives are listed, risky entries are flagged and
+supported files inside are read one level deep. RAR and 7z work the same
+way when rarfile and py7zr are installed (see archive_analysis.py).
+Calendar invites, encrypted PDFs and programs, scripts, shortcuts or disk
+images are flagged by type.
+
+analyse_attachment returns what was extracted (text, URLs, type, flags).
+The /analyse_attachment route scores it and turns it into a response
+shaped like /analyse, so the extension and the website can reuse their
+rendering code.
 """
 
 from __future__ import annotations
@@ -43,17 +45,17 @@ from unicode_text import without_invisible
 
 logger = logging.getLogger("phishlens." + __name__.split(".")[-1])
 
-# Limits: enforced BEFORE decoding to protect the process.
+# Checked before decoding so a huge upload never reaches the parsers.
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  # 10 MB hard cap
 MAX_EXTRACTED_TEXT = 20_000  # chars fed to the text agent
 MAX_EXTRACTED_URLS = 200  # URLs sent to reputation cascade
 PDF_PAGE_LIMIT = 50  # abort text extraction past this
-# A PDF with fewer extracted characters than this per page (on average)
-# is treated as scanned / image-only and sent to OCR.
+# Below this many characters per page on average, a PDF is treated as
+# scanned and sent to OCR.
 SCANNED_CHARS_PER_PAGE = 50
 
-# Optional dependency. Without it the endpoint still answers, with a
-# clear error for PDF files.
+# Optional. Without pdfplumber the endpoint still works and returns a
+# clear error for PDFs.
 try:
     import pdfplumber  # type: ignore
 
@@ -63,20 +65,19 @@ except Exception as _e:
     logger.warning(f"pdfplumber not available ({_e}); PDF attachments will be rejected.")
 
 
-# The filename extension decides first, then content sniffing. The
-# client's mime_type is only a last-resort hint.
+# Extension to MIME type. See sniff_type for the order of precedence.
 _MIME_BY_EXT = {
     ".pdf": "application/pdf",
     ".html": "text/html",
     ".htm": "text/html",
     ".xhtml": "application/xhtml+xml",
     ".shtml": "text/html",
-    # A picture to the eye, a page to the browser: scripts, links and
-    # forms (foreignObject) run when it is opened.
+    # SVG opens in the browser as a page, so its scripts, links and
+    # foreignObject forms work.
     ".svg": "image/svg+xml",
     ".svgz": "image/svg+xml",
-    # Web archives and saved emails: MIME messages whose HTML parts open
-    # as pages (in a browser, Word or a mail program).
+    # Web archives and saved emails are MIME messages. Their HTML parts
+    # open as pages in a browser, Word or a mail client.
     ".mht": "multipart/related",
     ".mhtml": "multipart/related",
     ".eml": "message/rfc822",
@@ -119,17 +120,16 @@ _MIME_BY_EXT = {
 
 IMAGE_MIMES = {m for m in _MIME_BY_EXT.values() if m.startswith("image/")} - {"image/svg+xml"}
 MIME_PAGE_TYPES = {"multipart/related", "message/rfc822"}
-# Read as pages: HTML, and SVG (a page with a picture's name).
+# Types we read as web pages. SVG is one too, despite the image name.
 PAGE_MIMES = {"text/html", "application/xhtml+xml", "image/svg+xml"}
 
 
 def _magic_type(head: bytes) -> str | None:
-    """The type a file's first bytes prove, whatever its name says."""
+    """Return the MIME type proven by the file's magic bytes, ignoring its name."""
     if head.startswith(b"%PDF-"):
         return "application/pdf"
     if head[:2] == b"PK":
-        # ZIP-based: Office documents are resolved by the dispatcher,
-        # which opens the archive to see what is inside.
+        # The dispatcher opens the ZIP to tell Office files from archives.
         return "application/zip"
     if head.startswith(office.OLE2_MAGIC):
         return "application/x-ole-storage"
@@ -150,17 +150,17 @@ _HTML_MARKS = (b"<!doctype html", b"<html", b"<head", b"<form", b"<body", b"<scr
 
 
 def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> str:
-    """
-    Return a canonical MIME type: the file's signature first (a PDF or an
-    HTML login page renamed "invoice.txt" is still read as what it is),
-    then the extension, then the client's hint.
+    """Return a canonical MIME type.
+
+    Magic bytes win, so an HTML login page renamed "invoice.txt" is still
+    read as HTML. Then the extension, then the client's hint.
     """
     ext = "." + archives._ext(filename) if archives._ext(filename) else ""
     magic = _magic_type(content_head[:16])
     by_ext = _MIME_BY_EXT.get(ext)
     office_container = ("application/zip", "application/x-ole-storage")
     if magic in office_container and by_ext in (office.OOXML_MIMES | office.LEGACY_MIMES):
-        return by_ext  # an Office file is a ZIP or OLE2 container; its name says which
+        return by_ext  # ZIP or OLE2 alone doesn't say which Office format it is
     if magic:
         return magic
     text_like = by_ext is None or by_ext.startswith("text/")
@@ -181,14 +181,12 @@ def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> s
     return "application/octet-stream"
 
 
-# Same URL pattern as /analyse, plus bare domains written without a scheme.
+# Same URL rules as /analyse: http(s):// links and addresses starting with www.
 _URL_DEDUP_N = MAX_EXTRACTED_URLS
 
 
 def extract_urls(text: str) -> list[str]:
-    """The addresses written in an attachment's text, read like those of
-    an email (email_parsing.urls_in_text: any case, "www.", as a browser
-    reads them)."""
+    """Find URLs in attachment text with the same rules as for email bodies."""
     seen, out = set(), []
     for u in urls_in_text(text[:2_000_000] if text else ""):
         if u in seen:
@@ -200,8 +198,7 @@ def extract_urls(text: str) -> list[str]:
     return out
 
 
-# PDF markers worth showing to the user: the usual features of phishing
-# and malware droppers.
+# PDF markers common in phishing and malware droppers. We show them to the user.
 _PDF_SUSPICIOUS_MARKERS = {
     b"/JavaScript": "contains_javascript",
     b"/JS": "contains_javascript",
@@ -217,10 +214,10 @@ _PDF_SUSPICIOUS_MARKERS = {
 
 
 def _pdf_scan_markers(raw: bytes) -> list[str]:
-    """
-    Cheap pattern scan on the raw PDF bytes. Doesn't attempt to parse
-    object streams; it just looks for the well-known feature tags.
-    Zero cost, high signal for phishing PDFs.
+    """Look for well-known feature tags in the raw PDF bytes.
+
+    We don't parse object streams. A plain byte search is cheap and catches
+    most phishing PDFs.
     """
     flags = []
     for needle, label in _PDF_SUSPICIOUS_MARKERS.items():
@@ -230,7 +227,7 @@ def _pdf_scan_markers(raw: bytes) -> list[str]:
 
 
 def _pdf_text_layer(raw: bytes) -> tuple[list[str], int, int]:
-    """Text of the first pages: (chunks, pages read, page count)."""
+    """Read text from the first pages and return (chunks, pages read, page count)."""
     text_chunks: list[str] = []
     pages_read = 0
     with pdfplumber.open(io.BytesIO(raw)) as pdf:
@@ -257,13 +254,11 @@ def _add_new(urls: list[str], more: list[str]) -> None:
 
 
 def _add_uri_annotations(raw: bytes, urls: list[str]) -> None:
-    """Add the link annotations the text layer misses (a clickable button
-    with no visible URL), read from (/URI (https://...)).
+    """Add link annotations that the text layer misses, such as a button with no visible URL.
 
-    The inner class is length-capped (2048 bytes) to close a
-    polynomial-ReDoS surface that CodeQL flagged: a crafted PDF with a
-    very long /URI( body and no closing paren could push the regex engine
-    into O(n^2) territory. 2 KB is more than any legit annotation holds.
+    The regex caps the body at 2048 bytes. CodeQL flagged the uncapped
+    version because a long /URI( with no closing paren made it quadratic.
+    No real annotation comes close to 2 KB.
     """
     for m in re.finditer(rb"/URI\s*\(([^)]{1,2048})\)", raw):
         try:
@@ -277,10 +272,7 @@ def _add_uri_annotations(raw: bytes, urls: list[str]) -> None:
 
 
 def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
-    """
-    Extract text + URLs from a PDF, plus a list of qualitative feature
-    flags. Returns a dict ready for the shared UI.
-    """
+    """Extract text, URLs and feature flags from a PDF."""
     if not _PDFPLUMBER_OK:
         raise RuntimeError("PDF support is not available (pdfplumber missing).")
 
@@ -290,8 +282,8 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
         text_chunks, pages_read, page_count = _pdf_text_layer(raw)
     except Exception as e:
         if b"/Encrypt" in raw:
-            # Password-protected PDF: nothing to read, which is the point
-            # when the password travels in the email body.
+            # Attackers encrypt the PDF and put the password in the email
+            # so scanners can't read it.
             return {
                 "kind": "pdf",
                 "filename": filename,
@@ -305,19 +297,16 @@ def analyse_pdf(raw: bytes, filename: str) -> dict[str, Any]:
             }
         raise RuntimeError(f"PDF parse failed: {e}") from e
 
-    # Invisible characters are removed before the cut so zero-width padding
-    # on the first page cannot use up the budget.
+    # Strip invisible characters before cutting, so zero-width padding on
+    # page one can't use up the budget.
     text = without_invisible("\n".join(text_chunks))[:MAX_EXTRACTED_TEXT]
 
-    # Link annotations (a clickable button with no URL in its text) are
-    # read from the /URI markers directly.
     urls = extract_urls(text)
     if len(urls) < MAX_EXTRACTED_URLS:
         _add_uri_annotations(raw, urls)
 
-    # Scanned / image-only PDFs and QR codes. The first pages are
-    # rendered once; QR decoding always runs on them, OCR only when the
-    # PDF has (almost) no text layer.
+    # Render the first pages once. QR decoding always runs. OCR only runs
+    # when the PDF has almost no text layer.
     caps = ocr.capabilities()
     scanned = pages_read > 0 and len(text.strip()) < SCANNED_CHARS_PER_PAGE * pages_read
     ocr_used = False
@@ -390,17 +379,19 @@ _PAGE_DATA_TYPES = ("data:text/html", "data:application/xhtml+xml", "data:image/
 
 
 def _data_html(value: str) -> str | None:
-    """The page in a "data:text/html[;charset=...][;base64],..." (or
-    application/xhtml+xml) address, or None. Only a base64 payload loses
-    its spaces: in a plain one they separate the tag from its attributes."""
+    """Return the HTML inside a data:text/html (or xhtml) URL, or None.
+
+    Spaces are only removed from base64 payloads. In plain ones they
+    separate tag names from attributes.
+    """
     head, sep, payload = str(value).strip().partition(",")
-    # Browsers drop tabs and line breaks anywhere in an address.
+    # Browsers drop tabs and newlines anywhere in a URL.
     params = ["".join(p.split()) for p in head.lower().split(";")]
     if not sep or params[0] not in _PAGE_DATA_TYPES:
         return None
     try:
         if "base64" in params[1:]:
-            # Percent-decoded first, as browsers do ("%2B" is "+").
+            # Browsers percent-decode before base64 ("%2B" is "+").
             raw = "".join(unquote(payload[:700_000]).split())
             return base64.b64decode(raw + "===")[:500_000].decode("utf-8", "replace")
         return unquote(payload[:500_000])
@@ -409,9 +400,11 @@ def _data_html(value: str) -> str | None:
 
 
 def _refresh_target(meta) -> str:
-    """The address of a <meta http-equiv="refresh">: what follows the
-    delay and ";" or ",", with or without "url=" ("0; url=https://x",
-    "0; https://x", "0,URL = 'https://x'")."""
+    """Return the target of a meta refresh.
+
+    Browsers accept "0; url=https://x", "0; https://x" and
+    "0,URL = 'https://x'", so we do too.
+    """
     content = str(meta.get("content") or "").strip()
     cut = min((i for i in (content.find(";"), content.find(",")) if i >= 0), default=-1)
     if cut < 0:
@@ -424,8 +417,8 @@ def _refresh_target(meta) -> str:
     return target.strip(" '\"")
 
 
-# Where a page can carry another page: an attribute holding its HTML
-# (srcdoc) or a data:text/html address.
+# Attributes that can carry a whole page, either as srcdoc HTML or as a
+# data:text/html URL.
 _EMBEDDED_PAGES = (
     ("iframe", "srcdoc"),
     ("iframe", "src"),
@@ -436,11 +429,12 @@ _EMBEDDED_PAGES = (
 
 
 def _inline_embedded(soup, depth: int = 3) -> None:
-    """Parse the pages an HTML attachment carries inside itself into it,
-    so their forms, scripts and links are read like the rest. Such a page
-    is an <iframe srcdoc="...">, a frame, object or embed whose address
-    is data:text/html, or a meta refresh to one (three levels, 500 KB
-    each)."""
+    """Inline the pages an HTML attachment carries so their forms and links get read.
+
+    These come from <iframe srcdoc>, from frames, objects or embeds with a
+    data:text/html URL, and from a meta refresh to one. We go three levels
+    deep and read up to 500 KB per page.
+    """
     for _ in range(depth):
         found = False
         for name, attr in _EMBEDDED_PAGES:
@@ -464,19 +458,19 @@ def _inline_embedded(soup, depth: int = 3) -> None:
 
 
 def _script_url(value: str) -> bool:
-    """javascript: or vbscript:, as browsers read an address (controls
-    and spaces dropped, any case)."""
+    """Return True for javascript: or vbscript: after browser-style cleanup."""
     v = "".join(c for c in str(value)[:200] if c > " ").lower()
     return v.startswith(("javascript:", "vbscript:"))
 
 
 def _page_urls(soup, location: str = "") -> Callable[[str], str]:
-    """How the page's addresses are read: absolute ones as browsers read
-    them, relative ones against the page's <base href> (a form posting to
-    "login.php" under <base href="https://evil.tk/"> goes to evil.tk), or
-    against the address a web archive says the page came from
-    (Content-Location). Without either, a relative address in a saved page
-    points to a local file, not a site."""
+    """Return a function that resolves the page's URLs like a browser would.
+
+    Relative URLs resolve against <base href>, so a form posting to
+    "login.php" under <base href="https://evil.tk/"> goes to evil.tk. A web
+    archive's Content-Location works the same way. Without either, a
+    relative URL in a saved page points to a local file and is dropped.
+    """
     tag = soup.find("base", href=True)
     base = (absolute_http(tag["href"]) if tag else "") or absolute_http(location)
 
@@ -492,8 +486,8 @@ def _page_urls(soup, location: str = "") -> Callable[[str], str]:
     return url
 
 
-# HTML smuggling: a file built from data in the page and handed to the
-# browser to save or open.
+# HTML smuggling builds a file from data in the page and has the browser
+# save or open it.
 _SMUGGLING_RE = re.compile(
     r"msSaveOrOpenBlob|msSaveBlob|createObjectURL\s*\(|\.download\s*=|new\s+File\s*\(",
     re.IGNORECASE,
@@ -501,18 +495,19 @@ _SMUGGLING_RE = re.compile(
 _JS_ESCAPE_RE = re.compile(r"\\x([0-9a-fA-F]{2})|\\u\{([0-9a-fA-F]{1,6})\}|\\u([0-9a-fA-F]{4})")
 _NUMBER = r"(?:0[xX][0-9a-fA-F]{1,6}|0[oO][0-7]{1,8}|\d{1,7})"
 _CHAR_CODES_RE = re.compile(rf"fromCharCode\s*\(\s*((?:{_NUMBER}\s*,\s*){{3,4000}}{_NUMBER})\s*\)")
-# Two string literals joined with "+": "https://ev" + "il.tk".
+# Two string literals joined with "+", e.g. "https://ev" + "il.tk".
 _JOINED_RE = re.compile(r"""(["'`])\s*\+\s*(["'`])""")
 _LITERAL_RE = re.compile(r"""["'`]([^"'`\n]{10,2048})["'`]""")
 _BASE64_LITERAL_RE = re.compile(r"[\"'`]([A-Za-z0-9+/]{16,20000}={0,2})[\"'`]")
 
 
 def _script_readings(code: str) -> list[str]:
-    """A script as its addresses are written in it: escapes decoded
-    ("\\x68\\x74\\x74\\x70s://"), character codes turned into text
-    (String.fromCharCode(104, 116, ...)), percent-encoding undone
-    (unescape("%68...")) and base64 literals decoded (atob("aHR0cHM6...")),
-    each added after the code itself (string literals joined)."""
+    """Return the script followed by decoded versions of it.
+
+    Phishing kits hide URLs with "\\x68" escapes, String.fromCharCode,
+    unescape("%68...") and atob("aHR0cHM6..."). We undo each of these and
+    append the result after the code, with string literals joined.
+    """
     out: list[str] = []
 
     def char(m: re.Match) -> str:
@@ -521,18 +516,18 @@ def _script_readings(code: str) -> list[str]:
         except (ValueError, OverflowError):
             return ""
 
-    # Literals joined first ('"https://ev" + "il.tk"', also across
-    # quote kinds), escapes decoded, then every other reading on that.
+    # Join literals first, even across quote kinds, then decode escapes,
+    # then apply the other decoders to that.
     code = _JOINED_RE.sub("", code)
     code = _JS_ESCAPE_RE.sub(char, code)
     out.append(code)
     for m in _CHAR_CODES_RE.finditer(code):
         codes = [int(n, 0) for n in re.findall(r"0[xXoO][0-9a-fA-F]+|\d+", m.group(1))]
         out.append("".join(chr(n) for n in codes if n < 0x110000))
-    # Percent-encoding undone in the string literals only: the code itself
-    # ("100%", "x % 2") is never read as a page.
+    # Percent-decode string literals only. Code like "100%" or "x % 2" is
+    # not a URL.
     out += [unquote(lit) for lit in _js_strings(code) if "%" in lit]
-    # A string written backwards ("kt.live//:sptth".split("").reverse()).
+    # Strings written backwards ("kt.live//:sptth".split("").reverse()).
     out += [lit[::-1] for lit in _LITERAL_RE.findall(code) if "//:" in lit]
     for m in _BASE64_LITERAL_RE.finditer(code):
         try:
@@ -544,31 +539,35 @@ def _script_readings(code: str) -> list[str]:
 
 
 def _script_strings(code: str) -> str:
-    """Every reading of a script, for its addresses (the code itself with
-    percent-encoding undone too: unescape("%68...") may be outside any
-    literal once joined)."""
+    """Return every decoded form of a script for URL extraction.
+
+    The whole code is percent-decoded here too, because after joining,
+    unescape("%68...") may sit outside any literal.
+    """
     readings = _script_readings(code)
     if "%" in code:
         readings.append(unquote(readings[0]))
     return "\n".join(readings)[:1_000_000]
 
 
-# Markup a script writes into the page (document.write, innerHTML) after
-# decoding, from its first tag to its last ">".
+# Markup a script writes with document.write or innerHTML, from the first
+# tag to the last ">".
 _WRITTEN_TAG_RE = re.compile(
     r"<(?:form|input|iframe|frame|meta|a|svg|button|img|object|embed)\b", re.I
 )
 
 
 def _js_strings(code: str) -> list[str]:
-    """Return the string literals of a script ("...", '...', `...`,
-    escapes allowed). A page a script writes is in them, never in the
-    code around them ("if (x > 0)" is not markup). One pass, linear on any input; an
-    unclosed literal ends at its line."""
+    """Return the string literals of a script.
+
+    Markup a script writes lives in its strings. Looking only there avoids
+    reading "if (x > 0)" as a tag. One linear pass. An unclosed literal
+    ends at the end of its line.
+    """
     out: list[str] = []
     i, n = 0, len(code)
     while i < n:
-        # Comments are skipped: "// don't" opens no string.
+        # Skip comments so "// don't" doesn't open a string.
         if code.startswith("//", i):
             nl = code.find("\n", i + 2)
             i = n if nl < 0 else nl + 1
@@ -585,18 +584,19 @@ def _js_strings(code: str) -> list[str]:
         while j < n and code[j] != quote and (code[j] != "\n" or quote == "`"):
             j += 2 if code[j] == "\\" else 1
         if j < n and code[j] == quote:
-            # Simple escapes as the script reads them (\" is ").
+            # Handle simple escapes such as \".
             out.append(re.sub(r"\\(.)", r"\1", code[i + 1 : j]))
         i = j + 1
     return out
 
 
 def _inline_scripted(soup) -> None:
-    """Pages a script writes, parsed into the page next to the script, so
-    that their forms and password fields are read like the page's own:
-    markup found in the script's string literals (joined, escapes decoded)
-    and in what it decodes (atob, unescape, char codes), every one of
-    them, 500 KB at most."""
+    """Parse markup a script writes and insert it next to the script.
+
+    That way a password form built by document.write is read like any other
+    form. We look in the joined literals and in everything the script
+    decodes, up to 500 KB in total.
+    """
     budget = 500_000
     for script in soup.find_all("script", limit=1000):
         readings = _script_readings(script.get_text()[:200_000])
@@ -618,8 +618,8 @@ def _page_flags(soup, has_script: bool, smuggles: bool) -> list[str]:
     flags = []
     if soup.find("form"):
         flags.append("contains_form")
-    # Attribute values keep their case in the parser, browsers ignore it:
-    # type="PASSWORD" is a password field.
+    # The parser keeps case in attribute values but browsers don't, so
+    # type="PASSWORD" is still a password field.
     if soup.find("input", attrs={"type": re.compile(r"^\s*password\s*$", re.I)}):
         flags.append("contains_password_field")
     if has_script:
@@ -629,33 +629,30 @@ def _page_flags(soup, has_script: bool, smuggles: bool) -> list[str]:
     if soup.find("meta", attrs={"http-equiv": re.compile(r"^\s*refresh\s*$", re.I)}):
         flags.append("meta_refresh_redirect")
     if smuggles:
-        # HTML smuggling: the page builds a file in the browser and saves
-        # it, so no scanner ever sees the file itself.
+        # With HTML smuggling the file is built in the browser, so no
+        # scanner ever sees it.
         flags.append("embeds_another_file")
     return flags
 
 
 def analyse_html(raw: bytes, filename: str, location: str = "") -> dict[str, Any]:
-    """
-    Extract visible text + href / action URLs from an HTML attachment.
-    HTML phishing attachments typically render a login form styled as
-    a well-known brand, with a <form action="attacker.tld">. All such
-    URLs are collected whatever the visible text.
+    """Extract visible text and URLs from an HTML attachment.
+
+    The typical HTML lure is a branded login form posting to the attacker,
+    so form targets matter more than the visible text.
     """
     try:
         soup = BeautifulSoup(raw, "html.parser")
-        # Script-written pages first: one can hold an <iframe srcdoc>.
+        # Script-written pages first, since one can contain an <iframe srcdoc>.
         _inline_scripted(soup)
         _inline_embedded(soup)
     except Exception as e:
         raise RuntimeError(f"HTML parse failed: {e}") from e
 
-    # URLs from the DOM even when they're not in the visible text, most
-    # telling first: where the page sends its reader (form targets,
-    # frames, a meta refresh, addresses written in a script such as
-    # 'window.location = "https://..."'), then visible links, hidden
-    # links, and images and style sheets last, so hidden images cannot
-    # push the form's target past the limit.
+    # Collect URLs from the DOM, most telling first. Form targets, frames,
+    # meta refresh and script redirects come before visible links, then
+    # hidden links, then images and stylesheets. Hidden images must not
+    # push the form target past the URL limit.
     hidden_parts = hidden_tags(soup)  # before the <style> sheets go
     hidden = {id(tag) for tag in hidden_parts}
     maps = shown_maps(soup, hidden)
@@ -663,7 +660,7 @@ def analyse_html(raw: bytes, filename: str, location: str = "") -> dict[str, Any
     sends, visible, unseen, assets = [], [], [], []
     for tag in soup.find_all(["form", "iframe", "frame", "object", "embed"], limit=20_000):
         sends.append(url(tag.get("action") or tag.get("src") or tag.get("data") or ""))
-    # A submit button can send the form elsewhere (formaction).
+    # formaction on a submit button overrides the form's action.
     for tag in soup.find_all(["button", "input"], formaction=True, limit=20_000):
         sends.append(url(tag["formaction"]))
     for meta in soup.find_all("meta", attrs={"http-equiv": re.compile(r"^\s*refresh\s*$", re.I)}):
@@ -685,18 +682,16 @@ def analyse_html(raw: bytes, filename: str, location: str = "") -> dict[str, Any
         limit=MAX_EXTRACTED_URLS,
     )
 
-    # Read before the scripts are removed: a script element, an event
-    # handler attribute (onclick, onerror, onfocus...) or a script address
-    # in any attribute (href, src, data, xlink:href, formaction...), as
-    # browsers read it: controls and spaces dropped, any case.
+    # Look for scripts before we strip them. That covers <script>, event
+    # handler attributes and javascript: URLs in any attribute.
     has_script = bool(soup.find("script")) or any(
         name.lower().startswith("on") or _script_url(value)
         for tag in soup.find_all(True, limit=20_000)
         for name, value in tag.attrs.items()
     )
 
-    # Strip noisy tags before extracting the text; words the style sheets
-    # write are kept, hidden text goes last.
+    # Strip noisy tags, keep words drawn by the stylesheets and put hidden
+    # text last.
     generated = generated_text(soup, hidden_parts)
     for tag in soup(["script", "style", "noscript"]):
         tag.decompose()
@@ -722,9 +717,11 @@ _MIME_PAGE_PARTS = ("text/html", "application/xhtml+xml", "image/svg+xml")
 
 
 def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
-    """Read a web archive (.mht) or a saved email (.eml) found inside an
-    archive. Its HTML parts are read as pages (forms, scripts, links) and
-    its plain text as text. Files attached to it are named, not opened."""
+    """Read a web archive (.mht) or a saved email (.eml).
+
+    HTML parts are read as pages and plain text as text. Attached files are
+    listed by name but not opened.
+    """
     msg = message_from_bytes(raw, policy=email_policy.compat32)
     pages: list[dict[str, Any]] = []
     plain: list[str] = []
@@ -734,7 +731,7 @@ def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
         if part.is_multipart():
             continue
         kind = part.get_content_type()
-        # The name as a mail program shows it (encoded words decoded).
+        # Decode encoded words, as a mail client would.
         fname = _decoded_header(str(part.get_filename() or ""))
         if fname:
             names.append(fname)
@@ -742,8 +739,8 @@ def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
         if not isinstance(data, bytes):
             continue
         if fname and kind not in _MIME_PAGE_PARTS and kind != "text/plain":
-            # A page's own pictures, styles and fonts are part of it; any
-            # other file attached is not opened.
+            # Pictures, styles and fonts belong to the page. Any other
+            # attachment stays closed.
             if not kind.startswith(("image/", "font/")) and kind != "text/css":
                 attached = True
         elif kind in _MIME_PAGE_PARTS and len(pages) < _MAX_MIME_PAGES:
@@ -758,7 +755,7 @@ def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
         "extracted_text": "",
         "extracted_text_chars": 0,
         "extracted_urls": [],
-        # Attached files are named: a program or a fake extension shows.
+        # List attachment names so a program or a fake extension shows up.
         "notable_features": archives.classify_names(names)
         + (["inner_files_not_extracted"] if attached else []),
     }
@@ -774,15 +771,13 @@ def analyse_mime_pages(raw: bytes, filename: str) -> dict[str, Any]:
 def analyse_attachment(
     content_b64: str, filename: str = "", mime_type: str | None = None
 ) -> dict[str, Any]:
-    """
-    Decode the base64 payload, dispatch by MIME, return a
-    JSON-serialisable dict.
+    """Decode the base64 payload and dispatch on its MIME type.
 
-    Does NOT call the model agents itself: that's the /analyse_attachment
-    endpoint's job (it wires the extracted text + URLs into text_agent /
-    url_agent / reputation cascade the same way /analyse does for emails).
+    The models are not called here. The /analyse_attachment endpoint feeds
+    the extracted text and URLs to them, the same way /analyse does for
+    emails.
 
-    Raises ValueError on unsupported types or oversized inputs.
+    Raises ValueError for unsupported types or oversized input.
     """
     if not content_b64:
         raise ValueError("Empty attachment.")
@@ -801,8 +796,10 @@ def analyse_attachment(
 
 
 def _dangerous_type(raw: bytes, filename: str) -> dict[str, Any] | None:
-    """Executables, scripts, shortcuts and disk images are flagged by
-    type alone: there is nothing to read, and opening them is the attack."""
+    """Flag programs, scripts, shortcuts and disk images by type.
+
+    There is nothing to read in them. Opening them is the attack.
+    """
     name_flags = archives.classify_names([filename])
     ext = archives._ext(filename)
     if ext in archives.DISK_IMAGE_EXTS:
@@ -836,17 +833,19 @@ def _zip_names(raw: bytes) -> list[str] | None:
         return None
 
 
-# The pictures of an Office document are checked for QR codes, and read
-# (OCR) when its text is shorter than this: a page that is one
-# screenshot, or a few words around a QR code.
+# Office images are always checked for QR codes. They also get OCR when
+# the document has less text than this, which catches a page that is one
+# screenshot or a few words around a QR code.
 _FEW_WORDS = 25
 _MAX_PICTURES = 3
 
 
 def _merge(doc: dict[str, Any], other: dict[str, Any]) -> dict[str, Any]:
-    """Combine the Office reading of a package with what its other
-    members say. Their flags, links and text are added, and the members
-    are listed like an archive's."""
+    """Merge the Office result with what the package's other members contain.
+
+    Their flags, links and text are added and they are listed like
+    archive members.
+    """
     out = dict(doc)
     out["notable_features"] = list(
         dict.fromkeys([*doc.get("notable_features", []), *other.get("notable_features", [])])
@@ -854,8 +853,8 @@ def _merge(doc: dict[str, Any], other: dict[str, Any]) -> dict[str, Any]:
     out["extracted_urls"] = list(
         dict.fromkeys([*doc.get("extracted_urls", []), *other.get("extracted_urls", [])])
     )[:MAX_EXTRACTED_URLS]
-    # Each reading keeps room in the cut: a long document cannot push the
-    # login page next to it out of what is scored.
+    # Each part keeps its share of the text budget, so a long document
+    # can't push a login page next to it out of the scored text.
     extra = (other.get("extracted_text") or "")[: MAX_EXTRACTED_TEXT // 2]
     own = (doc.get("extracted_text") or "")[: MAX_EXTRACTED_TEXT - len(extra) - 1]
     out["extracted_text"] = "\n".join(t for t in (own, extra) if t)
@@ -867,8 +866,7 @@ def _merge(doc: dict[str, Any], other: dict[str, Any]) -> dict[str, Any]:
 
 
 def _pictures_of(raw: bytes, names: list[str], read_text: bool) -> dict[str, Any]:
-    """QR codes of the largest pictures of a package, and their text (OCR)
-    when `read_text`."""
+    """Decode QR codes in the package's largest images, and OCR them if `read_text`."""
     images = []
     with zipfile.ZipFile(io.BytesIO(raw)) as zf:
         infos = [zf.getinfo(n) for n in office.media_parts(names)]
@@ -898,20 +896,19 @@ def _pictures_of(raw: bytes, names: list[str], read_text: bool) -> dict[str, Any
 
 
 def _read_zip(raw: bytes, filename: str, depth: int) -> dict[str, Any]:
-    """Any ZIP, whatever its name or announced type, read by what it holds.
+    """Read any ZIP by its content, whatever its name or declared type.
 
-    An Office package (content types and the main part of its kind) is
-    always read as a document: its macros, fields and relationships are
-    what Office acts on, whatever else the ZIP holds. Members Office does
-    not use (a login page in word/, an .exe at the root, an embedded
-    document) are read as archive members on top, and the two readings
-    are merged: hiding one behind the other changes nothing. Any other
-    ZIP is an archive."""
+    A real Office package is always read as a document, since its macros,
+    fields and relationships are what Office acts on. Members Office
+    doesn't use (a login page in word/, an .exe at the root) are also read
+    as archive members and the results are merged. Hiding one inside the
+    other doesn't help an attacker. Any other ZIP is an archive.
+    """
     names = _zip_names(raw)
     kind = office.detect_ooxml_kind(raw) if names is not None else None
     if kind is None:
         if names is None and archives._ext(filename) not in archives.ARCHIVE_EXTS:
-            # Not a readable ZIP: the Office reader says so to the user.
+            # Let the Office reader report the broken ZIP to the user.
             return office.analyse_ooxml(raw, filename)
         if depth:
             raise ValueError("Nested archive.")
@@ -923,15 +920,14 @@ def _read_zip(raw: bytes, filename: str, depth: int) -> dict[str, Any]:
     if office.media_parts(names):
         short = len((doc.get("extracted_text") or "").split()) < _FEW_WORDS
         doc = _merge(doc, _pictures_of(raw, names, read_text=short))
-    # What Office itself adds (a picture's SVG version, a chart's workbook)
-    # is read but neither listed nor a reason for caution; anything else
-    # is a foreign member, listed like an archive's.
+    # Files Office adds itself are read but not listed and don't trigger
+    # caution. Anything else is foreign and listed like an archive member.
     extra = [n for n in names if office.office_extra(n)]
     foreign = [n for n in names if not office.is_office_part(n) and not office.office_extra(n)]
     if not foreign and not extra and archives._ext(filename) not in archives.ARCHIVE_EXTS:
         return doc
     if depth:
-        # Inside an archive: the members are named, not opened.
+        # Inside an archive we list members without opening them.
         flags = archives.classify_names(foreign)
         if foreign:
             flags.append("inner_files_not_extracted")
@@ -944,7 +940,7 @@ def _read_zip(raw: bytes, filename: str, depth: int) -> dict[str, Any]:
         later=office.office_extra,
     )
     listed = set(foreign)
-    # What Office added is reported only when it says something.
+    # Only report Office's own extras when they found something.
     members["inner_files"] = [
         f
         for f in members.get("inner_files") or []
@@ -957,7 +953,7 @@ def _read_zip(raw: bytes, filename: str, depth: int) -> dict[str, Any]:
 
 
 def _read_page(raw: bytes, filename: str, mime: str) -> dict[str, Any]:
-    """HTML, SVG (compressed or not), and MIME files made of pages."""
+    """Read HTML, SVG (plain or gzipped) and MIME web archives."""
     if mime in MIME_PAGE_TYPES:
         return analyse_mime_pages(raw, filename)
     if raw[:2] == b"\x1f\x8b":  # .svgz
@@ -972,8 +968,10 @@ def _read_page(raw: bytes, filename: str, mime: str) -> dict[str, Any]:
 def dispatch_raw(
     raw: bytes, filename: str, mime_type: str | None = None, depth: int = 0
 ) -> dict[str, Any]:
-    """Analyse decoded bytes. depth > 0 inside an archive (nested
-    archives are flagged, not opened)."""
+    """Analyse decoded bytes. depth > 0 means we are inside an archive.
+
+    Nested archives are flagged, not opened.
+    """
     danger = _dangerous_type(raw, filename)
     if danger:
         return danger
@@ -992,13 +990,13 @@ def dispatch_raw(
     if mime == "text/calendar" or raw.lstrip()[:15].upper().startswith(b"BEGIN:VCALENDAR"):
         return archives.analyse_ics(raw, filename, extract_urls)
 
-    # Office documents: modern ones are ZIPs, legacy / encrypted ones OLE2.
-    # Any ZIP, whatever its name says, is read by what it holds (_read_zip).
+    # Modern Office files are ZIPs. Legacy and encrypted ones are OLE2.
+    # _read_zip decides from content, not from the name.
     if raw.startswith(b"PK"):
         return _read_zip(raw, filename, depth)
     if mime in office.OOXML_MIMES:
         if raw.startswith(office.OLE2_MAGIC):
-            # password-protected .docx/.xlsx are OLE2 containers
+            # A password-protected .docx or .xlsx is an OLE2 file.
             return office.analyse_ole(raw, filename)
         return office.analyse_ooxml(raw, filename)
     if mime in office.LEGACY_MIMES:

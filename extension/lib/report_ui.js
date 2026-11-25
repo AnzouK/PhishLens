@@ -203,7 +203,7 @@ function sendWith(feedback, buildPayload) {
 }
 
 const api = Object.freeze({
-    LANGS, languageName, languageLine, reportPanel, reportButton, sentMessage, payload, sendWith,
+    LANGS, languageLine, reportPanel, reportButton, sentMessage, payload, sendWith,
 });
 // eslint-disable-next-line no-undef
 if (typeof module !== "undefined" && module.exports) module.exports = api;

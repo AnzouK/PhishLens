@@ -1,13 +1,12 @@
 # Languages
 
-Each part of PhishLens covers its own set of languages.
-
-| Part | Languages |
-| --- | --- |
-| Extension interface and website | English, French, Portuguese, Spanish, German, Italian, Dutch, Hausa |
-| Chrome Web Store listing | the same, except Hausa (Chrome has no Hausa locale) |
-| Text model | 22 trained, 6 measured on real phishing ([text model](#text-model)) |
-| OCR of images and scanned PDFs | Latin scripts, Cyrillic, Arabic, Chinese, Japanese, Korean, Hindi ([OCR](#ocr)) |
+Each part of PhishLens covers its own set of languages. The extension
+interface and the website come in English, French, Portuguese, Spanish,
+German, Italian, Dutch and Hausa. The Chrome Web Store listing has the
+same languages except Hausa, because Chrome has no Hausa locale. The
+[text model](#text-model) was trained on 22 languages and measured on
+real phishing in 6. [OCR](#ocr) of images and scanned PDFs reads Latin
+scripts, Cyrillic, Arabic, Chinese, Japanese, Korean and Hindi.
 
 ## Interface
 
@@ -54,13 +53,14 @@ changes, the seven translations change in the same pull request.
 `/analyse` returns `language: {code, confidence}`. The writing system
 decides for non-Latin text, common words decide between the Latin-script
 languages, and too little text gives `und`. The banner asks the user to
-confirm it; answers stay in the local history.
+confirm it, and the answers stay in the local history.
 
 ## OCR
 
 With `OCR_LANG=auto`, Tesseract's script detection picks the packs for
-each image (Latin: `eng+fra+spa+por+deu+ita+nld`; Cyrillic, Arabic, Han,
-Japanese, Hangul and Devanagari with English). Missing packs are
+each image. Latin text uses `eng+fra+spa+por+deu+ita+nld`, and Cyrillic,
+Arabic, Han, Japanese, Hangul and Devanagari are each read together
+with English. Missing packs are
 skipped, and `OCR_LANG=eng` forces one.
 
 ## Text model

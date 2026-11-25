@@ -11,7 +11,7 @@ Endpoints
     GET  /reputation/stats     cache and quota counters
     GET  /metrics              Prometheus (block it at the reverse proxy)
 
-This module only wires requests to the other modules:
+This module only wires requests to the other modules.
     settings.py           version, environment, scoring constants
     email_parsing.py      text, links and headers of an email
     sender_trust.py       sender domain, allowlist, Gmail auth hints
@@ -106,7 +106,7 @@ from settings import (
 )
 from unicode_text import collapse_invisible, without_invisible
 
-# uvicorn configures its own loggers only: without this, the
+# uvicorn only configures its own loggers. Without this our
 # "phishlens.*" INFO messages would be dropped.
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO").upper(),
@@ -116,7 +116,7 @@ logger = logging.getLogger("phishlens.api")
 
 __all__ = ["MAX_LINK_URLS", "app"]
 
-# Optional modules: the API still starts without them, with rules only.
+# Optional modules. Without them the API still starts and uses rules only.
 try:
     from auth_headers import build_metadata_auth_signal
 
@@ -147,7 +147,7 @@ except Exception as _e:
 async def lifespan(_app: FastAPI):
     text_model.load()
     structured_agents.load()
-    # After the model: a slow PhishTank download must not delay startup.
+    # Load the model first so a slow PhishTank download can't delay startup.
     if _REPUTATION_AVAILABLE:
         try:
             await _reputation.startup()
@@ -164,10 +164,11 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="PhishLens API", version=VERSION, lifespan=lifespan)
 
-# Rate limiting per client IP (slowapi, in memory; SLOWAPI_STORAGE_URI=
-# redis://... when scaling out): the expensive endpoints have their own
-# limit, every other route RATE_LIMIT_DEFAULT through the middleware
-# below, except /health (keep-warm calls and uptime monitors).
+# Per-IP rate limiting with slowapi, in memory. Set SLOWAPI_STORAGE_URI to
+# a redis:// URL when running several instances. The expensive endpoints
+# have their own limits and the middleware below applies
+# RATE_LIMIT_DEFAULT to the rest. /health is exempt because keep-warm jobs
+# and uptime monitors call it.
 try:
     from slowapi import Limiter, _rate_limit_exceeded_handler
     from slowapi.errors import RateLimitExceeded
@@ -198,9 +199,11 @@ def _not_rate_limited(f):
 
 @app.middleware("http")
 async def _limit_body_size(request: Request, call_next):
-    """Refuse a body above MAX_BODY_BYTES before reading it. A body sent
-    without a length (chunked) is refused too: its size could only be
-    known by reading it. Browsers and the extension always send one."""
+    """Refuse bodies over MAX_BODY_BYTES before reading them.
+
+    Chunked bodies are refused too, since we'd have to read them to know
+    their size. Browsers and the extension always send a length.
+    """
     length = request.headers.get("content-length")
     if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
         return JSONResponse({"detail": "Request too large."}, status_code=413)
@@ -209,15 +212,14 @@ async def _limit_body_size(request: Request, call_next):
     return await call_next(request)
 
 
-# Middleware added later runs earlier. From the outside in: the proxy
-# secret, CORS, the default rate limit, the body size check. CORS wraps
-# the size check and the rate limit so a browser can read their 411, 413
-# and 429 answers.
+# Middleware added later runs earlier. From the outside in the order is
+# proxy secret, CORS, default rate limit, body size check. CORS has to wrap
+# the last two so a browser can read their 411, 413 and 429 responses.
 if _RATE_LIMIT_OK:
     app.add_middleware(SlowAPIMiddleware)
 
-# Extensions call from chrome-extension://<id>; the public backend accepts
-# any origin (no cookies are used). Self-hosted servers can restrict it.
+# Extensions call from chrome-extension://<id>. The public backend accepts
+# any origin because it uses no cookies. Self-hosted servers can restrict it.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ALLOW_ORIGINS,
@@ -227,13 +229,14 @@ app.add_middleware(
 )
 
 
-# Added last, so it runs first: a request that did not come through the
-# proxy is refused before CORS, the size check and any route.
+# Added last so it runs first. A request that skipped the proxy is refused
+# before anything else runs.
 @app.middleware("http")
 async def _require_proxy_secret(request: Request, call_next):
-    """With PROXY_SECRET set, only requests carrying it in the
-    X-PhishLens-Proxy header are served (constant-time comparison).
-    Neither the expected nor the received value is ever logged."""
+    """Require the X-PhishLens-Proxy header when PROXY_SECRET is set.
+
+    The comparison is constant-time and neither value is ever logged.
+    """
     if PROXY_SECRET:
         sent = request.headers.get("x-phishlens-proxy", "")
         if not hmac.compare_digest(sent.encode(), PROXY_SECRET.encode()):
@@ -241,9 +244,9 @@ async def _require_proxy_secret(request: Request, call_next):
     return await call_next(request)
 
 
-# Prometheus metrics: standard HTTP metrics plus the verdicts per endpoint
-# and trust path (a swing in the phishing ratio means an attack wave or a
-# model regression).
+# Prometheus metrics. Besides the standard HTTP ones we count verdicts per
+# endpoint and trust path. A swing in the phishing ratio means either an
+# attack wave or a model regression.
 _VERDICTS = None
 if METRICS_ENABLED:
     try:
@@ -267,15 +270,17 @@ def _count_verdict(endpoint: str, is_phishing: bool, trust_path: str) -> None:
         _VERDICTS.labels(endpoint, "phishing" if is_phishing else "safe", trust_path).inc()
 
 
-# Same request, same answer for 24 h (result_cache.py), an hour for a safe
-# verdict on an email with links.
+# Identical requests get the cached answer for 24 h (result_cache.py), or
+# one hour for a safe verdict on an email with links.
 _RESULT_CACHE = ResultCache()
 SAFE_WITH_LINKS_CACHE_TTL = 3600.0
 
 
 def _server_error(what: str) -> HTTPException:
-    """Log the current exception with a short reference and return a
-    generic 500: internal details stay in the logs."""
+    """Log the exception under a short reference and return a generic 500.
+
+    Internal details stay in the logs.
+    """
     ref = uuid.uuid4().hex[:8]
     logger.exception("%s failed (ref %s)", what, ref)
     return HTTPException(500, f"{what} failed (reference {ref}).")
@@ -287,48 +292,51 @@ def _verdict_label(p: float) -> str:
 
 # Requests
 class AnalyseRequest(BaseModel):
-    """An email: raw_email_b64 (a base64 .eml) and/or raw_text (the text
-    as the page shows it).
+    """An email to analyse, as a base64 .eml, as page text, or both.
 
-    sender_email gives the sender when only the text is sent, and
-    sender_name the name the mail client shows for it.
-    client_context carries hints from the mail client page, loosely typed
-    so new hints need no API change. Gmail: origin, gmail_signed_by,
-    gmail_mailed_by, gmail_via, gmail_in_inbox, headers_source
-    ("gmail_show_original", or "attachment" for an attached .eml),
-    link_urls, hidden_link_urls, subject. Outlook: origin,
-    outlook_internal, org_domain.
-    These hints only affect the caller's own result.
+    sender_email and sender_name describe the sender when only text is
+    sent. client_context holds hints from the mail page and is loosely
+    typed so new hints don't need an API change.
+
+    Gmail sends origin, gmail_signed_by, gmail_mailed_by, gmail_via,
+    gmail_in_inbox, headers_source ("gmail_show_original", or "attachment"
+    for an attached .eml), link_urls, hidden_link_urls and subject.
+    Outlook sends origin, outlook_internal and org_domain.
+
+    The hints can only change the caller's own result.
     """
 
     raw_email_b64: str | None = Field(None, max_length=MAX_EMAIL_B64_CHARS)
     raw_text: str | None = Field(None, max_length=MAX_TEXT_CHARS)
     sender_email: str | None = Field(None, max_length=512)
-    # Display names come from the email: a long one must not fail the scan
-    # (older extensions send it uncut); _from_value keeps 200 characters.
+    # Older extensions send the display name uncut. A long one must not fail
+    # the scan, and _from_value keeps 200 characters anyway.
     sender_name: str | None = Field(None, max_length=2000)
     client_context: dict[str, Any] | None = None
 
 
 def _from_value(email: str, name: str | None, original: str = "") -> str:
-    """Build a From: value from the address the client sent and the name it shows
-    (or the name of the original header), so that the name can be checked
-    against the address (impersonation)."""
+    """Build a From: value from the client's address and display name.
+
+    The impersonation check needs both to compare the name with the address.
+    """
     display = name or parseaddr(original)[0] or ""
-    # Invisible characters are removed before the cut so zero-width padding
-    # cannot push the brand name past it.
+    # Strip invisible characters before cutting, so zero-width padding
+    # can't push the brand name out.
     display = without_invisible(display)
     display = " ".join(display.split())[:200]
-    # Quoted per RFC 5322. An unescaped trailing backslash would escape the
-    # closing quote and drop the name, and the impersonation check with it.
+    # Quote per RFC 5322. An unescaped trailing backslash would escape the
+    # closing quote, drop the name and skip the impersonation check.
     display = display.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{display}" <{email}>' if display else email
 
 
 class AttachmentRequest(BaseModel):
-    """One attachment (10 MB at most once decoded). mime_type is a hint;
-    the real type is sniffed. parent_email carries the trust flags of the
-    email it came from."""
+    """One attachment, at most 10 MB once decoded.
+
+    mime_type is only a hint because we sniff the real type. parent_email
+    carries the trust flags of the email it came from.
+    """
 
     content_b64: str = Field(max_length=MAX_ATTACHMENT_B64_CHARS)
     filename: str | None = Field(None, max_length=1024)
@@ -337,20 +345,22 @@ class AttachmentRequest(BaseModel):
 
 
 def _client_link_groups(ctx: dict[str, Any]) -> tuple[list[str], list[str]]:
-    """Return the visible and hidden link targets the page sent, apart, so
-    no hidden one is ranked before a visible one (older extensions send them all in
-    link_urls, visible first)."""
+    """Return the page's visible and hidden link targets as two lists.
+
+    Keeping them apart stops a hidden link from outranking a visible one.
+    Older extensions send everything in link_urls, visible first.
+    """
     return client_links(ctx.get("link_urls")), client_links(ctx.get("hidden_link_urls"))
 
 
 def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str], bytes | None]:
-    """(body, urls, headers, raw_bytes) of the request.
+    """Return (body, urls, headers, raw_bytes) for the request.
 
-    With raw_text only, headers holds the given sender and, when Gmail's
-    "signed-by" / "mailed-by" were sent, a synthetic Authentication-Results
-    header. With raw_email_b64, the page text (raw_text) is preferred to
-    the plain-text part when both are sent: plain-text parts spell every
-    URL out, which the text model reads as phishing.
+    With raw_text only, headers holds the given sender plus a synthetic
+    Authentication-Results header if Gmail's "signed-by" and "mailed-by"
+    were sent. When both raw_text and raw_email_b64 arrive we prefer the
+    page text over the plain-text part, which spells out every URL and
+    pushes the text model toward phishing.
     """
     ctx = req.client_context or {}
     if req.raw_text and not req.raw_email_b64:
@@ -358,7 +368,7 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         if looks_like_source(full):
             full = strip_markup_noise(full)
         body = full[:MAX_PAGE_TEXT_CHARS]
-        # The text model reads the start; links written further down count.
+        # The text model reads the start, but links further down still count.
         urls = rank_links(*_client_link_groups(ctx), urls_in_text(full[:MAX_URL_SCAN_CHARS]))
         headers: dict[str, str] = {}
         _keep_forward_marker(full, body, headers)
@@ -380,14 +390,14 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
         logger.info("EML parse error: %s", e)
         raise HTTPException(400, "Could not parse this email.") from e
     if ctx.get("headers_source") == "attachment":
-        # An email attached to another one: its authentication results were
-        # written by whoever attached it, so they are not read at all.
+        # For an attached email, whoever attached it wrote the
+        # authentication results, so we ignore them.
         for key in ("authentication-results", "arc-authentication-results"):
             headers.pop(key, None)
     if req.sender_email:
-        # The message's own From: is kept when the page's sender does not
-        # say all it says: several addresses (Gmail shows only the first),
-        # or another domain. Then it proves nothing either.
+        # Keep the message's own From: when the page shows less than it says,
+        # such as several addresses (Gmail shows only the first) or another
+        # domain. In that case it proves nothing either.
         original = headers.get("from", "")
         addresses = [a for _n, a in getaddresses([original]) if "@" in a]
         domains = sender_domains(original)
@@ -399,37 +409,33 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
             headers[FROM_UNPROVEN] = "1"
         else:
             headers["from"] = _from_value(req.sender_email, req.sender_name, original)
-    # The page text, unless it is the email's source shown as text: then
-    # the text parsed from the original message is better. The page text
-    # reflects the styles the browser applied (hidden parts last), which
-    # the parsed message cannot.
+    # Use the page text because it reflects the styles the browser applied.
+    # If the page shows the email's source instead, the parsed message is
+    # better.
     text_urls: list[str] = []
     page = (req.raw_text or "").strip()
     if page and not is_page_source(page):
         page_full = strip_markup_noise(page) if looks_like_source(page) else page
         page = page_full[:MAX_PAGE_TEXT_CHARS]
         if len(page.split()) >= MIN_TEXT_WORDS:
-            # The page text can be shorter than the message (the client
-            # sends at most MAX_PAGE_TEXT_CHARS): a forward marker further
-            # down the message still counts.
+            # The client sends at most MAX_PAGE_TEXT_CHARS, so a forward
+            # marker further down the message still has to count.
             _keep_forward_marker(body, page, headers)
             body = page
             text_urls = urls_in_text(page_full[:MAX_URL_SCAN_CHARS])
-    # Visible links of the page, then those of the message (its own
-    # visible ones first), then the page's hidden ones.
-    # A link the browser saw hidden (a 1 px image, a rule for screens)
-    # stays with the hidden ones, wherever the message lists it.
+    # Order is page visible links, then the message's links (visible first),
+    # then the page's hidden links. A link the browser saw as hidden stays
+    # hidden wherever the message lists it.
     shown, unseen = _client_link_groups(ctx)
     hidden_here = set(unseen)
     urls = rank_links(shown, Ranked(u for u in urls if u not in hidden_here), unseen, text_urls)
-    # Without invisible characters, as the reader sees it: for the text
-    # model, the forward and language checks alike.
+    # Cut each run of invisible characters to one, so a long padding does
+    # not push the words out of the text model's window.
     return collapse_invisible(body), urls, headers, raw_bytes
 
 
 def _keep_forward_marker(full: str, used: str, headers: dict[str, str]) -> None:
-    """Record in headers a forward marker that only the text left out
-    holds (detect_forwarded on the scored text alone would miss it)."""
+    """Flag a forward marker that only appears in the part of the text we cut off."""
     if detect_forwarded(used)["detected"]:
         return
     found = detect_forwarded(full)
@@ -438,10 +444,13 @@ def _keep_forward_marker(full: str, used: str, headers: dict[str, str]) -> None:
 
 
 def _model_text(body: str, headers: dict[str, str], ctx: dict[str, Any]) -> str:
-    """The text the text model reads: subject, then body. The model was
-    trained and measured on "subject + body"; on the body alone it scored
-    the public benchmark's missed phishing 10% on average, against 94%
-    with the subject. Unchanged when the body already starts with it."""
+    """Return the subject followed by the body, which is what the text model reads.
+
+    The model was trained and measured on "subject + body". On the body
+    alone it scored the public benchmark's missed phishing 10% on average,
+    against 94% with the subject. If the body already starts with the
+    subject we leave it alone.
+    """
     subject = headers.get("subject") or ctx.get("subject")
     if not isinstance(subject, str):
         return body
@@ -488,9 +497,11 @@ _last_purge = 0.0
 
 
 def _purge_expired_caches() -> None:
-    """Expired cache entries out at most once an hour. /health is called
-    every 10 minutes by the warm-up job, so an instance that scans nothing
-    drops them too."""
+    """Purge expired cache entries, at most once an hour.
+
+    The warm-up job calls /health every 10 minutes, so an idle instance
+    still drops them.
+    """
     global _last_purge
     now = time.monotonic()
     if _last_purge and now - _last_purge < _PURGE_EVERY_S:
@@ -504,11 +515,11 @@ def _purge_expired_caches() -> None:
             logger.debug("reputation cache purge failed: %s", e)
 
 
-# HEAD too: uptime monitors (UptimeRobot's free plan) probe with HEAD.
+# Also answer HEAD, which UptimeRobot's free plan uses.
 @app.api_route("/health", methods=["GET", "HEAD"])
 @_not_rate_limited
 def health():
-    """Liveness, version, and which agents run a trained model."""
+    """Report liveness, version and which agents run a trained model."""
     _purge_expired_caches()
     return {
         "status": "ok",
@@ -518,14 +529,14 @@ def health():
             "url": "model" if structured_agents.url_model_ready() else "rules",
             "metadata": "model" if structured_agents.metadata_model_ready() else "rules",
         },
-        # which text model runs, and how its input and scores are handled
+        # Which text model runs and how its input and scores are handled.
         "text_model": {
             **text_model.STATE.get("meta", {}),
             "source": text_model.STATE.get("source"),
             "revision": text_model.STATE.get("revision"),
             "name": text_model.STATE.get("name"),
-            # The English v1 model: much weaker on real mail than the
-            # multilingual one (docs/multilingual-model.md); the extension
+            # The English v1 model is much weaker on real mail than the
+            # multilingual one (docs/multilingual-model.md). The extension
             # warns about it.
             "legacy": text_model.STATE.get("source") == text_model.LEGACY_REPO,
         }
@@ -540,9 +551,11 @@ _stats_cache: dict[str, Any] = {}
 
 @app.get("/reputation/stats")
 def reputation_stats():
-    """Cache hit rate, Safe Browsing quota, PhishTank feed size. Counting
-    the cache table takes seconds once it is large, and the website asks
-    on every visit: the answer is kept _STATS_TTL_S seconds."""
+    """Return cache hit rate, Safe Browsing quota and PhishTank feed size.
+
+    Counting a large cache table takes seconds and the website asks on
+    every visit, so we keep the answer for _STATS_TTL_S seconds.
+    """
     now = time.monotonic()
     if _stats_cache and now - _stats_cache["at"] < _STATS_TTL_S:
         return _stats_cache["body"]
@@ -561,8 +574,10 @@ def reputation_stats():
 @app.post("/feedback")
 @_rate_limited(RATE_LIMIT_FEEDBACK)
 def send_feedback(request: Request, req: feedback.FeedbackRequest):
-    """A report the user chose to send (wrong verdict, wrong language or
-    reviewed statistics). The text is redacted again before it is stored."""
+    """Store a report the user chose to send, after redacting it again.
+
+    Reports cover a wrong verdict, a wrong language or reviewed statistics.
+    """
     if not feedback.enabled():
         raise HTTPException(503, "This server does not collect reports.")
     try:
@@ -577,8 +592,10 @@ def send_feedback(request: Request, req: feedback.FeedbackRequest):
 @app.post("/explain")
 @_rate_limited(RATE_LIMIT_EXPLAIN)
 def explain(request: Request, req: AnalyseRequest):
-    """Top words behind the text agent's score (LIME). The endpoint is sync,
-    so FastAPI runs it in a worker thread."""
+    """Return the top words behind the text score (LIME).
+
+    The endpoint is sync, so FastAPI runs it in a worker thread.
+    """
     body, _, headers, _ = _resolve_email(req)
     if not body:
         raise HTTPException(400, "Could not extract any text from this email.")
@@ -598,8 +615,7 @@ def explain(request: Request, req: AnalyseRequest):
 # /analyse
 @dataclass
 class _Scores:
-    """The three agents' scores, after threat intelligence and sender
-    authentication, with what the response reports about them."""
+    """Agent scores after threat intelligence and sender checks, plus what the response shows."""
 
     p_text: float
     p_url: float
@@ -614,7 +630,7 @@ class _Scores:
 
 @dataclass
 class _Sender:
-    """Who sent the email, and how far that is proven."""
+    """Who sent the email and how well that is proven."""
 
     domain: str
     crypto_verified: bool
@@ -641,8 +657,7 @@ async def _score(
     ctx: dict[str, Any],
 ) -> _Scores:
     """Run the agents, sender authentication and URL reputation."""
-    # Sender authentication and URL reputation are network calls: started
-    # first, collected after the model inference.
+    # Start the network calls first and collect them after model inference.
     auth_task = (
         asyncio.create_task(build_metadata_auth_signal(headers, enable_dbl=ENABLE_DBL))
         if _AUTH_HEADERS_AVAILABLE
@@ -651,10 +666,10 @@ async def _score(
     rep_task = asyncio.create_task(_check_urls(urls))
 
     # The trained metadata model scores modern provider and mailing-list
-    # headers (ARC, X-Gm-*, List-*, long Received chains) near 1.0 on
-    # legitimate mail, so the rules and the real SPF/DKIM/DMARC results
-    # are used unless METADATA_MODEL_ENABLED is set. Gmail's "Show
-    # original" headers never go to it.
+    # headers (ARC, X-Gm-*, List-*, long Received chains) near 1.0 on real
+    # mail. We use rules and the actual SPF/DKIM/DMARC results unless
+    # METADATA_MODEL_ENABLED is set. Gmail's "Show original" headers never
+    # go to the model.
     raw_for_meta_model = (
         raw_bytes
         if METADATA_MODEL_ENABLED and ctx.get("headers_source") != "gmail_show_original"
@@ -689,8 +704,8 @@ async def _score(
         logger.warning("reputation check failed: %s", e)
         rep = fusion.summarize_reputation([])
         cacheable = False
-    # A link Safe Browsing could not check (quota, outage) is not known
-    # to be clean: the answer is not reused.
+    # If Safe Browsing couldn't check a link we don't know it is clean, so
+    # the answer isn't cached.
     if rep.verdicts and not _reputation.fully_checked(rep.verdicts):
         cacheable = False
 
@@ -708,16 +723,15 @@ async def _score(
 
 
 def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict) -> _Sender:
-    """Work out who the sender is and whether it is proven. These are the
-    inputs of the trust path."""
+    """Work out who the sender is and whether that is proven, for the trust path."""
     domain = sender_domain(headers.get("from", ""))
     allowlisted = is_trusted_domain(domain)
     crypto_verified = bool(auth.get("cryptographically_verified"))
-    # Outlook on the web shows only the name of senders from the user's own
-    # organisation; that mail was authenticated by the organisation's
-    # server, and the organisation's domain stands in for the sender's.
-    # Only when no sender address was found: a page that showed one is not
-    # internal mail, whatever the client says.
+    # Outlook on the web shows only the name for senders in the user's own
+    # organisation. The organisation's server authenticated that mail, so
+    # its domain stands in for the sender's. This only applies when no
+    # sender address was found. If the page showed one, it isn't internal
+    # mail whatever the client says.
     outlook_internal = (
         ctx.get("origin") == "outlook"
         and ctx.get("outlook_internal") is True
@@ -732,20 +746,20 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
     subject = headers.get("subject") or ctx.get("subject")
     forwarded = detect_forwarded(body, subject if isinstance(subject, str) else None)
     hint = headers.get(FORWARDED_ELSEWHERE)
-    # The hint also names the original sender when only the subject
-    # ("Fwd:") was seen in the scored text.
+    # The hint also gives the original sender when the scored text only
+    # had the "Fwd:" subject.
     if hint and (not forwarded["detected"] or (not forwarded["original_sender"] and "@" in hint)):
         forwarded = {"detected": True, "original_sender": hint if "@" in hint else None}
-    # A brand's name over another domain's address: authentication only
-    # proves who the impostor is, so no softer path. Checked on forwards
-    # too: a "TR:" in the subject must not hide it.
+    # A brand name over someone else's address. Authentication only proves
+    # who the impostor is, so no softer path. We check forwards too, so a
+    # "TR:" subject can't hide it.
     impersonation = impersonated_brand(headers.get("from", ""))
     if forwarded["detected"] or impersonation:
-        # The sender vouches for the forward, not for the forwarded
-        # content; an impostor's authentication proves nothing.
+        # The sender only vouches for the act of forwarding, and an
+        # impostor's authentication proves nothing.
         allowlisted = crypto_verified = outlook_internal = False
-    # Gmail delivered the message to the inbox after its own SPF/DKIM/DMARC
-    # checks: a soft signal, used when nothing stronger is available.
+    # Gmail put the message in the inbox after its own SPF/DKIM/DMARC
+    # checks. That is a soft signal for when nothing stronger is available.
     inbox_soft = (
         not crypto_verified
         and not impersonation
@@ -758,9 +772,9 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
         domain=domain,
         crypto_verified=crypto_verified,
         outlook_internal=outlook_internal,
-        # The allowlist counts only for a sender proven by its signature:
-        # the From: text alone can be forged, and "internal" is only read
-        # from the page (no address shown), so it gets the soft path.
+        # The allowlist only counts for a signature-proven sender, since the
+        # From: text can be forged. "Internal" comes from the page alone
+        # (no address shown), so it only gets the soft path.
         trusted_sender=allowlisted and crypto_verified,
         inbox_soft=inbox_soft,
         forwarded=forwarded,
@@ -819,8 +833,10 @@ def _sender_auth_block(s: _Scores, who: _Sender) -> dict[str, Any]:
 
 
 def _auth_source(headers: dict[str, str]) -> str:
-    """Say where the sender checks came from: real headers, or the values
-    Gmail shows (verified by Gmail, not here)."""
+    """Report whether the sender checks used real headers or Gmail's displayed values.
+
+    Gmail verified the displayed values, not us.
+    """
     auth_header = headers.get("authentication-results", "") or ""
     if auth_header.startswith("gmail-client-context"):
         return "gmail_ui"
@@ -838,11 +854,11 @@ async def analyse(request: Request, req: AnalyseRequest):
         )
         return {**cached, "cached": True}
 
-    # Decoding and parsing a large email takes CPU time: off the event loop.
+    # Parsing a large email is CPU work, so keep it off the event loop.
     body, urls, headers, raw_bytes = await run_in_threadpool(_resolve_email, req)
     if not body and raw_bytes:
-        # Attachment-only email: the subject stands in for the text (too
-        # short for the text agent, see MIN_TEXT_WORDS).
+        # For an attachment-only email the subject stands in for the text.
+        # It is usually too short for the text agent (MIN_TEXT_WORDS).
         body = (headers.get("subject") or "").strip() or "(no text)"
     if not body:
         raise HTTPException(400, "Could not extract any text from this email.")
@@ -874,8 +890,8 @@ async def analyse(request: Request, req: AnalyseRequest):
         text_override=text_model.override_threshold(),
         links_elsewhere=CRYPTO_LINK_RULE and links_elsewhere_only(links),
     )
-    # The signed-sender discount was lifted by the link rule: said in the
-    # interface, next to a "DKIM verified" badge.
+    # Tell the interface when the link rule lifted the signed-sender
+    # discount, since it shows a "DKIM verified" badge next to the verdict.
     links_rule_fired = bool(
         CRYPTO_LINK_RULE
         and path is fusion.PATH_CRYPTO
@@ -884,8 +900,8 @@ async def analyse(request: Request, req: AnalyseRequest):
     )
     _count_verdict("/analyse", verdict.is_phishing, verdict.trust_path)
 
-    # Without headers there is no sender to check (pasted text, a client
-    # that sent no headers): the sender score is then a neutral default,
+    # With no headers (pasted text, or a client that sent none) there is no
+    # sender to check. The sender score falls back to a neutral default
     # shown as "not checked".
     meta_checked = bool(
         raw_bytes
@@ -915,15 +931,15 @@ async def analyse(request: Request, req: AnalyseRequest):
         "cached": False,
     }
     if s.cacheable:
-        # A safe verdict on an email with links is kept an hour at most:
-        # a link added to the blocklists later must reach the next scan.
+        # Cache a safe verdict on an email with links for an hour at most, so
+        # a link blocklisted later is caught on the next scan.
         ttl = SAFE_WITH_LINKS_CACHE_TTL if urls and not verdict.is_phishing else None
         _RESULT_CACHE.set(cache_key, result, ttl=ttl)
     return result
 
 
 # /analyse_attachment
-# Inner-file features worth naming in the per-file report of an archive.
+# Inner-file features we name in an archive's per-file report.
 _INNER_REASONS = {
     "contains_macros": "macros",
     "remote_template": "remote template",
@@ -941,9 +957,11 @@ _INNER_REASONS = {
 
 
 def _archive_file_report(extracted: dict, reputation_verdicts: list[dict]) -> list[dict]:
-    """List the members of an archive that explain the verdict: risky names,
-    risky inner documents, phishing wording, or a link flagged by threat
-    intelligence. Most reasons first; at most 20."""
+    """List up to 20 archive members that explain the verdict, worst first.
+
+    A member qualifies with a risky name, a risky inner document, phishing
+    wording or a link flagged by threat intelligence.
+    """
     bad_urls = {v.get("url") for v in reputation_verdicts if v.get("malicious")}
     report: dict[str, list[str]] = {}
     for name in extracted.get("_all_entries") or extracted.get("entries") or []:
@@ -971,7 +989,7 @@ def _archive_file_report(extracted: dict, reputation_verdicts: list[dict]) -> li
 
 
 def _score_attachment_text(text: str, urls: list[str]) -> tuple[float, float]:
-    """Text and URL agent scores of an attachment; a failing agent counts 0."""
+    """Score an attachment with the text and URL agents. A failing agent counts as 0."""
     p_text = p_url = 0.0
     if text.strip():
         try:
@@ -991,7 +1009,7 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
     if not _ATTACHMENTS_AVAILABLE:
         raise HTTPException(501, "Attachment analysis is not available on this server.")
     try:
-        # Parsing, OCR and decompression are CPU-bound: worker thread.
+        # Parsing, OCR and decompression are CPU-bound, so use a worker thread.
         extracted = await run_in_threadpool(
             _attachments.analyse_attachment,
             req.content_b64,
@@ -1003,7 +1021,7 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         # written for the user.
         raise HTTPException(400, str(e)) from e
     except RuntimeError as e:
-        # A valid request whose file does not parse (corrupt PDF...).
+        # The request is valid but the file doesn't parse (a corrupt PDF, say).
         raise HTTPException(422, str(e)) from e
     except Exception as e:
         raise _server_error("Attachment analysis") from e
@@ -1048,7 +1066,7 @@ async def analyse_attachment(request: Request, req: AttachmentRequest):
         "parent_trusted" if parent_trusted else "default",
     )
 
-    # Archives, and Office files that hold other files (read as members).
+    # Archives, and Office files that contain other files.
     is_archive = (
         extracted.get("kind") == "archive"
         or bool(extracted.get("inner_files"))

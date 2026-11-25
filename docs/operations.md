@@ -1,25 +1,48 @@
 # Operations
 
-This guide explains how PhishLens Cloud is deployed and how to deploy,
-configure and observe your own PhishLens server. The self-hosting
-examples use Docker behind a reverse proxy, so adapt names and paths.
+PhishLens Cloud is set up as described in the first section. The rest
+covers running your own server: deployment, configuration, logs and
+metrics. The self-hosting examples use Docker behind a reverse proxy;
+adapt the names and paths to your machine.
 
 ## PhishLens Cloud
 
-| Part | Where |
-| --- | --- |
-| Website | Cloudflare Pages serves `site/` at `phishlens.dev` |
-| API front | The Pages Function `functions/[[path]].js` forwards `/analyse`, `/analyse_attachment`, `/explain`, `/feedback`, `/health` and `/reputation/stats` to the backend; every other path is a static file, and `/metrics` is never forwarded |
-| Backend image | `.github/workflows/backend-image.yml` builds `backend/Dockerfile.cloud` (linux/amd64) and publishes the public image `ghcr.io/anzouk/phishlens-backend`, on a version tag (`v*`) or by hand ("Run workflow" in the Actions tab) |
-| Backend | Cloud Run service `phishlens-backend`, region `europe-west1` (Belgium), running `ghcr.io/anzouk/phishlens-backend:latest` pulled straight from ghcr.io (the image is public, so no registry in between) |
-| Resources | 2 vCPU, 4 GiB of memory, startup CPU boost, second generation execution environment; 0 to 1 instance, 8 requests at a time per instance, 120 s request timeout |
-| Settings | Environment variables of the service (below) |
-| Secrets | Secret Manager: `gsb-api-key` (`GSB_API_KEY`), `hf-token` (`HF_TOKEN`), `feedback-notify-url` (`FEEDBACK_NOTIFY_URL`), `proxy-secret` (`PROXY_SECRET`) |
-| Proxy guard | The same `proxy-secret` value is the Pages secret `PROXY_SECRET`: the function sends it in `X-PhishLens-Proxy` and the backend answers 403 to any request without it, so the Cloud Run address itself (`*.run.app`) answers nothing useful |
-| Identity | A dedicated service account that can read only those four secrets and, with `roles/storage.objectUser` on the reports bucket alone, list, read, create and delete the objects of that bucket (the backend lists the reports to keep their total under `FEEDBACK_MAX_MB`) |
-| Reports | `FEEDBACK_DIR=/feedback`, a private Cloud Storage bucket (`us-central1`, Standard class) mounted as a volume (Cloud Storage FUSE) |
-| Warm-up | A Cloud Scheduler job calls `https://phishlens.dev/health` every 10 minutes (through the function: the run.app address answers 403) |
-| Cost | A monthly spending cap on Cloud Run and a budget alert at 1 USD |
+- Cloudflare Pages serves the website (`site/`) at `phishlens.dev`.
+- The Pages Function `functions/[[path]].js` is the API front. It
+  forwards `/analyse`, `/analyse_attachment`, `/explain`, `/feedback`,
+  `/health` and `/reputation/stats` to the backend. Every other path is
+  a static file, and `/metrics` is never forwarded.
+- `.github/workflows/backend-image.yml` builds `backend/Dockerfile.cloud`
+  (linux/amd64) and publishes the public image
+  `ghcr.io/anzouk/phishlens-backend`. It runs on a version tag (`v*`) or
+  by hand ("Run workflow" in the Actions tab).
+- The backend is the Cloud Run service `phishlens-backend` in
+  `europe-west1` (Belgium). It runs
+  `ghcr.io/anzouk/phishlens-backend:latest` pulled straight from ghcr.io,
+  since the image is public and needs no registry in between.
+- It gets 2 vCPU, 4 GiB of memory, startup CPU boost and the second
+  generation execution environment. It scales from 0 to 1 instance,
+  with 8 requests at a time per instance and a 120 s request timeout.
+- Settings are environment variables of the service (below). Secrets
+  live in Secret Manager: `gsb-api-key` (`GSB_API_KEY`), `hf-token`
+  (`HF_TOKEN`), `feedback-notify-url` (`FEEDBACK_NOTIFY_URL`) and
+  `proxy-secret` (`PROXY_SECRET`).
+- The same `proxy-secret` value is the Pages secret `PROXY_SECRET`. The
+  function sends it in `X-PhishLens-Proxy` and the backend answers 403
+  to any request without it, so the Cloud Run address itself
+  (`*.run.app`) answers nothing useful.
+- The service runs under a dedicated service account. It can read only
+  those four secrets, and it has `roles/storage.objectUser` on the
+  reports bucket alone to list, read, create and delete its objects.
+  The backend lists the reports to keep their total under
+  `FEEDBACK_MAX_MB`.
+- Reports go to `FEEDBACK_DIR=/feedback`, a private Cloud Storage bucket
+  (`us-central1`, Standard class) mounted as a volume with Cloud Storage
+  FUSE.
+- A Cloud Scheduler job calls `https://phishlens.dev/health` every 10
+  minutes to keep it warm. It goes through the function because the
+  run.app address answers 403.
+- Cloud Run has a monthly spending cap and a budget alert at 1 USD.
 
 The service sets these environment variables besides the secrets:
 
@@ -37,8 +60,8 @@ client. It never forwards `Cookie`, `Authorization` or a client-sent
 `X-PhishLens-Proxy`, answers 405 to methods other than GET, HEAD, POST
 and OPTIONS, and adds the security headers of `site/_headers` (which
 Pages does not apply to a function's responses) to every answer. The
-backend address is in the function; the Pages variable `BACKEND_ORIGIN`
-overrides it. The extension and the website only ever call
+backend address is written in the function, and the Pages variable
+`BACKEND_ORIGIN` overrides it. The extension and the website only ever call
 `https://phishlens.dev`.
 
 To change the proxy secret, add a new version of `proxy-secret`, put the
@@ -59,7 +82,7 @@ calls cost almost nothing.
 
 ```bash
 # 1. publish the image: push a version tag, or run "Backend image" by hand
-git tag v2.1.0 && git push origin v2.1.0
+git tag v2.2.0 && git push origin v2.2.0
 # 2. deploy it as a new revision
 gcloud run deploy phishlens-backend --region europe-west1 \
   --image ghcr.io/anzouk/phishlens-backend:latest
@@ -92,18 +115,6 @@ headers of `site/_headers`.
 
 ### Deploy or update
 
-On a Docker host, `scripts/redeploy.sh` does it in one command. It pulls
-`origin/main`, builds, restarts, waits for `/health`, runs a test scan,
-and goes back to the previous image if the new one is not healthy.
-
-```bash
-bash ~/PhishLens/scripts/redeploy.sh              # update and redeploy
-bash ~/PhishLens/scripts/redeploy.sh --no-pull    # rebuild the current checkout
-bash ~/PhishLens/scripts/redeploy.sh --rollback   # back to the previous image
-```
-
-By hand:
-
 ```bash
 cd ~/PhishLens/backend
 docker build -f Dockerfile.cloud -t phishlens .
@@ -118,7 +129,7 @@ docker logs -f phishlens          # wait for "Text model loaded from ..."
 
 The model and agents volumes survive re-creating the container, so only
 the first start downloads from Hugging Face (the container runs as uid
-1000). `~/.phishlens.env` holds the keys and settings; never commit it.
+1000). `~/.phishlens.env` holds the keys and settings, so never commit it.
 Enable Docker at boot (`systemctl enable docker`) or the server stays
 down after a reboot.
 
@@ -181,11 +192,16 @@ The rest is in `backend/settings.py`.
 
 ## Observe
 
-| Endpoint | Use |
-| --- | --- |
-| `GET /health` | Version, which agents run a model or rules, the text model and its revision; answers `"status":"ok"` only once the model is loaded, so an uptime monitor checking that keyword catches a server that is up but not ready |
-| `GET /reputation/stats` | Cache hit rate, Safe Browsing quota left, PhishTank feed size (refreshed every 30 s) |
-| `GET /metrics` | Prometheus: requests, latency, and `phishlens_verdicts_total{endpoint, verdict, trust_path}` |
+`GET /health` reports the version, which agents run a model or rules,
+and the text model with its revision. It only answers `"status":"ok"`
+once the model is loaded, so an uptime monitor that checks for that
+keyword catches a server that is up but not ready.
+
+`GET /reputation/stats` gives the cache hit rate, the Safe Browsing
+quota left and the PhishTank feed size, refreshed every 30 s.
+
+`GET /metrics` serves Prometheus metrics: requests, latency and
+`phishlens_verdicts_total{endpoint, verdict, trust_path}`.
 
 Keep `/metrics` private: forward only the API paths from the proxy
 (`/analyse*`, `/explain*`, `/health`, `/reputation*`, `/feedback`), as
@@ -238,16 +254,14 @@ docker run --rm --network host -v "$PWD":/mnt/locust locustio/locust \
 On the earlier PhishLens Cloud host (4 ARM cores, CPU only, 10 users,
 multilingual model, 2026-10-15), short text scans took a median of 65 ms
 and a p95 of 120 ms, with 0 failures out of 472 requests. The test
-emails are short, and a typical
-email of about 250 tokens takes about 190 ms
+emails are short. A typical email of about 250 tokens takes about 190 ms
 ([evaluation](evaluation.md#results)).
 
 ## Backups
 
-On a self-hosted server, `scripts/backup.sh` archives what the
-repository cannot rebuild (env file, proxy configuration, data folder)
-to an [rclone](https://rclone.org) remote. Use a crypt remote, because
-the archive holds the env file.
+On a self-hosted server, back up what the repository cannot rebuild.
+That is the env file and the data folder, encrypted because the env
+file holds the keys.
 
 PhishLens Cloud has no such files. The code and the image are on GitHub,
 the settings on the Cloud Run service, the keys in Secret Manager, and

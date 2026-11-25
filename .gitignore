@@ -1,8 +1,4 @@
-# =====================================================================
-# PhishLens: .gitignore
-# =====================================================================
-
-# ---- Python ----
+# Python
 __pycache__/
 *.py[cod]
 *.so
@@ -16,11 +12,11 @@ venv/
 .venv/
 env/
 
-# ---- Notebooks ----
+# Notebooks
 .ipynb_checkpoints/
 *-checkpoint.ipynb
 
-# ---- ML artefacts (model is hosted on Hugging Face Hub, NOT in git) ----
+# ML artefacts (the model is on the Hugging Face Hub, not in git)
 model/
 *.safetensors
 *.bin
@@ -41,63 +37,48 @@ phishing_pot/
 nazario_phishing/
 umbrella-top-1m.csv*
 *.parquet
-phishing_model.zip
 
-# Keep curated, small artefacts that are part of the repo:
-!synthetic_legit_emails.csv
-
-# ---- Outputs / logs ----
+# Outputs / logs
 outputs/
 results/
-lime_outputs/
-lime_outputs.zip
 summary.json
 summary-*.json
-demo_qr.png
 *.zip
 wandb/
 runs/
 *.log
-.gradio/
 
-# ---- Hugging Face cache ----
+# Hugging Face cache
 .cache/
 huggingface/
 
-# ---- Editor / IDE ----
+# Editor / IDE
 .idea/
 .vscode/
 *.swp
 *~
 
-# ---- OS ----
+# OS
 .DS_Store
 Thumbs.db
 
-# ---- Chrome extension build artefacts ----
-extension/*.zip
-# legacy React build output (the extension itself has no build step)
-extension/dist/
-
-# ---- Local secrets ----
+# Local secrets
 .env
 .env.local
 *.secret
 # holds GSB_API_KEY etc. on a self-hosted server, never commit it
 .phishlens.env
-**/.venv/
-**/.DS_Store
 
-# ---- Test / coverage artefacts ----
+# Test / coverage artefacts
 .coverage
 .coverage.*
 htmlcov/
 .pytest_cache/
 
-# ---- Load test output (scripts/locustfile.py --csv loadtest) ----
+# Load test output (scripts/locustfile.py --csv loadtest)
 loadtest_*.csv
 
-# ---- Node (ESLint installed on the fly, no package.json) ----
+# Node (ESLint installed on the fly, no package.json)
 node_modules/
 # Playwright output
 test-results/

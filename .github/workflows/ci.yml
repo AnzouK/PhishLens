@@ -1,20 +1,6 @@
-# =====================================================================
-# PhishLens CI
-# =====================================================================
-# Runs on every push to main and every pull request.
-#
-#   extension     node --check, ESLint on the extension and the website
-#                 scripts (every rule blocking) and the node:test unit tests
-#   requirements  resolves backend/requirements.txt on the Docker base
-#                 Python without installing anything
-#   python        compile, ruff (lint + format, ruff.toml), version check
-#                 and the offline pytest suite with coverage, 80% minimum
-#                 (OCR, QR, Office, skops included; torch / transformers
-#                 are stubbed, the model never loads)
-#   ui            Playwright tests of the popup and the website (backend mocked)
-#
-# All four are required by the branch protection rule on main.
-# =====================================================================
+# Every push to main and every pull request. All four jobs are required by
+# the branch protection on main; the Python job needs 80% coverage and stubs
+# torch and transformers, so the model never loads.
 name: CI
 
 on:

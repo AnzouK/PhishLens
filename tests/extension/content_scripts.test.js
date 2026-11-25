@@ -100,6 +100,60 @@ test("email text in a banner stays text", () => {
     assert.ok(view.querySelector(".pll-banner").textContent.includes(evil));
 });
 
+test("banner chips are sorted bad, then warn, then good", () => {
+    const { PL, ctx } = load(manifest.content_scripts[0]);
+    const view = mailView(ctx.document);
+    // Clean links (good) and a forward (warn) come before the DMARC
+    // failure (bad) in the code; the banner shows them worst first.
+    PL.showBanner(view, {
+        ...PHISHING,
+        forwarded: { detected: true },
+        sender_auth: { dmarc: "fail" },
+    });
+    const kinds = view.querySelectorAll(".pll-chip").map((c) => c.className.replace("pll-chip pll-chip--", ""));
+    assert.deepEqual(kinds, ["bad", "warn", "good"]);
+});
+
+test("a safe verdict with a red meter or an orange chip uses the caution style", () => {
+    const { PL, ctx } = load(manifest.content_scripts[0]);
+    const view = mailView(ctx.document);
+    const SAFE = {
+        verdict: "safe",
+        agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.1 }, metadata: { phishing_probability: 0.1 } },
+        sender_auth: {}, url_reputation: { checked: 1 },
+    };
+    const kind = () => view.querySelector(".pll-banner").className.replace("pll-banner pll-banner--", "");
+    const title = () => view.querySelector(".pll-banner__title").textContent;
+    PL.showBanner(view, SAFE);
+    assert.equal(kind(), "safe");
+    assert.equal(title(), "This email looks safe");
+    // A 76% wording meter (red) under a safe verdict.
+    PL.showBanner(view, { ...SAFE, agents: { ...SAFE.agents, text: { phishing_probability: 0.76 } } });
+    assert.equal(kind(), "caution");
+    assert.equal(title(), "Probably safe, but check");
+    assert.match(view.querySelector(".pll-banner__lead").textContent, /^Some signs are unusual\. Look at the details before you click or reply\./);
+    assert.equal(view.querySelector(".pll-meter__fill--high").style.getPropertyValue("width"), "76%");
+    // A warn chip (forwarded email).
+    PL.showBanner(view, { ...SAFE, forwarded: { detected: true } });
+    assert.equal(kind(), "caution");
+    assert.ok(view.querySelector(".pll-chip--warn"));
+    assert.match(view.querySelector(".pll-banner__lead").textContent, /forwarded email/);
+    // Phishing stays danger.
+    PL.showBanner(view, PHISHING);
+    assert.equal(kind(), "danger");
+});
+
+test("the privacy notice is a neutral notice, not an error", async () => {
+    const { PL, ctx } = load(manifest.content_scripts[0]);
+    ctx.chrome.storage.local = { get: (keys, cb) => cb({}), set: () => {} };
+    const view = mailView(ctx.document);
+    PL.confirmCloudUse(view);
+    await new Promise((r) => setTimeout(r, 0));
+    const banner = view.querySelector(".pll-banner");
+    assert.ok(banner.classList.contains("pll-banner--notice"));
+    assert.ok(!banner.classList.contains("pll-banner--error"));
+});
+
 test("the explanation words are shown with their relative weight", () => {
     const { PL, ctx } = load(manifest.content_scripts[0]);
     const view = mailView(ctx.document);
@@ -918,4 +972,50 @@ test("privacy links use the website's address without .html", () => {
     const html = fs.readFileSync(path.join(EXT, "popup", "popup.html"), "utf8");
     const code = ["popup/popup.js", "content_scripts/banner.js"].map((f) => fs.readFileSync(path.join(EXT, f), "utf8")).join("\n");
     assert.doesNotMatch(html + code, /privacy\.html/);
+});
+
+test("the card of an attached email shows why it is shown with caution", () => {
+    const { ctx, PL } = load(entryFor("mail.google.com"));
+    const view = mailView(ctx.document);
+    const card = ctx.document.createElement("div");
+    view.append(card);
+    const eml = (extra) => ({
+        verdict: "safe",
+        agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.1 }, metadata: { phishing_probability: 0.1 } },
+        sender_auth: {}, url_reputation: { checked: 0 },
+        ...extra,
+    });
+    const chips = () => card.querySelectorAll(".pll-att-chip").map((c) => [c.className.replace("pll-att-chip pll-att-chip--", ""), c.textContent]);
+    PL.renderAttachmentResult(card, eml({
+        forwarded: { detected: true },
+        shared_links: { count: 1, services: ["Google Drive"] },
+        sender_auth: { dkim: "fail", spamhaus_dbl_listed: true, impersonation: { brand: "paypal", domain: "pay-pal.example" } },
+    }), "fwd.eml");
+    assert.ok(card.classList.contains("pll-att-banner--caution"));
+    // Worst first, as in the banner.
+    assert.deepEqual(chips().map(([kind]) => kind), ["bad", "bad", "bad", "warn", "warn"]);
+    assert.match(card.querySelector(".pll-att-banner__sub").textContent, /^Email.*Some signs are unusual\. Look at the details before you click or reply\. This is a forwarded email/i);
+    // A file uses the file wording.
+    PL.renderAttachmentResult(card, { ...eml({}), agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.1 } },
+        attachment: { kind: "pdf", notable_features: ["contains_javascript"] } }, "a.pdf");
+    assert.match(card.querySelector(".pll-att-banner__sub").textContent, /Look at the details before you open it\./);
+    // A file's chips are sorted the same way: trusted parent (good), flags
+    // (warn), threat-intel sources (bad) come out bad, warn, good.
+    PL.renderAttachmentResult(card, { ...eml({}), parent_trusted: true,
+        agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.1 } },
+        url_reputation: { checked: 1, malicious_count: 1, sources_hit: ["urlhaus"] },
+        attachment: { kind: "pdf", notable_features: ["contains_javascript"] } }, "b.pdf");
+    assert.deepEqual(chips().map(([kind]) => kind), ["bad", "warn", "good"]);
+});
+
+test("SPF failing next to a DMARC pass gives no chip and no caution", () => {
+    const { ctx, PL } = load(manifest.content_scripts[0]);
+    const view = mailView(ctx.document);
+    PL.showBanner(view, {
+        verdict: "safe",
+        agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.1 }, metadata: { phishing_probability: 0.1 } },
+        sender_auth: { spf: "fail", dkim: "pass", dmarc: "pass" }, url_reputation: { checked: 0 },
+    });
+    assert.ok(view.querySelector(".pll-banner").classList.contains("pll-banner--safe"));
+    assert.equal(view.querySelectorAll(".pll-chip--warn").length, 0);
 });

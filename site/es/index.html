@@ -30,10 +30,10 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="icon" href="../icon.png" type="image/png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../style.css?v=876364fc54">
-<script src="../i18n/es.js?v=80e0f4966c" defer></script>
-<script src="../lang.js?v=074b2a25f3" defer></script>
-<script src="../nav.js?v=a5d4bfcf41" defer></script>
+<link rel="stylesheet" href="../style.css?v=4a8f4dbf1b">
+<script src="../i18n/es.js?v=6615e24ede" defer></script>
+<script src="../lang.js?v=c4e3ae6499" defer></script>
+<script src="../nav.js?v=214564e91e" defer></script>
 <script type="application/ld+json">
 {
  "@context": "https://schema.org",
@@ -69,9 +69,9 @@
  ]
 }
 </script>
-<script src="../shared.js?v=b5e6174b96" defer></script>
-<script src="../redact.js?v=33f436e8d1" defer></script>
-<script src="../app.js?v=1ca3b08526" defer></script>
+<script src="../shared.js?v=f1041f15c9" defer></script>
+<script src="../redact.js?v=f79018a64c" defer></script>
+<script src="../app.js?v=b631cf9655" defer></script>
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false">
@@ -121,7 +121,7 @@
 
   <section class="hero">
     <div class="wrap">
-      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> Extensión de Chrome · Gmail + Outlook · 8 idiomas · código abierto</p>
+      <p class="tag"><svg class="ic ic--s"><use href="#i-shield"/></svg> <span class="nw">Extensión de Chrome</span> · <span class="nw">Gmail + Outlook</span> · <span class="nw">8 idiomas</span> · <span class="nw">código abierto</span></p>
       <h1>Descubra por qué un correo es phishing.</h1>
       <p class="lead">PhishLens añade un veredicto sobre cada correo en Gmail y Outlook: una puntuación por comprobación, las señales encontradas y las palabras que más pesaron. Haga clic en Analizar, o deje que revise solo los correos nuevos.</p>
       <div class="row">
@@ -129,8 +129,11 @@
         <span class="status" aria-live="polite"><span id="status"><span class="spinner" aria-hidden="true"></span> comprobando el servidor</span><span id="version"></span></span>
       </div>
       <figure class="shot">
-        <img src="../img/gmail-verdicts.svg" width="860" height="648"
-             alt="Dos avisos de PhishLens sobre correos en Gmail. El primero dice que el correo parece phishing, con puntuaciones del 97 % para el texto, 88 % para los enlaces y 74 % para el remitente, etiquetas por una detección de Safe Browsing, un fallo DMARC y una inclusión en Spamhaus, y las palabras que llevaron al veredicto. El segundo dice que el correo parece seguro porque el remitente está en la lista de confianza.">
+        <picture>
+          <source media="(max-width: 600px)" srcset="../img/gmail-verdicts-mobile.svg" width="860" height="340">
+          <img src="../img/gmail-verdicts.svg" width="860" height="648"
+               alt="Dos avisos de PhishLens sobre correos en Gmail. El primero dice que el correo parece phishing, con puntuaciones del 97 % para el texto, 88 % para los enlaces y 74 % para el remitente, etiquetas por una detección de Safe Browsing, un fallo DMARC y una inclusión en Spamhaus, y las palabras que llevaron al veredicto. El segundo dice que el correo parece seguro porque el remitente está en la lista de confianza.">
+        </picture>
         <figcaption>El aviso que PhishLens añade sobre un correo (dibujo de la interfaz real, en inglés; pruebe el mismo análisis más abajo).</figcaption>
       </figure>
     </div>
@@ -144,7 +147,10 @@
         <p class="lbl">del phishing detectado por el sistema completo, en correos reales recientes<span class="ci">intervalo de confianza del 95 %: 88,8 % a 91,4 %</span></p>
       </div>
       <p class="facts">0 de 117 correos de buzones reales marcados (como mucho 3,2 %), 1 de 297 de listas de correo · unos 190 ms por correo en el servidor · comprobado con phishing real en 6 de los 22 idiomas que lee el modelo de texto</p>
-      <p class="note">Medido en PhishLens Cloud el 1 de noviembre de 2026 con el benchmark público: 1804 de 2000 correos de phishing recientes, en varios idiomas, elegidos entre los que nadie examinó durante los ajustes (intervalo de confianza del 95 %: 88,8 % a 91,4 %), y 1 de 414 correos legítimos (297 de listas de correo públicas, 117 de buzones reales; 0,0 % a 1,4 %). El tiempo de análisis es la mediana para un correo habitual (unos 250 tokens); uno corto tarda unos 65 ms. Los correos de las listas se usaron durante los ajustes, y los de phishing se midieron de nuevo tras los cambios de la 2.0.12: la próxima medición usará un conjunto nuevo. Un orden de magnitud, no una garantía: vea <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">cómo se midió</a> y las <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limitaciones conocidas</a>.</p>
+      <details class="note method">
+        <summary>Cómo se midió</summary>
+        <p>Medido en PhishLens Cloud el 1 de noviembre de 2026 con el benchmark público: 1804 de 2000 correos de phishing recientes, en varios idiomas, elegidos entre los que nadie examinó durante los ajustes (intervalo de confianza del 95 %: 88,8 % a 91,4 %), y 1 de 414 correos legítimos (297 de listas de correo públicas, 117 de buzones reales; 0,0 % a 1,4 %). El tiempo de análisis es la mediana para un correo habitual (unos 250 tokens); uno corto tarda unos 65 ms. Los correos de las listas se usaron durante los ajustes, y los de phishing se midieron de nuevo tras los cambios de la 2.0.12: la próxima medición usará un conjunto nuevo. Un orden de magnitud, no una garantía: vea <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/evaluation.md#results">cómo se midió</a> y las <a href="https://github.com/AnzouK/PhishLens/blob/main/docs/threat-model.md#residual-risks-and-known-limitations">limitaciones conocidas</a>.</p>
+      </details>
 
       <h3 class="sub"><span class="dot" id="live-dot"></span> PhishLens Cloud, ahora mismo</h3>
       <div class="strip" id="live" aria-live="polite">
@@ -293,10 +299,10 @@
 huggingface-cli download AnzouKiona/phishlens-distilbert \
   --local-dir backend/model
 cd backend &amp;&amp; docker compose up --build</pre>
-          <p class="small muted">Python sin Docker, configuración y despliegue: vea la <a href="https://github.com/AnzouK/PhishLens#run-your-own-server">guía de inicio rápido</a> (en inglés).</p>
+          <p class="small muted">Python sin Docker, configuración y despliegue: vea la <a href="https://github.com/AnzouK/PhishLens#running-your-own-server">guía de inicio rápido</a> (en inglés).</p>
         </div>
       </div>
-      <p class="mt"><a class="cta" href="https://github.com/AnzouK/PhishLens/releases/latest">Instalar PhishLens</a></p>
+      <p class="mt"><a class="cta" href="https://github.com/AnzouK/PhishLens/releases/latest">Descargar de GitHub</a></p>
     </div>
   </section>
 </main>

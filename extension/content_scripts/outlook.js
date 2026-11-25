@@ -58,12 +58,13 @@ function isDraft(body) {
     return false;
 }
 
-// The sender's address in the From line: the last one between angle
-// brackets, else the last one written, never one inside a quoted display
-// name ('"PayPal <service@paypal.com>"' then "scam@attacker.example"). A
-// quoted local part ('<"scam"@...>', '<"service@paypal.com"@...>') counts
-// with its quotes removed, and the domain is the one after the last "@".
-// Same reading as backend/auth_headers.sender_domains.
+// Finds the sender's address in the From line. We take the last one in
+// angle brackets, or else the last one written, and skip anything inside
+// a quoted display name ('"PayPal <service@paypal.com>"' before
+// "scam@attacker.example"). A quoted local part such as
+// '<"service@paypal.com"@...>' loses its quotes and the domain is the one
+// after the last "@". backend/auth_headers.sender_domains reads it the
+// same way.
 const QUOTED_NAME_RE = /"[^"]*"(?!\s*@)/g;
 PL.senderAddress = function senderAddress(texts) {
     const parts = texts.map((x) => String(x || ""));

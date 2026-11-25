@@ -23,15 +23,6 @@ const DANGEROUS_EXTS = Object.freeze((
     "xlam xll"
 ).split(" "));
 
-// Attachment flags meaning PhishLens could not look inside. A low score
-// is then not reassuring, so these get a caution verdict instead of
-// "safe".
-const CAUTION_FLAGS = Object.freeze([
-    "encrypted_archive", "encrypted_document", "uninspectable_archive",
-    "disk_image_attachment", "disk_image_in_archive", "zip_bomb_suspected", "inner_files_not_extracted",
-    "document_not_fully_read",
-]);
-
 const MAX_FILE_MB = 10;
 
 // Threat-intel sources as the server names them, and their display names.
@@ -43,7 +34,7 @@ const SOURCE_LABELS = Object.freeze({
 });
 
 // eslint-disable-next-line no-undef
-const { withoutInvisible } = globalThis.PhishLensShared || require("./shared.js");
+const { withoutInvisible, isCaution } = globalThis.PhishLensShared || require("./shared.js");
 
 // The extension a system would use to open the file. The name is put in
 // compatibility form, invisible characters are removed, ideographic full
@@ -59,12 +50,10 @@ function fileExt(name) {
     return parts.length > 1 ? parts.pop().trim().toLowerCase() : "";
 }
 
-function isCaution(flags) {
-    return (flags || []).some((f) => CAUTION_FLAGS.includes(f));
-}
-
+// isCaution (attachment flags meaning PhishLens could not look inside)
+// lives in shared.js, with the rule for the caution display.
 const PhishLensConstants = Object.freeze({
-    ATTACHMENT_EXTS, CAUTION_FLAGS, DANGEROUS_EXTS, MAX_FILE_MB, SOURCE_LABELS, fileExt, isCaution,
+    ATTACHMENT_EXTS, DANGEROUS_EXTS, MAX_FILE_MB, SOURCE_LABELS, fileExt, isCaution,
 });
 globalThis.PhishLensConstants = PhishLensConstants;
 
