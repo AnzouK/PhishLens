@@ -1,8 +1,9 @@
 # Operations
 
-This guide explains how PhishLens Cloud is deployed and how to deploy,
-configure and observe your own PhishLens server. The self-hosting
-examples use Docker behind a reverse proxy, so adapt names and paths.
+PhishLens Cloud is set up as described in the first section. The rest
+covers running your own server: deployment, configuration, logs and
+metrics. The self-hosting examples use Docker behind a reverse proxy;
+adapt the names and paths to your machine.
 
 ## PhishLens Cloud
 

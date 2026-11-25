@@ -1,9 +1,6 @@
 # Evaluation
 
-This page explains how PhishLens is measured, how far each figure can be
-trusted, and how to measure it yourself.
-
-There are three kinds of measurement. The public benchmark on this page
+PhishLens is measured in three ways. The public benchmark on this page
 (`scripts/benchmark.py`) tests the whole system as users see it, on
 emails anyone can download. The model evaluation in
 [multilingual-model.md](multilingual-model.md) tests the text model
@@ -86,40 +83,43 @@ Apache mailing lists and 117 inbox emails, all sent from 2026-01-01.
 | 10-24 | 2.0.10 (link rule) | 1 of 297; inbox 0 of 117 | fresh sample, 1,812 of 2,000, 90.6% (89.2% to 91.8%) |
 | 11-01 | 2.0.12 (whole bodies read, text read as shown and as written) | 1 of 297; inbox 0 of 117 | same fresh sample, 1,804 of 2,000, 90.2% (88.8% to 91.4%) |
 
-Each step taught something.
+The 92.2% of 2.0.7 was mostly an artefact. Of its 130 false alarms, 121
+were decided by the trained header model alone, which scored modern
+mailing-list headers near 1.0. With that model switched off, false
+alarms fell to 4.7% and detection to 45%, so it had been flagging almost
+everything. The text model, for its part, was fed the wrong text: it was
+trained on subject plus body but given the body only. On 120 missed
+emails its score went from 10% to 94% on average once the subject was
+added.
 
-- Reading the whole email cost some "phishing". 2.0.10 read only the
-  subject of 74 HTML emails whose body it could not reach, and 2.0.11
-  and 2.0.12 read them whole. Most were casino and insurance ads that
-  phishing_pot files as phishing. On the full text the model calls 45 of
-  them safe, and it finds 29 others it had missed.
-- Removing invisible characters also removed a sign. The model learned
-  runs of zero-width and byte-order-mark characters as a mark of dubious
-  mail (0.98 with them, 0.05 without on the same email). The text is now
-  read both as shown and as written and the higher score is kept, which
-  gives 1,804 caught instead of 1,797 with no new false alarm.
-- The 92.2% was mostly an artefact. In 2.0.7, 121 of the 130 false
-  alarms were decided by the trained header model alone, which scored
-  modern mailing-list headers near 1.0. With it switched off, false
-  alarms fell to 4.7% and detection to 45%, so that model had been
-  flagging almost everything.
-- The text model was fed the wrong text. It was trained on subject plus
-  body but given the body only. On 120 missed emails the score went from
-  10% to 94% on average once the subject was added.
-- The link model alone is not evidence. All 14 remaining false alarms
-  were decided by it, on written-out links in plain-text mail. Requiring
-  a threat-intel hit or a strong sign removed 13 and lost no phishing.
-- The tuned figure held on unseen mail, with 85.5% on 2,000 control
-  emails nobody had looked at against 87.2% on the studied 500.
-- The inbox mail revealed one real-world bug. 2 of 117 inbox emails were
-  flagged because a Microsoft 365 relay added a lower
-  `Authentication-Results` header that the parser read first. The
-  topmost one is now used (0 of 117).
-- DKIM-signed attackers were the largest group of misses (190 of 290),
-  because attackers sign mail from their own domains. Flagging signed
-  senders whose links all lead elsewhere, with phishing-like wording,
-  took fresh-sample detection from 85.4% to 90.6% with no new false
-  alarm, exactly as the replay on cached scores had predicted.
+All 14 false alarms left after that were decided by the link model, on
+written-out links in plain-text mail, so a link score alone is not
+treated as evidence any more. Requiring a threat-intel hit or a strong
+sign removed 13 of them and lost no phishing. The tuned figure then held
+on unseen mail: 85.5% on 2,000 control emails nobody had looked at,
+against 87.2% on the studied 500.
+
+The inbox mail turned up one real-world bug. Two of the 117 inbox emails
+were flagged because a Microsoft 365 relay added a lower
+`Authentication-Results` header that the parser read first. The topmost
+one is now used (0 of 117).
+
+The largest group of misses (190 of 290) was DKIM-signed mail, because
+attackers sign mail from their own domains. Flagging signed senders
+whose links all lead elsewhere, when the wording also looks like
+phishing, took fresh-sample detection from 85.4% to 90.6% with no new
+false alarm, as the replay on cached scores had predicted.
+
+Reading the whole email then cost some "phishing". 2.0.10 read only the
+subject of 74 HTML emails whose body it could not reach; 2.0.11 and
+2.0.12 read them whole. Most were casino and insurance ads that
+phishing_pot files as phishing, and on the full text the model calls 45
+of them safe while finding 29 others it had missed. Removing invisible
+characters also removed a sign the model relies on: it learned runs of
+zero-width and byte-order-mark characters as a mark of dubious mail
+(0.98 with them, 0.05 without, on the same email). The text is now read
+both as shown and as written and the higher score is kept, which gives
+1,804 caught instead of 1,797 with no new false alarm.
 
 ## Measured and rejected
 

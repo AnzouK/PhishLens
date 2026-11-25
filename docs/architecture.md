@@ -71,41 +71,39 @@ flowchart TD
 Each path declares these signs itself (`TrustPath.forcing` in
 `settings.py`), and every answer says which one fired (`forced_by`).
 
-The reasons behind each rule:
+The discount for a known sender needs proof. A From: header can say
+anything, but a DKIM signature aligned with it cannot be forged, so the
+allowlist only adds to an authenticated sender and never replaces the
+authentication (until 2.0, a forged bank address got the softest path).
+It leaves out platforms that send their users' own words, such as shares
+and invoices.
 
-- The discount needs proof. A From: header can say anything, but a DKIM
-  signature aligned with it cannot be forged. The allowlist only adds
-  to an authenticated sender and never replaces the authentication
-  (until 2.0, a forged bank address got the softest path). It leaves out
-  platforms that send their users' own words (shares, invoices).
-- A signature proves the domain, not honesty, since attackers sign mail
-  from their own domains. On `crypto_verified`, a sender none of whose
-  links go to its own domain, with phishing-like wording, is flagged
-  anyway. Click tracking of known mailing platforms does not count as
-  "elsewhere" (`link_alignment.py`).
-- A brand name over another domain is impersonation. "Chronopost
-  <x@qdsodd.us>" loses every softer path and its sender score is at
-  least 0.9 (`known_domains.BRANDS`).
-- A forward vouches for the forward only. Forwarded mail goes to the
-  default path, and the original sender is reported.
-- The link model alone is not proof. The trained URL model scores the
-  long tracking links of real newsletters near 1.0, and on its own it
-  produced every false alarm of the first public benchmark. It decides
-  only with a threat-intel hit or a strong sign, and links that only go
-  to large known sites skip it.
-- The header model is off (`METADATA_MODEL_ENABLED=0`). It learned old
-  corpora and scored modern legitimate headers (ARC, long Received
-  chains) near 1.0, which flagged 130 of 297 legitimate emails in the
-  2.0.7 benchmark. The sender score now comes from rules and the real
-  SPF, DKIM and DMARC results.
-- What the reader cannot see comes last. The text model reads the first
-  256 tokens, and text and links hidden by their style are moved after
-  the visible ones so invisible filler cannot push the message out.
-- With too little text there is no text verdict. Under 3 words
-  (image-only mail) the text agent is left out and links and sender
-  share its weight.
-- Safe Browsing always wins. A blocklisted link from a trusted sender
-  means the account is compromised.
+Even then, a signature proves the domain, not honesty: attackers sign
+mail from their own domains too. On `crypto_verified`, a sender none of
+whose links go to its own domain, with phishing-like wording, is flagged
+anyway. Click tracking of known mailing platforms does not count as
+"elsewhere" (`link_alignment.py`). A brand name over another domain,
+like "Chronopost <x@qdsodd.us>", is impersonation: it loses every softer
+path and its sender score is at least 0.9 (`known_domains.BRANDS`).
+Forwarded mail goes to the default path, since a forward vouches for
+nobody but the person forwarding, and the original sender is reported.
+
+The trained URL model scores the long tracking links of real newsletters
+near 1.0, and on its own it produced every false alarm of the first
+public benchmark. It now decides only together with a threat-intel hit
+or a strong sign, and links that only go to large known sites skip it.
+The header model is switched off (`METADATA_MODEL_ENABLED=0`). It
+learned from old corpora and scored modern legitimate headers (ARC, long
+Received chains) near 1.0, which flagged 130 of 297 legitimate emails in
+the 2.0.7 benchmark. The sender score now comes from rules and the real
+SPF, DKIM and DMARC results.
+
+The text model reads the first 256 tokens. Text and links hidden by
+their style are moved after the visible ones, so invisible filler cannot
+push the message out of that window. Under 3 words (image-only mail) the
+text agent is left out and links and sender share its weight. Whatever
+the path, a Safe Browsing hit wins: a blocklisted link from a trusted
+sender means the account is compromised.
 
 ## Attachments
 
@@ -168,19 +166,21 @@ training data only after a human has read them.
 
 ## Design decisions
 
-- No build step in the extension. The code Chrome runs is the code in
-  the repository, readable by store reviewers and users. The price is a
-  manual load order. Each file is wrapped in a function and adds to one
-  shared namespace, and the tests load them in manifest order.
-- Translations without `chrome.i18n`. Chrome's mechanism only covers the
-  languages Chrome supports, which leaves out Hausa.
-- LIME on demand. An explanation costs about 100 model runs, so it is a
-  second request, cached by the service worker.
-- Threat intel is asked in order of cost. The local cache comes first,
-  then Google Safe Browsing (best coverage, daily quota), then PhishTank,
-  URLhaus and Spamhaus. All of it runs in parallel with the models.
-- Data formats that cannot run code. Random Forests load from skops with
-  a type allowlist instead of pickle. Office files are read as ZIP and
-  XML with `defusedxml`, without libraries that interpret documents.
-- No accounts, no stored emails. The server keeps URL verdicts only, and
-  the scan history stays in the browser.
+The extension has no build step, so the code Chrome runs is the code in
+the repository, readable by store reviewers and users. The price is a
+manual load order: each file is wrapped in a function and adds to one
+shared namespace, and the tests load them in manifest order.
+Translations do not use `chrome.i18n`, because Chrome's mechanism only
+covers the languages Chrome supports, and Hausa is not one of them.
+
+LIME runs on demand. An explanation costs about 100 model runs, so it is
+a second request, cached by the service worker. Threat intelligence is
+asked in order of cost: the local cache first, then Google Safe Browsing
+(best coverage, daily quota), then PhishTank, URLhaus and Spamhaus, all
+in parallel with the models.
+
+Nothing the server loads can run code. The Random Forests load from
+skops with a type allowlist instead of pickle, and Office files are read
+as ZIP and XML with `defusedxml`, without libraries that interpret
+documents. There are no accounts and no stored emails either: the server
+keeps URL verdicts only, and the scan history stays in the browser.

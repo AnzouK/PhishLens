@@ -51,36 +51,125 @@ flowchart LR
 
 ## STRIDE analysis
 
+Each ID starts with its STRIDE letter: S for spoofing, T tampering, R
+repudiation, I information disclosure, D denial of service and E
+elevation of privilege. The table gives the main defence; the notes
+under it add the details where there are some.
+
 | # | Threat | Boundary | Mitigation in place | Status |
 | --- | --- | --- | --- | --- |
-| S1 | **Spoofing** the sender: `From: paypal.com` sent from attacker infrastructure to borrow trust | B1 | Trust comes from DKIM alignment with the From: organisational domain, not from the header text. Misaligned `signed-by` stays on the strict path. A brand's name over another domain's address ("Chronopost <x@random.us>", "PayPal <x@paypal.xyz>"), look-alike letters and invisible characters included, cancels the softer paths and raises the sender score (`test_impersonation_and_links.py`). Authentication-Results is read clause by clause without comments or quoted strings; ARC results alone and a second From: never prove the sender. Tested in `test_auth_headers.py` and `test_extension_backend.py` | Mitigated |
-| S2 | Spoofing the client context: a caller claims `gmail_in_inbox` or `gmail_delivered` to soften its own scan | B2 | The flags only soften the caller's own result, never shared state; a Safe Browsing hit still forces phishing; documented as a SECURITY NOTE in code | Accepted (limited impact) |
-| S3 | Trusted-domain abuse: a compromised account at an allowlisted bank sends phishing | B1 | A Safe Browsing hit forces phishing on every path, the allowlist included; allowlist is small and documented as a regional fallback | Partially mitigated |
-| S4 | An email imitating the mail service's own sender checks: a "signed-by: bank.com" line in its body, hidden or not | B1 | The extension reads these rows only outside every message body and only when visible; the server writes them into a header only when they are host names (`test_bypass_sender.py`, `content_scripts.test.js`) | Mitigated |
-| T1 | **Tampering** with the model: a malicious joblib on Hugging Face (pickle executes code on load) | B4 | The agents load from skops files with a type allowlist (scikit-learn, NumPy, SciPy, builtins only); pickle is refused unless `AGENTS_ALLOW_PICKLE=1` | Mitigated |
-| T2 | Cache poisoning: a wrong verdict stored in the reputation cache | B3 | Cache key is the normalised URL, values only come from the cascade itself, 24 h TTL | Mitigated |
-| T3 | Adversarial text: wording crafted to push the text model towards "safe" | B1 | Three independent agents plus threat intel; a clean text score does not hide a blocklisted URL or failed DMARC | Partially mitigated |
-| T4 | A tampered PhishTank feed, or a PhishTank entry on a shared host (`bit.ly`, `storage.googleapis.com`) flagging every link of that host | B3 | Feed downloaded over HTTPS only; on hosts that serve many unrelated users, only the exact URL matches, never the whole domain (`SHARED_PATH_HOSTS`) | Mitigated |
-| T5 | A replaced or wrong text model: `HF_MODEL_REPO` changed, a new revision pushed to the repository | B4 | Weights loaded through `transformers`, which prefers safetensors files (data only) when the repository provides them; one folder per repository so a switch never mixes models; `/health` reports the repository, revision, name and settings in use; `HF_MODEL_REVISION` and `HF_AGENTS_REVISION` pin the exact commits (a warning is logged when they are not set); only the maintainer can push to the repository | Mitigated when the revisions are pinned |
-| T6 | Poisoning: fake reports pushing the next model towards wrong labels | B6 | Rate limit per IP, size and storage caps, strict validation; reports are never used for training without being read and relabelled by hand | Mitigated |
-| T7 | Content hidden from the reader to steer the checks: invisible text before the message (the model reads 256 tokens), fifty hidden links before the real one | B1 | Text and links hidden by inline styles (server) or by the computed style (extension) are moved after the visible ones; links are deduplicated by host first; links are read with an HTML parser; link targets are ranked before addresses written in the text, one per host first; `<style>` rules are applied too (simple selectors from an index, others within a work and time budget, half a second), words written by `::before`/`::after` are read, and the server and the extension are checked against the same cases (`tests/fixtures/hidden_cases.json`) | Mitigated (rules for phones in `@media` with a width, and text on a background image, are not judged) |
-| R1 | **Repudiation**: no record of what was scanned | B2 | By design: the backend keeps no email content. Aggregate verdict counts only (`/metrics`) | Accepted |
-| I1 | **Information disclosure**: users paste sensitive mail into the shared PhishLens Cloud test box | B2 | HTTPS only; no server-side storage of bodies; README warns not to send sensitive content to the demo; self-hosting is documented | Mitigated for transport, user choice otherwise |
-| I2 | Error messages leak internals | B2 | Errors return a one-line message with a short reference; the stack trace is logged on the server under that reference and never returned | Mitigated |
-| I3 | Secrets in the repository or its history | n/a | `.phishlens.env` and `.env` are git-ignored; the keys of PhishLens Cloud live only in Secret Manager; history rewritten once to remove personal data | Mitigated |
-| I4 | `/metrics` and `/reputation/stats` reveal traffic and quota usage | B2 | Contain counts only; the Pages Function in front of PhishLens Cloud never forwards `/metrics`, and the operations guide shows the same rule for a self-hosted proxy; PhishLens Cloud also runs with `METRICS_ENABLED=0`, so its Cloud Run address does not serve `/metrics` either | Mitigated |
-| I5 | A report carries personal data the redaction missed (a name without greeting, a street address) | B6 | Redaction in the browser and again on the server, preview with edit and confirmation before sending, no IP stored, private folder, two-year limit, deletion by reference, human review before any use | Partially mitigated (redaction is rule-based) |
-| I6 | An API key written to the logs inside an error message (PhishTank's key is in its feed URL) | B3 | The Safe Browsing key travels in a header; errors from the intel clients are logged by type and status only | Mitigated |
-| D1 | **Denial of service** by request flooding, or burning the 10k/day GSB quota | B2 | Per-IP rate limits (30/min analyse, 20/min attachments, 15/min explain); at most 30 links per scan go to GSB; quota tracked in process with a 500-request safety buffer (the count restarts with the instance, so after a scale to zero it can undercount that day's use); a link GSB did not check is never cached as clean, so an exhausted quota degrades to the other sources without storing wrong verdicts | Partially mitigated (see R6) |
-| D2 | Oversized or malformed attachments exhausting CPU or memory | B2 | 10 MB cap, magic-byte sniffing, page limit on PDFs, unsupported types rejected with 400; OCR limited to 3 pages with a 10 s timeout each, images downscaled and guarded against decompression bombs; Office files capped on part count, uncompressed size (zip bombs) and part size | Mitigated |
-| D3 | ReDoS through crafted headers or URLs | B1, B2 | CodeQL `py/polynomial-redos` enabled; the three findings fixed (bounded quantifiers, anchored matches, `email.utils.parseaddr` instead of a regex); regression test with a 50k-character From: header | Mitigated |
-| D4 | Intel APIs slow or down | B3 | 3 s HTTP timeout per tier; each tier fails open to "no hit"; lookups run in parallel with inference | Mitigated |
-| D5 | XML entity expansion or external entities in an Office file | B2 | Any XML part that declares a DOCTYPE is skipped and flagged `suspicious_xml_doctype`; parts are parsed with `defusedxml`, which refuses entity tricks | Mitigated |
-| D6 | Oversized requests, or CPU-bound inference blocking the server for everyone | B2 | Bodies above 45 MB refused with 413 before parsing; every field has a maximum length; model inference and attachment parsing run in a worker thread so the event loop keeps serving `/health` and other requests | Mitigated |
-| E1 | **Elevation of privilege** via the extension: a Gmail page scripting the extension | B1 | Content script reads the DOM but never evaluates page content; no HTML is built from strings: every backend or email value, translated texts included (they can carry the sender or a file name), becomes a text node or an attribute value (`h()` in `lib/dom.js`); a unit test fails on any `innerHTML`; host permissions limited to Gmail, Outlook and the configured backends | Mitigated |
-| E2 | Code execution through a malicious attachment | B2 | Parsing only (pdfplumber, BeautifulSoup, zipfile + defusedxml for Office); macros are detected, never run; PDF pages are rasterised by PDFium without JavaScript; container runs as a non-root user | Mitigated |
-| E3 | Supply chain: a compromised dependency or GitHub Action | n/a | Dependabot alerts and weekly updates, CI token limited to `contents: read`, CodeQL on every push | Mitigated |
-| E4 | CSV formula injection through the history export (an attacker-controlled subject such as `=HYPERLINK(...)`) | B1 | Cells starting with `= + - @` are prefixed with a quote in the export, covered by a unit test | Mitigated |
+| S1 | A forged sender (`From: paypal.com` sent from the attacker's servers) borrowing trust | B1 | Trust comes from DKIM aligned with the From: domain, not from the header text. | Mitigated |
+| S2 | A caller claiming `gmail_in_inbox` or `gmail_delivered` to soften its own scan | B2 | The flags only soften the caller's own result, and a Safe Browsing hit still forces phishing. | Accepted (limited impact) |
+| S3 | A compromised account at an allowlisted bank sending phishing | B1 | A Safe Browsing hit forces phishing on every path, the allowlist included. | Partially mitigated |
+| S4 | An email imitating the mail service's own sender checks ("signed-by: bank.com" in its body, hidden or not) | B1 | Those rows are read only when visible and outside every message body. | Mitigated |
+| T1 | A malicious joblib on Hugging Face (pickle runs code on load) | B4 | The agents load from skops files with a type allowlist. | Mitigated |
+| T2 | A wrong verdict stored in the reputation cache | B3 | Only the cascade itself writes the cache, keyed by normalised URL, for 24 h. | Mitigated |
+| T3 | Wording crafted to push the text model towards "safe" | B1 | A clean text score does not hide a blocklisted URL or failed DMARC. | Partially mitigated |
+| T4 | A tampered PhishTank feed, or an entry on a shared host flagging every link of that host | B3 | HTTPS only, and exact-URL matching on shared hosts. | Mitigated |
+| T5 | A replaced or wrong text model (`HF_MODEL_REPO` changed, a new revision pushed) | B4 | `HF_MODEL_REVISION` and `HF_AGENTS_REVISION` pin the exact commits. | Mitigated when the revisions are pinned |
+| T6 | Fake reports pushing the next model towards wrong labels | B6 | No report is used for training before a person has read and relabelled it. | Mitigated |
+| T7 | Content hidden from the reader to steer the checks | B1 | Hidden text and links are moved after the visible ones. | Mitigated (see the note for what is not judged) |
+| R1 | No record of what was scanned | B2 | By design: no email content is kept, only aggregate counts on `/metrics`. | Accepted |
+| I1 | Users pasting sensitive mail into the PhishLens Cloud test box | B2 | HTTPS only and no storage of bodies; the README warns, and self-hosting is documented. | Mitigated for transport, user choice otherwise |
+| I2 | Error messages leaking internals | B2 | Errors return one line and a reference; the stack trace stays in the server log. | Mitigated |
+| I3 | Secrets in the repository or its history | n/a | Env files are git-ignored and the Cloud keys live only in Secret Manager. | Mitigated |
+| I4 | `/metrics` and `/reputation/stats` revealing traffic and quota use | B2 | Counts only, and `/metrics` is never reachable on PhishLens Cloud. | Mitigated |
+| I5 | Personal data the redaction missed in a report | B6 | Redaction twice, then a preview the user edits and confirms. | Partially mitigated (redaction is rule-based) |
+| I6 | An API key written to the logs inside an error | B3 | Intel client errors are logged by type and status only. | Mitigated |
+| D1 | Request flooding, or burning the 10k/day Safe Browsing quota | B2 | Per-IP rate limits and a tracked quota with a safety buffer. | Partially mitigated (see R6) |
+| D2 | Oversized or malformed attachments exhausting CPU or memory | B2 | A 10 MB cap and limits on pages, OCR time and Office part sizes. | Mitigated |
+| D3 | ReDoS through crafted headers or URLs | B1, B2 | CodeQL `py/polynomial-redos` is on and its three findings are fixed. | Mitigated |
+| D4 | Intel APIs slow or down | B3 | A 3 s timeout per tier, failing open to "no hit". | Mitigated |
+| D5 | XML entity expansion or external entities in an Office file | B2 | Parts with a DOCTYPE are skipped and flagged; the rest go through `defusedxml`. | Mitigated |
+| D6 | Oversized requests, or inference blocking the server for everyone | B2 | Bodies above 45 MB get 413 and the heavy work runs in a worker thread. | Mitigated |
+| E1 | A Gmail page scripting the extension | B1 | No HTML is built from strings; every value becomes a text node or an attribute. | Mitigated |
+| E2 | Code execution through a malicious attachment | B2 | Files are parsed, never run, in a container without root. | Mitigated |
+| E3 | A compromised dependency or GitHub Action | n/a | Dependabot, a read-only CI token and CodeQL on every push. | Mitigated |
+| E4 | CSV formula injection through the history export (a subject such as `=HYPERLINK(...)`) | B1 | Cells starting with `= + - @` get a leading quote, covered by a unit test. | Mitigated |
+
+### Notes on the mitigations
+
+S1. A misaligned `signed-by` stays on the strict path. A brand's name
+over another domain's address ("Chronopost <x@random.us>", "PayPal
+<x@paypal.xyz>"), look-alike letters and invisible characters included,
+cancels the softer paths and raises the sender score
+(`test_impersonation_and_links.py`). Authentication-Results is read
+clause by clause without comments or quoted strings, and ARC results
+alone or a second From: never prove the sender (`test_auth_headers.py`,
+`test_extension_backend.py`).
+
+S2 is documented as a SECURITY NOTE in the code; the flags never touch
+shared state. For S3, the allowlist is small and documented as a
+regional fallback. For S4, the server writes these rows into a header
+only when they are host names (`test_bypass_sender.py`,
+`content_scripts.test.js`).
+
+T1. The allowlist covers scikit-learn, NumPy, SciPy and the builtins
+only, and pickle is refused unless `AGENTS_ALLOW_PICKLE=1`. For T3, the
+three agents are independent and threat intel comes on top. For T4,
+the hosts that serve many unrelated users (`bit.ly`,
+`storage.googleapis.com`) are listed in `SHARED_PATH_HOSTS`, and on them
+the whole domain is never matched.
+
+T5. Weights are loaded through `transformers`, which prefers
+safetensors files (data only) when the repository provides them. Each
+repository gets its own folder so a switch never mixes models, `/health`
+reports the repository, revision, name and settings in use, a warning is
+logged when the revisions are not pinned, and only the maintainer can
+push to the model repository. T6 also has a rate limit per IP, size and
+storage caps and strict validation.
+
+T7. The model reads 256 tokens, so invisible text placed before the
+message, or fifty hidden links before the real one, could push the real
+content out. Text and links hidden by inline styles (server) or by the
+computed style (extension) go after the visible ones. Links are read
+with an HTML parser and deduplicated by host first, and link targets
+rank before addresses written in the text, one per host first.
+`<style>` rules are applied too: simple selectors from an index, others
+within a work and time budget of half a second. Words written by
+`::before` and `::after` are read, and the server and the extension are
+checked against the same cases (`tests/fixtures/hidden_cases.json`).
+Rules for phones in `@media` with a width, and text on a background
+image, are not judged.
+
+I3. `.phishlens.env` and `.env` are the ignored files, and the history
+was rewritten once to remove personal data. I4: the Pages Function in
+front of PhishLens Cloud never forwards `/metrics`, the operations guide
+shows the same rule for a self-hosted proxy, and PhishLens Cloud also
+runs with `METRICS_ENABLED=0`, so its Cloud Run address does not serve
+`/metrics` either. I5: redaction runs in the browser and again on the
+server, no IP is stored, reports sit in a private folder for at most two
+years, can be deleted by reference, and a person reviews them before any
+use. I6 matters because PhishTank's key is part of its feed URL; the Safe
+Browsing key travels in a header.
+
+D1. The limits are 30 per minute for analyse, 20 for attachments and 15
+for explain, and at most 30 links per scan go to Safe Browsing. The
+quota is tracked in the process with a 500-request buffer; the count
+restarts with the instance, so after a scale to zero it can undercount
+that day's use. A link Safe Browsing did not check is never cached as
+clean, so an exhausted quota falls back to the other sources without
+storing wrong verdicts.
+
+D2. Files are checked by their magic bytes and unsupported types are
+rejected with 400. OCR stops after 3 pages with a 10 s timeout each,
+images are scaled down and guarded against decompression bombs, and
+Office files are capped on part count, uncompressed size (zip bombs)
+and part size. D3 was fixed with bounded quantifiers, anchored matches
+and `email.utils.parseaddr` instead of a regex, with a regression test on
+a 50k-character From: header. D4 lookups run in parallel with inference.
+For D6, every field also has a maximum length, and the worker thread
+keeps the event loop serving `/health` and other requests.
+
+E1. The content script reads the DOM but never evaluates page content.
+Translated texts count as values too, since they can carry the sender or
+a file name (`h()` in `lib/dom.js`), a unit test fails on any
+`innerHTML`, and host permissions cover only Gmail, Outlook and the
+configured backends. E2: pdfplumber, BeautifulSoup and zipfile with
+defusedxml do the parsing, macros are detected but never run, and PDF
+pages are rasterised by PDFium without JavaScript. E3: Dependabot sends
+alerts and weekly updates, and the CI token is limited to
+`contents: read`.
 
 ## Residual risks and known limitations
 

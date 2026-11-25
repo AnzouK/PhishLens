@@ -1,9 +1,8 @@
 # The multilingual text model
 
-This page describes how the text model of PhishLens 2 was built and
-measured, what was tried and rejected, and what is still open. The
-training code is not in this repository, so the method and the results
-are given here to be checked.
+The training code of the PhishLens 2 text model is not in this
+repository, so the way it was built and measured is written down here
+instead, along with what was tried and dropped and what is still open.
 
 ## Why
 

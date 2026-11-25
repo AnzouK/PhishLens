@@ -1,9 +1,5 @@
 # Project overview
 
-This page lists where each part of PhishLens lives, which document
-answers which question, and how far each published figure can be
-trusted.
-
 ## Where things live
 
 The code for the extension, the server, the website and the tests is in
