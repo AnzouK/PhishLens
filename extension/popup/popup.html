@@ -70,16 +70,16 @@
 
       <!-- Tab switcher: File / Paste -->
       <div class="tabs" role="tablist">
-        <button class="tab tab--active" data-tab="file" role="tab">
+        <button class="tab tab--active" id="tab-file" data-tab="file" role="tab" aria-selected="true" aria-controls="panel-file">
           <svg class="i tab__icon" aria-hidden="true"><use href="#i-file"/></svg> <span data-i18n="tab_file">File</span>
         </button>
-        <button class="tab" data-tab="paste" role="tab">
+        <button class="tab" id="tab-paste" data-tab="paste" role="tab" aria-selected="false" aria-controls="panel-paste">
           <svg class="i tab__icon" aria-hidden="true"><use href="#i-text"/></svg> <span data-i18n="tab_paste">Paste</span>
         </button>
       </div>
 
       <!-- File tab -->
-      <div class="tab-panel tab-panel--active" data-panel="file">
+      <div class="tab-panel tab-panel--active" id="panel-file" data-panel="file" role="tabpanel" aria-labelledby="tab-file">
         <div class="hint">
           <svg class="i hint__icon" aria-hidden="true"><use href="#i-info"/></svg>
           <span data-i18n-html="hint_file_html">In Gmail, open an email → menu <strong>⋮</strong> → <em>Download message</em> to get a <code>.eml</code> file.</span>
@@ -101,7 +101,7 @@
       </div>
 
       <!-- Paste tab -->
-      <div class="tab-panel" data-panel="paste">
+      <div class="tab-panel" id="panel-paste" data-panel="paste" role="tabpanel" aria-labelledby="tab-paste">
         <div class="hint">
           <svg class="i hint__icon" aria-hidden="true"><use href="#i-info"/></svg>
           <span data-i18n-html="hint_paste_html">Paste the raw text of an email: useful when you only have the message body, no <code>.eml</code> file.</span>

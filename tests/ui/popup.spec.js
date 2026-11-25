@@ -344,6 +344,16 @@ test("a DKIM-signed sender flagged by its links says why", async ({ page }) => {
     await expect(page.locator("#verdict-sub")).toContainText("none of its links lead to that domain");
 });
 
+test("the File and Paste tabs say which one is selected", async ({ page }) => {
+    await page.goto(`${base}/popup/popup.html`);
+    await expect(page.locator("#tab-file")).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#tab-paste")).toHaveAttribute("aria-selected", "false");
+    await page.click("#tab-paste");
+    await expect(page.locator("#tab-paste")).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#tab-file")).toHaveAttribute("aria-selected", "false");
+    await expect(page.locator("#tab-paste")).toHaveAttribute("aria-controls", "panel-paste");
+});
+
 test("a forwarded email shown with caution says why and shows a warn badge", async ({ page }) => {
     const body = analyseResponse("safe");
     body.forwarded = { detected: true, original_sender: "boss@example.com" };
