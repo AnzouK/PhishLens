@@ -207,6 +207,8 @@ on the public benchmark. The worst run so far (130 of 297 legitimate
 emails flagged in mid-October) and what fixed it are described in
 [evaluation.md](docs/evaluation.md#results).
 
+### Credits
+
 PhishLens builds on [Google Safe Browsing](https://safebrowsing.google.com/)
 (its warnings are advisories provided by Google),
 [PhishTank](https://phishtank.org/), [URLhaus](https://urlhaus.abuse.ch/)

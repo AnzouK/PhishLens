@@ -102,7 +102,7 @@
   "install_backend_h": "2. Ein Server",
   "backend_cloud_html": "<b>PhishLens Cloud</b> (Standard): nichts zu tun.",
   "backend_own_html": "<b>Ihr eigener, privat:</b> starten Sie ihn mit Docker und wählen Sie dann <b>Lokal</b> in den Einstellungen der Erweiterung.",
-  "install_more_html": "Python ohne Docker, Konfiguration und Betrieb: siehe die <a href=\"https://github.com/AnzouK/PhishLens#run-your-own-server\">Schnellstartanleitung</a> (auf Englisch).",
+  "install_more_html": "Python ohne Docker, Konfiguration und Betrieb: siehe die <a href=\"https://github.com/AnzouK/PhishLens#running-your-own-server\">Schnellstartanleitung</a> (auf Englisch).",
   "privacy_title": "Datenschutzerklärung · PhishLens",
   "privacy_desc": "Was die PhishLens-Erweiterung, die Website und PhishLens Cloud verarbeiten, wohin es geht und was gespeichert wird.",
   "terms_title": "Nutzungsbedingungen · PhishLens",

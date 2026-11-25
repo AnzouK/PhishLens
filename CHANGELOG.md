@@ -84,6 +84,10 @@ backend share one version number.
   throughout.
 - The README and website drawings use the current orange and the
   popup's real light card colour.
+- Links to README sections that no longer existed: the popup's "All
+  credits and licenses" (now a Credits section), the website's
+  quickstart link (8 languages) and the release notes' pointer to the
+  tests. A test now checks every link to a README or doc heading.
 
 ### Removed
 - Unused code, styles, a string and the old self-hosted VM redeploy and
