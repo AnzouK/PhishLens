@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="extension/icons/128.png" alt="PhishLens" width="96" height="96">
+<img src="extension/icons/logo.svg" width="96" alt="PhishLens logo: an orange magnifying glass scanning a white envelope on a dark rounded square">
 
 # PhishLens
 
