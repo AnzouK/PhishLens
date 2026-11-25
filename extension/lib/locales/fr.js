@@ -37,6 +37,7 @@
     "verdict_safe": "Cet e-mail semble sûr",
     "verdict_caution": "Probablement sûr, mais vérifiez",
     "lead_caution": "Certains signes sont inhabituels. Regardez les détails avant de cliquer ou de répondre.",
+    "lead_caution_file": "Certains signes sont inhabituels. Regardez les détails avant de l'ouvrir.",
     "meter_wording": "Texte",
     "meter_links": "Liens",
     "meter_sender": "Expéditeur",

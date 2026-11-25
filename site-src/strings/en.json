@@ -147,6 +147,7 @@
   "js_verdict_good": "Looks safe",
   "js_verdict_caution": "Probably safe, but check",
   "js_caution_sub": "Some signs are unusual. Look at the details before you click or reply.",
+  "js_caution_sub_file": "Some signs are unusual. Look at the details before you open it.",
   "js_overall": "Phishing risk: {pct}%.",
   "js_m_wording": "Wording",
   "js_m_links": "Links",

@@ -328,24 +328,35 @@ function renderResult(card, data, filename) {
         a.extracted_urls_count ? tn("att_urls", a.extracted_urls_count) : "",
     ].filter(Boolean).join(" · ");
     const score = (label, value) => [`${label} `, h("strong", null, `${pct(value)}%`)];
-    const chips = [
+    // An attached email gets the banner's chips (forward, shared file,
+    // impersonation, failed sender checks, Spamhaus, flagged links), so a
+    // caution card always shows its reason.
+    const chips = isEmail ? PL.signChips(data, "pll-att-chip") : [
         data.parent_trusted && h("span.pll-att-chip.pll-att-chip--good", { title: t("att_trusted_email_title") }, t("att_trusted_email")),
         ...flags.map((f) => h(`span.pll-att-chip${PhishLensShared.isWarningFlag(f) ? ".pll-att-chip--warn" : ""}`, null, flagLabel(f))),
         ...(data.url_reputation?.sources_hit || []).map((s) => h("span.pll-att-chip.pll-att-chip--bad", null, SOURCE_LABELS[s] || s)),
     ].filter(Boolean);
+    // The line under the title in the caution style: the banner's line
+    // for an attached email, the file wording for anything else.
+    const cautionText = !caution ? null
+        : notRead ? t("att_caution_text")
+        : isEmail ? PL.bannerLead(data, false, true)
+        : t("lead_caution_file");
 
     setCard(card, bad ? "danger" : caution ? "caution" : "safe",
         cardHead(bad || caution ? "alert" : "shieldCheck",
             t(bad ? "att_looks_phishing" : notRead ? "att_cannot_look" : caution ? "verdict_caution" : "att_looks_safe"), filename),
         h("div.pll-att-banner__sub", null,
             meta && [meta, h("br")],
-            caution && [t(notRead ? "att_caution_text" : "lead_caution"), h("br")],
+            cautionText && [cautionText, h("br")],
             score(t("meter_wording"), data.agents?.text?.phishing_probability), " · ",
             score(t("meter_links"), data.agents?.url?.phishing_probability),
             isEmail && [" · ", score(t("meter_sender"), data.agents?.metadata?.phishing_probability)]),
         chips.length && h("div.pll-att-banner__chips", null, chips),
         ...archiveFiles(a, bad));
 }
+
+PL.renderAttachmentResult = renderResult;
 
 // Files inside an archive. Those that explain the verdict ("Do not open")
 // come first, then the full list, folded.

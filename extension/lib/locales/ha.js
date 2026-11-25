@@ -38,6 +38,7 @@
     "verdict_safe": "Wannan imel yana kama da amintacce",
     "verdict_caution": "Wataƙila amintacce ne, amma ka duba",
     "lead_caution": "Wasu alamomi ba na yau da kullum ba ne. Ka duba cikakken bayani kafin ka danna ko ka ba da amsa.",
+    "lead_caution_file": "Wasu alamomi ba na yau da kullum ba ne. Ka duba cikakken bayani kafin ka buɗe shi.",
     "meter_wording": "Rubutu",
     "meter_links": "Hanyoyin haɗi",
     "meter_sender": "Mai aikawa",

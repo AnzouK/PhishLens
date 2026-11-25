@@ -147,6 +147,7 @@
   "js_verdict_good": "Yana kama da amintacce",
   "js_verdict_caution": "Wataƙila amintacce ne, amma ka duba",
   "js_caution_sub": "Wasu alamomi ba na yau da kullum ba ne. Ka duba cikakken bayani kafin ka danna ko ka ba da amsa.",
+  "js_caution_sub_file": "Wasu alamomi ba na yau da kullum ba ne. Ka duba cikakken bayani kafin ka buɗe shi.",
   "js_overall": "Haɗarin phishing: {pct}%.",
   "js_m_wording": "Rubutu",
   "js_m_links": "Hanyoyin haɗi",

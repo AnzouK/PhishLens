@@ -37,6 +37,7 @@
     "verdict_safe": "Questa email sembra sicura",
     "verdict_caution": "Probabilmente sicuro, ma controlla",
     "lead_caution": "Alcuni segnali sono insoliti. Guarda i dettagli prima di cliccare o rispondere.",
+    "lead_caution_file": "Alcuni segnali sono insoliti. Guarda i dettagli prima di aprirlo.",
     "meter_wording": "Testo",
     "meter_links": "Link",
     "meter_sender": "Mittente",

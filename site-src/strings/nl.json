@@ -147,6 +147,7 @@
   "js_verdict_good": "Lijkt veilig",
   "js_verdict_caution": "Waarschijnlijk veilig, maar controleer het",
   "js_caution_sub": "Sommige signalen zijn ongebruikelijk. Bekijk de details voordat u klikt of antwoordt.",
+  "js_caution_sub_file": "Sommige signalen zijn ongebruikelijk. Bekijk de details voordat u het opent.",
   "js_overall": "Phishingrisico: {pct}%.",
   "js_m_wording": "Tekst",
   "js_m_links": "Links",

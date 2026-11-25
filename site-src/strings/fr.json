@@ -147,6 +147,7 @@
   "js_verdict_good": "Semble sûr",
   "js_verdict_caution": "Probablement sûr, mais vérifiez",
   "js_caution_sub": "Certains signes sont inhabituels. Regardez les détails avant de cliquer ou de répondre.",
+  "js_caution_sub_file": "Certains signes sont inhabituels. Regardez les détails avant de l'ouvrir.",
   "js_overall": "Risque de phishing : {pct} %.",
   "js_m_wording": "Texte",
   "js_m_links": "Liens",

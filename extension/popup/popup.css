@@ -482,8 +482,12 @@ body {
   background: var(--success);
   transition: width .55s cubic-bezier(.2,.8,.2,1), background .25s;
 }
-.agent[data-flagged="phishing"] .agent__bar-fill { background: var(--danger); }
-.agent[data-flagged="phishing"] .agent__score { color: var(--danger); }
+/* Same levels as the banner's meters (PhishLensShared.scoreLevel):
+   green below 40%, orange from 40%, red from 70%. */
+.agent[data-level="mid"] .agent__bar-fill { background: var(--warn); }
+.agent[data-level="mid"] .agent__score { color: var(--warn); }
+.agent[data-level="high"] .agent__bar-fill { background: var(--danger); }
+.agent[data-level="high"] .agent__score { color: var(--danger); }
 .agent__hint { font-size: 11px; color: var(--text-mute); line-height: 1.35; }
 
 /* signal badges: sender_auth verdicts + URL reputation hits */

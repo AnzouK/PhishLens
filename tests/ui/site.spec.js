@@ -193,3 +193,25 @@ test("the result names an impersonated brand, says the sender was not checked, a
     await expect(page.locator("#demo-result .tags")).toContainText("Se fait passer pour La Poste, envoyé depuis evil.example");
     await expect(page.locator("#demo-result .meter__off")).toHaveText("non vérifié");
 });
+
+test("a safe verdict with an unusual sign is shown with caution, and says why", async ({ page }) => {
+    await page.route(`${API}/analyse`, (r) => r.fulfill({
+        json: {
+            verdict: "safe", fused_score: 0.12, language: { code: "en", confidence: 0.9 },
+            forwarded: { detected: true },
+            sender_auth: { spf: "fail", dkim: "pass", dmarc: "pass" },
+            agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.05 },
+                      metadata: { phishing_probability: 0.2 } },
+        },
+    }));
+    await page.goto(`${base}/`);
+    await page.click('[data-sample="safe"]');
+    await page.click("#demo-submit");
+    const s = strings("en");
+    await expect(page.locator("#demo-result .verdict")).toHaveClass(/verdict--warn/);
+    await expect(page.locator("#demo-result .verdict")).toHaveText(s.js_verdict_caution);
+    await expect(page.locator("#demo-result")).toContainText(s.js_caution_sub);
+    await expect(page.locator("#demo-result .tags li.warn")).toHaveText(s.js_tag_forwarded);
+    // SPF failing next to a DMARC pass is listed, but not in red.
+    await expect(page.locator("#demo-result .tags li.bad")).toHaveCount(0);
+});

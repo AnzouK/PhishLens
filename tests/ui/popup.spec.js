@@ -343,3 +343,17 @@ test("a DKIM-signed sender flagged by its links says why", async ({ page }) => {
     await expect(page.locator("#verdict-label")).toHaveText("This email looks like phishing");
     await expect(page.locator("#verdict-sub")).toContainText("none of its links lead to that domain");
 });
+
+test("a forwarded email shown with caution says why and shows a warn badge", async ({ page }) => {
+    const body = analyseResponse("safe");
+    body.forwarded = { detected: true, original_sender: "boss@example.com" };
+    await page.route(`${API}/analyse`, (route) => route.fulfill({ json: body }));
+    await page.goto(`${base}/popup/popup.html`);
+    await page.click('.tab[data-tab="paste"]');
+    await page.fill("#paste-input", "Forwarded message: please review the attached schedule for next week.");
+    await page.click("#analyze-btn");
+    await expect(page.locator("#verdict-card")).toHaveClass(/verdict-card--caution/);
+    await expect(page.locator("#verdict-sub")).toContainText("Forwarded email");
+    await expect(page.locator("#meta-badges .badge--warn")).toHaveText("Forwarded: boss@example.com");
+    await expect(page.locator('.agent[data-agent="text"]')).toHaveAttribute("data-level", "low");
+});

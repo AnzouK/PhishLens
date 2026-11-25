@@ -37,6 +37,7 @@
     "verdict_safe": "This email looks safe",
     "verdict_caution": "Probably safe, but check",
     "lead_caution": "Some signs are unusual. Look at the details before you click or reply.",
+    "lead_caution_file": "Some signs are unusual. Look at the details before you open it.",
     "meter_wording": "Wording",
     "meter_links": "Links",
     "meter_sender": "Sender",

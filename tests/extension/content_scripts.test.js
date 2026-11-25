@@ -973,3 +973,41 @@ test("privacy links use the website's address without .html", () => {
     const code = ["popup/popup.js", "content_scripts/banner.js"].map((f) => fs.readFileSync(path.join(EXT, f), "utf8")).join("\n");
     assert.doesNotMatch(html + code, /privacy\.html/);
 });
+
+test("the card of an attached email shows why it is shown with caution", () => {
+    const { ctx, PL } = load(entryFor("mail.google.com"));
+    const view = mailView(ctx.document);
+    const card = ctx.document.createElement("div");
+    view.append(card);
+    const eml = (extra) => ({
+        verdict: "safe",
+        agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.1 }, metadata: { phishing_probability: 0.1 } },
+        sender_auth: {}, url_reputation: { checked: 0 },
+        ...extra,
+    });
+    const chips = () => card.querySelectorAll(".pll-att-chip").map((c) => [c.className.replace("pll-att-chip pll-att-chip--", ""), c.textContent]);
+    PL.renderAttachmentResult(card, eml({
+        forwarded: { detected: true },
+        shared_links: { count: 1, services: ["Google Drive"] },
+        sender_auth: { dkim: "fail", spamhaus_dbl_listed: true, impersonation: { brand: "paypal", domain: "pay-pal.example" } },
+    }), "fwd.eml");
+    assert.ok(card.classList.contains("pll-att-banner--caution"));
+    assert.deepEqual(chips().map(([kind]) => kind), ["bad", "warn", "warn", "bad", "bad"]);
+    assert.match(card.querySelector(".pll-att-banner__sub").textContent, /^Email.*Some signs are unusual\. Look at the details before you click or reply\. This is a forwarded email/i);
+    // A file uses the file wording.
+    PL.renderAttachmentResult(card, { ...eml({}), agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.1 } },
+        attachment: { kind: "pdf", notable_features: ["contains_javascript"] } }, "a.pdf");
+    assert.match(card.querySelector(".pll-att-banner__sub").textContent, /Look at the details before you open it\./);
+});
+
+test("SPF failing next to a DMARC pass gives no chip and no caution", () => {
+    const { ctx, PL } = load(manifest.content_scripts[0]);
+    const view = mailView(ctx.document);
+    PL.showBanner(view, {
+        verdict: "safe",
+        agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.1 }, metadata: { phishing_probability: 0.1 } },
+        sender_auth: { spf: "fail", dkim: "pass", dmarc: "pass" }, url_reputation: { checked: 0 },
+    });
+    assert.ok(view.querySelector(".pll-banner").classList.contains("pll-banner--safe"));
+    assert.equal(view.querySelectorAll(".pll-chip--warn").length, 0);
+});

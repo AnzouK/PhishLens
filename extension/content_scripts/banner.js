@@ -26,19 +26,15 @@ function bannerLead(data, phishing, caution) {
         .filter(Boolean).join(" ");
 }
 
+PL.bannerLead = bannerLead;
+
 const sharedServices = (data) => (data.shared_links?.services || []).join(", ");
 
 // Key of the line that explains a safe verdict, or null for the plain
-// "no strong phishing signals".
+// "no strong phishing signals" (PhishLensShared.safeReason).
 function safeReason(data) {
-    if (data.forwarded?.detected) return "lead_forwarded";
-    if (data.shared_links?.count) return "lead_shared";
-    if (data.text_agent_used === false) return "lead_no_text";
-    const high = PhishLensShared.shownScores(data).some((p) => PhishLensShared.scoreLevel(p) === "high");
-    if (!high) return null;
-    if (data.trust_path === "trusted_sender" || data.trusted_sender) return "lead_trusted";
-    const byPath = { crypto_verified: "lead_crypto", outlook_internal: "lead_internal", gmail_inbox_soft: "lead_gmail" };
-    return byPath[data.trust_path] || "lead_one_signal";
+    const reason = PhishLensShared.safeReason(data);
+    return reason ? `lead_${reason}` : null;
 }
 
 // Brand names come from the server in lower case ("la poste" becomes
@@ -75,7 +71,9 @@ function trustBadge(data) {
     return null;
 }
 
-const chip = (kind, text, title) => h(`span.pll-chip${kind ? ".pll-chip--" + kind : ""}`, { title }, text);
+// base: "pll-chip" in the banner, "pll-att-chip" on an attachment card.
+const chipOf = (base) => (kind, text, title) => h(`span.${base}${kind ? `.${base}--${kind}` : ""}`, { title }, text);
+const chip = chipOf("pll-chip");
 
 // Chips are shown worst first: bad, then warn, then good, then neutral.
 const CHIP_ORDER = ["pll-chip--bad", "pll-chip--warn", "pll-chip--good"];
@@ -84,41 +82,57 @@ const chipRank = (c) => {
     return i < 0 ? CHIP_ORDER.length : i;
 };
 
-function signalChips(data) {
+// The orange and red chips, one per unusual sign
+// (PhishLensShared.unusualSigns): a brand impersonated, a forward, a
+// shared file or form, links flagged by threat intelligence, failed
+// sender checks, a sender listed by Spamhaus. Also used for the card of
+// an attached email (attachments.js).
+function signChips(data, base = "pll-chip") {
+    const make = chipOf(base);
     const chips = [];
     const imp = data.sender_auth?.impersonation;
     if (imp?.brand) {
         const vars = { brand: brandName(imp.brand), domain: imp.domain || "?" };
-        chips.push(chip("bad", t("chip_impersonation", vars), t("chip_impersonation_title", vars)));
+        chips.push(make("bad", t("chip_impersonation", vars), t("chip_impersonation_title", vars)));
     }
     if (data.forwarded?.detected) {
         const orig = data.forwarded.original_sender;
-        chips.push(chip("warn",
+        chips.push(make("warn",
             orig ? t("chip_forwarded_from", { sender: orig }) : t("chip_forwarded"),
             orig ? t("chip_original_sender", { sender: orig }) : t("chip_original_unknown")));
     }
     if (data.shared_links?.count) {
-        chips.push(chip("warn", t("chip_shared", { services: (data.shared_links.services || []).join(", ") }),
+        chips.push(make("warn", t("chip_shared", { services: (data.shared_links.services || []).join(", ") }),
             (data.shared_links.urls || []).join("\n")));
-    }
-    if (data._fullHeaders) chips.push(chip("good", t("chip_full_headers"), t("chip_full_headers_title")));
-    if (data._threadMessages > 1) {
-        chips.push(chip("", t("chip_latest", { count: data._threadMessages }), t("chip_latest_title")));
     }
     const rep = data.url_reputation || {};
     if (rep.malicious_count > 0) {
         for (const src of rep.sources_hit || []) {
             const source = SOURCE_LABELS[src] || src;
-            chips.push(chip("bad", t("chip_flagged_by", { source }), t("chip_flagged_title", { source, count: rep.malicious_count })));
+            chips.push(make("bad", t("chip_flagged_by", { source }), t("chip_flagged_title", { source, count: rep.malicious_count })));
         }
-    } else if (rep.checked > 0) {
-        chips.push(chip("good", t("chip_links_clean"), t("chip_links_clean_title")));
     }
     const auth = data.sender_auth || {};
-    if (auth.dmarc === "fail") chips.push(chip("bad", t("chip_dmarc_fail"), t("chip_dmarc_fail_title")));
-    else if (auth.dkim === "fail") chips.push(chip("bad", t("chip_dkim_fail"), t("chip_dkim_fail_title")));
-    else if (auth.spf === "fail") chips.push(chip("warn", t("chip_spf_fail"), t("chip_spf_fail_title")));
-    if (auth.spamhaus_dbl_listed) chips.push(chip("bad", t("chip_spamhaus"), t("chip_spamhaus_title")));
+    if (PhishLensShared.authFailed(auth)) {
+        if (auth.dmarc === "fail") chips.push(make("bad", t("chip_dmarc_fail"), t("chip_dmarc_fail_title")));
+        else if (auth.dkim === "fail") chips.push(make("bad", t("chip_dkim_fail"), t("chip_dkim_fail_title")));
+        else chips.push(make("warn", t("chip_spf_fail"), t("chip_spf_fail_title")));
+    }
+    if (auth.spamhaus_dbl_listed) chips.push(make("bad", t("chip_spamhaus"), t("chip_spamhaus_title")));
+    return chips;
+}
+PL.signChips = signChips;
+
+function signalChips(data) {
+    const chips = signChips(data);
+    if (data._fullHeaders) chips.push(chip("good", t("chip_full_headers"), t("chip_full_headers_title")));
+    if (data._threadMessages > 1) {
+        chips.push(chip("", t("chip_latest", { count: data._threadMessages }), t("chip_latest_title")));
+    }
+    const rep = data.url_reputation || {};
+    if (!(rep.malicious_count > 0) && rep.checked > 0) {
+        chips.push(chip("good", t("chip_links_clean"), t("chip_links_clean_title")));
+    }
     // Array.prototype.sort is stable, so chips of one kind keep their order.
     chips.sort((a, b) => chipRank(a) - chipRank(b));
     return chips.length ? h("div.pll-signals", null, chips) : null;

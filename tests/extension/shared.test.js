@@ -83,6 +83,34 @@ test("a confirmed http:// address with a trailing slash counts", async () => {
     assert.equal(refused.ok, false);
 });
 
+test("SPF failing next to a DMARC pass is not an unusual sign", () => {
+    const S = loadLib("shared.js");
+    const safe = (auth) => ({
+        verdict: "safe",
+        agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.05 }, metadata: { phishing_probability: 0.2 } },
+        sender_auth: auth, url_reputation: { checked: 2, malicious_count: 0 },
+    });
+    // A mailing list: SPF fails on the list's server, DKIM and DMARC pass.
+    assert.equal(S.displayVerdict(safe({ spf: "fail", dkim: "pass", dmarc: "pass" })), "safe");
+    assert.deepEqual(S.unusualSigns(safe({ spf: "fail", dkim: "pass", dmarc: "pass" })), []);
+    // Without a DMARC pass SPF still counts, and DKIM or DMARC failing always does.
+    assert.equal(S.displayVerdict(safe({ spf: "fail", dkim: "pass", dmarc: "none" })), "caution");
+    assert.equal(S.displayVerdict(safe({ spf: "pass", dkim: "fail", dmarc: "pass" })), "caution");
+    assert.equal(S.displayVerdict(safe({ spf: "pass", dkim: "pass", dmarc: "fail" })), "caution");
+});
+
+test("the reason behind a safe verdict is shared by the banner and the popup", () => {
+    const S = loadLib("shared.js");
+    const base = { verdict: "safe", agents: { text: { phishing_probability: 0.1 } } };
+    assert.equal(S.safeReason(base), null);
+    assert.equal(S.safeReason({ ...base, forwarded: { detected: true } }), "forwarded");
+    assert.equal(S.safeReason({ ...base, shared_links: { count: 1 } }), "shared");
+    const high = { verdict: "safe", agents: { text: { phishing_probability: 0.8 } } };
+    assert.equal(S.safeReason(high), "one_signal");
+    assert.equal(S.safeReason({ ...high, trusted_sender: true }), "trusted");
+    assert.equal(S.safeReason({ ...high, trust_path: "crypto_verified" }), "crypto");
+});
+
 test("caution display: a safe verdict with a red meter or an unusual sign", () => {
     const S = loadLib("shared.js");
     const safe = (extra = {}) => ({

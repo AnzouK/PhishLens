@@ -181,6 +181,15 @@ function shownScores(data) {
     ].filter((p) => p != null);
 }
 
+// A failed sender check that counts as a warning sign: DKIM or DMARC
+// failed, or SPF failed without a DMARC pass. Mailing lists and
+// forwarders resend from their own servers, so SPF fails while the
+// DKIM signature still aligns and DMARC passes; that is not unusual.
+function authFailed(auth) {
+    if (auth?.dkim === "fail" || auth?.dmarc === "fail") return true;
+    return auth?.spf === "fail" && auth?.dmarc !== "pass";
+}
+
 // The unusual signs shown as orange or red chips: a brand impersonated, a
 // forward, a shared file or form, links flagged by threat intelligence,
 // failed sender authentication, a sender listed by Spamhaus, and the
@@ -193,10 +202,25 @@ function unusualSigns(data) {
     if (data?.forwarded?.detected) signs.push("forwarded");
     if (data?.shared_links?.count) signs.push("shared_links");
     if (data?.url_reputation?.malicious_count > 0) signs.push("flagged_links");
-    if ([auth.spf, auth.dkim, auth.dmarc].includes("fail")) signs.push("auth_fail");
+    if (authFailed(auth)) signs.push("auth_fail");
     if (auth.spamhaus_dbl_listed) signs.push("spamhaus");
     if ((data?.attachment?.notable_features || []).some(isWarningFlag)) signs.push("file_flags");
     return signs;
+}
+
+// What explains a safe verdict, as a short name: "forwarded",
+// "shared", "no_text", then, when an agent score is high, why it did not
+// count ("trusted", "crypto", "internal", "gmail", or "one_signal"). Null
+// when nothing needs explaining. The banner and the popup each have their
+// own sentence for it.
+function safeReason(data) {
+    if (data?.forwarded?.detected) return "forwarded";
+    if (data?.shared_links?.count) return "shared";
+    if (data?.text_agent_used === false) return "no_text";
+    if (!shownScores(data).some((p) => scoreLevel(p) === "high")) return null;
+    if (data.trust_path === "trusted_sender" || data.trusted_sender) return "trusted";
+    const byPath = { crypto_verified: "crypto", outlook_internal: "internal", gmail_inbox_soft: "gmail" };
+    return byPath[data.trust_path] || "one_signal";
 }
 
 // How a verdict is shown: "danger" for phishing; "caution" for a safe
@@ -213,7 +237,7 @@ const PhishLensShared = Object.freeze({
     BACKEND_PRESETS, DEFAULT_BACKEND, resolveBackend, getBackendBase, apiErrorMessage, debug, safeName,
     INVISIBLE_SOURCE, withoutInvisible, collapseInvisible, isPlainRemoteUrl,
     normalizeBaseUrl, hostPattern, privacyUrl,
-    scoreLevel, isCaution, isWarningFlag, shownScores, unusualSigns, displayVerdict,
+    scoreLevel, isCaution, isWarningFlag, shownScores, authFailed, unusualSigns, safeReason, displayVerdict,
 });
 globalThis.PhishLensShared = PhishLensShared;
 

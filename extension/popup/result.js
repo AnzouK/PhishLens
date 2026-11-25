@@ -3,7 +3,7 @@
 import { $, h, t, tn, I18N, spriteIcon } from "./ui.js";
 
 const { SOURCE_LABELS } = window.PhishLensConstants;
-const { displayVerdict, isCaution, scoreLevel } = window.PhishLensShared;
+const { displayVerdict, isCaution, scoreLevel, safeReason, authFailed } = window.PhishLensShared;
 
 const THREAT_KEYS = {
     MALWARE: "threat_malware",
@@ -34,15 +34,24 @@ function renderTrustPill(data) {
     }
 }
 
+// The popup's sentence for each reason behind a safe verdict
+// (PhishLensShared.safeReason). Reasons without one add nothing.
+const REASON_KEYS = { forwarded: "sub_forwarded", shared: "sub_shared", trusted: "sub_trusted", crypto: "sub_crypto" };
+
 // caution: false, or "not_read" for a file PhishLens could not look
-// inside, or "signs" for any other unusual sign.
+// inside, or "signs" for any other unusual sign. In the caution style the
+// line starts with "Some signs are unusual" (in its file wording for a
+// file), followed by the reason when there is one, as in the banner.
 function subline(data, isPhishing, caution, flags) {
     const flagText = flags.length ? t("found_flags", { flags: flags.map(I18N.flagLabel).join(", ") }) : "";
     if (isPhishing) return t(data.links_elsewhere && !(data.link_alignment?.aligned > 0) ? "lead_links_elsewhere" : "sub_phishing") + flagText;
     if (caution === "not_read") return t("sub_caution") + flagText;
-    if (caution) return t("lead_caution") + flagText;
-    if (data.forwarded?.detected) return t("sub_forwarded");
-    if (data.shared_links?.count) return t("sub_shared", { services: (data.shared_links.services || []).join(", ") });
+    const reason = REASON_KEYS[safeReason(data)];
+    const services = (data.shared_links?.services || []).join(", ");
+    if (caution) {
+        const lead = t(data.attachment ? "lead_caution_file" : "lead_caution");
+        return [lead, reason && t(reason, { services })].filter(Boolean).join(" ") + flagText;
+    }
     if (data.trusted_sender) return t("sub_trusted");
     if (data.sender_auth?.cryptographically_verified) return t("sub_crypto");
     return t("verdict_safe_sub");
@@ -61,7 +70,7 @@ function fillAgent(key, agent, data) {
     if (off) {
         $(`${prefix}-score`).textContent = "—";
         bar.style.width = "0%";
-        card.dataset.flagged = "safe";
+        card.dataset.level = "low";
         $(`${prefix}-hint`).textContent = t(off);
         return;
     }
@@ -69,13 +78,20 @@ function fillAgent(key, agent, data) {
     const pct = Math.round(p * 100);
     $(`${prefix}-score`).textContent = `${pct}%`;
     bar.style.width = `${pct}%`;
-    card.dataset.flagged = agent?.verdict === "Phishing" ? "phishing" : "safe";
-    $(`${prefix}-hint`).textContent = t(`${prefix}_${scoreLevel(p)}`);
+    // Same colours as the banner's meters: orange from 40%, red from 70%.
+    const level = scoreLevel(p);
+    card.dataset.level = level;
+    $(`${prefix}-hint`).textContent = t(`${prefix}_${level}`);
 }
 
-function renderUrlBadges(rep) {
+function renderUrlBadges(data) {
+    const rep = data.url_reputation;
     const host = $("url-badges");
     const badges = [];
+    if (data.shared_links?.count) {
+        badges.push(badge(t("chip_shared", { services: (data.shared_links.services || []).join(", ") }), "warn",
+            (data.shared_links.urls || []).join("\n")));
+    }
     if (rep?.checked && rep.malicious_count === 0) {
         badges.push(badge(tn("links_checked", rep.checked), "good", t("links_clean_title")));
     } else if (rep?.checked) {
@@ -88,10 +104,11 @@ function renderUrlBadges(rep) {
         }
     }
     host.replaceChildren(...badges);
-    host.hidden = !rep?.checked;
+    host.hidden = !badges.length;
 }
 
-function renderMetaBadges(auth) {
+function renderMetaBadges(data) {
+    const auth = data.sender_auth;
     const badges = [];
     if (auth?.impersonation?.brand) {
         const brand = String(auth.impersonation.brand).replace(/(^|\s)\S/g, (c) => c.toUpperCase());
@@ -100,13 +117,21 @@ function renderMetaBadges(auth) {
     }
     if (auth?.cryptographically_verified) badges.push(badge(t("dkim_aligned"), "good", t("dkim_aligned_title")));
     for (const [name, verdict] of [["SPF", auth?.spf], ["DKIM", auth?.dkim], ["DMARC", auth?.dmarc]]) {
-        // "none", "neutral" and "temperror" get no badge.
-        const kind = { pass: "good", fail: "bad", softfail: "warn" }[verdict];
+        // "none", "neutral" and "temperror" get no badge. SPF failing next
+        // to a DMARC pass (a mailing list) is shown, but not as a warning.
+        const kind = name === "SPF" && verdict === "fail" && !authFailed(auth) ? "neutral"
+            : { pass: "good", fail: "bad", softfail: "warn" }[verdict];
         if (kind) badges.push(badge(t(`auth_${verdict}`, { name }), kind, t(`auth_${verdict}_title`, { name })));
     }
     if (auth?.spamhaus_dbl_listed) badges.push(badge(t("chip_spamhaus"), "bad", t("chip_spamhaus_title")));
     if ((auth?.reasons || []).includes("no_auth_header") && !badges.length) {
         badges.push(badge(t("no_auth_header"), "warn", t("no_auth_header_title")));
+    }
+    // A forward: the sender checked is the person who forwarded it.
+    if (data.forwarded?.detected) {
+        const sender = data.forwarded.original_sender;
+        badges.push(badge(sender ? t("chip_forwarded_from", { sender }) : t("chip_forwarded"), "warn",
+            sender ? t("chip_original_sender", { sender }) : t("chip_original_unknown")));
     }
     const host = $("meta-badges");
     host.replaceChildren(...badges);
@@ -162,8 +187,8 @@ export function renderResult(data) {
     renderTrustPill(data);
     renderArchiveFiles(data.attachment, isPhishing);
     for (const key of ["text", "url", "metadata"]) fillAgent(key, data.agents?.[key], data);
-    renderUrlBadges(data.url_reputation);
-    renderMetaBadges(data.sender_auth);
+    renderUrlBadges(data);
+    renderMetaBadges(data);
     // No words to explain without the text model (attachments, almost no text).
     explanation.reset(!isAttachment && data.text_agent_used !== false);
 }
