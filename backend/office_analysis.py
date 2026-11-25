@@ -267,7 +267,8 @@ def detect_ooxml_kind(raw: bytes) -> str | None:
 
 
 class _Part(str):
-    """Return a key that opens this exact entry, even when names repeat."""
+    """A part name that remembers its zip entry, so the exact entry can be
+    opened even when two entries share a name."""
 
     info: zipfile.ZipInfo
 
@@ -382,7 +383,7 @@ def _field_codes(data: bytes) -> str:
 
 
 def _field_urls(codes: str, urls: list[str]) -> None:
-    """Return the addresses in HYPERLINK, INCLUDEPICTURE and INCLUDETEXT fields.
+    """Add the addresses in HYPERLINK, INCLUDEPICTURE and INCLUDETEXT fields to urls.
 
     We take the first argument that is not a switch, and also any URL that
     appears elsewhere in the field code.
@@ -399,7 +400,7 @@ def _field_urls(codes: str, urls: list[str]) -> None:
 
 
 def _relationships(data: bytes) -> list[tuple[str, str, bool]]:
-    """Yield (type suffix, target, is_external) for each relationship in a .rels part."""
+    """(type suffix, target, is_external) for each relationship in a .rels part."""
     rels = []
     try:
         root = ET.fromstring(data)

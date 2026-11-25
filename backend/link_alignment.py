@@ -134,7 +134,7 @@ _host = link_host
 
 
 def ip_host(host: str) -> bool:
-    """Return the IP address used as host, in any form a browser accepts.
+    """Return True if the host is an IP address, in any form a browser accepts.
 
     Besides dotted and IPv6 forms, browsers take a single decimal, octal or
     hex number, so http://3232235777/ is 192.168.1.1.

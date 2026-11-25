@@ -112,7 +112,7 @@ class AuthVerdict:
     from_domain: str = ""
     aligned: bool = False  # From: domain matches at least one authenticated domain
     all_pass: bool = False  # all three of SPF/DKIM/DMARC are "pass"
-    cryptographically_verified: bool = False  # aligned AND at least DKIM pass
+    cryptographically_verified: bool = False  # DKIM pass from a domain aligned with From:
     header_present: bool = False  # Authentication-Results was actually there
 
     # The raw header, for logging.

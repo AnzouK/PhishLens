@@ -429,8 +429,8 @@ def _resolve_email(req: AnalyseRequest) -> tuple[str, list[str], dict[str, str],
     shown, unseen = _client_link_groups(ctx)
     hidden_here = set(unseen)
     urls = rank_links(shown, Ranked(u for u in urls if u not in hidden_here), unseen, text_urls)
-    # Strip invisible characters so the text model, forward check and
-    # language check all see what the reader sees.
+    # Cut each run of invisible characters to one, so a long padding does
+    # not push the words out of the text model's window.
     return collapse_invisible(body), urls, headers, raw_bytes
 
 

@@ -461,7 +461,8 @@ class _NotExtracted(Exception):
 
 
 def _encrypted_unlisted(raw: bytes, filename: str, fmt: str) -> dict[str, Any]:
-    """Raised when the file list itself is encrypted (rar -hp, 7z -mhe)."""
+    """The result for an archive whose file list is itself encrypted
+    (rar -hp, 7z -mhe): no entries, entry_count None."""
     r = _analyse_listing(raw, filename, fmt, [], True, None, None)
     r["entry_count"] = None
     return r

@@ -13,8 +13,10 @@ way when rarfile and py7zr are installed (see archive_analysis.py).
 Calendar invites, encrypted PDFs and programs, scripts, shortcuts or disk
 images are flagged by type.
 
-analyse_attachment returns a dict shaped like the /analyse response so
-the extension and the website can reuse their rendering code.
+analyse_attachment returns what was extracted (text, URLs, type, flags).
+The /analyse_attachment route scores it and turns it into a response
+shaped like /analyse, so the extension and the website can reuse their
+rendering code.
 """
 
 from __future__ import annotations
@@ -63,7 +65,7 @@ except Exception as _e:
     logger.warning(f"pdfplumber not available ({_e}); PDF attachments will be rejected.")
 
 
-# Extension to MIME type. See normalise_mime for the order of precedence.
+# Extension to MIME type. See sniff_type for the order of precedence.
 _MIME_BY_EXT = {
     ".pdf": "application/pdf",
     ".html": "text/html",
@@ -179,7 +181,7 @@ def sniff_type(filename: str, content_head: bytes, client_hint: str | None) -> s
     return "application/octet-stream"
 
 
-# Same URL pattern as /analyse, plus bare domains written without a scheme.
+# Same URL rules as /analyse: http(s):// links and addresses starting with www.
 _URL_DEDUP_N = MAX_EXTRACTED_URLS
 
 

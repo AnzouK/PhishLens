@@ -168,7 +168,7 @@ GSB_URL_FLOOR = 0.95
 REP_BLEND = 0.7
 
 # Attachments. The text and URL agents share the weight and risky features
-# add a bonus (attachment_risk in fusion.py).
+# add a bonus (FEATURE_RISK and attachment_feature_bonus in fusion.py).
 ATTACHMENT_THRESHOLD = 0.55
 # When the parent email is authenticated, the text weight is halved and
 # the threshold goes up.
