@@ -82,7 +82,7 @@ calls cost almost nothing.
 
 ```bash
 # 1. publish the image: push a version tag, or run "Backend image" by hand
-git tag v2.1.0 && git push origin v2.1.0
+git tag v2.2.0 && git push origin v2.2.0
 # 2. deploy it as a new revision
 gcloud run deploy phishlens-backend --region europe-west1 \
   --image ghcr.io/anzouk/phishlens-backend:latest

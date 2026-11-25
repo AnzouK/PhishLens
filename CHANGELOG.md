@@ -7,6 +7,8 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-25
+
 ### Added
 - Caution state: a safe verdict next to a red meter (70% or more) or an
   orange or red sign (forward, shared file, failed authentication,
@@ -47,18 +49,19 @@ backend share one version number.
   so (8 languages).
 - Popup CSS is one layer: the `!important` overrides at the end of
   `popup.css` are merged into the rules they replaced (no `!important`,
-  no gradient or shadow left). Same look, except
-  the last rounded leftovers (trusted-sender tag, ratio and word bars,
-  tabs frame, language menu, server URL field, words, small buttons) now
-  use the 4 px radius, the language menu has no glow when clicked, and
+  no gradient or shadow left). Same look, except the last rounded
+  leftovers (trusted-sender tag, ratio and word bars, tabs frame,
+  language menu, server URL field, words, small buttons) now use the
+  4 px radius, the language menu has no glow when clicked, and
   the light theme's raised surfaces are off-white (#fbf9f4) instead of
   pure white.
 
 ### Fixed
 - Popup: signal badges were dark red on the dark background when no
-  theme had been saved; ghost buttons lost their border and padding; the
-  agent score was orange next to a red bar. Agent cards now use the
-  meter levels (orange from 40%, red from 70%), as the banner does.
+  theme had been saved; ghost buttons (Got it, Paste, Share stats) lost
+  their border, padding and small size; the agent score was orange next
+  to a red bar. Agent cards now use the meter levels (orange from 40%,
+  red from 70%), as the banner does.
 - Contrast: explanation words, the banner's filled button and warn
   chips reach 4.5:1 in both themes; keyboard focus rings on the banner's
   close, attachment and report controls; the popup tabs set
@@ -69,11 +72,11 @@ backend share one version number.
   button no longer covers footer links; the 404 footer sits at the
   bottom; the empty "Try it" result panel no longer reserves the height
   of the form.
-- Popup: ghost buttons (Got it, Paste, Share stats) lost their small
-  size; light-theme green and orange badges reach 4.5:1 on the card; the
-  neutral SPF badge (SPF fail next to a DMARC pass) explains mailing
+- Popup: light-theme green and orange badges reach 4.5:1 on the card;
+  the neutral SPF badge (SPF fail next to a DMARC pass) explains mailing
   lists instead of "possible spoofing" (8 languages).
-- Attached email cards sort their chips worst first, like the banner.
+- Attachment cards, for files and attached emails, sort their chips
+  worst first, like the banner.
 - Website: the "Read this page in ..." bar no longer appears on the 404
   page (it linked to a page that does not exist); the demo shows a
   "Sender on Spamhaus list" tag and, for a file PhishLens could not look
@@ -94,8 +97,6 @@ backend share one version number.
   and "Looks safe" and "Probably safe, but check" read "Sembra a posto"
   and "Probabilmente a posto, ma controlla" in the extension and on the
   website.
-- Attachment cards for files (not only attached emails) sort their
-  chips worst first, like the banner.
 
 ### Removed
 - Unused code, styles, a string and the old self-hosted VM redeploy and
@@ -1137,7 +1138,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/AnzouK/PhishLens/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/AnzouK/PhishLens/compare/v2.0.12...v2.1.0
 [2.0.12]: https://github.com/AnzouK/PhishLens/compare/v2.0.11...v2.0.12
 [2.0.11]: https://github.com/AnzouK/PhishLens/compare/v2.0.10...v2.0.11

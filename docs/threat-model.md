@@ -296,8 +296,12 @@ links inside them (Outlook's own buttons) are checked as hidden links.
 Revisit this document when an endpoint, an input type or an extension
 permission is added, when the text model changes, or when the
 deployment runs more than one instance (PhishLens Cloud is capped at
-one Cloud Run instance). The last review was for 2.1.0. It started with
-an external audit of 2.0.12 and went through five rounds of follow-up
-on authentication parsing, impersonation, hidden content, link parsing,
-the Safe Browsing quota, the Outlook sender, HTML attachments, HTML
-comments, rate limits and hosting.
+one Cloud Run instance). The last review was for 2.2.0. For 2.1.0 it
+started with an external audit of 2.0.12 and went through five rounds
+of follow-up on authentication parsing, impersonation, hidden content,
+link parsing, the Safe Browsing quota, the Outlook sender, HTML
+attachments, HTML comments, rate limits and hosting. Several further
+rounds after 2.1.0 covered the interface (caution state, contrast,
+keyboard focus), translations, documentation and the removal of unused
+code and of the old self-hosted deployment scripts. They added no
+endpoint, input type or extension permission.
