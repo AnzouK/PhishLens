@@ -69,6 +69,21 @@ backend share one version number.
   button no longer covers footer links; the 404 footer sits at the
   bottom; the empty "Try it" result panel no longer reserves the height
   of the form.
+- Popup: ghost buttons (Got it, Paste, Share stats) lost their small
+  size; light-theme green and orange badges reach 4.5:1 on the card; the
+  neutral SPF badge (SPF fail next to a DMARC pass) explains mailing
+  lists instead of "possible spoofing" (8 languages).
+- Attached email cards sort their chips worst first, like the banner.
+- Website: the "Read this page in ..." bar no longer appears on the 404
+  page (it linked to a page that does not exist); the demo shows a
+  "Sender on Spamhaus list" tag and, for a file PhishLens could not look
+  inside, the same title and line as the popup (8 languages).
+- Translations: Spanish uses usted and Dutch u everywhere (the privacy
+  notice mixed in tú and je); Italian "safe" no longer clashes with the
+  gender of email and file; French and Portuguese write "e-mail"
+  throughout.
+- The README and website drawings use the current orange and the
+  popup's real light card colour.
 
 ### Removed
 - Unused code, styles, a string and the old self-hosted VM redeploy and
