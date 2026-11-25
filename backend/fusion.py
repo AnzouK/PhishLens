@@ -1,10 +1,10 @@
 """
-From agent scores to a verdict.
+PhishLens: turning agent scores into a verdict.
 
-Pure functions, no I/O: everything that decides "phishing or safe" for an
-email or an attachment lives here and is unit-tested directly
-(tests/test_fusion.py). The constants come from settings.py; the trust
-paths are described in docs/architecture.md.
+Everything that decides "phishing or safe" lives here as pure functions
+with no I/O, so tests/test_fusion.py can test it directly. The constants
+come from settings.py and the trust paths are described in
+docs/architecture.md.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ from settings import (
 )
 
 GSB = "google_safe_browsing"
-# The signs a trust path may list in TrustPath.forcing (see decide_email).
+# Signs a trust path can list in TrustPath.forcing (see decide_email).
 FORCING_SIGNS = (
     "confident_text",
     "confident_sender",
@@ -47,7 +47,7 @@ FORCING_SIGNS = (
 # Threat intelligence
 @dataclass
 class Reputation:
-    """What the URL reputation cascade said about the links."""
+    """Summary of what the reputation cascade found."""
 
     verdicts: list[dict[str, Any]] = field(default_factory=list)
     max_score: float = 0.0
@@ -83,8 +83,11 @@ def summarize_reputation(verdicts: list[dict[str, Any]]) -> Reputation:
 
 
 def apply_reputation(p_url: float, rep: Reputation) -> float:
-    """URL score after threat intelligence: a Safe Browsing match lifts it
-    to at least GSB_URL_FLOOR, another source blends in."""
+    """Adjust the URL score with threat intelligence.
+
+    A Safe Browsing match lifts it to at least GSB_URL_FLOOR. Other sources
+    are blended in.
+    """
     if rep.max_score >= 0.99:
         return max(p_url, GSB_URL_FLOOR)
     if rep.max_score > 0:
@@ -119,18 +122,22 @@ def choose_trust_path(
 def fuse(
     p_text: float, p_url: float, p_meta: float, *, text_used: bool, text_factor: float = 1.0
 ) -> float:
-    """Weighted sum of the agents. Without usable text, the URL and
-    metadata agents share the whole weight."""
+    """Return the weighted sum of the agents.
+
+    Without usable text, the URL and metadata agents share all the weight.
+    """
     if text_used:
         return W_TEXT * text_factor * p_text + W_URL * p_url + W_META * p_meta
     return (W_URL * p_url + W_META * p_meta) / (W_URL + W_META)
 
 
 def url_confirmed(rep: Reputation, url_rule_score: float) -> bool:
-    """For an attachment, the URL agent alone may force the verdict only
-    with a concrete sign:
-    a threat-intel hit or a rule (raw IP, plain http, "@", suspicious TLD).
-    The trained URL model alone scores most real URLs with a path high."""
+    """Return True if the URL agent may force an attachment verdict.
+
+    It needs a concrete sign, either a threat-intel hit or a rule such as a
+    raw IP, plain http, "@" or a suspicious TLD. The trained URL model on
+    its own scores most real URLs with a path high.
+    """
     return rep.any_hit or url_rule_score >= URL_OVERRIDE_RULE_MIN
 
 
@@ -146,25 +153,30 @@ def decide_email(
     text_override: float = HIGH_CONF_OVERRIDE,
     links_elsewhere: bool = False,
 ) -> Verdict:
-    """Verdict for an email: phishing when the fused score reaches the
-    trust path's threshold, or when one of the path's forcing signs holds
-    (settings.TrustPath.forcing). On the softer paths only a Safe Browsing
-    hit forces phishing (and on crypto_verified, links that all lead
-    elsewhere with phishing-like wording); on the default path a confident
-    text or sender score does, and the link score only with a
-    threat-intelligence hit or a strong link sign (structured_agents.strong_link_sign): the trained
-    URL model scores the written-out links of legitimate mailing-list
-    mail near 1.0, and plain http was enough to confirm it (14 of 14
-    false alarms of the public benchmark). text_override is the text model's own
-    threshold (lower for a calibrated model, see
-    text_model.override_threshold)."""
+    """Decide an email's verdict.
+
+    It is phishing when the fused score reaches the trust path's threshold
+    or when one of the path's forcing signs holds (settings.TrustPath.forcing).
+    On the softer paths only a Safe Browsing hit forces it. crypto_verified
+    adds links that all lead elsewhere with phishing-like wording.
+
+    On the default path a confident text or sender score forces phishing.
+    The link score only does with a threat-intel hit or a strong link sign
+    (structured_agents.strong_link_sign). The trained URL model scores the
+    written-out links of real mailing-list mail near 1.0, and plain http
+    used to be enough to confirm it. That caused 14 of the 14 false alarms
+    on the public benchmark.
+
+    text_override is the text model's own threshold, lower for a calibrated
+    model (see text_model.override_threshold).
+    """
     fused = fuse(p_text, p_url, p_meta, text_used=text_used, text_factor=path.text_factor)
     signs = {
         "confident_text": text_used and p_text >= text_override,
         "confident_sender": p_meta >= HIGH_CONF_OVERRIDE,
         "confirmed_link": p_url >= HIGH_CONF_OVERRIDE and (rep.any_hit or strong_link),
         "safe_browsing": rep.gsb_hit,
-        # links_elsewhere is set only when CRYPTO_LINK_RULE is on.
+        # links_elsewhere is only set when CRYPTO_LINK_RULE is on.
         "links_elsewhere": links_elsewhere and p_text >= CRYPTO_LINK_TEXT_MIN,
     }
     forced_by = tuple(sign for sign in path.forcing if signs[sign])
@@ -180,9 +192,9 @@ def decide_email(
 
 
 # Attachments
-# Risk added by each feature found in an attachment. These features are
-# often the whole signal (little or no text), so the bonus can reach
-# ATTACHMENT_FEATURE_BONUS_MAX.
+# Risk added by each attachment feature. Attachments often have little or
+# no text, so these features can be the whole signal. The total is capped
+# at ATTACHMENT_FEATURE_BONUS_MAX.
 FEATURE_RISK: dict[str, float] = {
     # PDF
     "contains_javascript": 0.20,
@@ -199,8 +211,8 @@ FEATURE_RISK: dict[str, float] = {
     "contains_iframe": 0.10,
     "meta_refresh_redirect": 0.20,
     # Images and scanned PDFs
-    "image_only_pdf": 0.10,  # no text layer: evasion, or a real scan
-    "contains_qr_code": 0.20,  # quishing: the link hides from text scanners
+    "image_only_pdf": 0.10,  # no text layer, either evasion or a real scan
+    "contains_qr_code": 0.20,  # quishing hides the link from text scanners
     "text_from_ocr": 0.00,  # informational
     # Office documents
     "contains_macros": 0.45,
@@ -209,7 +221,7 @@ FEATURE_RISK: dict[str, float] = {
     "contains_activex": 0.25,
     "embedded_ole_object": 0.20,
     "external_data_connection": 0.20,
-    "encrypted_document": 0.30,  # the password in the email blinds scanners
+    "encrypted_document": 0.30,  # password sent in the email so scanners can't read it
     "legacy_office_format": 0.10,
     "suspicious_xml_doctype": 0.20,
     "document_not_fully_read": 0.10,  # built to be slow to read
@@ -226,10 +238,9 @@ FEATURE_RISK: dict[str, float] = {
     "calendar_with_links": 0.10,
 }
 
-# Dropper techniques force the phishing verdict on every path, like a
-# Safe Browsing hit: an authenticated parent email says nothing about what
-# a macro or an executable does, and compromised accounts are how they
-# travel.
+# Dropper techniques force phishing on every path, like a Safe Browsing
+# hit. An authenticated parent email says nothing about what a macro or an
+# executable does, and droppers usually travel from compromised accounts.
 DROPPER_FEATURES = frozenset(
     {
         "contains_macros",
@@ -266,9 +277,12 @@ def decide_attachment(
     url_rule_score: float,
     text_override: float = HIGH_CONF_OVERRIDE,
 ) -> Verdict:
-    """Verdict for an attachment. An authenticated parent email softens
-    the text agent (legitimate documents share phishing vocabulary),
-    unless threat intelligence or a dropper technique says otherwise."""
+    """Decide an attachment's verdict.
+
+    An authenticated parent email softens the text agent, because real
+    documents share a lot of phishing vocabulary. Threat intelligence and
+    dropper techniques override that.
+    """
     if parent_trusted and not rep.gsb_hit and not dropper:
         fused = ATTACHMENT_TRUSTED_TEXT_FACTOR * 0.5 * p_text + 0.5 * p_url + feature_bonus
         threshold = ATTACHMENT_TRUSTED_THRESHOLD

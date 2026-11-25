@@ -1,14 +1,12 @@
 """
-Who sent the email, and can we believe it.
+PhishLens: who sent the email, and whether we can believe it.
 
-- sender_domain(): the domain of a From: value.
-- is_trusted_domain(): allowlist match (trusted_domains.py). The caller
-  applies it only to an authenticated sender.
-- impersonated_brand(): a From: whose name is a known brand while the
-  address belongs to another domain.
-- synthesize_auth_results(): an Authentication-Results header built from
-  the "signed-by" / "mailed-by" values Gmail shows, so auth_headers can
-  check alignment the same way as for real headers.
+The allowlist in trusted_domains.py only means something for an
+authenticated sender, and the caller makes that check. impersonated_brand
+catches a From: whose display name is a known brand while the address
+belongs to someone else. When we only have Gmail's "signed-by" and
+"mailed-by" values, synthesize_auth_results turns them into an
+Authentication-Results header so auth_headers can check alignment as usual.
 """
 
 from __future__ import annotations
@@ -28,19 +26,18 @@ _HOST_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789-")
 
 
 def is_trusted_domain(domain: str | None) -> bool:
-    """The domain or one of its parents is allowlisted."""
+    """Return True if the domain or one of its parents is allowlisted."""
     if not domain:
         return False
     d = domain.lower()
     return d in TRUSTED_DOMAINS or any(d.endswith("." + td) for td in TRUSTED_DOMAINS)
 
 
-# Look-alikes of Latin letters that Unicode normalisation leaves as they
-# are: Cyrillic and Greek letters ("PаyPal" with a Cyrillic "а"), Latin
-# letters with a stroke or without their dot ("PayPał", "Amelı"), and
-# small capitals ("ᴘᴀʏᴘᴀʟ", read as capitals so that "ᴜᴘs" is "UPS").
-# Further letters drawn like Latin ones: Armenian ("օ", "ս", "հ"),
-# Cherokee capitals, IPA and other Greek and Cyrillic forms.
+# Look-alikes of Latin letters that NFKC leaves alone. This covers
+# Cyrillic and Greek ("PаyPal" with a Cyrillic "а"), stroked or dotless
+# Latin letters ("PayPał", "Amelı"), small capitals ("ᴘᴀʏᴘᴀʟ"), Armenian
+# ("օ", "ս", "հ"), Cherokee capitals and IPA. Small capitals map to
+# capitals so that "ᴜᴘs" reads as "UPS".
 _MORE_CONFUSABLES = {
     "\u0585": "o",
     "\u057d": "u",
@@ -96,18 +93,18 @@ _CONFUSABLES = {
 
 
 def _plain_words(text: str, lower: bool = True) -> str:
-    """Accents and look-alike letters folded (NFKC turns the mathematical
-    bold letters some phishing uses into plain ones, _CONFUSABLES the
-    Cyrillic and Greek ones), invisible characters removed ("Chrono" +
-    zero-width space + "post" is "Chronopost" on screen), every other
-    character a space; padded so that whole words match. Dots are kept
-    ("booking.com") and the same words are added with dots as spaces
-    ("impots.gouv" also gives "impots gouv")."""
+    """Fold a display name so brand names can be matched as whole words.
+
+    NFKC turns mathematical bold letters into plain ones, accents are
+    dropped and _CONFUSABLES handles look-alikes. Invisible characters are removed, since "Chrono" +
+    zero-width space + "post" shows as "Chronopost". Everything else that
+    isn't a letter, digit or dot becomes a space. We also append a copy
+    with dots as spaces, so "impots.gouv" matches "impots gouv".
+    """
     text = without_invisible(text)
     folded = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", text))
     folded = "".join(c for c in folded if not unicodedata.combining(c)).translate(_CONFUSABLES)
-    # The joiners kept between two letters of a script that uses them do
-    # not cut a word.
+    # Some scripts need joiners between letters. Those don't split a word.
     folded = folded.replace("\u200c", "").replace("\u200d", "")
     if lower:
         folded = folded.lower()
@@ -115,12 +112,12 @@ def _plain_words(text: str, lower: bool = True) -> str:
     return f" {kept} {kept.replace('.', ' ')} "
 
 
-# Where a brand's own address may use one of its names: under .com, .net,
-# .org (registered by the brands themselves almost always), or under the
-# country code of a market PhishLens serves (paypal.fr, dhl.de,
-# amazon.co.jp...). Elsewhere ("paypal.vc", "chronopost.us", "gtbank.in")
-# only a domain listed in full counts: in known_domains.BRANDS, WELL_KNOWN
-# or the allowlist. A fork for another region adds its country codes.
+# TLDs where a domain named after a brand is assumed to be the brand's.
+# Brands nearly always register .com, .net and .org themselves, plus the
+# country codes of the markets PhishLens serves (paypal.fr, dhl.de). On
+# other TLDs ("paypal.vc", "chronopost.us") the full domain has to be in
+# known_domains.BRANDS, WELL_KNOWN or the allowlist. A fork for another
+# region should add its own country codes.
 _BRAND_TLDS = frozenset({"com", "net", "org"})
 _HOME_CCTLDS = frozenset(
     {"fr", "be", "ch", "lu", "de", "at", "nl", "es", "pt", "it", "uk", "ie", "ng", "ca", "jp"}
@@ -128,9 +125,10 @@ _HOME_CCTLDS = frozenset(
 
 
 def _brand_owns(brand_domains: frozenset[str], domain: str) -> bool:
-    """The organisational domain of `domain` is one of the brand's (see
-    _BRAND_TLDS). Never a customer subdomain of a shared host
-    (paypal.duckdns.org)."""
+    """Return True if `domain` belongs to the brand (see _BRAND_TLDS).
+
+    A customer subdomain on a shared host, like paypal.duckdns.org, never does.
+    """
     org = org_domain(domain)
     if not org:
         return False
@@ -145,10 +143,10 @@ def _brand_owns(brand_domains: frozenset[str], domain: str) -> bool:
     return org in WELL_KNOWN or org in TRUSTED_DOMAINS
 
 
-# Services that send in a person's name ("Jane (jane@outlook.com) via
-# Google Docs" <drive-shares-dm-noreply@google.com>): their notifications
-# carry the person's own address in the display name. Not "known sites"
-# for links (their shared files are anyone's), only for this.
+# Services that send on a person's behalf and put that person's address
+# in the display name, as in "Jane (jane@outlook.com) via Google Docs"
+# <drive-shares-dm-noreply@google.com>. This list is only for display
+# names. Their links are not trusted, because anyone can share a file.
 _RELAY_SENDERS = frozenset(
     [
         "google.com",
@@ -175,7 +173,7 @@ _RELAY_SENDERS = frozenset(
 
 
 def _comments(header: str) -> str:
-    """The text of every comment "(...)", nested ones included."""
+    """Return the text of every "(...)" comment, nested ones included."""
     out: list[str] = []
     depth = 0
     for ch in header:
@@ -191,12 +189,13 @@ def _comments(header: str) -> str:
 
 
 def _display_names(header: str) -> str:
-    """Every display name of a From: value, as mail programs show them: the
-    names the header parses into ('"Info" <x@evil.example>, "PayPal"
-    <x@evil.example>' has two), the text before its last "<" with the
-    addresses taken out (a malformed or unclosed header, '"PayPal\\"
-    <x@evil.example', 'Info <x@a>, PayPal <x@evil'), and its comments,
-    nested or not ('<x@evil.example> (PayPal (Support))')."""
+    """Return every display name a mail program might show for a From: value.
+
+    That includes each parsed name, the text before the last "<" with
+    addresses removed (for malformed headers such as
+    '"PayPal\\" <x@evil.example'), and comments such as
+    '<x@evil.example> (PayPal (Support))'.
+    """
     names = [name for name, _addr in getaddresses([header]) if name]
     if "<" in header:
         names.append(_ANGLE_ADDR_RE.sub(" ", header.rpartition("<")[0]))
@@ -205,34 +204,32 @@ def _display_names(header: str) -> str:
     return " ".join(names)
 
 
-# A person's address in a display name (any domain: a colleague at
-# microsoft.com shares a Google Doc too). Only left out for known,
-# relaying or allowlisted senders, and only when other words remain.
+# A person's address inside a display name, on any domain, since a
+# colleague at microsoft.com shares Google Docs too. We only drop it for
+# known, relaying or allowlisted senders, and only when other words remain.
 _WEBMAIL_IN_NAME_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b", re.IGNORECASE)
 
 
 def impersonated_brand(from_header: str) -> str | None:
-    """The brand a From: claims when its address is not the brand's.
+    """Return the brand a From: claims when the address isn't the brand's.
 
-    "Chronopost <info@qdsoddsmn.us>" -> "chronopost". The names are
-    checked as whole words against known_domains.BRANDS (brands of three
-    letters or fewer only in capitals, "UPS" but not "ups"); the address
-    passes when its organisational domain is the brand's (_brand_owns).
+    "Chronopost <info@qdsoddsmn.us>" gives "chronopost". Names are matched
+    as whole words against known_domains.BRANDS. Brands of three letters or
+    fewer only match in capitals, so "UPS" counts and "ups" doesn't.
     """
-    # The header as email_parsing.header_dict keeps it (spaces collapsed,
-    # 8,000 characters): the whole value, not a first part of it.
+    # Read the whole value as header_dict stored it (spaces collapsed,
+    # 8,000 characters).
     header = " ".join((from_header or "")[:32_000].split())[:8000]
     name = _display_names(header)
-    # Every address of the header: one of the brand's next to an impostor's
-    # ('"PayPal" <service@paypal.com>, <scam@evil.example>') does not
-    # vouch for the other. The first is the one every other check reads.
+    # Check every address. A brand address next to an impostor's
+    # ('"PayPal" <service@paypal.com>, <scam@evil.example>') doesn't vouch
+    # for the impostor. The other checks read the first one.
     addresses = set(sender_domains(header)) or {""}
-    # A person's webmail address next to their name, in a notification a
-    # large site or a sharing service sends (_RELAY_SENDERS) ("Jane (jane@gmail.com) via GitHub"
-    # <notifications@github.com>), does not claim to be the webmail: it is
-    # left out when the sender is a known or allowlisted site and other
-    # words remain. From anyone else ('"Security <security@gmail.com>"
-    # <x@evil>') it is read like any other address in a name.
+    # In "Jane (jane@gmail.com) via GitHub" <notifications@github.com> the
+    # gmail address doesn't claim to be Gmail. We drop it when the sender is
+    # a known, relaying or allowlisted site and other words remain. From
+    # anyone else ('"Security <security@gmail.com>" <x@evil>') it counts
+    # like any other address in a name.
     if all(
         org_domain(d) in WELL_KNOWN or org_domain(d) in _RELAY_SENDERS or is_trusted_domain(d)
         for d in addresses
@@ -252,8 +249,7 @@ def impersonated_brand(from_header: str) -> str | None:
 
 
 def is_hostname(name: str) -> bool:
-    """A DNS hostname with at least two labels, checked without a regex
-    (linear on any input)."""
+    """Return True for a hostname with at least two labels. No regex, so it stays linear."""
     labels = name.split(".")
     return (
         0 < len(name) <= 253
@@ -263,19 +259,18 @@ def is_hostname(name: str) -> bool:
 
 
 def synthesize_auth_results(ctx: Any, sender_email: str | None) -> str:
-    """Authentication-Results header from Gmail's UI signals.
+    """Build an Authentication-Results header from what Gmail shows.
 
-    Gmail shows "mailed-by" (the SPF-authenticated domain) and "signed-by"
-    (the DKIM signing domain). DMARC pass is only written when the signing
-    domain aligns with From: at the organisational level, so a message
-    signed by attacker.co.uk claiming to be from paypal.co.uk does not
-    align. Returns "" when there is nothing to build from.
+    "mailed-by" is the SPF domain and "signed-by" the DKIM domain. We only
+    write dmarc=pass when the signing domain aligns with From:, so
+    attacker.co.uk signing for paypal.co.uk doesn't align. Returns "" when
+    there is nothing to build from.
     """
     if not isinstance(ctx, dict) or ctx.get("origin") != "gmail":
         return ""
 
     def host(key: str) -> str:
-        # Written into a header below: anything but a host name is dropped.
+        # This goes into a header, so drop anything that isn't a hostname.
         value = ctx.get(key)
         value = value.strip().lower().rstrip(".") if isinstance(value, str) else ""
         return value if is_hostname(value) else ""

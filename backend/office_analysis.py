@@ -1,15 +1,17 @@
 """
 PhishLens: Office document analysis.
-Extracts text and links from Word, Excel and PowerPoint attachments and
-flags the features attackers use to turn a document into a dropper.
-Standard library only (zipfile + ElementTree): no python-docx or
-openpyxl, so there is nothing extra to install and nothing that
-executes document content.
 
-Modern formats (.docx .docm .xlsx .xlsm .pptx .pptm and their
-templates, shows and add-ins) are ZIP containers of XML parts. Legacy formats (.doc .xls .ppt) and password-protected
-modern files are OLE2 compound files; for those we only scan the raw
-bytes for macro and encryption markers and pull out URLs.
+Pulls text and links out of Word, Excel and PowerPoint attachments and
+flags the features attackers use to turn a document into a dropper.
+It only uses zipfile and defusedxml. python-docx and openpyxl are left
+out on purpose, so nothing extra is installed and nothing ever runs
+document content.
+
+Modern formats (.docx .docm .xlsx .xlsm .pptx .pptm and their templates,
+shows and add-ins) are ZIP files of XML parts. Legacy formats (.doc .xls
+.ppt) and password-protected modern files are OLE2 compound files. For
+those we read the directory and scan the raw bytes for macro and
+encryption markers and URLs.
 
 Flags raised (scored in fusion.FEATURE_RISK):
 
@@ -30,8 +32,8 @@ Flags raised (scored in fusion.FEATURE_RISK):
 * executable_in_archive...  a program, script or shortcut packed in an
                             embedded object (archive_analysis names)
 
-Safety limits: entry count, total uncompressed size (zip bombs), per
-part size, and any part with a DOCTYPE is skipped instead of parsed.
+We cap the entry count, the total uncompressed size (zip bombs) and the
+size of each part. A part that declares a DOCTYPE is skipped, never parsed.
 """
 
 from __future__ import annotations
@@ -44,8 +46,8 @@ import time
 import zipfile
 from typing import Any
 
-# defusedxml: the same API as xml.etree, hardened against entity
-# expansion and external entities in untrusted Office XML.
+# defusedxml has the xml.etree API but refuses entity expansion and
+# external entities, which matters for untrusted Office XML.
 from defusedxml import ElementTree as ET
 
 import archive_analysis as archives
@@ -88,9 +90,9 @@ LEGACY_MIMES = {
     "application/x-ole-storage",
 }
 
-# Word field codes: DDE / DDEAUTO, and the address of HYPERLINK and
-# INCLUDEPICTURE / INCLUDETEXT fields with or without quotes and switches
-# (HYPERLINK \o "tip" "https://..." or HYPERLINK https://...).
+# Word field codes. DDE and DDEAUTO can start a program. HYPERLINK,
+# INCLUDEPICTURE and INCLUDETEXT carry an address, quoted or not, before
+# or after switches (HYPERLINK \o "tip" "https://..." or HYPERLINK https://...).
 _DDE_FIELD_RE = re.compile(r"\bDDE(AUTO)?\b", re.IGNORECASE)
 _LINK_FIELD_RE = re.compile(
     r"\b(?:HYPERLINK|INCLUDEPICTURE|INCLUDETEXT)\b((?:\s+(?:\\\w(?:\s+\"[^\"]*\")?|\"[^\"]*\"|[^\s\"\\]+))*)",
@@ -98,13 +100,12 @@ _LINK_FIELD_RE = re.compile(
 )
 _FIELD_ARG_RE = re.compile(r'"([^"]{1,2048})"|([^\s"\\]{1,2048})')
 _FIELD_SWITCH_RE = re.compile(r'\\\w(?:\s+"[^"]*")?')
-# Excel formulas and DDE links that start a program: =cmd|'/c calc'!A1,
-# =MSEXCEL|'\..\..\Windows\System32\cmd.exe /c ...'!A1.
-# A formula is one line (one <f>, one run of a binary part): the
-# program name starts it or follows "=", "+", "-", "@", "(", "," ";" or
-# "&" (spaces allowed), the topic stays on the line and a cell reference
-# follows the "!" ('A1' quoted too). Text in double quotes is a string,
-# not a formula, and is left out first (_DOUBLE_QUOTED_RE).
+# Excel formulas and DDE links that start a program, such as
+# =cmd|'/c calc'!A1 or =MSEXCEL|'\..\..\Windows\System32\cmd.exe /c ...'!A1.
+# We match one line at a time (one <f>, or one run of a binary part). The
+# program name opens the formula or comes after an operator or separator,
+# and a cell reference (quoted or not) follows the "!". Strings in double
+# quotes are removed first because they are not formulas.
 _DDE_FORMULA_RE = re.compile(
     r"(?:^|(?<=[=+\-@(,;&]))[ \t]*[\w.\\]{1,64}[ \t]*\|[ \t]*['\"]?[^|'\"\r\n]{0,300}['\"]?"
     r"[ \t]*![ \t]*'?[$A-Za-z0-9_]",
@@ -113,20 +114,19 @@ _DDE_FORMULA_RE = re.compile(
 _DOUBLE_QUOTED_RE = re.compile(r'"[^"\r\n]*"')
 # PowerPoint "Run program" and macro actions on a click or mouse-over.
 _PIPE_RE = re.compile(rb"\||&#0*124;|&#x0*7c;", re.IGNORECASE)
-# Time for reading the parts: a document built to be slow to read is
-# reported as not read to the end, never as read and clean.
+# A document built to be slow to read must come back as "not fully read",
+# never as read and clean.
 _READ_SECONDS = 4.0
 _RUN_ACTION_RE = re.compile(rb"ppaction://(?:program|macro|ole)", re.IGNORECASE)
 
 
-# Elements are matched on local names, so namespaces do not matter.
+# We match elements on their local name and ignore namespaces.
 def _local(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
 
 
 def _urls_from(text: str, into: list[str]) -> None:
-    """Addresses in a document's text, read like an email's
-    (email_parsing.urls_in_text)."""
+    """Find URLs in document text the same way we do for email bodies."""
     for u in urls_in_text(text or ""):
         if u not in into:
             into.append(u)
@@ -135,15 +135,15 @@ def _urls_from(text: str, into: list[str]) -> None:
 
 
 # OOXML (zip + xml)
-# The part each kind of document opens from. Names are compared in lower
-# case: Office resolves part names without regard to case.
+# Main part of each kind of document. Office ignores case in part names,
+# so we compare them in lower case.
 _MAIN_PART = {
     "docx": re.compile(r"word/document\d*\.xml"),
     "xlsx": re.compile(r"xl/workbook\.(?:xml|bin)"),
     "pptx": re.compile(r"ppt/presentation\.xml"),
 }
-# What an Office package holds at its root; anything else in the ZIP is
-# not part of the document (see attachment_analysis._plain_archive).
+# Root entries of a real Office package. Anything else in the ZIP is not
+# part of the document (see attachment_analysis._plain_archive).
 OOXML_ROOTS = (
     "[content_types].xml",
     "_rels/",
@@ -156,10 +156,9 @@ OOXML_ROOTS = (
     "xl/",
     "ppt/",
 )
-# What the parts of an Office package are: XML, relationships, binary
-# parts (OLE objects and macros, flagged by name), media and fonts.
-# Anything else (a page, a PDF, an embedded document, a program) is read
-# as an archive member too (attachment_analysis).
+# Extensions a genuine package part can have. A part with any other
+# extension (a page, a PDF, a program) is handed to attachment_analysis
+# and read like an archive member.
 OFFICE_PART_EXTS = frozenset(
     [
         "xml",
@@ -203,14 +202,19 @@ _MEDIA_EXTS = frozenset(["png", "jpg", "jpeg", "jpe", "jfif", "gif", "bmp", "tif
 
 
 def part_name(name: str) -> str:
-    """An entry name as Office resolves it: "/" separators (a "\\" too),
-    no leading slash, any case."""
+    """Normalise an entry name the way Office resolves it.
+
+    Backslashes become slashes, the leading slash goes and case is folded.
+    """
     return name.replace("\\", "/").lstrip("/").lower()
 
 
 def is_office_part(name: str) -> bool:
-    """True when the entry is one an Office package holds. It is under one
-    of its folders, has a part's extension and no ".." in its path."""
+    """Return True if the entry looks like a normal Office part.
+
+    It has to sit under a known folder, use a part extension and have no
+    ".." in its path.
+    """
     n = part_name(name)
     return (
         n.startswith(OOXML_ROOTS)
@@ -219,11 +223,11 @@ def is_office_part(name: str) -> bool:
     )
 
 
-# Files Office itself puts in a package: the SVG version of a picture or
-# an icon, and the workbook (or document) behind a chart or an embedded
-# object. Read as members (they can carry links or macros), not listed.
-# Macro-enabled or legacy files are not among them: Office writes charts
-# and embedded documents as .xlsx, .docx, .pptx (OLE objects as .bin).
+# Files Office itself adds to a package, such as the SVG copy of a picture
+# or the workbook behind a chart. We still read them because they can
+# carry links or macros, but we don't list them as extra files. Office
+# writes these as .xlsx, .docx or .pptx (OLE objects as .bin), so a
+# macro-enabled or legacy file here is not one of them.
 _EXTRA_EMBEDDED = frozenset(["xlsx", "docx", "pptx"])
 
 
@@ -236,7 +240,7 @@ def office_extra(name: str) -> bool:
 
 
 def media_parts(names: list[str]) -> list[str]:
-    """The pictures of a package (its text may be nothing but a picture)."""
+    """Return the package's images. Some lures are a single picture with no text."""
     return [
         n
         for n in names
@@ -245,9 +249,10 @@ def media_parts(names: list[str]) -> list[str]:
 
 
 def detect_ooxml_kind(raw: bytes) -> str | None:
-    """Return 'docx', 'xlsx' or 'pptx' for an OOXML package (content types
-    and the main part of its kind present), None for any other ZIP or a
-    corrupt one."""
+    """Return 'docx', 'xlsx' or 'pptx', or None for any other ZIP.
+
+    A package needs [Content_Types].xml and the main part of its kind.
+    """
     try:
         with zipfile.ZipFile(io.BytesIO(raw)) as zf:
             names = {part_name(n) for n in zf.namelist()[:MAX_ZIP_ENTRIES]}
@@ -262,7 +267,7 @@ def detect_ooxml_kind(raw: bytes) -> str | None:
 
 
 class _Part(str):
-    """An entry's name that opens that very entry (_read_part)."""
+    """Return a key that opens this exact entry, even when names repeat."""
 
     info: zipfile.ZipInfo
 
@@ -289,8 +294,7 @@ def _read_part(zf: zipfile.ZipFile, name: str, flags: list[str]) -> bytes | None
 
 
 def _text_from_xml(data: bytes, text_tags: set[str] | None, block_tags: set[str]) -> str:
-    """Collect text nodes, with a newline at the end of each block
-    (paragraph, table row, shared string)."""
+    """Join the text nodes and end each paragraph, row or string with a newline."""
     out: list[str] = []
     try:
         for _event, el in ET.iterparse(io.BytesIO(data), events=("end",)):
@@ -306,9 +310,11 @@ def _text_from_xml(data: bytes, text_tags: set[str] | None, block_tags: set[str]
 
 
 class _Fields:
-    """Tracks the Word fields being read. Each open field has one frame with
-    its instruction parts, its result parts and whether its separate was
-    seen."""
+    """Keep track of nested Word fields while we walk a document.
+
+    Each open field gets a frame with its instruction text, its result text
+    and a flag for whether the separator has been seen.
+    """
 
     def __init__(self) -> None:
         self.codes: list[str] = []
@@ -344,12 +350,13 @@ class _Fields:
 
 
 def _field_codes(data: bytes) -> str:
-    """Word field instructions, as Word builds them: the instrText runs
-    between a field's begin and its separate (or end) are joined without
-    a space ("DD" + "EAUTO" is DDEAUTO), a field nested in an instruction
-    adds its result there ("DD" + {QUOTE "EAUTO"} is DDEAUTO, an empty
-    nested field adds nothing), and every field's own instruction is kept
-    too. fldSimple@instr is read as one field."""
+    """Rebuild Word field instructions the way Word does.
+
+    Word joins instrText runs without spaces, so "DD" + "EAUTO" becomes
+    DDEAUTO. A nested field contributes its result, which lets an attacker
+    write DDE as "DD" + {QUOTE "EAUTO"}. We keep each nested field's own
+    instruction as well. fldSimple@instr counts as one field.
+    """
     fields = _Fields()
     try:
         for _event, el in ET.iterparse(io.BytesIO(data), events=("end",)):
@@ -375,9 +382,11 @@ def _field_codes(data: bytes) -> str:
 
 
 def _field_urls(codes: str, urls: list[str]) -> None:
-    """Return the addresses of HYPERLINK / INCLUDEPICTURE / INCLUDETEXT
-    fields. That is the first argument that is not a switch, quoted or
-    not, plus any address written elsewhere in the codes."""
+    """Return the addresses in HYPERLINK, INCLUDEPICTURE and INCLUDETEXT fields.
+
+    We take the first argument that is not a switch, and also any URL that
+    appears elsewhere in the field code.
+    """
     for m in _LINK_FIELD_RE.finditer(codes):
         args = _FIELD_SWITCH_RE.sub(" ", m.group(1))
         for a in _FIELD_ARG_RE.finditer(args):
@@ -390,8 +399,7 @@ def _field_urls(codes: str, urls: list[str]) -> None:
 
 
 def _relationships(data: bytes) -> list[tuple[str, str, bool]]:
-    """(relationship type suffix in lower case, target, external) for every
-    relationship of a .rels part."""
+    """Yield (type suffix, target, is_external) for each relationship in a .rels part."""
     rels = []
     try:
         root = ET.fromstring(data)
@@ -407,7 +415,7 @@ def _relationships(data: bytes) -> list[tuple[str, str, bool]]:
 
 
 def _part_name_flags(names: list[str]) -> list[str]:
-    """Risky features visible from the part names alone."""
+    """Flag risky features we can see from part names alone."""
     flags: list[str] = []
     lower = [part_name(n) for n in names]
     if any(n.endswith("vbaproject.bin") for n in lower) or any(
@@ -424,7 +432,7 @@ def _part_name_flags(names: list[str]) -> list[str]:
     return flags
 
 
-# Parts of the kind's folder that hold no text of the document.
+# Parts in the main folder that never hold document text.
 _NOT_TEXT = re.compile(
     r".*/(styles|stylesWithEffects|settings|webSettings|fontTable|numbering|theme\d*|"
     r"presProps|viewProps|tableStyles|calcChain|people|commentsIds|commentsExtended)\.xml",
@@ -433,10 +441,12 @@ _NOT_TEXT = re.compile(
 
 
 def _text_parts(kind: str, names: list[str]) -> tuple[list[str], set[str], set[str]]:
-    """The XML parts holding the document's text, in reading order, with
-    the tags that hold text and the tags that end a block. Every XML part
-    of the kind's folder is read, whatever its name or case ("Document.xml",
-    "document2.xml"), but the style, setting and theme parts."""
+    """List the XML parts that hold document text, in reading order.
+
+    We read every XML part in the main folder except styles, settings and
+    themes. Attackers rename parts ("Document.xml", "document2.xml") and
+    Office still opens them, so we can't rely on the usual names.
+    """
     folder = {"docx": "word/", "xlsx": "xl/", "pptx": "ppt/"}[kind]
     if kind == "docx":
         text_tags, block_tags = {"t"}, {"p", "tr"}
@@ -452,8 +462,7 @@ def _text_parts(kind: str, names: list[str]) -> tuple[list[str], set[str], set[s
         and not _NOT_TEXT.fullmatch(part_name(n))
     ]
     main = _MAIN_PART[kind]
-    # The main part first, then the others in natural order (sheet2 before
-    # sheet10).
+    # Main part first, then natural order so sheet2 comes before sheet10.
     parts.sort(
         key=lambda n: (
             not main.fullmatch(part_name(n)),
@@ -463,9 +472,8 @@ def _text_parts(kind: str, names: list[str]) -> tuple[list[str], set[str], set[s
     return parts, text_tags, block_tags
 
 
-# Relationship types that make Office load something when the file
-# opens: a template or a frame (template injection), a sub-document, an
-# OLE object or a linked workbook.
+# Relationship types that make Office fetch something as the file opens.
+# Templates and frames are the template injection route.
 _LOADING_RELS = {
     "attachedtemplate": "remote_template",
     "frame": "remote_template",
@@ -475,7 +483,7 @@ _LOADING_RELS = {
     "externallink": "external_data_connection",
 }
 _MACRO_RELS = {"vbaproject", "wordvbadata", "xlmacrosheet", "xlintlmacrosheet", "macrosheet"}
-# Content types that only a macro project, a control or an OLE object has.
+# Content types used only by macro projects, controls and OLE objects.
 _CONTENT_TYPE_FLAGS = (
     (re.compile(rb"vbaproject|macrosheet|vbadata", re.I), "contains_macros"),
     (re.compile(rb"activex", re.I), "contains_activex"),
@@ -485,7 +493,7 @@ _CONTENT_TYPE_FLAGS = (
 
 _SCHEME_RE = re.compile(r"[a-z][a-z0-9+.-]*:")
 _DRIVE_RE = re.compile(r"[a-z]:[\\/]")
-# Targets that open something other than a web page.
+# Link targets that open something other than a web page.
 _RUNNING_TARGETS = (
     "\\\\",
     "file:",
@@ -507,10 +515,12 @@ def _add(flags: list[str], flag: str) -> None:
 def _scan_relationships(
     zf: zipfile.ZipFile, names: list[str], flags: list[str], urls: list[str]
 ) -> None:
-    """Read the relationships: hyperlinks, remote templates and frames, external OLE
-    links, macro projects whatever their part is named, and programs or
-    shares a click or the opening reaches (a target that is not a web
-    address: "\\\\host\\share", file:, ms-msdt:, mhtml:, or a program)."""
+    """Read the relationship parts for links and for anything Office would load.
+
+    This catches remote templates and frames, external OLE links and macro
+    projects under any part name. It also flags targets that are not web
+    addresses, such as "\\\\host\\share", file:, ms-msdt:, mhtml: or a program.
+    """
     for name in names:
         if not part_name(name).endswith(".rels"):
             continue
@@ -523,18 +533,18 @@ def _scan_relationships(
             if rtype == "control":
                 _add(flags, "contains_activex")
             if rtype in ("oleobject", "package"):
-                # An embedded object or package, inside the file or not.
+                # Embedded object or package, internal or external.
                 _add(flags, "embedded_ole_object")
             if not external:
                 continue
             if rtype in _LOADING_RELS:
                 _add(flags, _LOADING_RELS[rtype])
             low = target.lower()
-            # A share ("\\\\host\\share", which also sends the Windows
-            # password hash), a local file, a protocol handler or a program.
+            # Opening a "\\\\host\\share" target also leaks the user's
+            # Windows password hash to that host.
             href = "" if low.startswith(_RUNNING_TARGETS) else absolute_http(target)
-            # A web address is a link; anything else that opens a program
-            # ("calc.exe", "..\\run.lnk") is not.
+            # Only web addresses go into the link list. "calc.exe" or
+            # "..\\run.lnk" are flagged above and left out.
             path = not _SCHEME_RE.match(low) or _DRIVE_RE.match(low)
             if low.startswith(_RUNNING_TARGETS) or (
                 not href and path and archives.entry_reasons(target.split("?")[0])
@@ -557,17 +567,18 @@ def _content_type_flags(zf: zipfile.ZipFile, names: list[str], flags: list[str])
             return
 
 
-# The file name an OLE "Package" object carries (Ole10Native): the
-# "double-click to open" icon in a document that runs a program or script.
+# Ole10Native streams carry the file name of an OLE "Package" object. That
+# is the "double-click to open" icon that hides a script in a document.
 _PACKAGE_NAME_RE = re.compile(rb"([^\x00-\x1f\\/:*?\"<>|]{1,200}\.[A-Za-z0-9-]{1,20})\x00")
 
 
 def _embedded_files(zf: zipfile.ZipFile, names: list[str], flags: list[str]) -> None:
-    """Programs, scripts and shortcuts packaged inside embedded objects,
-    flagged as if they were in an archive (they are one click away)."""
+    """Flag programs, scripts and shortcuts packed into embedded objects.
+
+    They are one double-click away, so we treat them like archive members.
+    """
     for name in names:
-        # Any part is checked by its first bytes, whatever its name or
-        # folder ("word/media/x.png" can be an OLE file).
+        # Check magic bytes, not names. "word/media/x.png" can be an OLE file.
         try:
             with zf.open(getattr(name, "info", name)) as fh:
                 if fh.read(8) != OLE2_MAGIC:
@@ -587,13 +598,13 @@ def _embedded_files(zf: zipfile.ZipFile, names: list[str], flags: list[str]) -> 
             _add(flags, flag)
 
 
-# Printable runs in a binary part: UTF-16 (at an even or odd offset) or
-# single-byte text of 4 characters or more.
+# Printable runs of 4 or more characters in a binary part, either
+# single-byte or UTF-16 at any offset.
 _UTF16_RUN_RE = re.compile(rb"(?:[\x20-\x7e\xa0-\xff][\x00]){4,}")
 _BYTE_RUN_RE = re.compile(rb"[\x20-\x7e]{6,}")
-# Text a document keeps outside its body: shapes drawn in VML (links in
-# href / o:href), custom XML data and document properties. Their element
-# text is read for addresses, never their attributes (namespaces are URLs).
+# Parts that keep text outside the body (VML shapes, custom XML, document
+# properties). We only scan element text for URLs. Attributes are skipped
+# because namespace declarations are URLs too.
 _HREF_ATTR_RE = re.compile(rb"""\bhref\s*=\s*["']([^"']{1,2048})["']""", re.IGNORECASE)
 
 
@@ -608,10 +619,12 @@ def _binary_strings(data: bytes) -> str:
 def _other_parts(
     zf: zipfile.ZipFile, names: list[str], flags: list[str], urls: list[str], deadline: float
 ) -> str:
-    """What the text parts do not hold: the binary parts of an .xlsb
-    workbook (strings, formulas, links: read as runs of text), VML
-    drawings, custom XML and document properties (addresses only). The
-    text of an .xlsb's shared strings is returned for the text model."""
+    """Read the parts that _text_parts skips.
+
+    .xlsb workbooks are binary, so we pull printable runs out of them. VML
+    drawings, custom XML and document properties are scanned for URLs
+    only. The shared strings of an .xlsb are returned for the text model.
+    """
     text: list[str] = []
     for name in names:
         if time.monotonic() > deadline:
@@ -623,7 +636,7 @@ def _other_parts(
             if not data or data.startswith(OLE2_MAGIC):
                 continue
             strings = _binary_strings(data[:MAX_PART_BYTES])
-            # The shared strings are the cells' text, not formulas.
+            # Shared strings are cell text, not formulas.
             if "sharedstrings" not in n and (
                 _DDE_FORMULA_RE.search(strings) or _LEGACY_DDE_RE.search(strings)
             ):
@@ -632,9 +645,8 @@ def _other_parts(
             if "sharedstrings" in n:
                 text.append(strings)
         elif n.endswith((".vml", ".svg")):
-            # Drawings and SVG pictures: their links, read here so that a
-            # document inside an archive (whose members are not opened)
-            # still gives them.
+            # Read drawing and SVG links here too. When the document sits
+            # inside an archive, its members are never opened on their own.
             data = _read_part(zf, name, flags) or b""
             for m in _HREF_ATTR_RE.findall(data):
                 href = absolute_http(m.decode("utf-8", "ignore"))
@@ -648,12 +660,12 @@ def _other_parts(
 
 
 def _active_content(kind: str, name: str, data: bytes, flags: list[str], urls: list[str]) -> None:
-    """Find what a part makes Office do: "Run program" actions, DDE fields and
-    formulas, and the addresses of link fields."""
+    """Look for "Run program" actions, DDE fields and formulas, and link field URLs."""
     if _RUN_ACTION_RE.search(data):
         _add(flags, "launch_external_action")
-    # Parsed only when the part holds what is looked for (element names
-    # cannot be escaped in XML; a "|" can, as a character reference).
+    # A cheap substring test decides whether to parse. Element names can't
+    # be escaped in XML, but "|" can be written as a character reference,
+    # so that one is checked in both forms.
     if kind == "docx" and (b"instrText" in data or b"fldSimple" in data):
         codes = _field_codes(data)
         if _DDE_FIELD_RE.search(codes):
@@ -685,8 +697,8 @@ def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
                 "Office document expands beyond the safe size limit (possible zip bomb)."
             )
 
-        # Every entry, each opened as itself: a ZIP may hold two parts of
-        # the same name, and opening by name gives only one of them.
+        # Iterate over entries, not names. A ZIP can hold two parts with the
+        # same name and opening by name only returns one of them.
         names = [_Part(i) for i in infos if not archives.is_dir(i.filename)]
         kind = detect_ooxml_kind(raw)
         if kind is None:
@@ -695,8 +707,8 @@ def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
             )
 
         flags = _part_name_flags(names)
-        # What an Office file never holds (a program, a script, a disk
-        # image) or a part encrypted at the ZIP level.
+        # Office never puts programs, scripts or disk images in a package,
+        # and never encrypts parts at the ZIP level.
         for flag in archives.classify_names(names):
             if flag not in flags:
                 flags.append(flag)
@@ -714,8 +726,7 @@ def analyse_ooxml(raw: bytes, filename: str) -> dict[str, Any]:
             data = _read_part(zf, name, flags)
             if data is None:
                 continue
-            # Every part is checked for active content; the text stops
-            # growing at MAX_TEXT, the checks do not.
+            # Text stops at MAX_TEXT but the active-content checks keep going.
             _active_content(kind, name, data, flags, urls)
             if sum(len(t) for t in texts) < MAX_TEXT:
                 texts.append(without_invisible(_text_from_xml(data, text_tags, block_tags)))
@@ -746,10 +757,11 @@ def _utf16(s: str) -> bytes:
 # "_VBA_PROJECT" is the stream every VBA project has (Word, Excel,
 # PowerPoint); "Macros" is the Word 97-2003 storage that holds it.
 def cfb_names(raw: bytes) -> list[str] | None:
-    """The names of the storages and streams of an OLE2 (compound) file,
-    read from its directory (MS-CFB), or None when it cannot be read.
-    Names are given in lower case: the format ignores case, so
-    "_vba_project" is "_VBA_PROJECT". Bounded on any input."""
+    """Read storage and stream names from an OLE2 directory (MS-CFB).
+
+    Names come back in lower case because the format ignores case. Returns
+    None if the directory can't be read. The loop is bounded for any input.
+    """
     if not raw.startswith(OLE2_MAGIC) or len(raw) < 512:
         return None
     shift = int.from_bytes(raw[30:32], "little")
@@ -775,8 +787,8 @@ def cfb_names(raw: bytes) -> list[str] | None:
         difat += [d for d in vals[:-1] if d < end]
         nxt = vals[-1]
     fat: list[int] = []
-    # 512 FAT sectors map 32 MB at least: more than any attachment. The
-    # same sector listed twice is read once.
+    # 512 FAT sectors map at least 32 MB, more than any attachment. A
+    # sector listed twice is only read once.
     for d in list(dict.fromkeys(difat))[:512]:
         fat.extend(words(sector(d)))
     names: list[str] = []
@@ -789,18 +801,17 @@ def cfb_names(raw: bytes) -> list[str] | None:
         for k in range(0, len(data) - 127, 128):
             length = int.from_bytes(data[k + 64 : k + 66], "little")
             if 2 <= length <= 64 and data[k + 66] in (1, 2, 5):
-                # Office reads a name up to its first NUL, whatever length
-                # the entry claims.
+                # Office stops at the first NUL whatever length the entry claims.
                 name = data[k : k + length - 2].decode("utf-16-le", "replace")
                 name = name.partition("\x00")[0].lower()
                 if name:
                     names.append(name)
         cur = fat[cur] if cur < len(fat) else end
-    # No name at all: the directory was not found, not empty.
+    # An empty result means we never found the directory.
     return names or None
 
 
-# Directory names (lower case) that mean macros, encryption, an object.
+# Lower-case directory names that indicate macros, encryption or an object.
 _CFB_VBA = {"_vba_project", "vba", "macros", "_xlm"}
 _CFB_ENCRYPTED = {"encryptedpackage", "encryptioninfo"}
 _CFB_OBJECT = {"objectpool", "\x01ole10native", "ole10native"}
@@ -834,9 +845,8 @@ def analyse_ole(raw: bytes, filename: str) -> dict[str, Any]:
     if not raw.startswith(OLE2_MAGIC):
         raise ValueError("Unsupported or corrupt Office document: not an OLE2 file.")
 
-    # The directory says what the file holds, in any case; the byte
-    # markers are the fallback for a directory that cannot be read, and
-    # the VBA source marker ("Attribute VB_Name") counts either way.
+    # Trust the directory first. Byte markers are the fallback when it
+    # can't be read, except "Attribute VB_Name", which always counts.
     found = _cfb_flags(raw)
     if found is None:
         found = []
@@ -856,22 +866,22 @@ def analyse_ole(raw: bytes, filename: str) -> dict[str, Any]:
         flags.append("legacy_office_format")
     flags += [f for f in found if f != "encrypted_document"]
     if "embedded_ole_object" in flags:
-        # A packaged file's name: "invoice.pdf.js" behind an icon.
+        # Packaged file name, e.g. "invoice.pdf.js" behind an icon.
         found = [m.decode("latin-1") for m in _PACKAGE_NAME_RE.findall(raw[:5_000_000])]
         for flag in archives.classify_names(found):
             _add(flags, flag)
 
-    # Binary formats keep text in either cp1252 or UTF-16LE runs (a field
-    # starts with U+0013). Only URLs and DDE fields are pulled out of them,
-    # in any case; the text agent is skipped (too noisy).
+    # Binary formats store text as cp1252 or UTF-16LE runs, and a field
+    # starts with U+0013. We only take URLs and DDE fields from them. The
+    # text model would see too much noise.
     texts = [raw.decode("latin-1", errors="ignore")]
     # UTF-16 runs start at an even or an odd offset.
     texts += [raw[k:].decode("utf-16-le", errors="ignore") for k in (0, 1)]
     if any(_LEGACY_DDE_RE.search(t) for t in texts):
         flags.append("dde_field")
-    # Addresses are read from the text runs, one per line. Reading the
-    # whole file would drop the NUL ending a string as invisible and glue
-    # the address to the next word ("https://evil.tk" + NUL + "Click").
+    # Scan run by run. On the whole file the NUL that ends a string would
+    # be dropped as invisible and glue the URL to the next word
+    # ("https://evil.tk" + NUL + "Click").
     urls: list[str] = []
     _urls_from(_binary_strings(raw), urls)
 

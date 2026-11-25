@@ -1,23 +1,21 @@
 """
-What an HTML email hides from its reader.
+PhishLens: finding what an HTML email hides from its reader.
 
-Hidden text placed before the message filled the text model's window with
-words nobody sees, and hidden links pushed the real ones out. Hidden
-parts are moved after the visible ones rather than dropped: a rule for
-phones can show them again, and the reader may then see them.
+Attackers put hidden text before the message to fill the text model's
+window with words nobody sees, and hidden links to push the real ones
+out of the link list. We move hidden parts after the visible ones
+instead of dropping them, because a phone stylesheet can show them again.
 
-Each element's style is its <style> rules (in order, !important kept)
-then its inline style; backgrounds are composed from the page (white)
-down, alpha included. A style can hide a whole box (display, opacity,
-clipping...) or only make an element's own text unreadable (colour,
-size, visibility): then its children, which may set their own, are
-judged on their own. The extension makes the same decision from the styles the
-browser computed (content_scripts/core.js, PL.isHidden); both sides are
-checked against tests/fixtures/hidden_cases.json.
+An element's style is its <style> rules in order, with !important
+respected, followed by its inline style. Backgrounds are composed from
+the white page down, alpha included. Some styles hide a whole box
+(display, opacity, clipping). Others only make the element's own text
+unreadable (colour, size, visibility), and then each child is judged on
+its own because it may set its own colour.
 
-hidden_tags(soup)          outermost hidden elements of a parsed document
-visible_text_first(soup)   its text, the hidden parts last
-is_hidden_style(style)     one inline style, on a given background
+The extension makes the same call from the browser's computed styles
+(PL.isHidden in content_scripts/core.js). Both sides are tested against
+tests/fixtures/hidden_cases.json.
 """
 
 from __future__ import annotations
@@ -29,18 +27,18 @@ import time
 import soupsieve
 from bs4 import Comment
 
-# Styles that hide an element and everything in it. visibility is not
-# one: a child can say visible again (see _invisible).
+# Styles that hide an element and all of its content. visibility is not
+# here because a child can set it back to visible (see _invisible).
 _HIDING_STYLES = {
     "display": {"none"},
     "mso-hide": {"all"},
 }
-# Smallest readable font size per unit (any other unit: above 0).
+# Smallest readable font size per unit. Other units only need to be above 0.
 _MIN_FONT = {"px": 2.0, "pt": 2.0, "em": 0.2, "rem": 0.2, "%": 20.0, "": 2.0}
 _SCALE_RE = re.compile(r"scale(?:x|y|3d)?\(([^()]{0,100})\)")
-# Text and background with a contrast ratio under this cannot be read.
+# Below this contrast ratio, text can't be read against its background.
 _MIN_CONTRAST = 1.2
-# An email is drawn in black on white unless it says otherwise.
+# Email clients draw black text on white unless told otherwise.
 PAGE = (255, 255, 255)
 _INK = (0, 0, 0, 1.0)
 # The CSS colour names (CSS Color 4).
@@ -353,7 +351,7 @@ Colour = tuple[int, int, int]
 
 
 def _length(value: str) -> tuple[float, str] | None:
-    """(number, unit) of a CSS length ("0.01em" -> (0.01, "em")), or None."""
+    """Split a CSS length into (number, unit), e.g. "0.01em" -> (0.01, "em")."""
     value = value.strip().split(" ")[0].rstrip(")")
     num = value.rstrip("%abcdefghijklmnopqrstuvwxyz")
     try:
@@ -371,9 +369,11 @@ def _alpha(part: str) -> float:
 
 
 def parse_colour(value: str) -> tuple[int, int, int, float] | None:
-    """(r, g, b, alpha) of a CSS colour: #rgb, #rgba, #rrggbb, #rrggbbaa,
-    rgb()/rgba() in numbers or percentages, hsl()/hsla(), the space and
-    "/" syntax, a few names, transparent; None otherwise."""
+    """Parse a CSS colour into (r, g, b, alpha), or return None.
+
+    Handles hex forms, rgb() and hsl() with either syntax, named colours
+    and transparent.
+    """
     value = value.strip().lower()
     if value == "transparent":
         return (0, 0, 0, 0.0)
@@ -403,7 +403,7 @@ def parse_colour(value: str) -> tuple[int, int, int, float] | None:
 
 
 def over(top: tuple, bottom: Colour) -> Colour:
-    """`top` (r, g, b, alpha) drawn over the opaque `bottom`."""
+    """Blend `top` (with alpha) over the opaque `bottom`."""
     a = top[3]
     return tuple(round(a * t + (1 - a) * b) for t, b in zip(top[:3], bottom, strict=True))
 
@@ -420,34 +420,33 @@ def _luminance(c: Colour) -> float:
 
 
 def _same_colour(a: Colour, b: Colour) -> bool:
-    """True when the two colours are too close to read, that is when
-    their WCAG contrast ratio is under _MIN_CONTRAST (white on #f0f0f0
-    is 1.1; body text needs 4.5)."""
+    """Return True if the WCAG contrast ratio is under _MIN_CONTRAST.
+
+    For scale, white on #f0f0f0 is 1.1 and body text needs 4.5.
+    """
     la, lb = sorted((_luminance(a), _luminance(b)))
     return (lb + 0.05) / (la + 0.05) < _MIN_CONTRAST
 
 
 class Declarations(dict):
-    """Property -> value, lower case, with the properties marked
-    !important in `important`."""
+    """CSS declarations in lower case, with the !important ones tracked in `important`."""
 
     def __init__(self, *args, important=(), **kwargs):
         super().__init__(*args, **kwargs)
         self.important = set(important)
 
     def then(self, later: Declarations) -> Declarations:
-        """These declarations with `later` applied over them, as a copy."""
+        """Return a copy with `later` applied on top."""
         out = Declarations(self, important=self.important)
         out.apply(later)
         return out
 
     def apply(self, later: Declarations) -> None:
-        """`later` applied over these, in place: a later value wins unless
-        this one is !important and the later one is not."""
+        """Apply `later` in place. An !important value survives a later plain one."""
         for key, value in later.items():
             if key in self.important and key not in later.important:
                 continue
-            self.pop(key, None)  # moved last: the order says which came later
+            self.pop(key, None)  # re-insert so dict order reflects which came later
             self[key] = value
             if key in later.important:
                 self.important.add(key)
@@ -463,14 +462,14 @@ def style_declarations(style: str) -> Declarations:
         key, sep, value = item.partition(":")
         if sep:
             key = key.strip().lower()
-            # Values in lower case, but the words of "content" as written.
+            # Lower-case everything except the text of "content".
             value = value if key == "content" else value.lower()
             important = bool(_IMPORTANT_RE.search(value))
             if key in decl.important and not important:
                 continue  # an !important value is kept over a later plain one
             if important:
                 decl.important.add(key)
-            decl.pop(key, None)  # moved last: the order says which came later
+            decl.pop(key, None)  # re-insert so dict order reflects which came later
             decl[key] = _IMPORTANT_RE.sub("", value).strip()
     return decl
 
@@ -479,9 +478,11 @@ _COLOUR_FN_RE = re.compile(r"(?:rgba?|hsla?)\([^()]{0,80}\)")
 
 
 def _background_value(value: str) -> tuple | str | None:
-    """The colour of a background value, shorthand included ("no-repeat
-    center #0b57d0", "rgb(11, 87, 208) no-repeat"); "image" for an image
-    or a gradient; None for none."""
+    """Return the colour in a background value, "image", or None.
+
+    Works on the shorthand too ("no-repeat center #0b57d0"). Images and
+    gradients return "image".
+    """
     if "url(" in value or "gradient(" in value or "image(" in value:
         return "image"
     found = _COLOUR_FN_RE.search(value)
@@ -490,8 +491,8 @@ def _background_value(value: str) -> tuple | str | None:
         colour = parse_colour(token)
         if colour:
             return colour if colour[3] > 0 else None
-    # A value with no colour this module reads (a variable, currentColor,
-    # a name it does not know): unknown, never assumed white.
+    # Variables, currentColor and unknown names are treated as unknown.
+    # Assuming white would mark light text on a dark section as hidden.
     words = set(value.split()) - {"none", "inherit", "initial", "unset", "transparent"}
     return "image" if words - _BACKGROUND_KEYWORDS else None
 
@@ -523,10 +524,11 @@ _BACKGROUND_KEYWORDS = frozenset(
 
 
 def _own_background(decl: dict[str, str], tag=None) -> tuple | str | None:
-    """Return the background an element paints, as (r, g, b, alpha),
-    "image" (unknown colour) or None. It comes from the style (the later
-    of background and background-color), else from the bgcolor or
-    background attribute."""
+    """Return the element's own background as RGBA, "image" or None.
+
+    The style wins (whichever of background and background-color comes
+    last). Otherwise we fall back to the bgcolor or background attribute.
+    """
     if decl.get("background-image", "none") != "none":
         return "image"
     for key in reversed([k for k in decl if k in ("background", "background-color")]):
@@ -545,9 +547,7 @@ def _own_background(decl: dict[str, str], tag=None) -> tuple | str | None:
 
 
 def _behind(decl: dict[str, str], parent: Colour | None, tag=None) -> Colour | None:
-    """Return the colour behind an element's text, which is its own
-    background over its parent's. None when unknown (an image is drawn,
-    and nothing opaque covers it)."""
+    """Return the colour behind the element's text, or None if an image shows through."""
     own = _own_background(decl, tag)
     if own == "image":
         return None
@@ -559,9 +559,7 @@ def _behind(decl: dict[str, str], parent: Colour | None, tag=None) -> Colour | N
 
 
 def _hides_box(decl: dict[str, str]) -> bool:
-    """True when the element and everything in it are out of view
-    (display:none, opacity near 0, clipped, off the page or scaled to
-    nothing)."""
+    """Return True if the whole box is out of view (display, opacity, clip, position, scale)."""
     if any(decl.get(key) in hiding for key, hiding in _HIDING_STYLES.items()):
         return True
     opacity = _length(decl.get("opacity", "1"))
@@ -569,8 +567,10 @@ def _hides_box(decl: dict[str, str]) -> bool:
 
 
 def _tiny(decl: dict[str, str], parent_tiny: bool) -> bool:
-    """True when the font is too small to read, set so here or inherited
-    (an em or percent size of a tiny font stays tiny)."""
+    """Return True if the font is too small to read.
+
+    The size is inherited, so 1em inside a tiny font stays tiny.
+    """
     size = _length(decl.get("font-size", "")) if decl.get("font-size") else None
     if size is None:
         return parent_tiny
@@ -580,16 +580,18 @@ def _tiny(decl: dict[str, str], parent_tiny: bool) -> bool:
 
 
 def _invisible(decl: dict[str, str], parent_invisible: bool) -> bool:
-    """visibility:hidden, inherited until a child says visible."""
+    """Return True for visibility:hidden, which a child can override."""
     value = decl.get("visibility")
     return value in ("hidden", "collapse") if value else parent_invisible
 
 
 def _ink(decl: dict[str, str], parent_ink: tuple, tag=None) -> tuple:
-    """Return the colour text is drawn in, as (r, g, b, alpha). Alpha is
-    kept, so transparent text stays transparent whatever is behind it.
-    The element's own colour (style, or <font color>) wins, else the
-    inherited one, which an unknown colour also falls back to."""
+    """Return the text colour as RGBA.
+
+    We keep alpha so transparent text stays transparent. The element's own
+    colour (style or <font color>) wins. Otherwise, or when the colour is
+    unknown, we use the inherited one.
+    """
     value = decl.get("color") or (
         tag.get("color") if tag is not None and tag.name == "font" else ""
     )
@@ -604,12 +606,12 @@ def _text_unreadable(behind: Colour | None, ink: tuple, tiny: bool, invisible: b
 
 
 def is_hidden_style(style: str, background: tuple | None = None) -> bool:
-    """True when an inline style hides the text of its element: display
-    none, visibility hidden, opacity near 0, an unreadably small font, a
-    colour too close to the background behind it (its own over
-    `background`, by default the white page), no height or width with the
-    overflow hidden, clipped away, placed far off the page, or scaled to
-    nothing."""
+    """Return True if an inline style hides its element's text.
+
+    `background` is what lies behind the element and defaults to the white
+    page. Besides the box-level checks, this catches tiny fonts, low
+    contrast and a zero size with overflow hidden.
+    """
     decl = style_declarations(style)
     parent = PAGE if background is None else tuple(background[:3])
     behind = _behind(decl, parent)
@@ -620,7 +622,7 @@ def is_hidden_style(style: str, background: tuple | None = None) -> bool:
 
 
 def _out_of_sight(decl: dict[str, str]) -> bool:
-    """Clipped to nothing, far off the page, or scaled to nothing."""
+    """Return True if the box is clipped away, moved off the page or scaled to zero."""
     if {decl.get(k) for k in ("overflow", "overflow-x", "overflow-y")} & {"hidden", "clip"} and any(
         (_length(decl.get(k, "1")) or (1, ""))[0] < 1
         for k in ("max-height", "height", "max-width", "width")
@@ -647,14 +649,16 @@ def _out_of_sight(decl: dict[str, str]) -> bool:
 
 
 def _applies_on_screen(condition: str) -> bool:
-    """True for an @media block every screen reads, such as "@media
-    screen" or "@media all" with no width or other feature (those are the
-    phone copies)."""
+    """Return True for an @media block that applies on every screen.
+
+    "@media screen" or "@media all" qualify. Blocks with a width or other
+    feature are the phone versions and are skipped.
+    """
     words = condition.lower().replace(",", " ").split()
     return bool(words) and words[0] == "@media" and set(words[1:]) <= {"screen", "all", "only"}
 
 
-# Properties that can hide something; a rule without any is skipped.
+# Properties that can hide something. Rules without any of them are skipped.
 _RELEVANT = frozenset(
     [
         "content",
@@ -688,10 +692,11 @@ _RELEVANT = frozenset(
 
 
 def _sheet_rules(css: str, out: list[tuple[str, Declarations]]) -> None:
-    """Append (selectors, declarations) for each rule of a style sheet to
-    `out`, in order. Top-level rules and those of @media blocks every
-    screen reads are kept. Statements such as @charset and @import end at
-    their ";"."""
+    """Append (selectors, declarations) for each rule of a sheet to `out`.
+
+    We keep top-level rules and rules inside @media blocks that apply on
+    every screen. At-statements like @charset and @import end at their ";".
+    """
     depth, start, head, body_start = 0, 0, "", 0
     for i, ch in enumerate(css):
         if len(out) >= _MAX_RULES:
@@ -715,22 +720,21 @@ def _sheet_rules(css: str, out: list[tuple[str, Declarations]]) -> None:
                 start = i + 1
 
 
-# A selector made of a tag, classes and an id only ("td.dark", ".h", "#x"):
-# matched from an index, without walking the document.
+# Selectors made only of a tag, classes and an id ("td.dark", ".h", "#x").
+# These are answered from an index without walking the document.
 _SIMPLE_RE = re.compile(r"^([a-z][a-z0-9-]*|\*)?((?:[.#][a-z0-9_-]+)*)$", re.IGNORECASE)
-# Work allowed for all rules together, counted in elements checked or
-# styled. Without it a few thousand selectors over a large document take
-# minutes. Rules past the budget are not applied; a <style> that long is
-# suspect anyway.
+# Work budget for all rules together, counted in elements checked. Without
+# it a few thousand selectors over a large document take minutes. Rules
+# past the budget are skipped. A sheet that long is suspect anyway.
 _SELECT_BUDGET = 20_000
 _SELECT_SECONDS = 0.5
-# Styles given to elements, all rules together ("div" repeated in 5,000
-# rules over 5,000 elements is 25 million).
+# Cap on style merges across all rules. "div" in 5,000 rules over 5,000
+# elements would be 25 million.
 _MAX_MERGES = 3_000_000
 
 
-# Tags, classes and ids named in a selector; attribute tests and
-# pseudo-classes are set aside first.
+# Tags, classes and ids in a selector, after removing attribute tests and
+# pseudo-classes.
 _TOKEN_RE = re.compile(
     r"([.#])(-?[a-z_][a-z0-9_-]*)|(?<![a-z0-9_.#-])()([a-z][a-z0-9-]*)", re.IGNORECASE
 )
@@ -738,7 +742,7 @@ _ATTRS_RE = re.compile(r"\[[^\]]*\]|::?[a-z-]+(?:\([^)]*\))?", re.IGNORECASE)
 
 
 class _Index:
-    """The document's elements by tag, class and id."""
+    """Index of the document's elements by tag, class and id."""
 
     def __init__(self, soup):
         self.all = soup.find_all(True, limit=MAX_ELEMENTS)
@@ -754,11 +758,13 @@ class _Index:
                 self.by_id.setdefault(str(tag["id"]).lower(), []).append(tag)
 
     def select(self, selector: str, budget: list) -> list:
-        """The elements a selector matches. Simple selectors come from the
-        index at no cost. Others cost one unit per candidate, taken from
-        `budget` ([units left, deadline]); they match nothing once it is
-        spent or past, or when they name a tag, class or id the email does
-        not have."""
+        """Return the elements a selector matches.
+
+        Simple selectors are free. Others cost one unit per candidate from
+        `budget` ([units left, deadline]). Once the budget runs out they
+        match nothing. A selector naming a tag, class or id that the email
+        doesn't have is skipped without cost.
+        """
         matched = self.simple(selector)
         if matched is not None:
             return matched
@@ -777,12 +783,12 @@ class _Index:
         budget[0] -= len(candidates)
         try:
             compiled = soupsieve.compile(selector)
-        except Exception:  # a selector soupsieve does not support
+        except Exception:  # soupsieve doesn't support this selector
             return []
         matched = []
         for n, tag in enumerate(candidates):
-            # Some selectors cost far more per element (":nth-child" over
-            # a thousand siblings): the clock bounds them too.
+            # ":nth-child" over a thousand siblings costs far more per
+            # element, so the deadline applies too.
             if n % 100 == 0 and time.monotonic() > budget[1]:
                 break
             if compiled.match(tag):
@@ -790,9 +796,10 @@ class _Index:
         return matched
 
     def simple(self, selector: str) -> list | None:
-        """The elements a simple selector matches, or None when it is not
-        a simple one (memoised: a sheet can repeat one thousands of
-        times)."""
+        """Return matches for a simple selector, or None if it isn't simple.
+
+        Memoised, because a sheet can repeat the same selector thousands of times.
+        """
         key = selector.lower()
         if key not in self._simple:
             self._simple[key] = self._simple_uncached(key)
@@ -821,16 +828,14 @@ class _Index:
 
 
 def _rules_of(soup) -> list[tuple[str, Declarations]]:
-    """The rules of the document's <style> sheets (300,000 characters of
-    CSS at most, all sheets together)."""
+    """Collect the rules of all <style> sheets, reading at most 300,000 characters."""
     rules: list[tuple[str, Declarations]] = []
     left = 300_000
     for sheet in soup.find_all("style", limit=50):
         css = sheet.get_text()[:left]
         left -= len(css)
-        # "<!--" and "-->" around a sheet (common in email templates) are
-        # ignored by CSS (CDO / CDC tokens): they must not join the first
-        # selector ("<!-- .h").
+        # Email templates often wrap sheets in "<!--" and "-->". CSS ignores
+        # these CDO/CDC tokens, so they must not stick to the first selector.
         css = _COMMENT_RE.sub(" ", css).replace("<!--", " ").replace("-->", " ")
         _sheet_rules(css, rules)
         if left <= 0:
@@ -843,14 +848,14 @@ _QUOTED_RE = re.compile(r"\"([^\"]{0,500})\"|'([^']{0,500})'")
 
 
 def generated_text(soup, hidden: list | None = None) -> str:
-    """Words a <style> sheet writes on the page itself (::before and
-    ::after content): the reader sees them, the document's text does not
-    hold them, so a lure written there was out of the text model's reach.
-    Left out: content hidden by its own rule (display), unreadable as
-    drawn on its element (size, visibility and colour, its own or the
-    element's, against what is behind it; hidden_tags records them), or
-    for elements not in the email or inside a `hidden` part. Selectors
-    are matched within a work budget, 200 words at most."""
+    """Return the words a sheet draws with ::before and ::after content.
+
+    The reader sees them but they are not in the document text, so a lure
+    written there used to escape the text model. We skip content that its
+    own rule hides, content that would be unreadable on its element, and
+    content for elements that are missing or inside a `hidden` part.
+    Matching stays within the selector budget and returns 200 words at most.
+    """
     hidden_ids = {id(t) for t in hidden or []}
     states = getattr(soup, "pll_text_states", {})
     index, words, budget = None, [], [20_000, time.monotonic() + _SELECT_SECONDS]
@@ -878,8 +883,11 @@ def generated_text(soup, hidden: list | None = None) -> str:
 
 
 def _pseudo_readable(decl: Declarations, state: tuple | None) -> bool:
-    """A ::before or ::after drawn on an element in `state` (behind, ink,
-    tiny, invisible; the page and black ink when unknown) can be read."""
+    """Return True if generated content on this element would be readable.
+
+    `state` holds (behind, ink, tiny, invisible). Unknown elements default
+    to black ink on the page.
+    """
     behind, ink, tiny, invisible = state or (PAGE, _INK, False, False)
     return not _text_unreadable(
         _behind(decl, behind),
@@ -890,19 +898,19 @@ def _pseudo_readable(decl: Declarations, state: tuple | None) -> bool:
 
 
 def _cascade(soup) -> dict[int, Declarations]:
-    """id(element) -> the declarations its <style> rules give it, later
-    rules over earlier ones (specificity is not weighed). Simple selectors
-    come from an index, others from BeautifulSoup, within _SELECT_BUDGET."""
+    """Map id(element) to the declarations its <style> rules give it.
+
+    Later rules win and specificity is ignored. Simple selectors use the
+    index and the rest go through BeautifulSoup within _SELECT_BUDGET.
+    """
     rules = _rules_of(soup)
     if not rules:
         return {}
     index = _Index(soup)
     budget = [_SELECT_BUDGET, time.monotonic() + _SELECT_SECONDS]
-    # Rules that can hide a box are matched first, then those that change
-    # colour, size or visibility, then the rest, so junk rules placed before
-    # them cannot spend the selector budget (simple selectors cost nothing).
-    # They are still applied in source order. A selector repeated in many
-    # rules is matched only once.
+    # Match rules that can hide something first, so junk rules placed ahead
+    # of them can't use up the budget. They are still applied in source
+    # order, and a repeated selector is matched once.
     memo: dict[str, list] = {}
 
     def elements(selectors: str) -> list[list]:
@@ -917,9 +925,8 @@ def _cascade(soup) -> dict[int, Declarations]:
         i: elements(rules[i][0])
         for i in sorted(range(len(rules)), key=lambda i: (_tier(rules[i][1]), i))
     }
-    # Applying them costs one step per element styled (in place, cheap).
-    # Within _MAX_MERGES, the rules that can hide come first; those kept
-    # are applied in their own order.
+    # Each element styled costs one merge. Under _MAX_MERGES the rules that
+    # can hide get priority, and the ones kept run in source order.
     kept, merges = [], _MAX_MERGES
     for i in sorted(found, key=lambda i: (_tier(rules[i][1]), i)):
         merges -= sum(len(group) for group in found[i])
@@ -942,15 +949,13 @@ _COMBINATOR_RE = re.compile(r"[\s>+~]+")
 
 
 def _last_compound(selector: str) -> str:
-    """The last compound of a selector, without attributes or
-    pseudo-classes: "td.dark" in "table > tr td.dark:hover"."""
+    """Return the last compound of a selector, e.g. "td.dark" for "table > tr td.dark:hover"."""
     last = _COMBINATOR_RE.split(selector.strip())[-1]
     return re.split(r"[\[:]", last, maxsplit=1)[0]
 
 
 def _tier(decl: Declarations) -> int:
-    """0 for rules that can hide a box or make text unreadable (colour,
-    size, visibility, background), 1 for the rest."""
+    """Sort key that puts rules able to hide something first."""
     return 0 if _hides_box(decl) or _may_hide(decl) else 1
 
 
@@ -961,15 +966,17 @@ def _may_hide(decl: Declarations) -> bool:
 
 
 def hidden_tags(soup) -> list:
-    """The outermost hidden parts of a document, in page order. An element
-    is hidden whole by an attribute, a <template>, a closed <details>
-    (all but its <summary>), or a style that hides its box (display,
-    opacity, clipping, position, scale). A style that only makes text
-    unreadable (colour, size, visibility) hides that element's own text,
-    wrapped in a <span>: a dark section whose paragraphs set a light
-    colour stays visible. Styles are its <style> rules then inline; the
-    first MAX_ELEMENTS elements are examined. Call it before removing the
-    document's <style> elements."""
+    """Return the outermost hidden parts of a document in page order.
+
+    A whole element is hidden by the hidden attribute, by <template>, by a
+    closed <details> (except its <summary>) or by a box-level style. When a
+    style only makes text unreadable, we wrap just that element's own text
+    in a <span>. That way a dark section whose paragraphs set a light colour
+    stays visible.
+
+    Only the first MAX_ELEMENTS elements are examined. Call this before the
+    <style> elements are removed.
+    """
     sheet = _cascade(soup)
     state: dict[int, tuple] = {}  # id -> (behind, ink, tiny, invisible)
     hidden, ids = [], set()
@@ -990,7 +997,7 @@ def hidden_tags(soup) -> list:
             add(tag)
             continue
         if tag.name in _MEDIA and (invisible or _tiny_box(decl, tag)):
-            add(tag)  # an image no one sees: visibility hidden, or 1 px
+            add(tag)  # invisible image (visibility hidden or 1 px)
             continue
         own_text = [
             c
@@ -998,7 +1005,7 @@ def hidden_tags(soup) -> list:
             if c.name is None and not isinstance(c, Comment) and str(c).strip()
         ]
         if tag.name == "details" and not tag.has_attr("open"):
-            # Everything but its first <summary>, bare text included.
+            # Hide everything except the first <summary>, loose text included.
             summary = tag.find("summary", recursive=False)
             for child in list(tag.children):
                 if child is summary or child in own_text:
@@ -1009,14 +1016,14 @@ def hidden_tags(soup) -> list:
         elif own_text and _text_unreadable(behind, ink, tiny, invisible):
             for text in own_text:
                 add(text.wrap(soup.new_tag("span")))
-    # For generated_text: how each element's text is drawn.
+    # generated_text needs to know how each element's text is drawn.
     soup.pll_text_states = state
     return hidden
 
 
 _MEDIA = frozenset({"img", "svg", "picture", "video", "canvas", "object", "embed", "iframe"})
-# The shapes of a drawing: a link inside an <svg> around a <rect> shows the
-# shape (same list in content_scripts/core.js, shownLink).
+# SVG shapes. A link wrapped around a <rect> shows the shape. The same list
+# lives in content_scripts/core.js (shownLink).
 _SHAPES = frozenset(
     {"rect", "path", "circle", "ellipse", "polygon", "polyline", "line", "use", "image"}
 )
@@ -1026,7 +1033,7 @@ _NOT_SHOWN = frozenset(
 
 
 def _tiny_box(decl: dict[str, str], tag) -> bool:
-    """Width or height of 1 px or less, from the attributes or the style."""
+    """Return True if the width or height is 1 px or less (attribute or style)."""
     for key in ("width", "height", "max-width", "max-height"):
         for value in (decl.get(key), tag.get(key) if not key.startswith("max") else None):
             size = _length(str(value)) if value else None
@@ -1036,12 +1043,13 @@ def _tiny_box(decl: dict[str, str], tag) -> bool:
 
 
 def shown_link(tag, hidden_ids: set[int], maps: frozenset[str] | None = None) -> bool:
-    """True for a link the reader can see. It is outside every hidden
-    part and shows something, so links with transparent text cannot stand in for the
-    real one. An <area> shows nothing of its own: it is
-    seen through the image whose usemap names its <map>, when that image
-    is shown (`maps`: shown_maps of the document, computed here if not
-    given)."""
+    """Return True if the reader can see this link.
+
+    It must sit outside every hidden part and show something, so links with
+    transparent text can't stand in for the real one. An <area> has nothing
+    of its own to show. It counts when an image that uses its <map> is
+    visible. `maps` comes from shown_maps and is computed if not given.
+    """
     if any(id(p) in hidden_ids for p in (tag, *tag.parents)):
         return False
     if tag.name != "area":
@@ -1059,7 +1067,7 @@ def shown_link(tag, hidden_ids: set[int], maps: frozenset[str] | None = None) ->
 
 
 def shown_maps(soup, hidden_ids: set[int]) -> frozenset[str]:
-    """The <map> names that shown images use (usemap="#name")."""
+    """Return the <map> names referenced by visible images (usemap="#name")."""
     return frozenset(
         str(img.get("usemap", "")).lower().lstrip("#")
         for img in soup.find_all(["img", "object"], usemap=True, limit=1000)
@@ -1068,9 +1076,10 @@ def shown_maps(soup, hidden_ids: set[int]) -> frozenset[str]:
 
 
 def visible_content(tag, hidden_ids: set[int]) -> bool:
-    """True when an element shows something outside the hidden parts: some
-    text, or an image or other media hidden_tags did not set aside.
-    Hidden subtrees are skipped, not walked."""
+    """Return True if the element shows text or media outside the hidden parts.
+
+    Hidden subtrees are skipped without walking them.
+    """
     stack = list(tag.children)
     while stack:
         node = stack.pop()
@@ -1087,9 +1096,7 @@ def visible_content(tag, hidden_ids: set[int]) -> bool:
 
 
 def visible_text_first(soup, hidden: list | None = None, generated: str = "") -> str:
-    """Text of a parsed HTML document: the visible text and the words its
-    style sheets write (`generated`), then the text of the hidden elements
-    (hidden_tags, unless given)."""
+    """Return the visible text and generated words, then the hidden text."""
     hidden = [tag.extract() for tag in (hidden_tags(soup) if hidden is None else hidden)]
     text = soup.get_text(separator=" ") + (f"\n{generated}" if generated else "")
     tail = " ".join(tag.get_text(separator=" ") for tag in hidden)

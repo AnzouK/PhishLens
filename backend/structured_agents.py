@@ -1,11 +1,10 @@
 """
-The URL and metadata agents.
+PhishLens: the URL and metadata agents.
 
-Each agent has a trained Random Forest (from AnzouKiona/phishlens-agents,
-or local files) and a rule-based fallback that is always available. The
-trained models were trained on older mail: the callers below only use
-them where they are reliable (see url_agent and the headers_source rule
-in the API).
+Each agent has a trained Random Forest (from AnzouKiona/phishlens-agents
+or local files) and a rule-based fallback that always works. The forests
+learned from older mail, so we only use them where they hold up (see
+url_agent and the headers_source rule in the API).
 """
 
 from __future__ import annotations
@@ -50,7 +49,7 @@ def _hf_fetch(filename: str) -> Path | None:
 
 
 def _resolve_agent_file(stem: str, env_var: str) -> Path | None:
-    """Local override first, then <stem>.skops, then <stem>.joblib."""
+    """Find the agent file, trying the local override, then .skops, then .joblib."""
     local = os.environ.get(env_var)
     if local and Path(local).exists():
         return Path(local)
@@ -82,7 +81,7 @@ def _load_agent(agent, path: Path):
 
 
 def _init_agent(stem: str, env_var: str, factory):
-    """Load one trained agent; any failure leaves the heuristic in place."""
+    """Load one trained agent. If anything fails the heuristic stays in place."""
     try:
         path = _resolve_agent_file(stem, env_var)
         if not path:
@@ -96,9 +95,11 @@ def _init_agent(stem: str, env_var: str, factory):
 
 
 def url_heuristic(urls: list[str]) -> float:
-    """Rule-based URL score (worst URL): plain http, raw IP host, "@" in
-    the URL, very long URL, suspicious TLD, credential keywords, a file
-    or page on a public cloud host."""
+    """Score the worst URL with simple rules.
+
+    The rules look at plain http, a raw IP host, "@" in the URL, length,
+    suspicious TLDs, credential keywords and files on public cloud hosts.
+    """
     bad = 0.0
     for u in urls:
         score = 0.0
@@ -126,7 +127,7 @@ def url_heuristic(urls: list[str]) -> float:
 
 
 def _has_userinfo(url: str) -> bool:
-    """A "name@" part before the host (https://paypal.com@evil.example)."""
+    """Return True for a "name@" part before the host, as in https://paypal.com@evil.example."""
     url = browser_url(url)
     try:
         return "@" in urlsplit(url if "://" in url else "http://" + url).netloc
@@ -135,18 +136,21 @@ def _has_userinfo(url: str) -> bool:
 
 
 def _lookalike_host(host: str) -> bool:
-    """A host written with non-Latin letters, directly or in its
-    punycode form (xn--...): the usual way to imitate a brand's domain
-    with look-alike letters."""
+    """Return True for a host with non-Latin letters or punycode (xn--).
+
+    That is the usual way to fake a brand domain with look-alike letters.
+    """
     return bool(host) and (not host.isascii() or any(p.startswith("xn--") for p in host.split(".")))
 
 
 def strong_link_sign(urls: list[str]) -> bool:
-    """A link sign that legitimate mail rarely shows: a raw IP host, "@"
-    before the host, a suspicious TLD, a look-alike (punycode) host, a
-    file on a public cloud host. Plain http, length and keywords are left
-    out: build servers, archives and personal sites written out in
-    mailing-list mail have them."""
+    """Return True for a link sign that real mail rarely shows.
+
+    That means a raw IP host, "@" before the host, a suspicious TLD, a
+    punycode host or a file on a public cloud host. Plain http, length and
+    keywords don't count, because build servers, archives and personal
+    sites in mailing-list mail have them too.
+    """
     for u in urls:
         if well_known_link(u):
             continue
@@ -159,24 +163,23 @@ def strong_link_sign(urls: list[str]) -> bool:
 
 
 def url_agent(urls: list[str], body_text: str = "") -> float:
-    """URL score.
+    """Return the URL score.
 
-    The trained Random Forest extracts its features from the text, and
-    was trained on emails whose links were written out in the text: it
-    only judges the URLs that appear in `body_text`. URLs that are not in
-    the text (Gmail link targets, HTML hrefs, QR codes) get the rule-based
-    score instead: on real 2026 mail the RF scores almost any URL with a
-    path at ~0.95 (github.com/user/repo, wikipedia.org/wiki/...), so
-    feeding it hidden link targets flagged nearly every HTML email. Those
-    hidden URLs are still checked against threat intelligence by the
-    caller, which is where most of their value lies.
+    The forest was trained on emails with links written out in the text,
+    and it extracts features from the text. So it only judges URLs that
+    appear in `body_text`. Other URLs (Gmail link targets, HTML hrefs, QR
+    codes) get the rule score. On real 2026 mail the forest scores almost
+    any URL with a path around 0.95 (github.com/user/repo,
+    wikipedia.org/wiki/...), and feeding it hidden targets flagged nearly
+    every HTML email. The caller still checks those URLs against threat
+    intelligence, which is where most of their value is.
     """
-    # No links, no URL risk. Checked before the trained path on purpose:
-    # on an all-zero feature vector the RF outputs a high probability.
+    # Return early with no links. On an all-zero feature vector the forest
+    # outputs a high probability.
     if not urls:
         return 0.05
-    # Written in the text: compared as read (urls_in_text normalises
-    # "HTTPS://", "www.", a final dot), not character for character.
+    # Compare URLs as urls_in_text normalises them ("HTTPS://", "www.", a
+    # trailing dot), not character for character.
     written = set(urls_in_text(body_text))
     visible = [u for u in urls if u in written or u in body_text]
     hidden = [u for u in urls if u not in visible]
@@ -184,22 +187,22 @@ def url_agent(urls: list[str], body_text: str = "") -> float:
     score = 0.05
     if visible:
         score = url_heuristic(visible)
-        # Links that only go to large known sites keep the rule score: the
-        # trained model reads their long tracking links as phishing.
+        # Links to large known sites keep the rule score. The forest reads
+        # their long tracking links as phishing.
         if (
             _URL_AGENT is not None
             and _FEATURE_EXTRACT is not None
             and not all(well_known_link(u) for u in visible)
         ):
             try:
-                # The links are passed as read (lower-case scheme, "www."
-                # made a URL). The model's own pattern misses "HTTPS://" and
-                # "www." and would see only the harmless links next to them.
+                # Pass the normalised links. The model's own pattern misses
+                # "HTTPS://" and "www." and would only see the harmless
+                # links next to them.
                 feats = _FEATURE_EXTRACT.extract_url_features(" ".join(visible))
                 pred = _URL_AGENT.get_prediction_with_confidence(feats)
-                # The model adds to the rules, never removes from them:
-                # it was trained before cloud-hosted pages, IDN hosts and
-                # numeric IPs were common, and reads them as harmless.
+                # The model can raise the rule score but never lower it. It
+                # predates common cloud-hosted pages, IDN hosts and numeric
+                # IPs, and reads them as harmless.
                 score = max(score, float(pred["phishing_probability"]))
             except Exception as e:
                 logger.warning("url_agent trained path failed (%s); rules used", e)
@@ -209,8 +212,7 @@ def url_agent(urls: list[str], body_text: str = "") -> float:
 
 
 def metadata_agent(headers: dict[str, str], raw_email: bytes | None = None) -> float:
-    """Metadata score: trained RF on the raw email when available,
-    heuristic on the parsed header dict otherwise."""
+    """Return the metadata score from the forest on the raw email, or from header rules."""
     if _METADATA_AGENT is not None and _FEATURE_EXTRACT is not None and raw_email:
         try:
             feats = _FEATURE_EXTRACT.extract_metadata_features(raw_email)
@@ -229,16 +231,18 @@ def metadata_agent(headers: dict[str, str], raw_email: bytes | None = None) -> f
         score += 0.40
     if "authentication-results" not in headers:
         score += 0.15
-    # A brand's name over another domain's address (extension_backend
-    # also raises the sender score to IMPERSONATION_META for it).
+    # Brand name over someone else's address. extension_backend also raises
+    # the sender score to IMPERSONATION_META for this.
     if impersonated_brand(headers.get("from", "")):
         score += 0.35
     return min(score, 1.0)
 
 
 def load() -> None:
-    """Load the feature extractor and whichever trained agents are
-    available; anything missing leaves the rule-based fallback in place."""
+    """Load the feature extractor and any trained agents that are available.
+
+    Whatever is missing falls back to the rules.
+    """
     global _URL_AGENT, _METADATA_AGENT, _FEATURE_EXTRACT
     try:
         from feature_extraction import FeatureExtractor
