@@ -6,6 +6,7 @@
 (() => {
   "use strict";
   const KEY = "phishlens.langSuggest";
+  const PAGES = new Set(["", "index", "privacy", "terms"]);
   const remember = () => {
     try {
       localStorage.setItem(KEY, "done");
@@ -31,6 +32,9 @@
   if (!wanted || wanted === "en") return;
   // Pages serves privacy.html at /privacy: link to the address without .html
   const page = location.pathname.split("/").pop().replace(/\.html$/, "");
+  // Only pages that exist in every language. The 404 page (served at any
+  // address) and other noindex pages get no suggestion.
+  if (!PAGES.has(page) || document.querySelector('meta[name="robots"][content*="noindex"]')) return;
   const bar = document.createElement("p");
   bar.className = "lang-suggest";
   bar.lang = wanted;

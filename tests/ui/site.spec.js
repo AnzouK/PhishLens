@@ -93,6 +93,14 @@ test.describe("a French browser on an English page", () => {
         await expect(link).toHaveAttribute("href", "fr/terms");
     });
 
+    test("is not offered on the page-not-found page", async ({ page }) => {
+        // Pages serves 404.html at any unknown address; there is no
+        // French version of that address to link to.
+        await page.goto(`${base}/404`);
+        await expect(page.locator(".site-head")).toBeVisible();
+        await expect(page.locator(".lang-suggest")).toHaveCount(0);
+    });
+
     test("can close the suggestion, which then stays closed", async ({ page }) => {
         await page.goto(`${base}/`);
         const close = page.getByRole("button", { name: "Fermer cette suggestion" });
