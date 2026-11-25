@@ -223,3 +223,41 @@ test("a safe verdict with an unusual sign is shown with caution, and says why", 
     // SPF failing next to a DMARC pass is listed, but not in red.
     await expect(page.locator("#demo-result .tags li.bad")).toHaveCount(0);
 });
+
+test("a sender on the Spamhaus list gets a red tag", async ({ page }) => {
+    await page.route(`${API}/analyse`, (r) => r.fulfill({
+        json: {
+            verdict: "phishing", fused_score: 0.81, language: { code: "en", confidence: 0.9 },
+            sender_auth: { spamhaus_dbl_listed: true },
+            agents: { text: { phishing_probability: 0.9 }, url: { phishing_probability: 0.6 },
+                      metadata: { phishing_probability: 0.7 } },
+        },
+    }));
+    await page.goto(`${base}/`);
+    await page.click('[data-sample="phish"]');
+    await page.click("#demo-submit");
+    await expect(page.locator("#demo-result .tags li.bad")).toHaveText(strings("en").js_tag_spamhaus);
+});
+
+test("a file PhishLens could not look inside gets the popup's title and line", async ({ page }) => {
+    let sent = null;
+    await page.route(`${API}/analyse_attachment`, (r) => {
+        sent = r.request().postDataJSON();
+        return r.fulfill({
+            json: {
+                verdict: "safe", fused_score: 0.1, language: { code: "en", confidence: 0.9 },
+                attachment: { kind: "zip", notable_features: ["encrypted_archive"] },
+                agents: { text: { phishing_probability: 0.05 }, url: { phishing_probability: 0.05 } },
+            },
+        });
+    });
+    await page.goto(`${base}/`);
+    await page.click("#tab-file");
+    await page.setInputFiles("#demo-file", { name: "invoice.zip", mimeType: "application/zip", buffer: Buffer.from("PK\u0003\u0004 locked") });
+    await page.click("#demo-submit");
+    const s = strings("en");
+    await expect(page.locator("#demo-result .verdict")).toHaveClass(/verdict--warn/);
+    await expect(page.locator("#demo-result .verdict")).toHaveText(s.js_verdict_not_read);
+    await expect(page.locator("#demo-result")).toContainText(s.js_caution_sub_not_read);
+    expect(sent.filename).toBe("invoice.zip");
+});

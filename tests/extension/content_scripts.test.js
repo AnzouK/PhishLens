@@ -999,6 +999,13 @@ test("the card of an attached email shows why it is shown with caution", () => {
     PL.renderAttachmentResult(card, { ...eml({}), agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.1 } },
         attachment: { kind: "pdf", notable_features: ["contains_javascript"] } }, "a.pdf");
     assert.match(card.querySelector(".pll-att-banner__sub").textContent, /Look at the details before you open it\./);
+    // A file's chips are sorted the same way: trusted parent (good), flags
+    // (warn), threat-intel sources (bad) come out bad, warn, good.
+    PL.renderAttachmentResult(card, { ...eml({}), parent_trusted: true,
+        agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.1 } },
+        url_reputation: { checked: 1, malicious_count: 1, sources_hit: ["urlhaus"] },
+        attachment: { kind: "pdf", notable_features: ["contains_javascript"] } }, "b.pdf");
+    assert.deepEqual(chips().map(([kind]) => kind), ["bad", "warn", "good"]);
 });
 
 test("SPF failing next to a DMARC pass gives no chip and no caution", () => {

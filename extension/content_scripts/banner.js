@@ -84,6 +84,7 @@ const chipRank = (c) => {
 };
 // Array.prototype.sort is stable, so chips of one kind keep their order.
 const byRank = (chips) => chips.sort((a, b) => chipRank(a) - chipRank(b));
+PL.byRank = byRank;
 
 // One orange or red chip per unusual sign (PhishLensShared.unusualSigns).
 // attachments.js reuses this for the card of an attached email.

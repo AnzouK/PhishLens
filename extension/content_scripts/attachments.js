@@ -331,11 +331,11 @@ function renderResult(card, data, filename) {
     // An attached email gets the banner's chips (forward, shared file,
     // impersonation, failed sender checks, Spamhaus, flagged links), so a
     // caution card always shows its reason.
-    const chips = isEmail ? PL.signChips(data, "pll-att-chip") : [
+    const chips = isEmail ? PL.signChips(data, "pll-att-chip") : PL.byRank([
         data.parent_trusted && h("span.pll-att-chip.pll-att-chip--good", { title: t("att_trusted_email_title") }, t("att_trusted_email")),
         ...flags.map((f) => h(`span.pll-att-chip${PhishLensShared.isWarningFlag(f) ? ".pll-att-chip--warn" : ""}`, null, flagLabel(f))),
         ...(data.url_reputation?.sources_hit || []).map((s) => h("span.pll-att-chip.pll-att-chip--bad", null, SOURCE_LABELS[s] || s)),
-    ].filter(Boolean);
+    ].filter(Boolean));
     // The line under the title in the caution style: the banner's line
     // for an attached email, the file wording for anything else.
     const cautionText = !caution ? null

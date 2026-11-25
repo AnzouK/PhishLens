@@ -94,6 +94,8 @@ backend share one version number.
   and "Looks safe" and "Probably safe, but check" read "Sembra a posto"
   and "Probabilmente a posto, ma controlla" in the extension and on the
   website.
+- Attachment cards for files (not only attached emails) sort their
+  chips worst first, like the banner.
 
 ### Removed
 - Unused code, styles, a string and the old self-hosted VM redeploy and
