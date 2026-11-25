@@ -1,13 +1,6 @@
-# =====================================================================
-# PhishLens backend: production image (PhishLens Cloud, any Docker host).
-# =====================================================================
-# Differences from Dockerfile.local:
-#   - listens on $PORT (7860 by default; Cloud Run sets PORT itself)
-#   - runs as an unprivileged user (uid 1000)
-#   - the text model is not in the image: it is downloaded from the
-#     Hugging Face Hub on first start (HF_MODEL_REPO) into MODEL_DIR
-# Deployment: docs/operations.md.
-# =====================================================================
+# Production image (PhishLens Cloud or any Docker host): listens on $PORT
+# (7860 unless Cloud Run sets it), runs as uid 1000 and downloads the text
+# model from HF_MODEL_REPO on first start. See docs/operations.md.
 
 FROM python:3.12-slim
 

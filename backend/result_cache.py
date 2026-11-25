@@ -10,10 +10,10 @@ between two clicks, and saves Google Safe Browsing quota.
   the verdict that was sent back (which holds the link verdicts already
   cached for 24 hours by the reputation module).
 - Memory only: a restart or a redeploy empties it.
-- Entries expire after ``RESULT_CACHE_TTL`` seconds (default 86400, 24 h;
+- Entries expire after RESULT_CACHE_TTL seconds (default 86400, 24 h;
   0 turns the cache off). Expired ones are dropped at the next write, the
   next stats() call or the hourly purge run from /health, so an idle
-  instance does not keep them either. Past ``RESULT_CACHE_MAX`` entries
+  instance does not keep them either. Past RESULT_CACHE_MAX entries
   (default 2000) the oldest go first.
 """
 

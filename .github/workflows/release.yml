@@ -1,13 +1,6 @@
-# =====================================================================
-# PhishLens release
-# =====================================================================
-# On a version tag (v2.0.4...), or by hand from the Actions tab ("Run
-# workflow", on main: the tag is made from the code's version): checks
-# that the tag matches the version of the backend and the extension, zips
-# extension/ and publishes the GitHub release with that zip and the
-# version's CHANGELOG section. If the release already exists, only the
-# zip is (re)attached.
-# =====================================================================
+# On a version tag, or by hand on main: checks the tag against the code's
+# version, builds the Chrome and Firefox zips and publishes them with the
+# version's CHANGELOG section (an existing release only gets the zips again).
 name: Release
 
 on:

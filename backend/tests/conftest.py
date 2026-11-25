@@ -6,12 +6,12 @@ level. CI deliberately does not install those (torch alone is hundreds
 of MB), and the endpoint tests never run the real model: they patch
 `text_agent` with a fixed score.
 
-``import_extension_backend()`` therefore registers tiny placeholder
+import_extension_backend() therefore registers tiny placeholder
 modules for whichever of those packages is missing, imports the
 backend, and removes the placeholders again. Keeping them only for that
 one import matters: other libraries (scikit-learn, SciPy, Hugging Face
-Hub...) probe for torch with ``importlib.util.find_spec`` or
-``sys.modules``, and a fake torch left behind breaks their import.
+Hub...) probe for torch with importlib.util.find_spec or
+sys.modules, and a fake torch left behind breaks their import.
 
 Hugging Face Hub is forced offline so importing the backend never
 downloads the Random Forest agents during the tests.

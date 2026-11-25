@@ -1,13 +1,6 @@
-# =====================================================================
-# PhishLens: local docker-compose
-# =====================================================================
-#  Usage:
-#    1. Put the text model in ./model/ (one-time), for example:
-#         huggingface-cli download AnzouKiona/phishlens-distilbert --local-dir model
-#    2. docker compose up --build
-#    3. chrome://extensions > Developer mode > Load unpacked > extension/,
-#       then choose "Local backend (Docker)" in the PhishLens settings
-# =====================================================================
+# Local backend. Put the text model in ./model/ once (huggingface-cli download
+# AnzouKiona/phishlens-distilbert --local-dir model), run docker compose up
+# --build and pick "Local backend (Docker)" in the extension settings.
 services:
   phishlens-backend:
     build:

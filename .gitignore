@@ -1,8 +1,4 @@
-# =====================================================================
-# PhishLens: .gitignore
-# =====================================================================
-
-# ---- Python ----
+# Python
 __pycache__/
 *.py[cod]
 *.so
@@ -16,11 +12,11 @@ venv/
 .venv/
 env/
 
-# ---- Notebooks ----
+# Notebooks
 .ipynb_checkpoints/
 *-checkpoint.ipynb
 
-# ---- ML artefacts (model is hosted on Hugging Face Hub, NOT in git) ----
+# ML artefacts (the model is on the Hugging Face Hub, not in git)
 model/
 *.safetensors
 *.bin
@@ -42,7 +38,7 @@ nazario_phishing/
 umbrella-top-1m.csv*
 *.parquet
 
-# ---- Outputs / logs ----
+# Outputs / logs
 outputs/
 results/
 summary.json
@@ -52,37 +48,37 @@ wandb/
 runs/
 *.log
 
-# ---- Hugging Face cache ----
+# Hugging Face cache
 .cache/
 huggingface/
 
-# ---- Editor / IDE ----
+# Editor / IDE
 .idea/
 .vscode/
 *.swp
 *~
 
-# ---- OS ----
+# OS
 .DS_Store
 Thumbs.db
 
-# ---- Local secrets ----
+# Local secrets
 .env
 .env.local
 *.secret
 # holds GSB_API_KEY etc. on a self-hosted server, never commit it
 .phishlens.env
 
-# ---- Test / coverage artefacts ----
+# Test / coverage artefacts
 .coverage
 .coverage.*
 htmlcov/
 .pytest_cache/
 
-# ---- Load test output (scripts/locustfile.py --csv loadtest) ----
+# Load test output (scripts/locustfile.py --csv loadtest)
 loadtest_*.csv
 
-# ---- Node (ESLint installed on the fly, no package.json) ----
+# Node (ESLint installed on the fly, no package.json)
 node_modules/
 # Playwright output
 test-results/

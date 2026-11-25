@@ -1,68 +1,49 @@
-# PhishLens backend: minimum runtime deps.
-# Targets Python 3.10+. Tested on 3.11 / 3.12 / 3.13.
+# PhishLens backend runtime dependencies. Python 3.10 or later, tested on
+# 3.11, 3.12 and 3.13.
 
-# Web framework
 fastapi>=0.165.0,<1.0
 uvicorn[standard]>=0.54.0,<1.0
 pydantic>=2.14.4,<3.0
 
-# ML: text agent
-# NB: torch is installed separately from the CPU-only PyPI index in the
-# Dockerfile so pip doesn't pull the ~3.5 GB of NVIDIA CUDA runtime packages
-# that torch 2.14+ declares as hard dependencies (useless on ARM CPU hosts).
+# Text model. torch is not listed: the Dockerfiles install it from the
+# CPU-only index, which avoids gigabytes of CUDA packages.
 transformers>=4.57.6,<5.0
 huggingface_hub>=0.36.2,<1.0
 numpy>=2.4.6,<3.0
 
-# ML: URL & metadata Random Forest agents (opt-in, no-op if joblibs are absent)
+# URL and metadata Random Forest agents
 scikit-learn>=1.9.1,<2.0
 pandas>=2.3.3,<3.0
 joblib>=1.3,<2.0
+# skops loads the agents with a type allowlist instead of pickle (agent_io.py)
+skops>=0.16.0,<1.0
 
-# Explainability
 lime>=0.2.0.1,<1.0
 
-# URL reputation cascade (v1.6+): Google Safe Browsing, PhishTank, URLhaus.
-# httpx gives us async HTTP without dragging in the whole aiohttp stack.
+# Safe Browsing, PhishTank and URLhaus lookups
 httpx>=0.27,<1.0
 
-# Attachment analysis: PDF and HTML extraction.
-# pdfplumber pulls pdfminer.six as a hard dep, both are pure-Python and
-# small (~5 MB total). BeautifulSoup gets a permissive parser for the
-# HTML attachments.
+# Attachments: PDF, HTML and the email's own <style> rules
 pdfplumber>=0.11.10,<1.0
 beautifulsoup4>=4.15.0,<5.0
-# CSS selectors for the email's own <style> rules (hidden_content.py)
 soupsieve>=4.1.3,<5.0
 
-# Rate limiting (v1.9+): protects the public backend from abuse (e.g.
-# burning through the 10 k/day GSB quota) without adding auth. In-memory
-# by default; swap to Redis via SLOWAPI_STORAGE_URI when needed.
+# Rate limiting (in memory, or Redis through SLOWAPI_STORAGE_URI)
 slowapi>=0.1.10,<1.0
 
-# Observability (v1.10+): Prometheus metrics on GET /metrics. Optional;
-# the backend boots without it and simply skips the endpoint.
+# GET /metrics; the backend starts without it
 prometheus-fastapi-instrumentator>=8.1.0,<9.0
 
-# Attachment analysis: images, scanned PDFs, QR codes.
-# The tesseract binary itself comes from the OS package (see Dockerfiles).
-# pypdfium2 renders PDF pages; it is already pulled in by pdfplumber.
+# Images, scanned PDFs and QR codes. The tesseract binary comes from the
+# OS package (see the Dockerfiles).
 pillow>=13.0.0,<14.0
 pytesseract>=0.3.13,<1.0
 opencv-python-headless>=5.1.0.95,<6.0
 pypdfium2>=5.15.2,<6.0
 
-# Random Forest agents without pickle (v1.12): skops files are loaded
-# with a type allowlist (agent_io.py). joblib stays for the one-time
-# conversion and as a fallback until the .skops files are published.
-skops>=0.16.0,<1.0
-
-# RAR and 7z attachments (v1.15.3). rarfile lists RAR archives in pure
-# Python and calls bsdtar (libarchive-tools, see Dockerfiles) to
-# decompress members; py7zr opens 7z archives. Both optional: without
-# them RAR / 7z are reported as not inspectable.
+# RAR and 7z (optional). rarfile calls bsdtar to extract members.
 rarfile>=4.5,<5.0
 py7zr>=1.1.4,<2.0
 
-# Office XML from attachments is untrusted: parsed with defusedxml.
+# Office XML from attachments is untrusted
 defusedxml>=0.7.1,<1.0

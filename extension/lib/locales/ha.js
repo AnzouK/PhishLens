@@ -1,5 +1,5 @@
-// PhishLens interface strings: ha (Hausa). Draft translation, awaiting review by a native speaker.
-// Keys and placeholders mirror en.js.
+// PhishLens interface strings in Hausa, same keys and placeholders as en.js.
+// Draft translation, awaiting review by a native speaker.
 (globalThis.PhishLensLocales ||= {}).ha = {
     "scan_button": "Duba da PhishLens",
     "scan_button_title": "Duba ko wannan imel na phishing ne",

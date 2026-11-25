@@ -1,4 +1,4 @@
-// PhishLens interface strings: en. Keys and placeholders mirror en.js.
+// PhishLens interface strings in English. The other locales use the same keys and placeholders.
 (globalThis.PhishLensLocales ||= {}).en = {
     "scan_button": "Scan with PhishLens",
     "scan_button_title": "Check this email for phishing",

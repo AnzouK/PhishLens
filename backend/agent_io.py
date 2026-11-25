@@ -11,9 +11,9 @@ have to reconstruct, and the file is accepted only if all of them come
 from scikit-learn, NumPy, SciPy or the Python builtins. Anything else
 (os.system, subprocess, a custom class) is refused.
 
-``load_skops_state`` returns the same dict that ``load_model`` reads from
-joblib: model, scaler, feature_names, is_trained, and the
-optional training_history / best_params.
+load_skops_state returns the same dict that load_model reads from
+joblib: model, scaler, feature_names, is_trained, and the optional
+training_history and best_params.
 """
 
 from __future__ import annotations
