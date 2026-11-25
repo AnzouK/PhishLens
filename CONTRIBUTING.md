@@ -91,8 +91,10 @@ The popup and website UI tests need Playwright: `npm install --no-save @playwrig
 - **Extension texts** are never written in the code: add a key to
   `extension/lib/locales/en.js` and to the seven other locale files, and
   call `t("key")`. `node --test tests/extension/*.test.js` lists missing
-  keys, placeholders or tags, and fails on a translated text built into
-  HTML without `escapeHTML`.
+  keys, placeholders or tags, and fails on any HTML built from a string
+  (`innerHTML`). Build nodes with `h()` from `extension/lib/dom.js`; the
+  `*_html` translations go through `setMarkup`, which keeps a short list
+  of tags.
 - **Website texts** live in `site-src/`; edit them there, run
   `python3 scripts/build_site.py` (needs pandoc) and commit `site/` with
   the change. Do not edit `site/` by hand.
