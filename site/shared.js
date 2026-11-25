@@ -188,10 +188,11 @@ function authFailed(auth) {
     return auth?.spf === "fail" && auth?.dmarc !== "pass";
 }
 
-// True when the result has a sign we show as an orange or red chip. That
-// covers brand impersonation, forwards, shared files or forms, links
-// flagged by threat intelligence, failed sender authentication, a sender
-// on Spamhaus and the warning flags of an attachment.
+// Names of the signs in the result that we show as an orange or red chip
+// (empty array when there are none): brand impersonation, forwards,
+// shared files or forms, links flagged by threat intelligence, failed
+// sender authentication, a sender on Spamhaus and the warning flags of an
+// attachment.
 function unusualSigns(data) {
     const auth = data?.sender_auth || {};
     const signs = [];

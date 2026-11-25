@@ -90,6 +90,10 @@ backend share one version number.
   tests. A test now checks every link to a README or doc heading.
 - The README install steps now mention the Firefox zip (Firefox 140 or
   later) published with each release.
+- Italian: two verbs used the wrong person ("installi", "aspettati"),
+  and "Looks safe" and "Probably safe, but check" read "Sembra a posto"
+  and "Probabilmente a posto, ma controlla" in the extension and on the
+  website.
 
 ### Removed
 - Unused code, styles, a string and the old self-hosted VM redeploy and
