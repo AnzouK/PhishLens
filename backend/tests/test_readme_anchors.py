@@ -16,6 +16,10 @@ REPO = "https://github.com/AnzouK/PhishLens"
 REPO_LINK = re.compile(re.escape(REPO) + r"(?:/blob/main/([\w./-]+\.md))?#([\w-]+)")
 # Relative links between Markdown files: [text](docs/x.md#anchor).
 RELATIVE_LINK = re.compile(r"\]\(((?!https?:)[\w./-]+\.md)#([\w-]+)\)")
+# A heading of the same file: [text](#anchor).
+IN_PAGE_LINK = re.compile(r"\]\(#([\w-]+)\)")
+# Reference-style definitions: [id]: docs/x.md#anchor or [id]: #anchor.
+REFERENCE_LINK = re.compile(r"^ {0,3}\[[^\]]+\]:\s*<?((?!https?:)[\w./-]+\.md)?#([\w-]+)", re.M)
 
 
 def slug(heading: str) -> str:
@@ -29,13 +33,14 @@ def slug(heading: str) -> str:
 def anchors(path: Path) -> set[str]:
     found: set[str] = set()
     seen: dict[str, int] = {}
-    fenced = False
+    fence = ""
     for line in path.read_text(encoding="utf-8").splitlines():
-        if line.lstrip().startswith("```"):
-            fenced = not fenced
+        marker = line.lstrip()[:3]
+        if marker in ("```", "~~~") and (not fence or marker == fence):
+            fence = "" if fence else marker
             continue
         match = re.match(r"#{1,6}\s+(.*?)\s*#*\s*$", line)
-        if fenced or not match:
+        if fence or not match:
             continue
         base = slug(match.group(1))
         count = seen.get(base, 0)
@@ -70,8 +75,10 @@ def links():
         for target, anchor in REPO_LINK.findall(text):
             yield path, ROOT / (target or "README.md"), anchor
         if path.suffix == ".md":
-            for target, anchor in RELATIVE_LINK.findall(text):
-                yield path, (path.parent / target).resolve(), anchor
+            for target, anchor in RELATIVE_LINK.findall(text) + REFERENCE_LINK.findall(text):
+                yield path, (path.parent / target).resolve() if target else path, anchor
+            for anchor in IN_PAGE_LINK.findall(text):
+                yield path, path, anchor
 
 
 LINKS = sorted(set(links()))
@@ -79,6 +86,7 @@ LINKS = sorted(set(links()))
 
 def test_some_links_are_checked():
     assert any(target.name == "README.md" for _, target, _ in LINKS)
+    assert any(source == target for source, target, _ in LINKS)
 
 
 @pytest.mark.parametrize(

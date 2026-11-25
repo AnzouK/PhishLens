@@ -775,7 +775,7 @@ class ReputationEngine:
                 v.sources.append(r["source"])
                 v.raw_matches.append(r)
 
-        # Score: 1.0 from GSB, 0.4 per fallback source (capped at 1.0)
+        # Score: 1.0 from GSB, else 0.2 + 0.4 per fallback source (capped at 1.0)
         if v.malicious:
             if "google_safe_browsing" in v.sources:
                 v.score = 1.0

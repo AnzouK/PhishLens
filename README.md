@@ -171,7 +171,7 @@ A native review of the Hausa translation is under way.
 
 ## Contributing
 
-The release zip only holds what Chrome loads. The extension is plain
+The release zips only hold what Chrome and Firefox load. The extension is plain
 JavaScript with no build step, so `extension/` in this repository is the
 same code, with its tests and lint configuration next to it.
 

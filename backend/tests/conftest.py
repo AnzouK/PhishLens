@@ -1,12 +1,13 @@
 """
 Shared pytest setup.
 
-extension_backend.py imports torch, transformers and lime at module
-level. CI deliberately does not install those (torch alone is hundreds
-of MB), and the endpoint tests never run the real model: they patch
-`text_agent` with a fixed score.
+text_model.py imports torch, transformers and lime lazily, inside the
+functions that load and run the model. CI deliberately does not install
+those (torch alone is hundreds of MB), and the endpoint tests never run
+the real model: they patch `text_agent` with a fixed score.
 
-import_extension_backend() therefore registers tiny placeholder
+As a guard for any code path that reaches them anyway,
+import_extension_backend() registers tiny placeholder
 modules for whichever of those packages is missing, imports the
 backend, and removes the placeholders again. Keeping them only for that
 one import matters: other libraries (scikit-learn, SciPy, Hugging Face

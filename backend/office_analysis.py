@@ -143,7 +143,7 @@ _MAIN_PART = {
     "pptx": re.compile(r"ppt/presentation\.xml"),
 }
 # Root entries of a real Office package. Anything else in the ZIP is not
-# part of the document (see attachment_analysis._plain_archive).
+# part of the document (see attachment_analysis._read_zip).
 OOXML_ROOTS = (
     "[content_types].xml",
     "_rels/",

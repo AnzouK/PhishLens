@@ -98,9 +98,10 @@ clause by clause without comments or quoted strings, and ARC results
 alone or a second From: never prove the sender (`test_auth_headers.py`,
 `test_extension_backend.py`).
 
-S2 is documented as a SECURITY NOTE in the code; the flags never touch
-shared state. For S3, the allowlist is small and documented as a
-regional fallback. For S4, the server writes these rows into a header
+S2 is documented in the `AnalyseRequest` docstring in
+`extension_backend.py` (the hints can only change the caller's own
+result); the flags never touch shared state. For S3, the allowlist is
+small and documented as a regional fallback. For S4, the server writes these rows into a header
 only when they are host names (`test_bypass_sender.py`,
 `content_scripts.test.js`).
 
