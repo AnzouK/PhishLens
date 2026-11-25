@@ -992,7 +992,8 @@ test("the card of an attached email shows why it is shown with caution", () => {
         sender_auth: { dkim: "fail", spamhaus_dbl_listed: true, impersonation: { brand: "paypal", domain: "pay-pal.example" } },
     }), "fwd.eml");
     assert.ok(card.classList.contains("pll-att-banner--caution"));
-    assert.deepEqual(chips().map(([kind]) => kind), ["bad", "warn", "warn", "bad", "bad"]);
+    // Worst first, as in the banner.
+    assert.deepEqual(chips().map(([kind]) => kind), ["bad", "bad", "bad", "warn", "warn"]);
     assert.match(card.querySelector(".pll-att-banner__sub").textContent, /^Email.*Some signs are unusual\. Look at the details before you click or reply\. This is a forwarded email/i);
     // A file uses the file wording.
     PL.renderAttachmentResult(card, { ...eml({}), agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.1 } },

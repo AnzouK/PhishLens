@@ -75,12 +75,15 @@ function trustBadge(data) {
 const chipOf = (base) => (kind, text, title) => h(`span.${base}${kind ? `.${base}--${kind}` : ""}`, { title }, text);
 const chip = chipOf("pll-chip");
 
-// Chips are shown worst first: bad, then warn, then good, then neutral.
-const CHIP_ORDER = ["pll-chip--bad", "pll-chip--warn", "pll-chip--good"];
+// Chips are shown worst first: bad, then warn, then good, then neutral,
+// in the banner (pll-chip--bad...) and on attachment cards (pll-att-chip--bad...).
+const CHIP_ORDER = ["bad", "warn", "good"];
 const chipRank = (c) => {
-    const i = CHIP_ORDER.findIndex((cls) => c.classList.contains(cls));
+    const i = CHIP_ORDER.findIndex((kind) => String(c.className).split(" ").some((cls) => cls.endsWith(`--${kind}`)));
     return i < 0 ? CHIP_ORDER.length : i;
 };
+// Array.prototype.sort is stable, so chips of one kind keep their order.
+const byRank = (chips) => chips.sort((a, b) => chipRank(a) - chipRank(b));
 
 // The orange and red chips, one per unusual sign
 // (PhishLensShared.unusualSigns): a brand impersonated, a forward, a
@@ -119,7 +122,7 @@ function signChips(data, base = "pll-chip") {
         else chips.push(make("warn", t("chip_spf_fail"), t("chip_spf_fail_title")));
     }
     if (auth.spamhaus_dbl_listed) chips.push(make("bad", t("chip_spamhaus"), t("chip_spamhaus_title")));
-    return chips;
+    return byRank(chips);
 }
 PL.signChips = signChips;
 
@@ -133,8 +136,7 @@ function signalChips(data) {
     if (!(rep.malicious_count > 0) && rep.checked > 0) {
         chips.push(chip("good", t("chip_links_clean"), t("chip_links_clean_title")));
     }
-    // Array.prototype.sort is stable, so chips of one kind keep their order.
-    chips.sort((a, b) => chipRank(a) - chipRank(b));
+    byRank(chips);
     return chips.length ? h("div.pll-signals", null, chips) : null;
 }
 
