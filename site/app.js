@@ -172,14 +172,21 @@
     for (const k of ["spf", "dkim", "dmarc"]) {
       if (sa[k] === "fail") tags.push([k === "spf" && !SHARED.authFailed(sa) ? "" : "bad", t("js_tag_auth_fail", { name: k.toUpperCase() })]);
     }
+    if (sa.spamhaus_dbl_listed) tags.push(["bad", t("js_tag_spamhaus")]);
     (d.url_reputation?.sources_hit || []).forEach((s) => tags.push(["bad", t("js_tag_flagged", { source: s.replace(/_/g, " ") })]));
     if (d.forwarded?.detected) tags.push(["warn", t("js_tag_forwarded")]);
     if (d.shared_links?.count) tags.push(["warn", t("js_tag_shared", { services: (d.shared_links.services || []).join(", ") })]);
     const a = d.attachment;
     if (a) (a.notable_features || []).forEach((f) => tags.push([SHARED.isWarningFlag(f) ? "warn" : "", f.replace(/_/g, " ")]));
+    // A file PhishLens could not look inside gets its own title and line,
+    // as in the popup.
+    const notRead = shown === "caution" && a && SHARED.isCaution(a.notable_features);
+    const title = notRead ? "js_verdict_not_read"
+      : { danger: "js_verdict_bad", caution: "js_verdict_caution", safe: "js_verdict_good" }[shown];
+    const sub = notRead ? "js_caution_sub_not_read" : a ? "js_caution_sub_file" : "js_caution_sub";
     out.innerHTML = `
-      <p class="verdict verdict--${{ danger: "bad", caution: "warn", safe: "good" }[shown]}"><svg class="ic"><use href="#i-shield"/></svg>${esc(t({ danger: "js_verdict_bad", caution: "js_verdict_caution", safe: "js_verdict_good" }[shown]))}</p>
-      ${shown === "caution" ? `<p class="small">${esc(t(a ? "js_caution_sub_file" : "js_caution_sub"))}</p>` : ""}
+      <p class="verdict verdict--${{ danger: "bad", caution: "warn", safe: "good" }[shown]}"><svg class="ic"><use href="#i-shield"/></svg>${esc(t(title))}</p>
+      ${shown === "caution" ? `<p class="small">${esc(t(sub))}</p>` : ""}
       <p class="small muted">${esc(t("js_overall", { pct: pct(d.fused_score) }))}</p>
       ${meter(t("js_m_wording"), d.text_agent_used === false ? null : d.agents?.text?.phishing_probability)}
       ${meter(t("js_m_links"), d.agents?.url?.phishing_probability)}
