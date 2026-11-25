@@ -22,9 +22,9 @@ like phishing and why. It points at the words, the links, whether the
 sender is who it claims to be, and what the attachments contain.
 
 It is free and open source, and the interface comes in English, French,
-Portuguese, Spanish, German, Italian, Dutch and Hausa. It does not
-filter your mail. It gives a verdict with its reasons so you can
-decide, and it can be wrong. The website is
+Portuguese, Spanish, German, Italian, Dutch and Hausa. Your mail stays
+where it is: you get a verdict and the reasons for it, which can be
+wrong, and decide for yourself. The website is
 [phishlens.dev](https://phishlens.dev).
 
 ## Install
@@ -185,13 +185,13 @@ CI runs all three on every pull request. The
 [contributing guide](CONTRIBUTING.md) covers setup, the project layout
 and the checks for the backend.
 
-The [architecture notes](docs/architecture.md) describe the components,
-scoring, trust paths and design decisions.
-[Languages](docs/languages.md) covers translations and OCR, the
-[threat model](docs/threat-model.md) the risks and mitigations, and the
-[operations guide](docs/operations.md) deployment, logs, metrics and
-load testing. See also the [changelog](CHANGELOG.md), the
-[security policy](SECURITY.md) and the [terms](TERMS.md).
+Other documents:
+
+- [architecture notes](docs/architecture.md) (components, scoring, trust paths, design decisions)
+- [languages](docs/languages.md) (translations and OCR)
+- [threat model](docs/threat-model.md)
+- [operations guide](docs/operations.md) (deployment, logs, metrics, load testing)
+- [changelog](CHANGELOG.md), [security policy](SECURITY.md) and [terms](TERMS.md)
 
 ## Background
 
@@ -205,11 +205,11 @@ three models in [PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector
 course ended I kept it going, and it is now an independent project with
 no link to the university.
 
-I write it with the help of an AI coding assistant. I review and test
-every change, and no claim about detection ships before it is measured
-on the public benchmark. The worst run so far (130 of 297 legitimate
-emails flagged in mid-October) and what fixed it are described in
-[evaluation.md](docs/evaluation.md#results).
+An AI coding assistant helps me write PhishLens. I review and test what
+it changes, and a detection figure is only published once the public
+benchmark has measured it; [evaluation.md](docs/evaluation.md#results)
+includes the worst run so far (130 of 297 legitimate emails flagged in
+mid-October) and what fixed it.
 
 ### Credits
 
