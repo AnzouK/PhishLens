@@ -46,8 +46,8 @@ backend share one version number.
   localStorage, so the bar does not come back. The privacy policy says
   so (8 languages).
 - Popup CSS is one layer: the `!important` overrides at the end of
-  `popup.css` are merged into the rules they replaced (961 lines instead
-  of 1033, no `!important`, no gradient or shadow left). Same look, except
+  `popup.css` are merged into the rules they replaced (no `!important`,
+  no gradient or shadow left). Same look, except
   the last rounded leftovers (trusted-sender tag, ratio and word bars,
   tabs frame, language menu, server URL field, words, small buttons) now
   use the 4 px radius, the language menu has no glow when clicked, and
