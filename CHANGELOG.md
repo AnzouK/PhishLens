@@ -14,7 +14,11 @@ backend share one version number.
   orange, "Probably safe, but check", in the Gmail and Outlook banner,
   the attachment cards, the popup and the website demo. One shared rule
   (`displayVerdict` in `extension/lib/shared.js`); the verdict and the
-  scores from the server do not change.
+  scores from the server do not change. The line under the title always
+  gives the reason (forward, shared file, trusted or DKIM-proven sender
+  next to a high score), with its chip or badge; files say "before you
+  open it". SPF failing next to a DMARC pass (mailing lists) is not a
+  sign.
 
 ### Changed
 - Words that point to phishing are red everywhere: the popup showed
@@ -53,7 +57,12 @@ backend share one version number.
 ### Fixed
 - Popup: signal badges were dark red on the dark background when no
   theme had been saved; ghost buttons lost their border and padding; the
-  agent score was orange next to a red bar.
+  agent score was orange next to a red bar. Agent cards now use the
+  meter levels (orange from 40%, red from 70%), as the banner does.
+- Contrast: explanation words, the banner's filled button and warn
+  chips reach 4.5:1 in both themes; keyboard focus rings on the banner's
+  close, attachment and report controls; the popup tabs set
+  `aria-selected`.
 - Extension: the `embedded_ole_object` attachment flag had no label.
 - Website: "e-mail" and tag line items no longer break across lines; the
   install command scrolls instead of breaking mid-word; the back-to-top
