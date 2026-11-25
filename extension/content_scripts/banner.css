@@ -21,11 +21,21 @@ html {
     --pll-good: #137333;
     --pll-good-soft: #e6f4ea;
     --pll-good-line: #b7dfc2;
-    --pll-warn: #b06000;
+    --pll-warn: #9a5200;
     --pll-warn-soft: #fef7e0;
     --pll-warn-line: #f6d68b;
     --pll-track: #e8eaed;
     --pll-shadow: 0 1px 2px rgba(60, 64, 67, .15), 0 2px 6px rgba(60, 64, 67, .08);
+    /* filled button (.plr-btn--strong) */
+    --pll-accent-strong: #b8460b;
+    --pll-on-accent: #ffffff;
+    /* explanation words (.pll-tok): dark text on a tint scaled down by
+       --pll-tok-k, so the strongest word keeps 4.5:1 */
+    --pll-tok-k: .6;
+    --pll-tok-bad-rgb: 197, 34, 31;
+    --pll-tok-bad-text: #951a16;
+    --pll-tok-good-rgb: 19, 115, 51;
+    --pll-tok-good-text: #0b5a26;
 }
 @media (prefers-color-scheme: dark) {
     html:not([data-phishlens-theme="light"]) {
@@ -48,6 +58,13 @@ html {
         --pll-warn-line: rgba(253, 214, 99, .35);
         --pll-track: #3a4049;
         --pll-shadow: 0 2px 10px rgba(0, 0, 0, .4);
+        --pll-accent-strong: #ff8a4c;
+        --pll-on-accent: #1f2329;
+        --pll-tok-k: 1;
+        --pll-tok-bad-rgb: 197, 34, 31;
+        --pll-tok-bad-text: #ffb4ab;
+        --pll-tok-good-rgb: 19, 115, 51;
+        --pll-tok-good-text: #81c995;
     }
 }
 html[data-phishlens-theme="dark"] {
@@ -70,6 +87,13 @@ html[data-phishlens-theme="dark"] {
     --pll-warn-line: rgba(253, 214, 99, .35);
     --pll-track: #3a4049;
     --pll-shadow: 0 2px 10px rgba(0, 0, 0, .4);
+    --pll-accent-strong: #ff8a4c;
+    --pll-on-accent: #1f2329;
+    --pll-tok-k: 1;
+    --pll-tok-bad-rgb: 197, 34, 31;
+    --pll-tok-bad-text: #ffb4ab;
+    --pll-tok-good-rgb: 19, 115, 51;
+    --pll-tok-good-text: #81c995;
 }
 
 /* shared svg icon sizing */
@@ -187,8 +211,8 @@ html[data-phishlens-theme="dark"] {
     font-family: var(--pll-mono); font-size: 12px;
     padding: 2px 8px; border-radius: 6px; border: 1px solid transparent; white-space: nowrap;
 }
-.pll-tok--phishing { color: var(--pll-bad);  background: rgba(var(--pll-bad-rgb), var(--pll-a, .15)); border-color: rgba(var(--pll-bad-rgb), .3); }
-.pll-tok--safe     { color: var(--pll-good); background: rgba(19, 115, 51, var(--pll-a, .15)); border-color: rgba(19, 115, 51, .3); }
+.pll-tok--phishing { color: var(--pll-tok-bad-text);  background: rgba(var(--pll-tok-bad-rgb), calc(var(--pll-a, .15) * var(--pll-tok-k))); border-color: rgba(var(--pll-tok-bad-rgb), .3); }
+.pll-tok--safe     { color: var(--pll-tok-good-text); background: rgba(var(--pll-tok-good-rgb), calc(var(--pll-a, .15) * var(--pll-tok-k))); border-color: rgba(var(--pll-tok-good-rgb), .3); }
 .pll-cache-hint { align-self: center; font-size: 11px; color: var(--pll-text-2); margin-left: 4px; }
 
 /* Attachments: one compact card per scanned attachment, in a grid under
@@ -258,6 +282,17 @@ html[data-phishlens-theme="dark"] {
 .pll-att-chip--warn { color: var(--pll-warn) !important; background: var(--pll-warn-soft) !important; border-color: var(--pll-warn-line) !important; }
 .pll-att-chip--bad  { color: var(--pll-bad) !important;  background: var(--pll-bad-soft) !important;  border-color: var(--pll-bad-line) !important; }
 
+/* Keyboard focus on the banner's own controls. The toast's close
+   button resets every style (all: unset), so it needs one too. */
+.pll-banner__close:focus-visible,
+.pll-toast__close:focus-visible,
+.pll-att-btn:focus-visible,
+.plr-btn:focus-visible,
+.plr-select:focus-visible,
+.plr-link:focus-visible,
+.pll-notice-link:focus-visible { outline: 2px solid var(--pll-accent) !important; outline-offset: 2px; }
+.pll-toast__close:focus-visible { border-radius: 2px; }
+
 /* No focus ring after a mouse click on "Why this verdict?",
    keep it for keyboard users. */
 .pll-banner__why summary:focus { outline: none; }
@@ -324,7 +359,7 @@ html[data-phishlens-theme="dark"] {
 .plr-btn, .plr-link, .plr-select { font: inherit; font-size: 11.5px; color: var(--pll-text); cursor: pointer; }
 .plr-btn { padding: 2px 8px; border: 1px solid var(--pll-line); border-radius: 4px; background: transparent; }
 .plr-btn:hover { border-color: var(--pll-accent); }
-.plr-btn--strong { background: var(--pll-accent); border-color: var(--pll-accent); color: #fff; }
+.plr-btn--strong { background: var(--pll-accent-strong); border-color: var(--pll-accent-strong); color: var(--pll-on-accent); }
 .plr-btn:disabled { opacity: .5; cursor: default; }
 .plr-select { padding: 2px 4px; border: 1px solid var(--pll-line); border-radius: 4px; background: var(--pll-surface); }
 .plr-link { margin-top: 6px; padding: 0; border: 0; background: none; color: var(--pll-accent); text-decoration: underline; text-underline-offset: 2px; }
