@@ -21,7 +21,7 @@
   // Cloud directly, which its CORS settings allow.
   const API = location.hostname === "phishlens.dev" ? "" : "https://phishlens.dev";
 
-  // ---------- server status ----------
+  // Server status
   const status = $("status");
   const setDot = (up) => { $("live-dot").className = `dot ${up ? "dot--up" : "dot--down"}`; };
   // Treat a slow answer as no answer so the page never waits on it.
@@ -36,7 +36,7 @@
     .then((d) => { if (d.tag_name) $("version").textContent = t("js_version", { v: d.tag_name.replace(/^v/, "") }); })
     .catch(() => {});
 
-  // ---------- live counters, as big numbers ----------
+  // Live counters, as big numbers
   const cell = (big, lbl, off) => `<div class="cell"><div class="big${off ? " off" : ""}">${esc(big)}</div><div class="lbl">${esc(lbl)}</div></div>`;
   timed(API + "/reputation/stats")
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
@@ -58,7 +58,7 @@
       [live.previousElementSibling, live, live.nextElementSibling].forEach((n) => { if (n) n.hidden = true; });
     });
 
-  // ---------- try-it form ----------
+  // Try-it form
   const form = $("demo-form");
   const text = $("demo-text"), file = $("demo-file");
   const textErr = $("demo-text-error"), fileErr = $("demo-file-error");
@@ -209,7 +209,7 @@
     slot.querySelectorAll(".tok").forEach((el) => el.style.setProperty("--a", el.dataset.a));
   }
 
-  // ---------- detected language and "wrong verdict?" report ----------
+  // Detected language and "wrong verdict?" report
   const LANGS = ["en", "fr", "pt", "es", "de", "it", "nl", "pl", "ru", "uk", "tr", "ar", "hi", "id", "vi",
     "zh", "ja", "ko", "ha", "yo", "ig", "sw"];
   const REDACT = window.PhishLensRedact;
