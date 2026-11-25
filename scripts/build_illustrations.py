@@ -49,7 +49,7 @@ GMAIL_DARK = {
     "#137333": GOOD,
     "#fef7e0": blend(WARN, SURFACE, 0.12),
     "#f6d68b": blend(WARN, SURFACE, 0.35),
-    "#b06000": WARN,
+    "#9a5200": WARN,
     "#1f1f1f": "#e8eaed",  # text
     "#5f6368": "#a6adb7",  # secondary text
     "#dadce0": "#3a4049",  # lines
@@ -80,7 +80,7 @@ POPUP = {
     ),
     "light": dict(
         bg="#f5f2eb",
-        card="#ffffff",
+        card="#ece8de",
         line="#d6d0c2",
         text="#1f1e1b",
         mute="#4a4740",
