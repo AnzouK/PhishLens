@@ -1,15 +1,14 @@
 # Security policy
 
-PhishLens is a security tool, so its own security matters: please
+PhishLens is a security tool, so its own security matters. Please
 report anything that looks off.
 
 ## Reporting a vulnerability
 
-**Use GitHub Security Advisories.** Go to
-[https://github.com/AnzouK/PhishLens/security/advisories/new](https://github.com/AnzouK/PhishLens/security/advisories/new)
-and open a private advisory. This starts a thread visible only to
-maintainers, and (with your approval) becomes a public CVE with credit
-to you when the fix ships.
+Open a private advisory on GitHub at
+[https://github.com/AnzouK/PhishLens/security/advisories/new](https://github.com/AnzouK/PhishLens/security/advisories/new).
+Only maintainers can see the thread. With your approval it becomes a
+public CVE with credit to you when the fix ships.
 
 Please don't open a regular public issue for an unpatched security
 issue, and don't post proof-of-concept payloads in public places
@@ -17,28 +16,28 @@ before we've had a chance to fix them.
 
 ## What's in scope
 
-- The FastAPI backend (`backend/`): API endpoints, model loading,
-  attachment parsing, URL reputation cascade.
-- The Chrome extension (`extension/`): content script running inside
-  Gmail, popup, background service worker.
-- The landing page (`site/`): anything that lets an attacker execute
-  code or persist data in another visitor's browser.
+- The FastAPI backend (`backend/`), including the API endpoints, model
+  loading, attachment parsing and the URL reputation cascade.
+- The Chrome extension (`extension/`), including the content scripts in
+  Gmail and Outlook, the popup and the service worker.
+- The website (`site/`), for anything that lets an attacker run code or
+  store data in another visitor's browser.
 - Any pipe from an untrusted input (email body, attachment, URL, DOM
   scrape) to code execution, arbitrary file read/write, or SSRF.
 
 ## What's not in scope
 
-- The content of the allowlist (`backend/trusted_domains.py`): which
-  domains are listed is a product decision. A way to get the allowlist's
-  softer verdict without authenticating as the listed domain *is* a
-  security bug.
+- The content of the allowlist (`backend/trusted_domains.py`). Which
+  domains are listed is a product decision. Getting the allowlist's
+  softer verdict without authenticating as a listed domain is a
+  security bug, though.
 - PhishLens Cloud (`https://phishlens.dev`) is intentionally
   a shared open backend with permissive CORS. Rate-limiting bypass is
   a bug, but "someone can query the API without signing up" is not.
-- Model-quality issues (false positives / false negatives on specific
-  emails): those go in regular issues, not security.
-- Attachments larger than 10 MB being rejected is intentional (defense
-  against CPU-exhaustion attacks).
+- Model quality, such as false positives or false negatives on specific
+  emails. Those go in regular issues.
+- Attachments over 10 MB are rejected on purpose, to limit
+  CPU-exhaustion attacks.
 
 ## What we'll do
 

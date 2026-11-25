@@ -138,15 +138,16 @@ attachment often has little text and the feature is the whole signal.
 Macros, remote templates, DDE, executables and scripts (directly or in
 an archive) and double extensions (`invoice.pdf.exe`) decide on their
 own, even from a trusted sender, because delivery says nothing about
-what a macro does once enabled. Every step has a limit (pages, time, pixels,
-uncompressed size), and XML that declares a DOCTYPE is not parsed.
+what a macro does once enabled. Every step has a limit (pages, time,
+pixels, uncompressed size), and XML that declares a DOCTYPE is never
+parsed.
 
 ## Text model
 
-Any two-label Hugging Face classifier works; `phishlens_text_agent.json`
-next to the weights says how to feed it (normalisation, length,
-calibration temperature, its own override threshold), so a new model
-needs no code change. The model reads the subject and then the body,
+Any two-label Hugging Face classifier works. A
+`phishlens_text_agent.json` file next to the weights says how to feed
+it (normalisation, length, calibration temperature, its own override
+threshold), so a new model needs no code change. The model reads the subject and then the body,
 as it was trained. On the body alone it scored missed phishing 10% on
 average, against 94% with the subject. `HF_MODEL_REVISION` pins the
 exact commit, and `/health` reports it.
@@ -160,24 +161,24 @@ and why each candidate was kept or rejected.
 
 A report is built in the browser. `lib/redact.js` removes names,
 addresses, numbers and link paths, and the user sees and edits the
-result and confirms before sending. It always goes to PhishLens Cloud, which
-redacts it again (`redaction.py`, tested against the same cases) and
+result and confirms before sending. It always goes to PhishLens Cloud,
+which redacts it again (`redaction.py`, tested against the same cases) and
 keeps it with a random reference and the day only. Reports become
 training data only after a human has read them.
 
 ## Design decisions
 
 - No build step in the extension. The code Chrome runs is the code in
-  the repository, readable by store reviewers and users. The cost is a
-  manual load order; each file is wrapped in a function, shares one
-  namespace, and tests load them in manifest order.
+  the repository, readable by store reviewers and users. The price is a
+  manual load order. Each file is wrapped in a function and adds to one
+  shared namespace, and the tests load them in manifest order.
 - Translations without `chrome.i18n`. Chrome's mechanism only covers the
   languages Chrome supports, which leaves out Hausa.
 - LIME on demand. An explanation costs about 100 model runs, so it is a
   second request, cached by the service worker.
-- Threat intel ordered by cost: local cache, then Google Safe Browsing
-  (best coverage, daily quota), then PhishTank, URLhaus and Spamhaus, in
-  parallel with the models.
+- Threat intel is asked in order of cost. The local cache comes first,
+  then Google Safe Browsing (best coverage, daily quota), then PhishTank,
+  URLhaus and Spamhaus. All of it runs in parallel with the models.
 - Data formats that cannot run code. Random Forests load from skops with
   a type allowlist instead of pickle. Office files are read as ZIP and
   XML with `defusedxml`, without libraries that interpret documents.

@@ -5,13 +5,15 @@ false-negative samples, and pull requests are all welcome.
 
 ## Before you start
 
-- **Security issues** do not go in public issues. Follow
-  [SECURITY.md](SECURITY.md).
-- **A wrong verdict** is a regular issue. Include the verdict, the
-  per-agent scores and `trust_path` from the response, and a redacted
-  copy of the email (remove names, addresses and anything personal).
-- For anything bigger than a small fix, open an issue first so we can
-  agree on the approach.
+Please don't report security issues in public. [SECURITY.md](SECURITY.md)
+explains how to send them privately.
+
+A wrong verdict is a normal issue. Include the verdict, the per-agent
+scores and `trust_path` from the response, and a redacted copy of the
+email with names, addresses and anything personal removed.
+
+For anything bigger than a small fix, open an issue first so we can
+agree on the approach.
 
 ## Setup
 
@@ -82,57 +84,65 @@ npx eslint . --max-warnings 0
 node --test tests/extension/*.test.js tests/functions/*.test.mjs
 ```
 
-The popup and website UI tests need Playwright: `npm install --no-save @playwright/test@1`,
-`npx playwright install chromium`, then
+The popup and website UI tests need Playwright. Install it with
+`npm install --no-save @playwright/test@1` and
+`npx playwright install chromium`, then run
 `npx playwright test --config tests/ui/playwright.config.js`.
 
 ## Texts and translations
 
-- **Extension texts** are never written in the code: add a key to
-  `extension/lib/locales/en.js` and to the seven other locale files, and
-  call `t("key")`. `node --test tests/extension/*.test.js` lists missing
-  keys, placeholders or tags, and fails on any HTML built from a string
-  (`innerHTML`). Build nodes with `h()` from `extension/lib/dom.js`; the
-  `*_html` translations go through `setMarkup`, which keeps a short list
-  of tags.
-- **Website texts** live in `site-src/`; edit them there, run
-  `python3 scripts/build_site.py` (needs pandoc) and commit `site/` with
-  the change. Do not edit `site/` by hand.
-- **Privacy policy and terms:** a change to `PRIVACY.md` or `TERMS.md`
-  comes with the same change in `site-src/legal/<lang>/`.
-- Details, and how to add a language: [docs/languages.md](docs/languages.md).
+Extension texts never go in the code. Add a key to
+`extension/lib/locales/en.js` and to the seven other locale files, then
+call `t("key")`. `node --test tests/extension/*.test.js` lists missing
+keys, placeholders or tags, and fails on any HTML built from a string
+(`innerHTML`). Build nodes with `h()` from `extension/lib/dom.js`. The
+`*_html` translations go through `setMarkup`, which only keeps a short
+list of tags.
+
+Website texts live in `site-src/`. Edit them there, run
+`python3 scripts/build_site.py` (it needs pandoc) and commit `site/`
+with the change. Don't edit `site/` by hand.
+
+A change to `PRIVACY.md` or `TERMS.md` needs the same change in
+`site-src/legal/<lang>/`. [docs/languages.md](docs/languages.md) has
+the details and explains how to add a language.
 
 CI runs all of the above, plus CodeQL. A pull request needs a green CI.
 
 ## Guidelines
 
-- **Tests.** New backend logic comes with a test in `backend/tests/`.
-  Tests must stay offline: no model download, no network. Patch
-  `text_model.text_agent`, and use the fakes in `test_reputation.py` and
-  `test_text_model.py` as examples.
-- **Scoring changes** (weights, thresholds, trust paths) are made in
-  `backend/settings.py` and `backend/fusion.py`, with a test in
-  `test_fusion.py`; update the tables in `docs/architecture.md` and
-  explain in the pull request which false positive or false negative
-  they fix.
-- **Feature engineering** in `feature_extraction.py` is shared with the
-  trained Random Forests. Changing feature names or semantics requires
-  retraining in [PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector).
-- **Extension code.** No HTML from strings: build elements with `h()`
-  (`extension/lib/dom.js`), so text from an email is never parsed as
-  markup (a test fails on `innerHTML`). Server requests go through
-  `PhishLensApi` (`lib/api.js`). Anything that depends on Gmail's page
-  goes in `lib/gmail_page.js`, with a sample page in
-  `tests/fixtures/gmail/`. An empty `catch` says in a comment why the
-  error is ignored, or calls `PhishLensShared.debug()`.
-- **Regular expressions** on email or URL input must use bounded
-  quantifiers (CodeQL checks for ReDoS).
-- **No secrets and no personal data** in code, commits, fixtures or
-  screenshots.
-- **Commits** follow [Conventional Commits](https://www.conventionalcommits.org/)
-  (`feat:`, `fix:`, `docs:`, `chore:`, `ci:`, `test:`).
-- **Changelog.** Add a line under an "Unreleased" heading in
-  [CHANGELOG.md](CHANGELOG.md).
+New backend logic needs a test in `backend/tests/`. Tests must stay
+offline, with no model download and no network. Patch
+`text_model.text_agent` and look at the fakes in `test_reputation.py`
+and `test_text_model.py` for examples.
+
+Scoring changes (weights, thresholds, trust paths) belong in
+`backend/settings.py` and `backend/fusion.py`, with a test in
+`test_fusion.py`. Update the tables in `docs/architecture.md` too, and
+say in the pull request which false positive or false negative the
+change fixes.
+
+`feature_extraction.py` is shared with the trained Random Forests. If
+you change feature names or their meaning, the forests have to be
+retrained in [PhishingDetector](https://github.com/dodi-ctrl/PhishingDetector).
+
+In the extension, never build HTML from strings. Use `h()` from
+`extension/lib/dom.js` so text from an email is never parsed as markup
+(a test fails on `innerHTML`). Server requests go through `PhishLensApi`
+in `lib/api.js`. Anything that depends on Gmail's page goes in
+`lib/gmail_page.js`, with a sample page in `tests/fixtures/gmail/`. An
+empty `catch` either explains in a comment why the error is ignored or
+calls `PhishLensShared.debug()`.
+
+Regular expressions that run on email or URL input must use bounded
+quantifiers. CodeQL checks for ReDoS.
+
+Keep secrets and personal data out of code, commits, fixtures and
+screenshots.
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
+(`feat:`, `fix:`, `docs:`, `chore:`, `ci:`, `test:`). Add a line under
+an "Unreleased" heading in [CHANGELOG.md](CHANGELOG.md).
 
 ## Releases
 
@@ -143,5 +153,5 @@ the tag `vX.Y.Z` on `main`. The release workflow
 (`.github/workflows/release.yml`) checks that the tag matches the code,
 zips `extension/` and publishes the GitHub release with that zip and the
 version's changelog section. The same workflow can be started by hand
-from the Actions tab (**Release**, **Run workflow** on `main`): it then
-makes the tag from the code's version.
+from the Actions tab (**Release**, then **Run workflow** on `main`). In
+that case it creates the tag from the code's version.

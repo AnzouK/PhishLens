@@ -30,16 +30,20 @@ and no published model trained on personal mail.
 
 ## Method
 
-- Teacher: [Horizon-Labs/phishing-scam-detector-base](https://huggingface.co/Horizon-Labs/phishing-scam-detector-base).
-- Student: [jhu-clsp/mmBERT-small](https://huggingface.co/jhu-clsp/mmBERT-small), two classes.
-- Teacher score: P(fraud) + 0.5 x P(spam). With the full spam weight,
-  newsletters looked like phishing.
-- Loss: 0.7 x cross-entropy on the true label + 0.3 x towards the teacher.
-- Training: 2 epochs, learning rate 3e-5, batch 32, 256 tokens; rare
-  languages repeated.
-- Calibration: temperature fitted on validation data.
-- Input: links, addresses and phone numbers masked the same way
-  everywhere (`backend/text_normalize.py`).
+The teacher is
+[Horizon-Labs/phishing-scam-detector-base](https://huggingface.co/Horizon-Labs/phishing-scam-detector-base)
+and the student is
+[jhu-clsp/mmBERT-small](https://huggingface.co/jhu-clsp/mmBERT-small)
+with two classes. The teacher's score is P(fraud) + 0.5 x P(spam),
+because with the full spam weight newsletters looked like phishing. The
+loss is 0.7 x cross-entropy on the true label plus 0.3 x the distance to
+the teacher.
+
+Training ran for 2 epochs at learning rate 3e-5, batch 32 and 256
+tokens, with rare languages repeated. A temperature fitted on
+validation data calibrates the output. Links, addresses and phone
+numbers are masked the same way in training and in production
+(`backend/text_normalize.py`).
 
 One model for every language replaced the first plan (DistilBERT for
 English, a multilingual model for the rest) once the student beat v1 in
@@ -47,22 +51,52 @@ English too, with an AUC of 0.986 against 0.62.
 
 ## Sources
 
-| Source | Languages | Licence | Use |
-| --- | --- | --- | --- |
-| [zefang-liu/phishing-email-dataset](https://huggingface.co/datasets/zefang-liu/phishing-email-dataset) | en | LGPL-3.0 | train and test |
-| [cybersectony/PhishingEmailDetectionv2.0](https://huggingface.co/datasets/cybersectony/PhishingEmailDetectionv2.0) | en | not stated | train and test |
-| [MeAJOR corpus](https://zenodo.org/records/18471483) | mostly en | CC BY 4.0 | train, capped |
-| [MOZ-Smishing](https://huggingface.co/datasets/MOZNLP/MOZ-Smishing) | pt | OpenRAIL-M | test only |
-| [french-spam-text-dataset](https://github.com/Djochrist/french-spam-text-dataset-v1.0) | fr | CC BY 4.0 | synthetic, reported apart |
-| [SMS Spam multilingual](https://huggingface.co/datasets/dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset) | fr, pt | GPL | train only |
-| [Nazario](https://monkey.org/~jose/phishing/) | several | CC BY 4.0 | 2023-2024 train, 2025 test |
-| [phishing_pot](https://github.com/rf-peixoto/phishing_pot) | several | CC BY-NC 4.0 | before 2026 train, 2026 test |
-| [untroubled.org spam traps](https://untroubled.org/spam/) | several | free use | phishing only when the teacher says fraud |
-| [nyuuzyou/phishing-snapshots](https://huggingface.co/datasets/nyuuzyou/phishing-snapshots) | fr, pt, es... | CC0 | text of real phishing pages |
-| [SpaPhish](https://data.mendeley.com/datasets/hz2d6gz7pc) | es | CC BY 4.0 | 2025 is test |
-| [FineWeb](https://huggingface.co/datasets/HuggingFaceFW/fineweb), [FineWeb-2](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2) | 22 | ODC-By | ordinary web text as legitimate |
-| [OPUS-MT](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-fr), [NLLB-200](https://huggingface.co/facebook/nllb-200-distilled-600M) translations | 21 | CC BY 4.0 / CC BY-NC 4.0 | both classes translated in equal numbers |
-| The maintainer's mailboxes | en, fr | private | legitimate test mail; private models only |
+English email corpora:
+
+- [zefang-liu/phishing-email-dataset](https://huggingface.co/datasets/zefang-liu/phishing-email-dataset)
+  (LGPL-3.0), used for training and testing.
+- [cybersectony/PhishingEmailDetectionv2.0](https://huggingface.co/datasets/cybersectony/PhishingEmailDetectionv2.0)
+  (licence not stated), used for training and testing.
+- The [MeAJOR corpus](https://zenodo.org/records/18471483) (mostly
+  English, CC BY 4.0), used for training with a cap.
+
+Other languages:
+
+- [MOZ-Smishing](https://huggingface.co/datasets/MOZNLP/MOZ-Smishing)
+  (Portuguese, OpenRAIL-M), used for testing only.
+- [french-spam-text-dataset](https://github.com/Djochrist/french-spam-text-dataset-v1.0)
+  (French, CC BY 4.0). It is synthetic, so its results are reported
+  apart.
+- [SMS Spam multilingual](https://huggingface.co/datasets/dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset)
+  (French and Portuguese, GPL), used for training only.
+- [SpaPhish](https://data.mendeley.com/datasets/hz2d6gz7pc) (Spanish,
+  CC BY 4.0). Its 2025 part is test data.
+
+Real phishing in several languages:
+
+- [Nazario](https://monkey.org/~jose/phishing/) (CC BY 4.0). 2023 and
+  2024 train the model and 2025 tests it.
+- [phishing_pot](https://github.com/rf-peixoto/phishing_pot)
+  (CC BY-NC 4.0). Mail before 2026 trains the model and 2026 tests it.
+- [untroubled.org spam traps](https://untroubled.org/spam/) (free use).
+  A message counts as phishing only when the teacher says fraud.
+- [nyuuzyou/phishing-snapshots](https://huggingface.co/datasets/nyuuzyou/phishing-snapshots)
+  (French, Portuguese, Spanish and more, CC0), the text of real phishing
+  pages.
+
+Legitimate text and translations:
+
+- [FineWeb](https://huggingface.co/datasets/HuggingFaceFW/fineweb) and
+  [FineWeb-2](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2)
+  (22 languages, ODC-By), ordinary web text used as legitimate.
+- Translations with
+  [OPUS-MT](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-fr)
+  (CC BY 4.0) and
+  [NLLB-200](https://huggingface.co/facebook/nllb-200-distilled-600M)
+  (CC BY-NC 4.0) into 21 languages, with both classes translated in
+  equal numbers.
+- The maintainer's own mailboxes (English and French, private), used as
+  legitimate test mail and only in private models.
 
 A few rules apply throughout. Nothing dated 2026 trains a model, and a
 text found in a test set is removed from training. Test sets are real

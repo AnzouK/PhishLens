@@ -3,21 +3,28 @@
 This document covers the PhishLens runtime (Chrome extension, FastAPI
 backend, PhishLens Cloud at phishlens.dev). The training pipeline in
 PhishingDetector is covered only where it affects the runtime (the
-published models). It applies STRIDE per trust boundary, then lists the
-risks we accept.
+published models). It goes through STRIDE for each trust boundary and
+then lists the risks we accept.
 
 ## Assets
 
-| Asset | Why it matters |
-| --- | --- |
-| Email content sent for scanning | Private user data (body, sender, attachments) |
-| Correctness of the verdict | A wrong "safe" on a phishing email is the main harm the tool can cause |
-| Google Safe Browsing API key and daily quota | Leaking or exhausting it silently removes the strongest URL signal |
-| Backend availability | PhishLens Cloud is shared by every extension user on the Cloud setting |
-| Published models on Hugging Face | Loaded by every backend at startup; the text model decides the wording score |
-| Hugging Face read token (`HF_TOKEN`, only when the text model is in a private repository) | Read access to that repository |
-| The server and its secrets (Secret Manager for PhishLens Cloud, `.phishlens.env` on a self-hosted server) | Compromise of the host or the cloud account exposes all of the above |
-| Reports users send (`FEEDBACK_DIR`) | Redacted email text: still private content, and future training data |
+- The email content sent for scanning: body, sender and attachments,
+  all private.
+- The correctness of the verdict. A wrong "safe" on a phishing email is
+  the main harm the tool can cause.
+- The Google Safe Browsing API key and its daily quota. Leaking or
+  exhausting it silently removes the strongest URL signal.
+- Backend availability, since every extension user on the Cloud setting
+  shares PhishLens Cloud.
+- The published models on Hugging Face. Every backend loads them at
+  startup and the text model decides the wording score.
+- The Hugging Face read token (`HF_TOKEN`), needed only when the text
+  model sits in a private repository.
+- The server and its secrets (Secret Manager for PhishLens Cloud,
+  `.phishlens.env` on a self-hosted server). Compromising the host or
+  the cloud account exposes everything above.
+- The reports users send (`FEEDBACK_DIR`). The text is redacted but
+  still private, and it may become training data.
 
 ## Trust boundaries
 
@@ -77,107 +84,130 @@ flowchart LR
 
 ## Residual risks and known limitations
 
-**R1. False negatives are possible.** On 2,000 recent phishing emails
-nobody had looked at, the whole system caught 90.2%; new campaigns and
-wording written against it will do worse. PhishLens does not filter
-mail, and its explanation is there so the user can judge.
+### R1. False negatives happen
 
-**R2. Not every language is read equally well.** The text model was
-trained on 22 languages but measured on real phishing in 6; a
-self-hosted server uses the English model unless told otherwise. The
-link, sender and threat-intelligence checks do not depend on the
-language ([languages.md](languages.md#text-model)).
+On 2,000 recent phishing emails nobody had looked at, the whole system
+caught 90.2%. New campaigns, and wording written to beat it, will do
+worse. PhishLens does not filter mail. It explains its verdict so the
+user can judge.
 
-**R3. A phishing domain that signs its own mail gets the softer path.**
+### R2. Some languages are read better than others
+
+The text model was trained on 22 languages but measured on real
+phishing in only 6. A self-hosted server uses the English model unless
+told otherwise. The link, sender and threat-intelligence checks work the
+same in every language ([languages.md](languages.md#text-model)).
+
+### R3. A phishing domain that signs its own mail gets the softer path
+
 DKIM proves who sent the email, not that the sender is honest. Treating
 signed senders like unsigned ones catches about 7 points more phishing
-but doubles the false alarms on real inbox mail. As a compromise, a
-signed sender whose links all lead elsewhere, with phishing-like
-wording, is flagged anyway. A link to a public file host counts
-even next to a decoy link to the sender's own domain. Signed phishing
-that also links to its own domain while its lure is on an ordinary
-site, sends no link, or goes through known click tracking still gets
-the discount ([evaluation](evaluation.md#results)).
+but doubles the false alarms on real inbox mail. As a compromise, we
+flag a signed sender anyway when all its links lead elsewhere and the
+wording looks like phishing. A link to a public file host counts even
+next to a decoy link to the sender's own domain. Signed phishing still
+gets the discount if it also links to its own domain while the lure
+sits on an ordinary site, if it sends no link, or if it goes through
+known click tracking ([evaluation](evaluation.md#results)).
 
-**R4. The false-alarm rate rests on 414 legitimate emails.** They come
-from one person's inboxes and technical mailing lists, so other inboxes,
-banks and languages may see more. User reports are how this gets measured.
+### R4. The false-alarm rate rests on 414 legitimate emails
 
-**R5. Soft trust signals can be claimed by any API caller.** This is
-accepted because the effect is confined to that caller's own response.
+They come from one person's inboxes and from technical mailing lists.
+Other inboxes, banks and languages may see more false alarms, and user
+reports are how we will find out.
 
-**R6. Shared open API.** There are no accounts. Rate limits are per IP
-and in memory, reset on restart (on PhishLens Cloud, whenever the instance
-scales to zero) and can be spread over many addresses. Behind a reverse
-proxy they need the proxy's address in `FORWARDED_ALLOW_IPS`
-([operations](operations.md)), or every user shares one limit. The
-Pages Function in front of PhishLens Cloud replaces any client-sent
+### R5. Any API caller can claim the soft trust signals
+
+We accept this because the effect stays inside that caller's own
+response.
+
+### R6. The API is shared and open
+
+There are no accounts. Rate limits are per IP, kept in memory and reset
+on restart, which on PhishLens Cloud happens whenever the instance
+scales to zero. An attacker can also spread requests over many
+addresses. Behind a reverse proxy the limits need the proxy's address in
+`FORWARDED_ALLOW_IPS` ([operations](operations.md)), or every user
+shares one limit.
+
+The Pages Function in front of PhishLens Cloud replaces any client-sent
 `X-Forwarded-For` with the address Cloudflare saw. The backend's own
-Cloud Run address is written in that function and is not a secret,
-because the backend answers only requests carrying the function's shared secret
-(`PROXY_SECRET`), so calling it directly, with or without a forged
-`X-Forwarded-For`, gets 403. Routes without a limit of their own
-(`/`, `/reputation/stats`) share `RATE_LIMIT_DEFAULT`; `/health` has
-none, for the keep-warm job and uptime monitors. The Safe Browsing
-quota is shared too, so links sent from many addresses can exhaust it
-for the day. With a public store release, per-install keys or a shared
-limiter become worthwhile.
+Cloud Run address is written in that function and is not a secret. It
+doesn't need to be, because the backend only answers requests that
+carry the function's shared secret (`PROXY_SECRET`). Calling it
+directly gets a 403, forged `X-Forwarded-For` or not.
 
-**R7. The allowlist trusts authenticated domains, not messages.** A
-compromised account at a listed institution is caught only by threat
+Routes without their own limit (`/`, `/reputation/stats`) share
+`RATE_LIMIT_DEFAULT`. `/health` has no limit so the keep-warm job and
+uptime monitors can call it. The Safe Browsing quota is shared as well,
+so links sent from many addresses can use it up for the day. Per-install
+keys or a shared limiter will be worth adding with a public store
+release.
+
+### R7. The allowlist trusts authenticated domains, not messages
+
+A compromised account at a listed institution is only caught by threat
 intelligence or the link checks. Platforms that send their users' own
-words (document shares, invoices, signature requests) are kept off the
+words (document shares, invoices, signature requests) stay off the
 list, but their signed mail still gets the DKIM-signed discount. Large
 sites where anyone can publish a page (notion.so, medium.com,
 github.com) skip the trained link model and rely on threat
 intelligence. Forms and shared files on large sites (Microsoft Forms,
 OneDrive, SharePoint, Google Docs) never count as links to a known site.
 
-**R8. OCR and QR decoding are best effort.** Poor scans, stylised fonts
-or damaged QR codes defeat them, although an image-only PDF still
-raises the score a little.
+### R8. OCR and QR decoding are best effort
 
-**R9. The Hausa interface is a draft translation**, marked for review by
-a native speaker. English stays available in Settings.
+Poor scans, stylised fonts and damaged QR codes defeat them. An
+image-only PDF still raises the score a little.
 
-**R10. A long visible preamble still fills the text model's window.**
+### R9. The Hausa interface is a draft
+
+A native speaker still has to review the translation. English stays
+available in Settings.
+
+### R10. A long visible preamble still fills the text model's window
+
 The model reads the first 256 tokens. Hidden text is moved after the
-visible text, but benign visible text placed before the lure is read
-first. Scoring the end of long emails too would need a benchmark run
-to measure its cost in false alarms.
+visible text, but harmless visible text placed before the lure is read
+first. Scoring the end of long emails as well would need a benchmark
+run to measure what it costs in false alarms.
 
-**R11. Only the topmost Authentication-Results is read.** A server that
-writes one per check (Postfix with OpenDKIM and OpenDMARC) loses the
-extra results. Such mail misses a softer path but never gets a harsher one.
-Joining them is not safe, since on Gmail the sender's own headers come
-right after Gmail's. An uploaded .eml from a server that adds no
-Authentication-Results at all shows the sender's own, if it wrote one.
-An .eml attached to another email and scanned from Gmail is read
-without them.
+### R11. Only the topmost Authentication-Results is read
 
-**R12. Attachments are read, never run.** Addresses a script writes
-plainly, with escapes, character codes, percent-encoding or base64 are
-found. One it computes at run time is not, though the script itself is
-flagged. An Office file that takes more than 4 seconds to read is
-reported as not read to the end, and files attached to a web archive
-or a saved email inside an archive are named, not opened, like the
-files an Office document inside an archive holds.
+A server that writes one header per check (Postfix with OpenDKIM and
+OpenDMARC) loses the extra results. Such mail can miss a softer path but
+never gets a harsher one. Joining them is not safe, because on Gmail the
+sender's own headers come right after Gmail's. An uploaded .eml from a
+server that adds no Authentication-Results at all shows the sender's
+own, if it wrote one. An .eml attached to another email and scanned from
+Gmail is read without them.
 
-**R13. Very large emails are read in part.** The first megabyte of an
-HTML body is parsed (inline images left out). Links past it are still
-read, the last ones first, but whether they show cannot be told, and a
-flood of more than a thousand links after the padding can still push
-some out of the check. Gmail clips such messages too. Long HTML
-comments are dropped from the text, and the links inside them (Outlook's
-own buttons) are checked as hidden links.
+### R12. Attachments are read, never run
+
+We find addresses that a script writes plainly or hides with escapes,
+character codes, percent-encoding or base64. An address computed at run
+time is missed, though the script itself is flagged. An Office file that
+takes more than 4 seconds to read is reported as not read to the end.
+Files attached to a web archive or a saved email inside an archive are
+named but not opened, and the same goes for the files held by an Office
+document inside an archive.
+
+### R13. Very large emails are only read in part
+
+We parse the first megabyte of an HTML body, leaving out inline images.
+Links past that point are still read, the last ones first, but we can't
+tell whether they are visible. A flood of more than a thousand links
+after the padding can still push some out of the check. Gmail clips such
+messages too. Long HTML comments are dropped from the text, and the
+links inside them (Outlook's own buttons) are checked as hidden links.
 
 ## Review triggers
 
 Revisit this document when an endpoint, an input type or an extension
 permission is added, when the text model changes, or when the
 deployment runs more than one instance (PhishLens Cloud is capped at
-one Cloud Run instance). The last review took place for 2.1.0: an
-external audit of 2.0.12 followed by five rounds of follow-up review
-(authentication parsing, impersonation, hidden content, link parsing,
-Safe Browsing quota, Outlook sender, HTML attachments, HTML comments,
-rate limits and hosting).
+one Cloud Run instance). The last review was for 2.1.0. It started with
+an external audit of 2.0.12 and went through five rounds of follow-up
+on authentication parsing, impersonation, hidden content, link parsing,
+the Safe Browsing quota, the Outlook sender, HTML attachments, HTML
+comments, rate limits and hosting.

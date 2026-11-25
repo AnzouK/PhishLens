@@ -3,11 +3,12 @@
 This page explains how PhishLens is measured, how far each figure can be
 trusted, and how to measure it yourself.
 
-| Measure | What it covers | Where |
-| --- | --- | --- |
-| Public benchmark | The whole system as users see it, on emails anyone can download | this page, `scripts/benchmark.py` |
-| Model evaluation | The text model alone, on held-out mail | [multilingual-model.md](multilingual-model.md) |
-| Live evaluation | Scans a user marked right or wrong in their own history | `scripts/live_eval.py` |
+There are three kinds of measurement. The public benchmark on this page
+(`scripts/benchmark.py`) tests the whole system as users see it, on
+emails anyone can download. The model evaluation in
+[multilingual-model.md](multilingual-model.md) tests the text model
+alone on held-out mail. The live evaluation (`scripts/live_eval.py`)
+counts the scans a user marked right or wrong in their own history.
 
 Every rate comes with its count and a 95% Wilson confidence interval.
 "1 of 297 (0.1% to 1.9%)" shows how little one error in a few hundred
@@ -32,11 +33,13 @@ earlier runs, and `--show-errors` lists the misses on your machine only.
 Run it against your own server, because PhishLens Cloud is rate-limited
 and its Safe Browsing quota is shared.
 
-| Side | Source |
-| --- | --- |
-| Phishing | [phishing_pot](https://github.com/rf-peixoto/phishing_pot) (real `.eml`, mostly English and Portuguese), [Nazario](https://monkey.org/~jose/phishing/) |
-| Legitimate | Apache mailing-list archives, real and recent but technical, with no bank or delivery mail |
-| Legitimate | Personal inboxes, the most realistic (counts only, never the emails) |
+The phishing side comes from
+[phishing_pot](https://github.com/rf-peixoto/phishing_pot) (real `.eml`
+files, mostly English and Portuguese) and
+[Nazario](https://monkey.org/~jose/phishing/). The legitimate side has
+two sources. Apache mailing-list archives are real and recent, but
+technical, with no bank or delivery mail. Personal inboxes are the most
+realistic, and only their counts are published, never the emails.
 
 There is no public, recent collection of everyday legitimate mail (bank
 notices, deliveries, newsletters) in several languages. That is the
@@ -60,7 +63,7 @@ emails.
 The runs behind the website's figures are in [`docs/benchmark/`](benchmark/),
 one line per email (id, label, verdict, scores), nothing of the email.
 The id is the first 16 hex digits of the SHA-256 of the raw message, so
-anyone with the same dataset finds the same emails and can compare:
+anyone with the same dataset finds the same emails and can compare runs.
 
 ```bash
 python3 scripts/export_benchmark.py --compare docs/benchmark/fresh-phishing.jsonl my-run.jsonl
@@ -141,9 +144,8 @@ signed notice scored 0.56, where the current model stays below 0.5.
   reads 22.
 - The 297 Apache emails were used while tuning (the 2.0.8 change was
   made on them), so they are not an unseen set. The 117 inbox emails
-  are unseen, and 0 of 117 were flagged (at most 3.2% at 95%). That is
-  the figure to expect on everyday mail, not the 0.2% of the two
-  together.
+  are unseen, and 0 of 117 were flagged (at most 3.2% at 95%). Expect
+  that on everyday mail, not the 0.2% of the two together.
 - The 2,000 phishing emails of the 2.0.12 run are the sample of the
   2.0.10 run, measured again after looking at the emails whose verdict
   changed (and one change, the text read as shown and as written, came
@@ -157,8 +159,8 @@ signed notice scored 0.56, where the current model stays below 0.5.
   (visible text, links and Gmail's own signals) and Outlook are not
   measured yet. Outlook gives only the visible text and links, with no
   SPF, DKIM or DMARC, so the softer path for authenticated senders never
-  applies there. A false alarm
-  rate per channel needs the same legitimate mail scanned both ways.
+  applies there. A false-alarm rate per channel needs the same
+  legitimate mail scanned both ways.
 - The misses are counted by trust path in each run (122 by default, 74
   on `crypto_verified` in 2.0.12) but not yet published as rates.
 - The multilingual text model's weights are not public. Anyone can
@@ -167,5 +169,5 @@ signed notice scored 0.56, where the current model stays below 0.5.
   model. A self-hosted server uses the public English model, which
   flags more legitimate mail ([languages](languages.md#text-model)).
 - The text model reads the first 256 tokens, so a long benign preamble
-  can push the lure out of its window (threat model, R10). The links and the
-  sender are checked whatever the length.
+  can push the lure out of its window (threat model, R10). The links and
+  the sender are checked whatever the length.
