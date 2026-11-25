@@ -38,10 +38,10 @@ function renderTrustPill(data) {
 // (PhishLensShared.safeReason). Reasons without one add nothing.
 const REASON_KEYS = { forwarded: "sub_forwarded", shared: "sub_shared", trusted: "sub_trusted", crypto: "sub_crypto" };
 
-// caution: false, or "not_read" for a file PhishLens could not look
+// `caution` is false, "not_read" for a file PhishLens could not look
 // inside, or "signs" for any other unusual sign. In the caution style the
-// line starts with "Some signs are unusual" (in its file wording for a
-// file), followed by the reason when there is one, as in the banner.
+// line starts with "Some signs are unusual" (worded for files when it is
+// a file) and adds the reason when there is one, like the banner does.
 function subline(data, isPhishing, caution, flags) {
     const flagText = flags.length ? t("found_flags", { flags: flags.map(I18N.flagLabel).join(", ") }) : "";
     if (isPhishing) return t(data.links_elsewhere && !(data.link_alignment?.aligned > 0) ? "lead_links_elsewhere" : "sub_phishing") + flagText;

@@ -1,5 +1,5 @@
 // The header slides away while scrolling down and comes back on any
-// scroll up; a "back to top" button appears once the page is scrolled.
+// scroll up. A "back to top" button appears once the page is scrolled.
 (() => {
   "use strict";
   const head = document.querySelector(".site-head");

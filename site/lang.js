@@ -1,8 +1,8 @@
 // PhishLens site: on an English page, offer the visitor's own language
-// when the site has it (from the browser's language settings). A link,
-// never a redirect, so English stays one click away. The bar has a close
-// button; closing it, or picking a language (from the bar or the menu),
-// is remembered in localStorage so the bar does not come back.
+// when the site has it, based on the browser's language settings. It is a
+// link and never a redirect, so English stays one click away. Closing the
+// bar or picking a language is remembered in localStorage so the bar
+// doesn't come back.
 (() => {
   "use strict";
   const KEY = "phishlens.langSuggest";
@@ -11,7 +11,7 @@
     try {
       localStorage.setItem(KEY, "done");
     } catch {
-      // storage blocked (private mode, settings): the bar may come back
+      // Storage is blocked (private mode or settings), so the bar may come back.
     }
   };
   const answered = () => {
@@ -30,7 +30,7 @@
     .map((l) => String(l).slice(0, 2).toLowerCase())
     .find((l) => l === "en" || SITE.langs[l]);
   if (!wanted || wanted === "en") return;
-  // Pages serves privacy.html at /privacy: link to the address without .html
+  // Pages serves privacy.html at /privacy, so link without .html.
   const page = location.pathname.split("/").pop().replace(/\.html$/, "");
   // Only pages that exist in every language. The 404 page (served at any
   // address) and other noindex pages get no suggestion.
@@ -51,7 +51,7 @@
   close.addEventListener("click", () => {
     remember();
     bar.remove();
-    // the focused button is gone: put focus back at the top of the page
+    // The focused button is gone, so move focus back to the top of the page.
     document.querySelector(".brand")?.focus({ preventScroll: true });
   });
   bar.append(a, close);

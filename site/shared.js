@@ -9,9 +9,8 @@ const BACKEND_PRESETS = Object.freeze({
 });
 const DEFAULT_BACKEND = "cloud";
 
-// A typed server address as stored and compared everywhere: trimmed,
-// scheme in lowercase ("HTTPS://" is accepted when typed), without
-// trailing slashes.
+// Normalises a typed server address before it is stored or compared. We
+// trim it, lower-case the scheme and drop trailing slashes.
 function normalizeBaseUrl(value) {
     return String(value || "").trim().replace(/\/+$/, "")
         .replace(/^[a-z][a-z0-9+.-]*:/i, (scheme) => scheme.toLowerCase());
@@ -102,17 +101,16 @@ function safeName(name) {
     return String(name || "").replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "\u2420");
 }
 
-// Characters that take no room on screen: what Unicode calls default
-// ignorable (format characters, fillers, variation selectors, tags) and
-// control characters other than tab, line feed, form feed and carriage
-// return. Same rule as backend/unicode_text.py, with shared cases in
-// tests/fixtures/invisible_cases.json.
+// Characters that take no room on screen. That is Unicode's default
+// ignorable set plus control characters other than tab, line feed, form
+// feed and carriage return. backend/unicode_text.py uses the same rule and
+// both are tested against tests/fixtures/invisible_cases.json.
 const INVISIBLE_SOURCE = "[\\p{Cf}\\x00-\\x08\\x0B\\x0E-\\x1F\\x7F-\\x9F\\u034F\\u115F\\u1160\\u17B4\\u17B5" +
     "\\u180B-\\u180D\\u180F\\u0890\\u0891\\u3164\\uFFA0\\uFE00-\\uFE0F\\uFFF0-\\uFFF8\\u{13430}-\\u{1343F}" +
     "\\u{1BCA0}-\\u{1BCA3}\\u{1D173}-\\u{1D17A}\\u{E0000}-\\u{E0FFF}]";
 const INVISIBLE_ONE = new RegExp(INVISIBLE_SOURCE, "u");
-// The scripts whose shape the joiners change: Arabic and Persian (with
-// their presentation forms), the Indic scripts.
+// Scripts whose letter shapes depend on joiners, such as Arabic, Persian
+// and the Indic scripts.
 const SHAPED_BLOCK = /[\u0600-\u08FF\u0900-\u0DFF\uFB50-\uFDFF\uFE70-\uFEFC]/u;
 const shapedLetter = (c) => !!c && SHAPED_BLOCK.test(c) && /\p{L}/u.test(c) && !INVISIBLE_ONE.test(c);
 const shapedMark = (c) => !!c && SHAPED_BLOCK.test(c) && /\p{Mn}|\p{Mc}/u.test(c) && !INVISIBLE_ONE.test(c);
@@ -140,8 +138,8 @@ function collapseInvisible(text) {
     return String(text ?? "").replace(new RegExp(INVISIBLE_SOURCE + "+", "gu"), (run) => [...run][0]);
 }
 
-// A score as the meters show it: "high" (red) from 70%, "mid" from 40%,
-// "low" below. Compared on the rounded percentage the user reads.
+// Meter level for a score. 70% and up is "high" (red), 40% and up is
+// "mid", the rest is "low". We compare the rounded percentage the user sees.
 const HIGH_SCORE_PCT = 70;
 const MID_SCORE_PCT = 40;
 function scoreLevel(probability) {
@@ -161,9 +159,9 @@ function isCaution(flags) {
     return (flags || []).some((f) => CAUTION_FLAGS.includes(f));
 }
 
-// Attachment flags that only describe the file (text read by OCR, links,
-// an invite, an old Office format). They are shown as neutral chips; any
-// other flag is a warning sign, shown in orange.
+// Attachment flags that only describe the file, such as OCR text, links,
+// an invite or an old Office format. They show as neutral chips. Every
+// other flag is a warning and shows in orange.
 const NEUTRAL_FLAGS = Object.freeze([
     "text_from_ocr", "contains_link_annotation", "calendar_invite", "legacy_office_format",
 ]);
@@ -181,20 +179,19 @@ function shownScores(data) {
     ].filter((p) => p != null);
 }
 
-// A failed sender check that counts as a warning sign: DKIM or DMARC
-// failed, or SPF failed without a DMARC pass. Mailing lists and
-// forwarders resend from their own servers, so SPF fails while the
-// DKIM signature still aligns and DMARC passes; that is not unusual.
+// True when sender authentication failed in a way worth warning about.
+// DKIM or DMARC failing counts. SPF failing only counts without a DMARC
+// pass, because mailing lists and forwarders resend from their own
+// servers and break SPF while DKIM still aligns.
 function authFailed(auth) {
     if (auth?.dkim === "fail" || auth?.dmarc === "fail") return true;
     return auth?.spf === "fail" && auth?.dmarc !== "pass";
 }
 
-// The unusual signs shown as orange or red chips: a brand impersonated, a
-// forward, a shared file or form, links flagged by threat intelligence,
-// failed sender authentication, a sender listed by Spamhaus, and the
-// warning flags of an attachment (a file PhishLens could not look inside,
-// macros, a program in an archive...).
+// True when the result has a sign we show as an orange or red chip. That
+// covers brand impersonation, forwards, shared files or forms, links
+// flagged by threat intelligence, failed sender authentication, a sender
+// on Spamhaus and the warning flags of an attachment.
 function unusualSigns(data) {
     const auth = data?.sender_auth || {};
     const signs = [];
@@ -208,11 +205,11 @@ function unusualSigns(data) {
     return signs;
 }
 
-// What explains a safe verdict, as a short name: "forwarded",
-// "shared", "no_text", then, when an agent score is high, why it did not
-// count ("trusted", "crypto", "internal", "gmail", or "one_signal"). Null
-// when nothing needs explaining. The banner and the popup each have their
-// own sentence for it.
+// Short reason for a safe verdict, or null when nothing needs explaining.
+// "forwarded", "shared" and "no_text" come first. When an agent score is
+// high, the reason says why it didn't count ("trusted", "crypto",
+// "internal", "gmail" or "one_signal"). The banner and the popup each
+// turn it into their own sentence.
 function safeReason(data) {
     if (data?.forwarded?.detected) return "forwarded";
     if (data?.shared_links?.count) return "shared";
@@ -223,10 +220,10 @@ function safeReason(data) {
     return byPath[data.trust_path] || "one_signal";
 }
 
-// How a verdict is shown: "danger" for phishing; "caution" for a safe
-// verdict next to a red meter or an unusual sign, since a green "looks
-// safe" above them would read as a contradiction; "safe" otherwise. The
-// verdict and scores from the server are never changed.
+// Display style for a verdict. Phishing is "danger". A safe verdict next
+// to a red meter or an unusual sign is "caution", because a green "looks
+// safe" above them would contradict the details. Everything else is
+// "safe". The server's verdict and scores are never changed.
 function displayVerdict(data) {
     if (data?.verdict === "phishing") return "danger";
     const high = shownScores(data).some((p) => scoreLevel(p) === "high");

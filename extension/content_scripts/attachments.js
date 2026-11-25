@@ -1,6 +1,6 @@
-// Gmail attachments. Each email gets one "Scan attachments" button; each
-// file is downloaded from the same origin, so Gmail's session cookie goes
-// with it, and gets a result card below the attachment strip.
+// Gmail attachments. Each email gets one "Scan attachments" button. Files
+// are downloaded from the same origin so Gmail's session cookie goes with
+// the request, and each one gets a result card below the attachment strip.
 (function () {
 "use strict";
 
@@ -111,9 +111,9 @@ const scanLabel = (n) => (n > 1 ? t("att_scan_n", { count: n }) : t("att_scan_si
 
 function installScanAllButton(emailView, targets) {
     let existing = emailView.querySelector(".pll-scan-btn--all");
-    // A button left by an older copy of the scripts, or one whose scan has
-    // ended (shown 2.5 s more, then removed), gets no new tiles: a new
-    // button takes them.
+    // Don't add tiles to a button from an older copy of the scripts, or to
+    // one whose scan has ended and is about to be removed after 2.5 s. A
+    // new button will take them.
     if (existing && (existing.dataset.pllInstance !== PL.instance || existing.dataset.pllDone === "1")) {
         existing.remove();
         existing = null;
@@ -143,8 +143,8 @@ function installScanAllButton(emailView, targets) {
 }
 
 async function scanAll(btn) {
-    // Disabled at once: a second click while the privacy notice is open
-    // would open a second notice and start a second scan.
+    // Disable right away. A second click while the privacy notice is open
+    // would open another notice and start a second scan.
     if (btn.disabled) return;
     btn.disabled = true;
     const view = (btn._pllTargets || [])[0]?.emailView;
@@ -160,9 +160,9 @@ async function scanAll(btn) {
         return stop();
     }
     const label = btn.querySelector(".pll-scan-btn__label");
-    // Read from btn._pllTargets at each step: tiles Gmail loads during the
-    // scan are added there (installScanAllButton) and scanned in the same
-    // run, up to MAX_PER_EMAIL in all.
+    // Re-read btn._pllTargets at each step. installScanAllButton adds tiles
+    // that Gmail loads during the scan, and they are scanned in the same
+    // run, up to MAX_PER_EMAIL in total.
     const done = new Set();
     for (;;) {
         const pending = (btn._pllTargets || []).filter((f) => !done.has(f));

@@ -71,7 +71,7 @@ function trustBadge(data) {
     return null;
 }
 
-// base: "pll-chip" in the banner, "pll-att-chip" on an attachment card.
+// `base` is "pll-chip" in the banner and "pll-att-chip" on an attachment card.
 const chipOf = (base) => (kind, text, title) => h(`span.${base}${kind ? `.${base}--${kind}` : ""}`, { title }, text);
 const chip = chipOf("pll-chip");
 
@@ -85,11 +85,8 @@ const chipRank = (c) => {
 // Array.prototype.sort is stable, so chips of one kind keep their order.
 const byRank = (chips) => chips.sort((a, b) => chipRank(a) - chipRank(b));
 
-// The orange and red chips, one per unusual sign
-// (PhishLensShared.unusualSigns): a brand impersonated, a forward, a
-// shared file or form, links flagged by threat intelligence, failed
-// sender checks, a sender listed by Spamhaus. Also used for the card of
-// an attached email (attachments.js).
+// One orange or red chip per unusual sign (PhishLensShared.unusualSigns).
+// attachments.js reuses this for the card of an attached email.
 function signChips(data, base = "pll-chip") {
     const make = chipOf(base);
     const chips = [];
@@ -157,7 +154,7 @@ function errorContent(data, notice = false) {
     ];
 }
 
-// kind: "danger", "caution" or "safe" (PhishLensShared.displayVerdict).
+// `kind` is "danger", "caution" or "safe" (PhishLensShared.displayVerdict).
 function verdictContent(data, kind) {
     const phishing = kind === "danger";
     const caution = kind === "caution";
@@ -184,9 +181,9 @@ function verdictContent(data, kind) {
     ];
 }
 
-// Shows the banner for `data` (an /analyse answer, or { verdict: "error"
-// or "notice", title, error }) in `emailView`, replacing any earlier one.
-// On Outlook it is inserted before `anchor`; on Gmail it finds its own
+// Shows the banner for `data` in `emailView`, replacing any earlier one.
+// `data` is an /analyse answer or { verdict: "error" or "notice", title,
+// error }. On Outlook it goes before `anchor`. On Gmail it finds its own
 // place.
 PL.showBanner = function showBanner(emailView, data, anchor = null) {
     const old = emailView.querySelector(".pll-banner");
@@ -216,8 +213,8 @@ PL.showBanner = function showBanner(emailView, data, anchor = null) {
 
 // Words behind the text score. LIME weights are tiny (often below 0.01),
 // so the colour strength shows each word's weight relative to the
-// strongest. Single characters and bare numbers mean nothing to a reader;
-// they stay in the history but are not shown.
+// strongest. Single characters and bare numbers mean nothing to a reader,
+// so we keep them in the history but don't show them.
 PL.attachExplanation = function attachExplanation(emailView, features, cached = false) {
     const slot = emailView.querySelector(".pll-banner .pll-banner__tokens");
     if (!slot) return;
@@ -242,8 +239,8 @@ PL.attachExplanation = function attachExplanation(emailView, features, cached = 
     if (cached) slot.append(h("span.pll-cache-hint", { title: t("cached_title") }, t("cached")));
 };
 
-// After a scan: the explanation (computed in the background, or from the
-// cache) and its top words in the history entry.
+// Fetches the explanation after a scan, from the cache or the server, and
+// stores its top words in the history entry.
 PL.explainInBackground = async function explainInBackground(view, payload, data, historyId) {
     if (data.text_agent_used === false) {
         const slot = view.querySelector(".pll-banner .pll-banner__tokens");
