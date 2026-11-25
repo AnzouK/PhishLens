@@ -523,12 +523,12 @@ body {
   font-weight: 500;
 }
 .badge--good {
-  color: #0a7d3b;
+  color: var(--success);
   border-color: rgba(16, 132, 66, 0.35);
   background: rgba(16, 132, 66, 0.10);
 }
 .badge--warn {
-  color: #a15b00;
+  color: var(--warn);
   border-color: rgba(216, 138, 0, 0.35);
   background: rgba(216, 138, 0, 0.10);
 }
