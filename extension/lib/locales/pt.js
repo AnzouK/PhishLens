@@ -18,6 +18,7 @@
     "lead_no_text": "Este e-mail quase não tem texto: apenas os links e o remetente foram verificados. Tenha cuidado com e-mails feitos só de imagens.",
     "lead_trusted": "Algumas palavras ou links parecem phishing, mas o remetente está autenticado e consta da lista de confiança, por isso contam menos.",
     "lead_crypto": "Algumas palavras ou links parecem phishing, mas o remetente está comprovado por DKIM, por isso contam menos.",
+    "lead_dmarc": "Algumas palavras ou links parecem phishing, mas o servidor de correio que o recebeu confirmou o domínio do remetente por DMARC, por isso contam menos.",
     "lead_internal": "Algumas palavras ou links parecem phishing, mas o e-mail vem da sua organização, por isso contam menos.",
     "lead_gmail": "Algumas palavras ou links parecem phishing, mas o Gmail verificou o remetente antes da entrega, por isso contam menos.",
     "lead_one_signal": "Um sinal parece suspeito, mas não o suficiente no conjunto. Tenha cuidado com este.",
@@ -29,6 +30,8 @@
     "badge_trusted_title": "Remetente autenticado da lista de confiança ({domain})",
     "badge_dkim": "Verificado por DKIM",
     "badge_dkim_title": "Assinatura DKIM alinhada com o remetente: {domain}, SPF={spf} DKIM={dkim} DMARC={dmarc}",
+    "badge_dmarc": "Verificado por DMARC",
+    "badge_dmarc_title": "O servidor de correio que o recebeu confirmou o domínio do remetente por DMARC: {domain}, SPF={spf} DKIM={dkim} DMARC={dmarc}",
     "badge_internal": "Remetente interno",
     "badge_internal_title": "Enviado a partir da sua organização: o seu servidor de e-mail autenticou-o. Sinal mais fraco do que uma verificação DKIM.",
     "badge_gmail": "Entregue pelo Gmail",
@@ -268,6 +271,8 @@
     "sub_shared": "Link para um ficheiro ou formulário partilhado ({services}): abra-o só se o esperava.",
     "sub_trusted": "Remetente autenticado da lista de confiança.",
     "sub_crypto": "Identidade do remetente confirmada por assinatura DKIM.",
+    "sub_dmarc": "Domínio do remetente confirmado por DMARC.",
+    "sub_gmail": "O Gmail verificou o remetente antes da entrega.",
     "text_high": "O conteúdo da mensagem parece uma burla.",
     "text_mid": "A mensagem tem formulações suspeitas.",
     "text_low": "A mensagem em si parece normal.",
@@ -385,5 +390,5 @@
     "privacy_notice_text": "Para verificar um e-mail, o PhishLens envia o texto, os links e os cabeçalhos para o PhishLens Cloud. O e-mail é analisado em memória e não é guardado. Para que nenhum e-mail saia do seu computador, execute o seu próprio servidor e escolha-o nas definições. A resposta, não o e-mail, é guardada 24 horas para que uma segunda análise do mesmo e-mail seja imediata; o que fica no seu navegador, e por quanto tempo, está na política de privacidade.",
     "privacy_notice_ok": "Entendi",
     "privacy_notice_link": "Política de privacidade",
-    "lead_links_elsewhere": "O domínio é autêntico (DKIM), mas nenhum dos links leva a esse domínio e o texto parece phishing. Não clique nem responda antes de confirmar o remetente por outro meio."
+    "lead_links_elsewhere": "O domínio é autêntico, mas nenhum dos links leva a esse domínio e o texto parece phishing. Não clique nem responda antes de confirmar o remetente por outro meio."
 };

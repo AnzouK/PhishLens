@@ -139,6 +139,7 @@
   "js_size_kb": "{size} KB",
   "js_tag_trusted": "Amintaccen mai aikawa",
   "js_tag_dkim": "DKIM ya tabbatar",
+  "js_tag_dmarc": "DMARC ya tabbatar",
   "js_tag_auth_fail": "{name} ya kasa",
   "js_tag_flagged": "{source} ya yi gargaɗi",
   "js_tag_forwarded": "Imel da aka tura",

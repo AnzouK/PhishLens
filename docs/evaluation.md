@@ -82,6 +82,8 @@ Apache mailing lists and 117 inbox emails, all sent from 2026-01-01.
 | 10-23 | 2.0.9 | 1 of 297; inbox 0 of 117 | control sample, 1,707 of 1,997, 85.5% (83.9% to 87.0%) |
 | 10-24 | 2.0.10 (link rule) | 1 of 297; inbox 0 of 117 | fresh sample, 1,812 of 2,000, 90.6% (89.2% to 91.8%) |
 | 11-01 | 2.0.12 (whole bodies read, text read as shown and as written) | 1 of 297; inbox 0 of 117 | same fresh sample, 1,804 of 2,000, 90.2% (88.8% to 91.4%) |
+| 11-26 | 2.2.0 (personal mail of 8 accounts, 2026-10-15 to 2026-11-26) | inbox 28 of 675, 4.1% (2.9% to 5.9%) | personal phishing, 16 of 17, 94.1% (73.0% to 99.0%) |
+| 11-26 | 2.3.0 (same mail, replayed on the cached scores) | inbox 14 of 675, 2.1% (1.2% to 3.5%) | personal phishing, 16 of 17, 94.1% (73.0% to 99.0%) |
 
 The 92.2% of 2.0.7 was mostly an artefact. Of its 130 false alarms, 121
 were decided by the trained header model alone, which scored modern
@@ -120,6 +122,25 @@ zero-width and byte-order-mark characters as a mark of dubious mail
 (0.98 with them, 0.05 without, on the same email). The text is now read
 both as shown and as written and the higher score is kept, which gives
 1,804 caught instead of 1,797 with no new false alarm.
+
+The first monthly run on personal mail (8 accounts, mail received after
+the text model's training cutoff) flagged 28 of 675 legitimate inbox
+emails. None was decided by a link score or Safe Browsing. 24 were
+DKIM-signed notices flagged by the link rule because every link went
+through the sender's mailer: click tracking of mailing platforms the
+list did not know yet (10) and a survey platform (14). The other 4 came
+from a bank whose mailer signs with its own domain, so DMARC passed
+through SPF only; they fell to the default path, where a text score of
+0.98 forced the verdict. 2.3.0 counts the missing mailers' tracking
+domains as tracking and gives DMARC-aligned mail without an aligned
+signature the rules of `crypto_verified` (`dmarc_verified`). Replayed on
+the cached scores, with the old code giving back all 729 replayed
+verdicts, that halves the false alarms with the same phishing caught.
+The 14 survey invitations stay flagged: anyone can publish a form on a
+survey platform, so its links are not treated as the sender's own. The
+effect on the public phishing sample is not measured yet: the published
+runs keep the scores, not the links, so the next fresh-sample run will
+show it.
 
 ## Measured and rejected
 

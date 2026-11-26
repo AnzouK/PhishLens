@@ -58,7 +58,7 @@ under it add the details where there are some.
 
 | # | Threat | Boundary | Mitigation in place | Status |
 | --- | --- | --- | --- | --- |
-| S1 | A forged sender (`From: paypal.com` sent from the attacker's servers) borrowing trust | B1 | Trust comes from DKIM aligned with the From: domain, not from the header text. | Mitigated |
+| S1 | A forged sender (`From: paypal.com` sent from the attacker's servers) borrowing trust | B1 | Trust comes from DKIM aligned with the From: domain, or from the receiving server's DMARC pass for it (`dmarc_verified`), not from the header text. | Mitigated |
 | S2 | A caller claiming `gmail_in_inbox` or `gmail_delivered` to soften its own scan | B2 | The flags only soften the caller's own result, and a Safe Browsing hit still forces phishing. | Accepted (limited impact) |
 | S3 | A compromised account at an allowlisted bank sending phishing | B1 | A Safe Browsing hit forces phishing on every path, the allowlist included. | Partially mitigated |
 | S4 | An email imitating the mail service's own sender checks ("signed-by: bank.com" in its body, hidden or not) | B1 | Those rows are read only when visible and outside every message body. | Mitigated |
@@ -96,7 +96,12 @@ cancels the softer paths and raises the sender score
 (`test_impersonation_and_links.py`). Authentication-Results is read
 clause by clause without comments or quoted strings, and ARC results
 alone or a second From: never prove the sender (`test_auth_headers.py`,
-`test_extension_backend.py`).
+`test_extension_backend.py`). `dmarc_verified` needs `dmarc=pass` for the
+organisational domain of the From: in the topmost Authentication-Results,
+with the same proof rules and no DKIM failure. `bestguesspass`, a pass
+written in a comment, a quoted string or the middle of a clause, a
+second header further down, an attached .eml and the Gmail page fallback
+never give it (`test_signed_mailers.py`).
 
 S2 is documented in the `AnalyseRequest` docstring in
 `extension_backend.py` (the hints can only change the caller's own
@@ -190,7 +195,8 @@ same in every language ([languages.md](languages.md#text-model)).
 
 ### R3. A phishing domain that signs its own mail gets the softer path
 
-DKIM proves who sent the email, not that the sender is honest. Treating
+DKIM, or a DMARC pass through SPF (`dmarc_verified`), proves who sent
+the email, not that the sender is honest. Treating
 signed senders like unsigned ones catches about 7 points more phishing
 but doubles the false alarms on real inbox mail. As a compromise, we
 flag a signed sender anyway when all its links lead elsewhere and the
@@ -198,7 +204,14 @@ wording looks like phishing. A link to a public file host counts even
 next to a decoy link to the sender's own domain. Signed phishing still
 gets the discount if it also links to its own domain while the lure
 sits on an ordinary site, if it sends no link, or if it goes through
-known click tracking ([evaluation](evaluation.md#results)).
+known click tracking ([evaluation](evaluation.md#results)). The tracking
+domains added in 2.3.0 (Brevo, Intercom and Tencent Cloud SES:
+`sp1-brevo.net`, `tsp1-brevo.net`, `intercom-clicks.com`,
+`intercom-mail.com`, `suredeliverses.com`, `cloudses.com`) belong to
+self-service platforms where anyone can open an account, like SendGrid.
+They widen this gap the same way: signed phishing whose links all go
+through one of them is not caught by the link rule, only by threat
+intelligence.
 
 ### R4. The false-alarm rate rests on 414 legitimate emails
 
@@ -291,12 +304,23 @@ after the padding can still push some out of the check. Gmail clips such
 messages too. Long HTML comments are dropped from the text, and the
 links inside them (Outlook's own buttons) are checked as hidden links.
 
+### R14. An unsigned sender without DMARC keeps the Gmail inbox path
+
+A domain with no DMARC record (`dmarc=none` or `bestguesspass`) and no
+DKIM signature that Gmail delivers to the inbox gets `gmail_inbox_soft`,
+which has no link rule. A domain that publishes DMARC and passes it gets
+`dmarc_verified` instead, with the link rule. Closing this would mean a
+link rule on the inbox path, to be measured first on the benchmark.
+
 ## Review triggers
 
 Revisit this document when an endpoint, an input type or an extension
 permission is added, when the text model changes, or when the
 deployment runs more than one instance (PhishLens Cloud is capped at
-one Cloud Run instance). The last review was for 2.2.0. For 2.1.0 it
+one Cloud Run instance). The last review was for 2.3.0, after an
+external audit of the `dmarc_verified` path and the new click tracking
+domains, and its follow-up (exclusive DMARC and Gmail inbox flags, DKIM
+failure, PhishTank matching on shared trackers, interface wording). For 2.1.0 it
 started with an external audit of 2.0.12 and went through five rounds
 of follow-up on authentication parsing, impersonation, hidden content,
 link parsing, the Safe Browsing quota, the Outlook sender, HTML

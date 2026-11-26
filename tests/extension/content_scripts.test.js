@@ -1019,3 +1019,37 @@ test("SPF failing next to a DMARC pass gives no chip and no caution", () => {
     assert.ok(view.querySelector(".pll-banner").classList.contains("pll-banner--safe"));
     assert.equal(view.querySelectorAll(".pll-chip--warn").length, 0);
 });
+
+test("a DMARC-verified sender gets the DMARC pill and reason, never Gmail's", () => {
+    const { ctx, PL } = load(manifest.content_scripts[0]);
+    const view = mailView(ctx.document);
+    const auth = { dmarc_verified: true, spf: "pass", dkim: "pass", dmarc: "pass" };
+    const SAFE = {
+        verdict: "safe", trust_path: "dmarc_verified", sender_domain: "bank-notify.example",
+        agents: { text: { phishing_probability: 0.1 }, url: { phishing_probability: 0.1 }, metadata: { phishing_probability: 0.1 } },
+        sender_auth: auth, url_reputation: { checked: 1 },
+    };
+    const pill = () => view.querySelector(".pll-trusted");
+    const lead = () => view.querySelector(".pll-banner__lead").textContent;
+    PL.showBanner(view, SAFE);
+    assert.equal(pill().textContent, "DMARC verified");
+    assert.match(pill().getAttribute("title"), /DMARC: bank-notify\.example/);
+    // Caution: a red wording meter, explained by the DMARC reason.
+    PL.showBanner(view, { ...SAFE, agents: { ...SAFE.agents, text: { phishing_probability: 0.8 } } });
+    assert.ok(view.querySelector(".pll-banner").classList.contains("pll-banner--caution"));
+    assert.match(lead(), /^Some signs are unusual\. .* confirmed the sender's domain with DMARC/);
+    assert.doesNotMatch(lead(), /Gmail/);
+    // Phishing through the link rule: no claim of DKIM, no Gmail pill even
+    // if an older server also reported the inbox flag.
+    PL.showBanner(view, {
+        ...SAFE, verdict: "phishing", forced_by: ["links_elsewhere"], links_elsewhere: true,
+        link_alignment: { aligned: 0, other: 1 },
+        agents: { ...SAFE.agents, text: { phishing_probability: 0.95 } },
+        sender_auth: { ...auth, gmail_inbox_soft_verified: true },
+    });
+    assert.ok(view.querySelector(".pll-banner").classList.contains("pll-banner--danger"));
+    assert.match(lead(), /^Its domain is genuine, but none of its links/);
+    assert.doesNotMatch(lead(), /DKIM/);
+    assert.equal(pill().textContent, "DMARC verified");
+    assert.doesNotMatch(view.querySelector(".pll-banner").textContent, /Delivered by Gmail/);
+});

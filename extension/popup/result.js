@@ -18,13 +18,14 @@ const THREAT_KEYS = {
 
 const badge = (text, kind, title) => h(`span.badge.badge--${kind}`, { title: title ? String(title).slice(0, 240) : null }, text);
 
-// Verified-sender pill: allowlist, then DKIM alignment, then Gmail's inbox.
+// Verified-sender pill: allowlist, then DKIM alignment, then DMARC, then Gmail's inbox.
 function renderTrustPill(data) {
     const pill = $("verdict-trusted");
     const auth = data.sender_auth || {};
     const domain = data.sender_domain || "";
     const [key, title] = data.trusted_sender ? ["badge_trusted", t("trusted_title_popup", { domain })]
         : auth.cryptographically_verified ? ["badge_dkim", t("dkim_title_popup", { domain, spf: auth.spf, dkim: auth.dkim, dmarc: auth.dmarc })]
+        : auth.dmarc_verified ? ["badge_dmarc", t("badge_dmarc_title", { domain, spf: auth.spf, dkim: auth.dkim, dmarc: auth.dmarc })]
         : auth.gmail_inbox_soft_verified ? ["badge_gmail", t("badge_gmail_title")]
         : [null, null];
     pill.hidden = !key;
@@ -36,7 +37,14 @@ function renderTrustPill(data) {
 
 // The popup's sentence for each reason behind a safe verdict
 // (PhishLensShared.safeReason). Reasons without one add nothing.
-const REASON_KEYS = { forwarded: "sub_forwarded", shared: "sub_shared", trusted: "sub_trusted", crypto: "sub_crypto" };
+const REASON_KEYS = {
+    forwarded: "sub_forwarded",
+    shared: "sub_shared",
+    trusted: "sub_trusted",
+    crypto: "sub_crypto",
+    dmarc: "sub_dmarc",
+    gmail: "sub_gmail",
+};
 
 // `caution` is false, "not_read" for a file PhishLens could not look
 // inside, or "signs" for any other unusual sign. In the caution style the
@@ -54,6 +62,7 @@ function subline(data, isPhishing, caution, flags) {
     }
     if (data.trusted_sender) return t("sub_trusted");
     if (data.sender_auth?.cryptographically_verified) return t("sub_crypto");
+    if (data.sender_auth?.dmarc_verified) return t("sub_dmarc");
     return t("verdict_safe_sub");
 }
 

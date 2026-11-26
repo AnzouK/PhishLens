@@ -128,7 +128,7 @@ def jsonld(lang: str, s: dict[str, str]) -> str:
         "isAccessibleForFree": True,
         "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
         "license": "https://www.gnu.org/licenses/agpl-3.0.html",
-        "downloadUrl": "https://github.com/AnzouK/PhishLens/releases/latest",
+        "downloadUrl": "https://chromewebstore.google.com/detail/phishlens/bdglgccdgjdccemlnfpjlocfonhgdomk",
         "image": f"{SITE}/{asset('', 'img/og.png')}",
         "sameAs": ["https://github.com/AnzouK/PhishLens"],
     }

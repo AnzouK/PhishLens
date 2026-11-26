@@ -634,6 +634,7 @@ class _Sender:
 
     domain: str
     crypto_verified: bool
+    dmarc_verified: bool
     outlook_internal: bool
     trusted_sender: bool
     inbox_soft: bool
@@ -727,6 +728,9 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
     domain = sender_domain(headers.get("from", ""))
     allowlisted = is_trusted_domain(domain)
     crypto_verified = bool(auth.get("cryptographically_verified"))
+    # DMARC passed for the From: domain without an aligned DKIM signature
+    # (aligned through SPF). Proven, but never enough for the allowlist.
+    dmarc_verified = not crypto_verified and bool(auth.get("dmarc_aligned"))
     # Outlook on the web shows only the name for senders in the user's own
     # organisation. The organisation's server authenticated that mail, so
     # its domain stands in for the sender's. This only applies when no
@@ -757,11 +761,14 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
     if forwarded["detected"] or impersonation:
         # The sender only vouches for the act of forwarding, and an
         # impostor's authentication proves nothing.
-        allowlisted = crypto_verified = outlook_internal = False
+        allowlisted = crypto_verified = dmarc_verified = outlook_internal = False
     # Gmail put the message in the inbox after its own SPF/DKIM/DMARC
-    # checks. That is a soft signal for when nothing stronger is available.
+    # checks. That is a soft signal for when nothing stronger is available,
+    # so it is off when DMARC already proved the sender (the interface
+    # would otherwise show "Delivered by Gmail" next to that path).
     inbox_soft = (
         not crypto_verified
+        and not dmarc_verified
         and not impersonation
         and not forwarded["detected"]
         and ((ctx.get("origin") == "gmail" and bool(ctx.get("gmail_in_inbox"))) or outlook_internal)
@@ -771,6 +778,7 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
     return _Sender(
         domain=domain,
         crypto_verified=crypto_verified,
+        dmarc_verified=dmarc_verified,
         outlook_internal=outlook_internal,
         # The allowlist only counts for a signature-proven sender, since the
         # From: text can be forged. "Internal" comes from the page alone
@@ -817,6 +825,7 @@ def _sender_auth_block(s: _Scores, who: _Sender) -> dict[str, Any]:
     auth = s.auth_signal.get("auth", {})
     return {
         "cryptographically_verified": who.crypto_verified,
+        "dmarc_verified": who.dmarc_verified,
         "gmail_inbox_soft_verified": bool(who.inbox_soft and not who.outlook_internal),
         "outlook_internal": bool(who.outlook_internal),
         "spf": auth.get("spf", "none"),
@@ -874,6 +883,7 @@ async def analyse(request: Request, req: AnalyseRequest):
     path = fusion.choose_trust_path(
         trusted_sender=who.trusted_sender,
         crypto_verified=who.crypto_verified,
+        dmarc_verified=who.dmarc_verified,
         inbox_soft=who.inbox_soft,
         outlook_internal=who.outlook_internal,
     )
@@ -891,10 +901,11 @@ async def analyse(request: Request, req: AnalyseRequest):
         links_elsewhere=CRYPTO_LINK_RULE and links_elsewhere_only(links),
     )
     # Tell the interface when the link rule lifted the signed-sender
-    # discount, since it shows a "DKIM verified" badge next to the verdict.
+    # discount, since it shows a DKIM-signed or DMARC-verified badge next
+    # to the verdict.
     links_rule_fired = bool(
         CRYPTO_LINK_RULE
-        and path is fusion.PATH_CRYPTO
+        and "links_elsewhere" in path.forcing
         and links_elsewhere_only(links)
         and s.p_text >= CRYPTO_LINK_TEXT_MIN
     )
@@ -914,7 +925,8 @@ async def analyse(request: Request, req: AnalyseRequest):
         "fused_score": float(verdict.fused),
         "high_confidence_override": bool(verdict.high_conf),
         "forced_by": list(verdict.forced_by),
-        # trusted_sender > crypto_verified > gmail_inbox_soft / outlook_internal > default
+        # trusted_sender > crypto_verified > dmarc_verified >
+        # gmail_inbox_soft / outlook_internal > default
         "trust_path": verdict.trust_path,
         "trusted_sender": bool(who.trusted_sender),
         "sender_domain": who.domain,

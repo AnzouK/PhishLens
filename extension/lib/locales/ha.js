@@ -19,6 +19,7 @@
     "lead_no_text": "Wannan imel kusan ba shi da rubutu: hanyoyin haɗinsa da mai aikawa kawai aka duba. Ka yi hankali da imel da ke ɗauke da hotuna kawai.",
     "lead_trusted": "Wasu kalmomi ko hanyoyin haɗi suna kama da phishing, amma an tabbatar da mai aikawa kuma yana cikin jerin amintattu, don haka ba su da nauyi sosai.",
     "lead_crypto": "Wasu kalmomi ko hanyoyin haɗi suna kama da phishing, amma DKIM ya tabbatar da mai aikawa, don haka ba su da nauyi sosai.",
+    "lead_dmarc": "Wasu kalmomi ko hanyoyin haɗi suna kama da phishing, amma sabar imel mai karɓa ta tabbatar da yankin mai aikawa ta DMARC, don haka ba su da nauyi sosai.",
     "lead_internal": "Wasu kalmomi ko hanyoyin haɗi suna kama da phishing, amma imel ɗin ya fito daga ƙungiyarka, don haka ba su da nauyi sosai.",
     "lead_gmail": "Wasu kalmomi ko hanyoyin haɗi suna kama da phishing, amma Gmail ya tabbatar da mai aikawa kafin ya isar da shi, don haka ba su da nauyi sosai.",
     "lead_one_signal": "Alama ɗaya tana da shakku, amma ba ta isa ba gaba ɗaya. Ka yi hankali da ita.",
@@ -30,6 +31,8 @@
     "badge_trusted_title": "Tabbataccen mai aikawa daga jerin amintattu ({domain})",
     "badge_dkim": "DKIM ya tabbatar",
     "badge_dkim_title": "Sa hannun DKIM ya dace da mai aikawa: {domain}, SPF={spf} DKIM={dkim} DMARC={dmarc}",
+    "badge_dmarc": "DMARC ya tabbatar",
+    "badge_dmarc_title": "Sabar imel mai karɓa ta tabbatar da yankin mai aikawa ta DMARC: {domain}, SPF={spf} DKIM={dkim} DMARC={dmarc}",
     "badge_internal": "Mai aikawa na ciki",
     "badge_internal_title": "An aiko daga ƙungiyarka: sabar imel ɗinka ta tabbatar da shi. Alama ce mai rauni fiye da binciken DKIM.",
     "badge_gmail": "Gmail ya isar",
@@ -269,6 +272,8 @@
     "sub_shared": "Hanyar haɗi zuwa fayil ko fom da aka raba ({services}): buɗe shi kawai idan kana jiran sa.",
     "sub_trusted": "Tabbataccen mai aikawa daga jerin amintattu.",
     "sub_crypto": "Sa hannun DKIM ya tabbatar da asalin mai aikawa.",
+    "sub_dmarc": "DMARC ya tabbatar da yankin mai aikawa.",
+    "sub_gmail": "Gmail ya tabbatar da mai aikawa kafin ya isar da shi.",
     "text_high": "Abin da ke cikin saƙon yana kama da zamba.",
     "text_mid": "Saƙon yana da kalmomi masu shakku.",
     "text_low": "Saƙon kansa yana kama da na al'ada.",
@@ -386,5 +391,5 @@
     "privacy_notice_text": "Don duba imel, PhishLens tana aika rubutunsa, hanyoyin haɗinsa da kanun bayanansa zuwa PhishLens Cloud. Ana nazarin imel ɗin a ƙwaƙwalwa ba a ajiye shi ba. Idan kana so kowane imel ya zauna a kwamfutarka, gudanar da sabar ka ta kanka ka zaɓe ta a cikin saituna. Ana ajiye amsar, ba imel ɗin ba, na awa 24 domin bincike na biyu na imel ɗin ya zama nan take; abin da ke zama a burauzarka, da tsawon lokacinsa, yana cikin manufar sirri.",
     "privacy_notice_ok": "Na gane",
     "privacy_notice_link": "Manufar sirri",
-    "lead_links_elsewhere": "Yankin sa na gaske ne (DKIM), amma babu ɗaya daga cikin hanyoyin haɗinsa da ke kai wa wannan yankin, kuma kalmominsa suna kama da phishing. Kada ka danna ko ka ba da amsa kafin ka tabbatar da mai aikawa ta wata hanya."
+    "lead_links_elsewhere": "Yankin sa na gaske ne, amma babu ɗaya daga cikin hanyoyin haɗinsa da ke kai wa wannan yankin, kuma kalmominsa suna kama da phishing. Kada ka danna ko ka ba da amsa kafin ka tabbatar da mai aikawa ta wata hanya."
 };

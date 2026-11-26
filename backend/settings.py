@@ -15,7 +15,7 @@ from pathlib import Path
 
 # The extension uses the same version (extension/manifest.json) and CI
 # checks that they match.
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 
 # Text model
 # MODEL_DIR holds the text model checkpoint. When it is empty, the model
@@ -140,6 +140,16 @@ PATH_TRUSTED = TrustPath("trusted_sender", text_factor=0.5, threshold=0.65)
 PATH_CRYPTO = TrustPath(
     "crypto_verified", text_factor=0.5, threshold=0.65, forcing=("safe_browsing", "links_elsewhere")
 )
+# DMARC passed for the From: domain without an aligned DKIM signature: the
+# receiving server aligned it through SPF, as for a bank whose mailer signs
+# with its own domain but sends from the bank's bounce domain. The domain
+# is proven as much as on crypto_verified, so the same rules apply, link
+# rule included. An attacker gets nothing new: signing with DKIM for their
+# own domain already gives crypto_verified. It never counts for the
+# allowlist (trusted_sender needs DKIM).
+PATH_DMARC = TrustPath(
+    "dmarc_verified", text_factor=0.5, threshold=0.65, forcing=("safe_browsing", "links_elsewhere")
+)
 PATH_INBOX_SOFT = TrustPath("gmail_inbox_soft", text_factor=0.6, threshold=0.62)
 PATH_OUTLOOK_INTERNAL = TrustPath("outlook_internal", text_factor=0.6, threshold=0.62)
 PATH_DEFAULT = TrustPath(
@@ -154,8 +164,8 @@ PATH_DEFAULT = TrustPath(
 IMPERSONATION_META = 0.9
 # Metadata score ceiling for an authenticated allowlisted sender.
 TRUSTED_META_CEILING = 0.05
-# On the crypto_verified path (DKIM aligned, sender not on the allowlist),
-# links that all lead away from the sender's domain plus a text score of
+# On the crypto_verified path (DKIM aligned, sender not on the allowlist)
+# and on dmarc_verified, links that all lead away from the sender's domain plus a text score of
 # at least CRYPTO_LINK_TEXT_MIN force phishing (link_alignment.py). We
 # measured it on fresh phishing and on the running server
 # (docs/evaluation.md). CRYPTO_LINK_RULE=0 turns it off.

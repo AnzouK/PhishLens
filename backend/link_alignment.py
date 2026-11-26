@@ -10,7 +10,10 @@ sender's own domain, at least one link elsewhere and a text score of
 
 Click-tracking links from bulk senders such as SendGrid or Mailchimp are
 counted separately, because real companies send notifications through
-them. Stylesheets and web fonts are not counted as links.
+them. A host counts only under the listed organisational domain, so a
+lookalike such as tsp1-brevo.net.evil.example or evil-sendgrid.net is
+"elsewhere", and a tracking link never hides another link that leads
+elsewhere. Stylesheets and web fonts are not counted as links.
 """
 
 from __future__ import annotations
@@ -43,6 +46,18 @@ TRACKING = frozenset(
         "cmail20.com",
         "rs6.net",
         "email-messaging.com",
+        # Brevo's current tracking domains (sendibt2.com and sendibm1.com
+        # were Sendinblue's).
+        "sp1-brevo.net",
+        "tsp1-brevo.net",
+        # Intercom's click tracking and unsubscribe pages.
+        "intercom-clicks.com",
+        "intercom-mail.com",
+        # Tencent Cloud SES: "<account>-<region>.callback.suredeliverses.com"
+        # in mail sent through qcloudmail.com, and the cloudses.com origin
+        # its custom tracking domains point to.
+        "suredeliverses.com",
+        "cloudses.com",
     ]
 )
 ASSET_HOSTS = frozenset({"fonts.googleapis.com", "fonts.gstatic.com"})

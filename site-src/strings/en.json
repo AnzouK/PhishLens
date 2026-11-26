@@ -139,6 +139,7 @@
   "js_size_kb": "{size} KB",
   "js_tag_trusted": "Trusted sender",
   "js_tag_dkim": "DKIM verified",
+  "js_tag_dmarc": "DMARC verified",
   "js_tag_auth_fail": "{name} fail",
   "js_tag_flagged": "Flagged by {source}",
   "js_tag_forwarded": "Forwarded email",

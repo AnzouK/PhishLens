@@ -168,6 +168,7 @@
     }
     if (d.trusted_sender) tags.push(["good", t("js_tag_trusted")]);
     else if (sa.cryptographically_verified) tags.push(["good", t("js_tag_dkim")]);
+    else if (sa.dmarc_verified) tags.push(["good", t("js_tag_dmarc")]);
     // SPF failing next to a DMARC pass (a mailing list) is shown, but not
     // as a warning, as in the extension.
     for (const k of ["spf", "dkim", "dmarc"]) {
