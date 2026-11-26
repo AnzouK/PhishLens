@@ -19,3 +19,6 @@ def test_jsonld_free_chrome_extension_every_language():
         assert data["offers"]["price"] == "0" and data["isAccessibleForFree"] is True
         assert data["url"] == bs.url(lang, "index.html")
         assert "author" not in data  # no personal name in public pages
+        assert data["downloadUrl"] == (
+            "https://chromewebstore.google.com/detail/phishlens/bdglgccdgjdccemlnfpjlocfonhgdomk"
+        )
