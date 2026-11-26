@@ -217,7 +217,14 @@ function safeReason(data) {
     if (data?.text_agent_used === false) return "no_text";
     if (!shownScores(data).some((p) => scoreLevel(p) === "high")) return null;
     if (data.trust_path === "trusted_sender" || data.trusted_sender) return "trusted";
-    const byPath = { crypto_verified: "crypto", outlook_internal: "internal", gmail_inbox_soft: "gmail" };
+    // dmarc_verified: the receiving server (Gmail, in the extension) passed
+    // DMARC for the sender without an aligned DKIM signature.
+    const byPath = {
+        crypto_verified: "crypto",
+        dmarc_verified: "gmail",
+        outlook_internal: "internal",
+        gmail_inbox_soft: "gmail",
+    };
     return byPath[data.trust_path] || "one_signal";
 }
 

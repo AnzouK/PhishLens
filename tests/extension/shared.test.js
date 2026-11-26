@@ -109,6 +109,7 @@ test("the reason behind a safe verdict is shared by the banner and the popup", (
     assert.equal(S.safeReason(high), "one_signal");
     assert.equal(S.safeReason({ ...high, trusted_sender: true }), "trusted");
     assert.equal(S.safeReason({ ...high, trust_path: "crypto_verified" }), "crypto");
+    assert.equal(S.safeReason({ ...high, trust_path: "dmarc_verified" }), "gmail");
 });
 
 test("caution display: a safe verdict with a red meter or an unusual sign", () => {

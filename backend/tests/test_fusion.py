@@ -9,6 +9,7 @@ from settings import (
     ATTACHMENT_FEATURE_BONUS_MAX,
     PATH_CRYPTO,
     PATH_DEFAULT,
+    PATH_DMARC,
     PATH_INBOX_SOFT,
     PATH_OUTLOOK_INTERNAL,
     PATH_TRUSTED,
@@ -64,6 +65,9 @@ class TestTrustPath:
         [
             ({"trusted_sender": True, "crypto_verified": True}, PATH_TRUSTED),
             ({"crypto_verified": True, "inbox_soft": True}, PATH_CRYPTO),
+            ({"crypto_verified": True, "dmarc_verified": True}, PATH_CRYPTO),
+            ({"dmarc_verified": True, "inbox_soft": True}, PATH_DMARC),
+            ({"dmarc_verified": True}, PATH_DMARC),
             ({"inbox_soft": True}, PATH_INBOX_SOFT),
             ({"inbox_soft": True, "outlook_internal": True}, PATH_OUTLOOK_INTERNAL),
             ({}, PATH_DEFAULT),
@@ -75,6 +79,7 @@ class TestTrustPath:
             "crypto_verified": False,
             "inbox_soft": False,
             "outlook_internal": False,
+            "dmarc_verified": False,
         }
         args.update(flags)
         assert fusion.choose_trust_path(**args) is expected
@@ -133,7 +138,7 @@ class TestDecideEmail:
         assert self.decide(p_url=0.95, rep=URLHAUS).high_conf
 
     @pytest.mark.parametrize(
-        "path", [PATH_TRUSTED, PATH_CRYPTO, PATH_INBOX_SOFT, PATH_OUTLOOK_INTERNAL]
+        "path", [PATH_TRUSTED, PATH_CRYPTO, PATH_DMARC, PATH_INBOX_SOFT, PATH_OUTLOOK_INTERNAL]
     )
     def test_soft_paths_only_override_on_safe_browsing(self, path):
         assert not self.decide(p_text=0.99, p_meta=0.99, path=path).high_conf
@@ -190,27 +195,28 @@ class TestAttachments:
         assert self.decide(p_text=1.0, p_url=1.0, bonus=0.7).fused == 1.0
 
 
+@pytest.mark.parametrize("path", [PATH_CRYPTO, PATH_DMARC])
 class TestCryptoLinkRule:
-    def decide(self, p_text, links_elsewhere):
+    def decide(self, path, p_text, links_elsewhere):
         return fusion.decide_email(
             p_text,
             0.2,
             0.1,
             text_used=True,
-            path=PATH_CRYPTO,
+            path=path,
             rep=NO_REP,
             links_elsewhere=links_elsewhere,
         )
 
-    def test_links_elsewhere_and_phishing_wording_force_the_verdict(self):
-        v = self.decide(0.6, True)
+    def test_links_elsewhere_and_phishing_wording_force_the_verdict(self, path):
+        v = self.decide(path, 0.6, True)
         assert v.high_conf and v.is_phishing
 
-    def test_wording_below_half_is_not_enough(self):
-        assert not self.decide(0.4, True).is_phishing
+    def test_wording_below_half_is_not_enough(self, path):
+        assert not self.decide(path, 0.4, True).is_phishing
 
-    def test_off_or_aligned_links_keep_the_discount(self):
-        assert not self.decide(0.99, False).is_phishing
+    def test_off_or_aligned_links_keep_the_discount(self, path):
+        assert not self.decide(path, 0.99, False).is_phishing
 
 
 def test_every_trust_path_forces_with_known_signs():
@@ -222,7 +228,8 @@ def test_every_trust_path_forces_with_known_signs():
         PATH_TRUSTED,
     )
 
-    for path in (PATH_TRUSTED, PATH_CRYPTO, PATH_INBOX_SOFT, PATH_OUTLOOK_INTERNAL, PATH_DEFAULT):
+    paths = (PATH_TRUSTED, PATH_CRYPTO, PATH_DMARC, PATH_INBOX_SOFT, PATH_OUTLOOK_INTERNAL)
+    for path in (*paths, PATH_DEFAULT):
         assert set(path.forcing) <= set(fusion.FORCING_SIGNS), path.name
         assert "safe_browsing" in path.forcing or "confirmed_link" in path.forcing, path.name
 

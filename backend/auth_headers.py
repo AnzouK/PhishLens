@@ -113,6 +113,10 @@ class AuthVerdict:
     aligned: bool = False  # From: domain matches at least one authenticated domain
     all_pass: bool = False  # all three of SPF/DKIM/DMARC are "pass"
     cryptographically_verified: bool = False  # DKIM pass from a domain aligned with From:
+    # The receiving server's DMARC passed for the From: domain itself, which
+    # also covers mail aligned through SPF only (a mailer that signs with
+    # its own DKIM domain but uses the sender's bounce domain).
+    dmarc_aligned: bool = False
     header_present: bool = False  # Authentication-Results was actually there
 
     # The raw header, for logging.
@@ -346,6 +350,16 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
         verdict.dkim == "pass" and verdict.dkim_domain and org_domain(verdict.dkim_domain) == fod
     )
     verdict.cryptographically_verified = proven and bool(dkim_aligned)
+    # DMARC pass is the receiving server's own check that SPF or DKIM
+    # aligned with From:. The header.from it reports must be the From:
+    # domain we read, and the same proof rules apply.
+    verdict.dmarc_aligned = (
+        proven
+        and bool(fod)
+        and verdict.dmarc == "pass"
+        and bool(verdict.dmarc_domain)
+        and org_domain(verdict.dmarc_domain) == fod
+    )
 
     return verdict
 

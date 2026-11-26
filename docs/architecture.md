@@ -56,7 +56,9 @@ flowchart TD
     C -- yes --> T{"Domain on the allowlist?"}
     T -- yes --> P1["trusted_sender"]
     T -- no --> P2["crypto_verified"]
-    C -- no --> I{"Delivered to the inbox,<br/>no DKIM/DMARC failure?"}
+    C -- no --> D{"DMARC pass for From:<br/>(aligned through SPF)?"}
+    D -- yes --> P5["dmarc_verified"]
+    D -- no --> I{"Delivered to the inbox,<br/>no DKIM/DMARC failure?"}
     I -- yes --> P3["gmail_inbox_soft / outlook_internal"]
     I -- no --> P4["default"]
 ```
@@ -65,6 +67,7 @@ flowchart TD
 | --- | --- | --- | --- |
 | `trusted_sender` | x0.5 | 0.65 | a Safe Browsing hit |
 | `crypto_verified` | x0.5 | 0.65 | a Safe Browsing hit; or, with wording at 0.5 or more, every link leading away from the sender's domain, or any link to a public file host |
+| `dmarc_verified` | x0.5 | 0.65 | same as `crypto_verified` |
 | `gmail_inbox_soft`, `outlook_internal` | x0.6 | 0.62 | a Safe Browsing hit |
 | `default` | x1.0 | 0.5 | text or sender at 0.85 or more; links at 0.85 only with a threat-intel hit or a strong link sign (raw IP, `@` before the host, suspicious TLD, file on a public cloud host) |
 
@@ -87,6 +90,13 @@ like "Chronopost <x@qdsodd.us>", is impersonation: it loses every softer
 path and its sender score is at least 0.9 (`known_domains.BRANDS`).
 Forwarded mail goes to the default path, since a forward vouches for
 nobody but the person forwarding, and the original sender is reported.
+
+Some mailers sign with their own DKIM domain and use the sender's bounce
+domain, so DMARC passes through SPF alignment only. That proves the
+domain as much as a signature does, and an attacker gains nothing from
+it (signing their own domain already gives `crypto_verified`), so
+`dmarc_verified` keeps the same rules, link rule included. It never
+counts for the allowlist, which needs DKIM.
 
 The trained URL model scores the long tracking links of real newsletters
 near 1.0, and on its own it produced every false alarm of the first

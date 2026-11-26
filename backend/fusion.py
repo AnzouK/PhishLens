@@ -22,6 +22,7 @@ from settings import (
     HIGH_CONF_OVERRIDE,
     PATH_CRYPTO,
     PATH_DEFAULT,
+    PATH_DMARC,
     PATH_INBOX_SOFT,
     PATH_OUTLOOK_INTERNAL,
     PATH_TRUSTED,
@@ -107,13 +108,24 @@ class Verdict:
 
 
 def choose_trust_path(
-    *, trusted_sender: bool, crypto_verified: bool, inbox_soft: bool, outlook_internal: bool
+    *,
+    trusted_sender: bool,
+    crypto_verified: bool,
+    inbox_soft: bool,
+    outlook_internal: bool,
+    dmarc_verified: bool = False,
 ) -> TrustPath:
-    """trusted_sender > crypto_verified > Gmail inbox / Outlook internal > default."""
+    """trusted_sender > crypto_verified > dmarc_verified > Gmail inbox / Outlook internal > default.
+
+    dmarc_verified comes before the Gmail inbox path because it keeps the
+    link rule, which the inbox path does not have.
+    """
     if trusted_sender:
         return PATH_TRUSTED
     if crypto_verified:
         return PATH_CRYPTO
+    if dmarc_verified:
+        return PATH_DMARC
     if inbox_soft:
         return PATH_OUTLOOK_INTERNAL if outlook_internal else PATH_INBOX_SOFT
     return PATH_DEFAULT
@@ -158,7 +170,8 @@ def decide_email(
     It is phishing when the fused score reaches the trust path's threshold
     or when one of the path's forcing signs holds (settings.TrustPath.forcing).
     On the softer paths only a Safe Browsing hit forces it. crypto_verified
-    adds links that all lead elsewhere with phishing-like wording.
+    and dmarc_verified add links that all lead elsewhere with phishing-like
+    wording.
 
     On the default path a confident text or sender score forces phishing.
     The link score only does with a threat-intel hit or a strong link sign

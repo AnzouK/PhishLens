@@ -12,6 +12,27 @@ backend share one version number.
   8 languages, release notes); the zip from the release stays as the
   manual option, and Firefox still loads it under `about:debugging`.
 
+### Fixed
+- False alarms on signed notifications found by the monthly benchmark on
+  personal mail (28 of 675 inbox emails, 4.1%). The click-tracking links
+  of Brevo (`tsp1-brevo.net`, `sp1-brevo.net`), Intercom
+  (`intercom-clicks.com`, `intercom-mail.com`) and Tencent Cloud SES
+  (`suredeliverses.com`, `cloudses.com`) are counted as mailer tracking,
+  like SendGrid's, so a DKIM-signed notice whose links all go through
+  them no longer trips the link rule. A tracking link never hides
+  another link that leads elsewhere, and lookalikes of these hosts still
+  count as elsewhere.
+- Mail whose DMARC passes through SPF alignment only (a bank's mailer
+  signing with its own DKIM domain) takes a new `dmarc_verified` path
+  with the rules of `crypto_verified`, link rule included, instead of
+  the default path where a high text score alone forced phishing. It
+  never counts for the allowlist, a brand name over another domain
+  still cancels it, and a Safe Browsing hit still forces phishing. It
+  comes before the Gmail inbox path, which has no link rule, so a sender
+  can no longer get the softer path by not signing. Replayed on the
+  cached scores of the November run: inbox false alarms 28 to 14 of 675,
+  personal phishing caught unchanged (16 of 17).
+
 ## [2.2.0] - 2026-11-25
 
 ### Added
