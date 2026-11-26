@@ -56,7 +56,7 @@ flowchart TD
     C -- yes --> T{"Domain on the allowlist?"}
     T -- yes --> P1["trusted_sender"]
     T -- no --> P2["crypto_verified"]
-    C -- no --> D{"DMARC pass for From:<br/>(aligned through SPF)?"}
+    C -- no --> D{"DMARC pass for From:<br/>(aligned through SPF),<br/>no DKIM failure?"}
     D -- yes --> P5["dmarc_verified"]
     D -- no --> I{"Delivered to the inbox,<br/>no DKIM/DMARC failure?"}
     I -- yes --> P3["gmail_inbox_soft / outlook_internal"]
@@ -96,7 +96,11 @@ domain, so DMARC passes through SPF alignment only. That proves the
 domain as much as a signature does, and an attacker gains nothing from
 it (signing their own domain already gives `crypto_verified`), so
 `dmarc_verified` keeps the same rules, link rule included. It never
-counts for the allowlist, which needs DKIM.
+counts for the allowlist, which needs DKIM. A DKIM failure with no
+passing signature cancels it, as it cancels the inbox path, and
+`dmarc=bestguesspass` (no DMARC record) is not a pass. A
+`dmarc_verified` answer never also reports the Gmail inbox, so the
+interface shows "DMARC verified", not "Delivered by Gmail".
 
 The trained URL model scores the long tracking links of real newsletters
 near 1.0, and on its own it produced every false alarm of the first

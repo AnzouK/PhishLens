@@ -7,10 +7,38 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Added
+- New trust path `dmarc_verified`, reported in the `/analyse` answer
+  (`trust_path` and `sender_auth.dmarc_verified`). It is for mail whose
+  DMARC passes for the From: domain without an aligned DKIM signature,
+  such as a bank's mailer that signs with its own DKIM domain while the
+  bounce domain (SPF) is the bank's. Before, such mail fell to the
+  default path, where a high text score alone forced phishing. The
+  receiving server's DMARC pass is read from the topmost
+  Authentication-Results only, with the proof rules of
+  `crypto_verified` (no ARC copy alone, no second From:, no attached
+  .eml); `dmarc=bestguesspass` or a DKIM failure with no passing
+  signature does not count. The path has the rules of `crypto_verified`,
+  link rule included. It never counts for the allowlist, a forward or a
+  brand name over another domain cancels it, and a Safe Browsing hit
+  still forces phishing. It comes before the Gmail inbox path, which has
+  no link rule: a DMARC-passing sender that does not sign now gets
+  `dmarc_verified`, with the link rule, instead of `gmail_inbox_soft`. A
+  domain with no DMARC record and no DKIM signature still gets the Gmail
+  inbox path when Gmail delivers it to the inbox (see the threat model,
+  R14).
+- The banner and the popup show a "DMARC verified" pill and their own
+  reason line for this path, in the 8 interface languages. The popup
+  also gained the missing reason line for the Gmail inbox path.
+
 ### Changed
 - Install instructions point to the Chrome Web Store (README, website in
   8 languages, release notes); the zip from the release stays as the
-  manual option, and Firefox still loads it under `about:debugging`.
+  manual option, and Firefox still loads it under `about:debugging`. The
+  website's schema.org `downloadUrl` is the store listing, and its
+  GitHub download button uses the secondary style.
+- The line shown when the link rule flags a proven sender no longer says
+  "(DKIM)", since it also applies to `dmarc_verified`.
 
 ### Fixed
 - False alarms on signed notifications found by the monthly benchmark on
@@ -21,17 +49,23 @@ backend share one version number.
   like SendGrid's, so a DKIM-signed notice whose links all go through
   them no longer trips the link rule. A tracking link never hides
   another link that leads elsewhere, and lookalikes of these hosts still
-  count as elsewhere.
-- Mail whose DMARC passes through SPF alignment only (a bank's mailer
-  signing with its own DKIM domain) takes a new `dmarc_verified` path
-  with the rules of `crypto_verified`, link rule included, instead of
-  the default path where a high text score alone forced phishing. It
-  never counts for the allowlist, a brand name over another domain
-  still cancels it, and a Safe Browsing hit still forces phishing. It
-  comes before the Gmail inbox path, which has no link rule, so a sender
-  can no longer get the softer path by not signing. Replayed on the
+  count as elsewhere. With `dmarc_verified` (above), replayed on the
   cached scores of the November run: inbox false alarms 28 to 14 of 675,
   personal phishing caught unchanged (16 of 17).
+- A `dmarc_verified` email in the Gmail inbox was also reported as
+  `gmail_inbox_soft_verified`, so the banner showed "Delivered by Gmail"
+  next to it, even on a phishing verdict. The two are now exclusive.
+- The website's `shared.js` was not rebuilt after the change above.
+
+### Security
+- These tracking platforms are self-service: anyone can send through
+  them, so a signed attacker whose links all go through one of them
+  escapes the link rule, as with SendGrid (threat model, R3). Safe
+  Browsing still forces phishing on every path.
+- A whole-host PhishTank entry on a shared click tracker would have
+  flagged every sender using it. The six new tracking domains,
+  `awstrack.me`, `sendibt2.com` and every other click-tracking domain
+  now match PhishTank by exact URL only.
 
 ## [2.2.0] - 2026-11-25
 

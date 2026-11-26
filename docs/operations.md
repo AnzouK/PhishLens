@@ -174,7 +174,7 @@ training mail is. The extension warns about it.
 | `GSB_MAX_PER_SCAN` | `30` | Links of one scan sent to Safe Browsing, one per host first; the daily quota is shared by every user |
 | `PHISHTANK_API_KEY` / `PHISHTANK_REFRESH_S` | empty / 6 h | Without a key PhishTank allows few downloads a day; the last good feed is kept on disk and reused at start |
 | `REPUTATION_CACHE_DB` | `~/.cache/phishlens/reputation.db` | URL verdicts, kept 24 h; put it in the data volume |
-| `CRYPTO_LINK_RULE` | `1` | Flag a DKIM-signed sender whose links all lead elsewhere and whose wording looks like phishing |
+| `CRYPTO_LINK_RULE` | `1` | Flag a DKIM-signed or DMARC-verified sender (`crypto_verified` and `dmarc_verified` paths) whose links all lead elsewhere and whose wording looks like phishing |
 | `METADATA_MODEL_ENABLED` | `0` | The trained header model; off because it flags most modern legitimate headers |
 | `AGENTS_ALLOW_PICKLE` | `0` | `1` also loads pickle (joblib) agents, which run code when loaded; only for an old local copy never converted to skops |
 | `RATE_LIMIT_ANALYSE` | `30/minute` | Per IP; also `RATE_LIMIT_ATTACHMENT`, `RATE_LIMIT_EXPLAIN`, `RATE_LIMIT_FEEDBACK` |

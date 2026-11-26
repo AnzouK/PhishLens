@@ -83,7 +83,7 @@ Apache mailing lists and 117 inbox emails, all sent from 2026-01-01.
 | 10-24 | 2.0.10 (link rule) | 1 of 297; inbox 0 of 117 | fresh sample, 1,812 of 2,000, 90.6% (89.2% to 91.8%) |
 | 11-01 | 2.0.12 (whole bodies read, text read as shown and as written) | 1 of 297; inbox 0 of 117 | same fresh sample, 1,804 of 2,000, 90.2% (88.8% to 91.4%) |
 | 11-26 | 2.2.0 (personal mail of 8 accounts, 2026-10-15 to 2026-11-26) | inbox 28 of 675, 4.1% (2.9% to 5.9%) | personal phishing, 16 of 17, 94.1% (73.0% to 99.0%) |
-| 11-26 | 2.2.1 (same mail, replayed on the cached scores) | inbox 14 of 675, 2.1% (1.2% to 3.5%) | personal phishing, 16 of 17, 94.1% (73.0% to 99.0%) |
+| 11-26 | 2.3.0 (same mail, replayed on the cached scores) | inbox 14 of 675, 2.1% (1.2% to 3.5%) | personal phishing, 16 of 17, 94.1% (73.0% to 99.0%) |
 
 The 92.2% of 2.0.7 was mostly an artefact. Of its 130 false alarms, 121
 were decided by the trained header model alone, which scored modern
@@ -131,7 +131,7 @@ through the sender's mailer: click tracking of mailing platforms the
 list did not know yet (10) and a survey platform (14). The other 4 came
 from a bank whose mailer signs with its own domain, so DMARC passed
 through SPF only; they fell to the default path, where a text score of
-0.98 forced the verdict. 2.2.1 counts the missing mailers' tracking
+0.98 forced the verdict. 2.3.0 counts the missing mailers' tracking
 domains as tracking and gives DMARC-aligned mail without an aligned
 signature the rules of `crypto_verified` (`dmarc_verified`). Replayed on
 the cached scores, with the old code giving back all 729 replayed

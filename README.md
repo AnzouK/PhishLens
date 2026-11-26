@@ -97,8 +97,11 @@ and calendar invites.
 
 The text score alone would flag real bank and university emails, because
 they use the same words as phishing. So the wording only counts for less
-when the sender is proven (DKIM aligned with the From: domain), and a
-link known to be malicious makes the verdict "phishing" whoever sent it.
+when the sender is proven (DKIM aligned with the From: domain, or DMARC
+passed for it at the receiving server). Even then, a proven sender whose
+links all lead elsewhere and whose wording looks like phishing is
+flagged, and a link known to be malicious makes the verdict "phishing"
+whoever sent it.
 The [architecture notes](docs/architecture.md) explain how the checks
 are combined.
 
