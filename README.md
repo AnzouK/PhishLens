@@ -6,6 +6,7 @@
 
 [![CI](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml/badge.svg)](https://github.com/AnzouK/PhishLens/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/AnzouK/PhishLens?color=blueviolet)](https://github.com/AnzouK/PhishLens/releases/latest)
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/bdglgccdgjdccemlnfpjlocfonhgdomk?label=Chrome%20Web%20Store)](https://chromewebstore.google.com/detail/phishlens/bdglgccdgjdccemlnfpjlocfonhgdomk)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-green.svg)](LICENSE)
 
 <picture>
@@ -29,16 +30,22 @@ wrong, and decide for yourself. The website is
 
 ## Install
 
-PhishLens is not on the Chrome Web Store yet.
+### Install from the Chrome Web Store
 
-1. Download `PhishLens-extension-<version>.zip` from the
-   [latest release](https://github.com/AnzouK/PhishLens/releases/latest)
-   and unzip it.
-2. Open `chrome://extensions`, turn on **Developer mode** and click
-   **Load unpacked** on the unzipped folder.
-3. Open an email in Gmail or Outlook on the web and click **Scan with
+1. Open [PhishLens on the Chrome Web Store](https://chromewebstore.google.com/detail/phishlens/bdglgccdgjdccemlnfpjlocfonhgdomk)
+   and click **Add to Chrome**.
+2. Open an email in Gmail or Outlook on the web and click **Scan with
    PhishLens** next to the subject. You can also drop a `.eml` file or an
    attachment, or paste text, in the popup.
+
+### Install from a zip
+
+If you'd rather load it by hand, download
+`PhishLens-extension-<version>.zip` from the
+[latest release](https://github.com/AnzouK/PhishLens/releases/latest)
+and unzip it. Open `chrome://extensions`, turn on **Developer mode** and
+click **Load unpacked** on the unzipped folder, then scan an email as in
+step 2 above.
 
 On Firefox 140 or later, take `PhishLens-firefox-<version>.zip` from the
 same release and load it under `about:debugging`, This Firefox, Load
@@ -166,7 +173,8 @@ headers and automatic scanning there will need Microsoft's mail API.
 After that I'd like to add Yahoo Mail, more reviewed real emails and
 user reports for measurement, SHAP next to LIME, and retraining on OCR
 text and QR-code phishing. I also want a multilingual model trained only
-on public data so it can be published, and a Chrome Web Store release.
+on public data so it can be published, and a Firefox release on
+addons.mozilla.org.
 A native review of the Hausa translation is under way.
 
 ## Contributing
