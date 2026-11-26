@@ -201,3 +201,32 @@ class TestSharedHosts:
     )
     def test_shared_host_detection(self, netloc, shared):
         assert rep.is_shared_path_host(netloc) is shared
+
+    @pytest.mark.parametrize(
+        "host",
+        [
+            "abcde.r.tsp1-brevo.net",
+            "xyz12.r.sp1-brevo.net",
+            "1234567890-sg.callback.suredeliverses.com",
+            "track.cloudses.com",
+            "banknotify-1a2b3c.intercom-clicks.com",
+            "banknotify-1a2b3c.intercom-mail.com",
+            "abc.r.us-east-1.awstrack.me",
+            "abc.r.sendibt2.com",
+        ],
+    )
+    def test_shared_tracking_hosts_match_only_the_exact_url(self, host):
+        # One phishing campaign sent through a shared tracker must not flag
+        # every other sender that uses it.
+        listed = f"https://{host}/c/evil"
+        pt = rep.PhishTank()
+        pt._urls = {listed}
+        pt._domains = {host}
+        assert rep.is_shared_path_host(host)
+        assert pt.check(listed)["match"] == "url"
+        assert pt.check(f"https://{host}/c/other-sender") is None
+
+    def test_every_click_tracking_domain_is_a_shared_path_host(self):
+        from link_alignment import TRACKING
+
+        assert sorted(d for d in TRACKING if not rep.is_shared_path_host(d)) == []

@@ -446,6 +446,24 @@ SHARED_PATH_HOSTS = frozenset(
         "mailgun.org",
         "sparkpostmail.com",
         "exacttarget.com",
+        "awstrack.me",
+        "sendibt2.com",
+        "hubspotemail.net",
+        "klclick.com",
+        "klclick1.com",
+        "mjt.lu",
+        "cmail19.com",
+        "cmail20.com",
+        "rs6.net",
+        "email-messaging.com",
+        # Brevo, Tencent Cloud SES and Intercom click tracking. Every
+        # domain of link_alignment.TRACKING is listed here (a test checks).
+        "sp1-brevo.net",
+        "tsp1-brevo.net",
+        "suredeliverses.com",
+        "cloudses.com",
+        "intercom-clicks.com",
+        "intercom-mail.com",
     }
 )
 
