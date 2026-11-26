@@ -104,6 +104,8 @@ ESP_LINKS = [
     "https://abcde.r.tsp1-brevo.net/tr/cl/xyz",
     "https://banknotify-1a2b3c.intercom-clicks.com/via/e?ob=abc",
     "https://banknotify-1a2b3c.intercom-mail.com/subscriptions/unsubscribe?x=1",
+    "https://xyz12.r.sp1-brevo.net/mk/cl/abc",
+    "https://track.cloudses.com/c/abc?x=1",
 ]
 PHISHING_PAGE = "https://bank-notify-secure.example/login"
 
@@ -287,3 +289,230 @@ class TestDmarcAlignedThroughSpf:
         )
         j = analyse(client, email("GTBank <alerts@gtbank.com>", auth, ["https://gtbank.com/x"]))
         assert j["trust_path"] == "dmarc_verified" and j["trusted_sender"] is False
+
+
+def raw_email(header_lines: list[str], links: list[str], subject: str = "Security notice") -> bytes:
+    """A message with the given header lines written as they are."""
+    anchors = "".join(f'<p><a href="{u}">Open</a></p>' for u in links)
+    head = "".join(f"{line}\r\n" for line in header_lines)
+    return (
+        f"{head}Subject: {subject}\r\n"
+        "Content-Type: text/html\r\n\r\n"
+        "<p>A new device signed in to your account. If this was not you, "
+        "verify your account and change your password now.</p>"
+        f"{anchors}\r\n"
+    ).encode()
+
+
+def dmarc_aligned(from_: str, ar: str) -> bool:
+    av = parse_authentication_results({"from": from_, "authentication-results": ar})
+    return av.dmarc_aligned
+
+
+class TestDmarcVerifiedAndTheGmailInbox:
+    """A DMARC-proven sender is never also reported as "Delivered by Gmail"."""
+
+    def test_safe_notice_in_the_inbox_is_not_inbox_soft(self, client):
+        j = analyse(
+            client, email(BANK_FROM, SPF_ALIGNED, BANK_LINK), origin="gmail", gmail_in_inbox=True
+        )
+        assert j["trust_path"] == "dmarc_verified"
+        assert j["sender_auth"]["dmarc_verified"] is True
+        assert j["sender_auth"]["gmail_inbox_soft_verified"] is False
+
+    def test_phishing_verdict_in_the_inbox_is_not_inbox_soft(self, client):
+        raw = email(BANK_FROM, SPF_ALIGNED, [PHISHING_PAGE])
+        j = analyse(client, raw, origin="gmail", gmail_in_inbox=True)
+        assert j["verdict"] == "phishing" and j["trust_path"] == "dmarc_verified"
+        assert j["sender_auth"]["gmail_inbox_soft_verified"] is False
+
+
+class TestDmarcAlignmentEdgeCases:
+    @pytest.mark.parametrize(
+        "ar",
+        [
+            # DKIM failed and no signature passed: DMARC pass is not enough.
+            "mx.google.com; dkim=fail header.i=@bank-notify.example; "
+            "spf=pass smtp.mailfrom=bounce.e.bank-notify.example; "
+            "dmarc=pass header.from=bank-notify.example",
+            # No DMARC record: Gmail's guess is not a pass.
+            "mx.google.com; spf=pass smtp.mailfrom=bounce.e.bank-notify.example; "
+            "dmarc=bestguesspass header.from=bank-notify.example",
+            "mx.google.com; spf=pass smtp.mailfrom=bounce.e.bank-notify.example; "
+            "dmarc=none header.from=bank-notify.example",
+        ],
+    )
+    def test_no_dmarc_alignment(self, ar):
+        assert not dmarc_aligned(BANK_FROM, ar)
+
+    def test_dkim_fail_with_dmarc_pass_is_not_dmarc_verified(self, client):
+        auth = (
+            "dkim=fail header.i=@bank-notify.example; "
+            "spf=pass smtp.mailfrom=bounce.e.bank-notify.example; "
+            "dmarc=pass header.from=bank-notify.example"
+        )
+        j = analyse(client, email(BANK_FROM, auth, BANK_LINK), origin="gmail", gmail_in_inbox=True)
+        assert j["sender_auth"]["dmarc_verified"] is False
+        assert j["trust_path"] == "default" and j["verdict"] == "phishing"
+
+    def test_bestguesspass_is_not_dmarc_verified(self, client):
+        auth = "spf=pass smtp.mailfrom=bounce.e.bank-notify.example; dmarc=bestguesspass header.from=bank-notify.example"
+        j = analyse(client, email(BANK_FROM, auth, [PHISHING_PAGE]))
+        assert j["sender_auth"]["dmarc_verified"] is False
+        assert j["trust_path"] == "default"
+
+    def test_unsigned_sender_without_dmarc_record_keeps_the_inbox_path(self, client):
+        # Documented residual risk (docs/threat-model.md): a domain with no
+        # DMARC record and no DKIM that Gmail puts in the inbox still gets
+        # gmail_inbox_soft, which has no link rule.
+        auth = "spf=pass smtp.mailfrom=bounce.e.bank-notify.example; dmarc=bestguesspass header.from=bank-notify.example"
+        j = analyse(client, email(BANK_FROM, auth, BANK_LINK), origin="gmail", gmail_in_inbox=True)
+        assert j["trust_path"] == "gmail_inbox_soft"
+        assert j["sender_auth"]["dmarc_verified"] is False
+
+    @pytest.mark.parametrize(
+        ("from_", "header_from"),
+        [
+            ("alerts@bank.co.uk", "attacker.co.uk"),
+            ("alerts@victim.github.io", "evil.github.io"),
+            ("alerts@bank-notify.example", "bank-notify.example.co.uk"),
+        ],
+    )
+    def test_public_suffix_org_domains_do_not_align(self, from_, header_from):
+        ar = f"mx.google.com; spf=pass smtp.mailfrom={header_from}; dmarc=pass header.from={header_from}"
+        assert not dmarc_aligned(from_, ar)
+
+    @pytest.mark.parametrize(
+        ("from_", "header_from"),
+        [("alerts@mail.bank.co.uk", "bank.co.uk"), ("alerts@victim.github.io", "victim.github.io")],
+    )
+    def test_same_org_domain_under_a_public_suffix_aligns(self, from_, header_from):
+        ar = f"mx.google.com; spf=pass smtp.mailfrom={header_from}; dmarc=pass header.from={header_from}"
+        assert dmarc_aligned(from_, ar)
+
+
+class TestDmarcInjection:
+    """Text the sender controls must never read as a DMARC pass."""
+
+    @pytest.mark.parametrize(
+        "ar",
+        [
+            # Inside a comment the receiving server copied from the message.
+            "mx.google.com; spf=pass (google.com: domain of x@attacker.example; "
+            "dmarc=pass header.from=bank-notify.example) smtp.mailfrom=attacker.example; "
+            "dmarc=fail header.from=bank-notify.example",
+            # Inside a quoted local part of the envelope sender.
+            'mx.google.com; spf=pass smtp.mailfrom="x;dmarc=pass header.from=bank-notify.example"'
+            "@attacker.example; dmarc=fail header.from=bank-notify.example",
+            # In the middle of another clause.
+            "mx.google.com; spf=pass smtp.mailfrom=attacker.example "
+            "dmarc=pass header.from=bank-notify.example; dmarc=fail header.from=bank-notify.example",
+            "mx.google.com; spf=pass smtp.mailfrom=attacker.example dmarc=pass header.from=bank-notify.example",
+        ],
+    )
+    def test_injected_pass_is_ignored(self, ar):
+        assert not dmarc_aligned(BANK_FROM, ar)
+
+    def test_second_authentication_results_below_the_top_one_is_ignored(self, client):
+        raw = raw_email(
+            [
+                f"From: {BANK_FROM}",
+                "Authentication-Results: mx.google.com; spf=pass smtp.mailfrom=attacker.example; "
+                "dmarc=fail header.from=bank-notify.example",
+                "Authentication-Results: mx.google.com; " + SPF_ALIGNED,
+            ],
+            BANK_LINK,
+        )
+        j = analyse(client, raw)
+        assert j["sender_auth"]["dmarc_verified"] is False
+        assert j["trust_path"] == "default"
+
+    def test_attached_email_headers_prove_nothing(self, client):
+        j = analyse(client, email(BANK_FROM, SPF_ALIGNED, BANK_LINK), headers_source="attachment")
+        assert j["sender_auth"]["dmarc_verified"] is False
+        assert j["trust_path"] == "default"
+
+    def test_two_from_headers_are_not_dmarc_verified(self, client):
+        raw = raw_email(
+            [
+                f"From: {BANK_FROM}",
+                "From: Notification <alerts@attacker.example>",
+                "Authentication-Results: mx.google.com; " + SPF_ALIGNED,
+            ],
+            BANK_LINK,
+        )
+        j = analyse(client, raw)
+        assert j["sender_auth"]["dmarc_verified"] is False
+        assert j["trust_path"] == "default"
+
+    def test_over_long_from_is_not_dmarc_verified(self, client):
+        # Over 8000 characters once cleaned, so From: is marked unproven
+        # (FROM_UNPROVEN) whatever it holds.
+        raw = raw_email(
+            [
+                '"' + "N" * 8100 + '" <alerts@bank-notify.example>',
+                "Authentication-Results: mx.google.com; " + SPF_ALIGNED,
+            ],
+            BANK_LINK,
+        )
+        raw = b"From: " + raw
+        _body, _urls, headers = eb.parse_eml(raw)
+        assert headers.get(eb.FROM_UNPROVEN) == "1"
+        j = analyse(client, raw)
+        assert j["sender_auth"]["dmarc_verified"] is False
+        assert j["trust_path"] == "default"
+
+    def test_forward_cancels_dmarc_verified(self, client):
+        raw = raw_email(
+            [f"From: {BANK_FROM}", "Authentication-Results: mx.google.com; " + SPF_ALIGNED],
+            BANK_LINK,
+            subject="Fwd: Security notice",
+        )
+        j = analyse(client, raw)
+        assert j["forwarded"]["detected"] is True
+        assert j["sender_auth"]["dmarc_verified"] is False
+        assert j["trust_path"] == "default"
+
+    @pytest.mark.parametrize(
+        "ctx",
+        [
+            # Gmail shows "mailed-by" aligned with From: but no "signed-by".
+            {"gmail_mailed_by": "bounce.e.bank-notify.example"},
+            # "signed-by" is the mailer's own domain.
+            {
+                "gmail_mailed_by": "bounce.e.bank-notify.example",
+                "gmail_signed_by": "s51.mailer-esp.example",
+            },
+        ],
+    )
+    def test_gmail_page_fallback_does_not_unlock_dmarc_verified(self, client, ctx):
+        assert "dmarc=pass" not in eb.synthesize_auth_results(
+            {"origin": "gmail", **ctx}, "alerts@bank-notify.example"
+        )
+        r = client.post(
+            "/analyse",
+            json={
+                "raw_text": "A new device signed in. Verify your account now: " + PHISHING_PAGE,
+                "sender_email": "alerts@bank-notify.example",
+                "client_context": {"origin": "gmail", **ctx},
+            },
+        )
+        j = r.json()
+        assert j["sender_auth"]["dmarc_verified"] is False
+        assert j["trust_path"] != "dmarc_verified"
+
+
+class TestDmarcVerifiedLinkRule:
+    @pytest.mark.parametrize(
+        "cloud",
+        [
+            "https://storage.googleapis.com/bucket-x/login.html",
+            "https://bank-notify-login.web.app/",
+        ],
+    )
+    @pytest.mark.parametrize("other", [BANK_LINK[0], ESP_LINKS[1]])
+    def test_cloud_host_link_next_to_an_aligned_or_tracking_link(self, client, cloud, other):
+        j = analyse(client, email(BANK_FROM, SPF_ALIGNED, [other, cloud]))
+        assert j["trust_path"] == "dmarc_verified"
+        assert j["verdict"] == "phishing" and "links_elsewhere" in j["forced_by"]
+        assert j["links_elsewhere"] is True

@@ -352,11 +352,14 @@ def parse_authentication_results(headers: dict[str, str]) -> AuthVerdict:
     verdict.cryptographically_verified = proven and bool(dkim_aligned)
     # DMARC pass is the receiving server's own check that SPF or DKIM
     # aligned with From:. The header.from it reports must be the From:
-    # domain we read, and the same proof rules apply.
+    # domain we read, and the same proof rules apply. A DKIM failure with
+    # no passing signature at all cancels it, as it cancels the Gmail
+    # inbox path. "bestguesspass" (no DMARC record) is not a pass.
     verdict.dmarc_aligned = (
         proven
         and bool(fod)
         and verdict.dmarc == "pass"
+        and verdict.dkim != "fail"
         and bool(verdict.dmarc_domain)
         and org_domain(verdict.dmarc_domain) == fod
     )

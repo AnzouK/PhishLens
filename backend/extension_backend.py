@@ -763,9 +763,12 @@ def _sender(body: str, headers: dict[str, str], ctx: dict[str, Any], auth: dict)
         # impostor's authentication proves nothing.
         allowlisted = crypto_verified = dmarc_verified = outlook_internal = False
     # Gmail put the message in the inbox after its own SPF/DKIM/DMARC
-    # checks. That is a soft signal for when nothing stronger is available.
+    # checks. That is a soft signal for when nothing stronger is available,
+    # so it is off when DMARC already proved the sender (the interface
+    # would otherwise show "Delivered by Gmail" next to that path).
     inbox_soft = (
         not crypto_verified
+        and not dmarc_verified
         and not impersonation
         and not forwarded["detected"]
         and ((ctx.get("origin") == "gmail" and bool(ctx.get("gmail_in_inbox"))) or outlook_internal)
