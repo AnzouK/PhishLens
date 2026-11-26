@@ -47,7 +47,9 @@ jobs:
 
           ## Install
 
-          Download `PhishLens-extension-VERSION.zip` below, unzip it, open `chrome://extensions`, turn on Developer mode and choose **Load unpacked** on the unzipped folder. Step by step: [user guide](https://github.com/AnzouK/PhishLens/wiki/Installation).
+          Chrome: install PhishLens from the [Chrome Web Store](https://chromewebstore.google.com/detail/phishlens/bdglgccdgjdccemlnfpjlocfonhgdomk). The store may take a few days to offer a new version.
+
+          To install by hand instead, download `PhishLens-extension-VERSION.zip` below, unzip it, open `chrome://extensions`, turn on Developer mode and choose **Load unpacked** on the unzipped folder. Step by step: [user guide](https://github.com/AnzouK/PhishLens/wiki/Installation).
 
           `PhishLens-firefox-VERSION.zip` is the same add-on for Firefox 140 or later (`about:debugging`, This Firefox, Load Temporary Add-on, until it is on addons.mozilla.org).
 

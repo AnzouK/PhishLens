@@ -7,6 +7,11 @@ backend share one version number.
 
 ## [Unreleased]
 
+### Changed
+- Install instructions point to the Chrome Web Store (README, website in
+  8 languages, release notes); the zip from the release stays as the
+  manual option, and Firefox still loads it under `about:debugging`.
+
 ## [2.2.0] - 2026-11-25
 
 ### Added
