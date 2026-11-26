@@ -56,13 +56,19 @@ function meter(label, value, offTitle = "meter_not_checked_title") {
         h("span.pll-meter__v", null, `${p}%`));
 }
 
-// Trust pill: allowlist > DKIM alignment > Outlook internal > Gmail inbox.
+// Trust pill: allowlist > DKIM alignment > DMARC > Outlook internal > Gmail inbox.
+// The server never reports dmarc_verified and the Gmail inbox together.
 function trustBadge(data) {
     const auth = data.sender_auth || {};
     const pill = (key, title) => h("span.pll-trusted", { title }, t(key));
     if (data.trusted_sender) return pill("badge_trusted", t("badge_trusted_title", { domain: data.sender_domain || "" }));
     if (auth.cryptographically_verified) {
         return pill("badge_dkim", t("badge_dkim_title", {
+            domain: data.sender_domain || "", spf: auth.spf || "none", dkim: auth.dkim || "none", dmarc: auth.dmarc || "none",
+        }));
+    }
+    if (auth.dmarc_verified) {
+        return pill("badge_dmarc", t("badge_dmarc_title", {
             domain: data.sender_domain || "", spf: auth.spf || "none", dkim: auth.dkim || "none", dmarc: auth.dmarc || "none",
         }));
     }

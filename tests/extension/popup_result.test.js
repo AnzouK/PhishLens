@@ -113,3 +113,33 @@ test("SPF failing next to a DMARC pass stays safe, its badge is neutral", () => 
     assert.doesNotMatch(spf.getAttribute("title"), /spoof/i);
     assert.match(spf.getAttribute("title"), /mailing lists/);
 });
+
+test("a DMARC-verified sender gets the DMARC pill and reason, never Gmail's", () => {
+    const auth = { dmarc_verified: true, spf: "pass", dkim: "pass", dmarc: "pass" };
+    const data = safe({ trust_path: "dmarc_verified", sender_domain: "bank-notify.example", sender_auth: auth });
+    renderResult(data);
+    assert.equal($("verdict-trusted").hidden, false);
+    assert.equal($("verdict-trusted").textContent, "DMARC verified");
+    assert.equal($("verdict-sub").textContent, "Sender's domain confirmed by DMARC.");
+    // Caution: a red wording meter, explained by the DMARC reason.
+    data.agents.text.phishing_probability = 0.8;
+    renderResult(data);
+    assert.ok($("verdict-card").classList.contains("verdict-card--caution"));
+    assert.match($("verdict-sub").textContent, /^Some signs are unusual\. .* Sender's domain confirmed by DMARC\.$/);
+    // Phishing through the link rule, even with an inbox flag from an older server.
+    renderResult({
+        ...data, verdict: "phishing", forced_by: ["links_elsewhere"], links_elsewhere: true,
+        link_alignment: { aligned: 0, other: 1 }, sender_auth: { ...auth, gmail_inbox_soft_verified: true },
+    });
+    assert.match($("verdict-sub").textContent, /^Its domain is genuine, but none of its links/);
+    assert.doesNotMatch($("verdict-sub").textContent, /DKIM/);
+    assert.equal($("verdict-trusted").textContent, "DMARC verified");
+});
+
+test("a high score on the Gmail inbox path gives the Gmail reason", () => {
+    const data = safe({ trust_path: "gmail_inbox_soft", sender_auth: { gmail_inbox_soft_verified: true } });
+    data.agents.text.phishing_probability = 0.8;
+    renderResult(data);
+    assert.match($("verdict-sub").textContent, /^Some signs are unusual\. .* Gmail verified the sender before delivery\.$/);
+    assert.equal($("verdict-trusted").textContent, "Delivered by Gmail");
+});

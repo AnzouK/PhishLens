@@ -18,6 +18,7 @@
     "lead_no_text": "Questa email non contiene quasi testo: sono stati verificati solo i link e il mittente. Fai attenzione alle email composte solo da immagini.",
     "lead_trusted": "Alcune parole o link sembrano phishing, ma il mittente è autenticato e nella lista di fiducia, quindi contano meno.",
     "lead_crypto": "Alcune parole o link sembrano phishing, ma il mittente è dimostrato da DKIM, quindi contano meno.",
+    "lead_dmarc": "Alcune parole o link sembrano phishing, ma il server di posta ricevente ha confermato il dominio del mittente con DMARC, quindi contano meno.",
     "lead_internal": "Alcune parole o link sembrano phishing, ma l'email proviene dalla tua organizzazione, quindi contano meno.",
     "lead_gmail": "Alcune parole o link sembrano phishing, ma Gmail ha verificato il mittente prima della consegna, quindi contano meno.",
     "lead_one_signal": "Un segnale sembra sospetto, ma non abbastanza nel complesso. Fai attenzione a quello.",
@@ -29,6 +30,8 @@
     "badge_trusted_title": "Mittente autenticato della lista di fiducia ({domain})",
     "badge_dkim": "Verificato con DKIM",
     "badge_dkim_title": "Firma DKIM allineata al mittente: {domain}, SPF={spf} DKIM={dkim} DMARC={dmarc}",
+    "badge_dmarc": "Verificato con DMARC",
+    "badge_dmarc_title": "Il server di posta ricevente ha confermato il dominio del mittente con DMARC: {domain}, SPF={spf} DKIM={dkim} DMARC={dmarc}",
     "badge_internal": "Mittente interno",
     "badge_internal_title": "Inviata dalla tua organizzazione: il tuo server di posta l'ha autenticata. Segnale più debole di una verifica DKIM.",
     "badge_gmail": "Consegnata da Gmail",
@@ -268,6 +271,8 @@
     "sub_shared": "Link a un file o modulo condiviso ({services}): aprilo solo se lo aspettavi.",
     "sub_trusted": "Mittente autenticato della lista di fiducia.",
     "sub_crypto": "Identità del mittente confermata dalla firma DKIM.",
+    "sub_dmarc": "Dominio del mittente confermato da DMARC.",
+    "sub_gmail": "Gmail ha verificato il mittente prima della consegna.",
     "text_high": "Il contenuto del messaggio sembra una truffa.",
     "text_mid": "Il messaggio contiene formulazioni sospette.",
     "text_low": "Il messaggio in sé sembra normale.",
@@ -385,5 +390,5 @@
     "privacy_notice_text": "Per controllare un'email, PhishLens invia il testo, i link e le intestazioni a PhishLens Cloud. L'email viene analizzata in memoria e non viene conservata. Perché nessuna email lasci il tuo computer, avvia un tuo server e sceglilo nelle impostazioni. La risposta, non l'email, viene conservata 24 ore perché una seconda analisi della stessa email sia immediata; cosa resta nel tuo browser, e per quanto, è nell'informativa sulla privacy.",
     "privacy_notice_ok": "Ho capito",
     "privacy_notice_link": "Informativa sulla privacy",
-    "lead_links_elsewhere": "Il dominio è autentico (DKIM), ma nessuno dei suoi link porta a quel dominio e il testo sembra phishing. Non cliccare e non rispondere prima di aver verificato il mittente in un altro modo."
+    "lead_links_elsewhere": "Il dominio è autentico, ma nessuno dei suoi link porta a quel dominio e il testo sembra phishing. Non cliccare e non rispondere prima di aver verificato il mittente in un altro modo."
 };

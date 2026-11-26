@@ -18,6 +18,7 @@
     "lead_no_text": "This email has almost no text, so only its links and sender were checked. Stay careful with image-only emails.",
     "lead_trusted": "Some wording or links resemble phishing, but the sender is authenticated and on the trusted list, so they weigh less.",
     "lead_crypto": "Some wording or links resemble phishing, but the sender is proven by DKIM, so they weigh less.",
+    "lead_dmarc": "Some wording or links resemble phishing, but the receiving mail server confirmed the sender's domain with DMARC, so they weigh less.",
     "lead_internal": "Some wording or links resemble phishing, but it comes from inside your organisation, so they weigh less.",
     "lead_gmail": "Some wording or links resemble phishing, but Gmail verified the sender before delivery, so they weigh less.",
     "lead_one_signal": "One signal looks suspicious, but not enough overall. Stay careful with this one.",
@@ -29,6 +30,8 @@
     "badge_trusted_title": "Authenticated sender from the trusted list ({domain})",
     "badge_dkim": "DKIM verified",
     "badge_dkim_title": "DKIM signature aligned with From: {domain}, SPF={spf} DKIM={dkim} DMARC={dmarc}",
+    "badge_dmarc": "DMARC verified",
+    "badge_dmarc_title": "The receiving mail server confirmed the sender's domain with DMARC: {domain}, SPF={spf} DKIM={dkim} DMARC={dmarc}",
     "badge_internal": "Internal sender",
     "badge_internal_title": "Sent from inside your organisation: your mail server authenticated it. Softer signal than a DKIM check.",
     "badge_gmail": "Delivered by Gmail",
@@ -268,6 +271,8 @@
     "sub_shared": "Links to a shared file or form ({services}): open it only if you expected it.",
     "sub_trusted": "Authenticated sender from the trusted list.",
     "sub_crypto": "Sender identity confirmed by DKIM signature.",
+    "sub_dmarc": "Sender's domain confirmed by DMARC.",
+    "sub_gmail": "Gmail verified the sender before delivery.",
     "text_high": "The message content reads like a scam.",
     "text_mid": "The message has some suspicious wording.",
     "text_low": "The message itself reads normally.",
@@ -385,5 +390,5 @@
     "privacy_notice_text": "To check an email, PhishLens sends its text, links and headers to PhishLens Cloud. The email is analysed in memory and not stored. To keep every email on your computer, run your own server and choose it in the settings. The answer, not the email, is kept for 24 hours so that a second scan of the same email is instant; what stays in your browser, and for how long, is in the privacy policy.",
     "privacy_notice_ok": "Got it",
     "privacy_notice_link": "Privacy policy",
-    "lead_links_elsewhere": "Its domain is genuine (DKIM), but none of its links lead to that domain and its wording looks like phishing. Don't click them or reply until you have checked the sender another way."
+    "lead_links_elsewhere": "Its domain is genuine, but none of its links lead to that domain and its wording looks like phishing. Don't click them or reply until you have checked the sender another way."
 };

@@ -18,6 +18,7 @@
     "lead_no_text": "Deze e-mail bevat bijna geen tekst: alleen de links en de afzender zijn gecontroleerd. Wees voorzichtig met e-mails die alleen uit afbeeldingen bestaan.",
     "lead_trusted": "Sommige woorden of links lijken op phishing, maar de afzender is geverifieerd en staat op de vertrouwde lijst, dus ze tellen minder zwaar.",
     "lead_crypto": "Sommige woorden of links lijken op phishing, maar de afzender is bewezen met DKIM, dus ze tellen minder zwaar.",
+    "lead_dmarc": "Sommige woorden of links lijken op phishing, maar de ontvangende mailserver heeft het domein van de afzender met DMARC bevestigd, dus ze tellen minder zwaar.",
     "lead_internal": "Sommige woorden of links lijken op phishing, maar de e-mail komt uit uw organisatie, dus ze tellen minder zwaar.",
     "lead_gmail": "Sommige woorden of links lijken op phishing, maar Gmail heeft de afzender vóór de bezorging gecontroleerd, dus ze tellen minder zwaar.",
     "lead_one_signal": "Eén signaal lijkt verdacht, maar in het geheel niet genoeg. Wees voorzichtig met dat signaal.",
@@ -29,6 +30,8 @@
     "badge_trusted_title": "Geverifieerde afzender van de vertrouwde lijst ({domain})",
     "badge_dkim": "Geverifieerd met DKIM",
     "badge_dkim_title": "DKIM-handtekening komt overeen met de afzender: {domain}, SPF={spf} DKIM={dkim} DMARC={dmarc}",
+    "badge_dmarc": "Geverifieerd met DMARC",
+    "badge_dmarc_title": "De ontvangende mailserver heeft het domein van de afzender met DMARC bevestigd: {domain}, SPF={spf} DKIM={dkim} DMARC={dmarc}",
     "badge_internal": "Interne afzender",
     "badge_internal_title": "Verzonden vanuit uw organisatie: uw mailserver heeft hem geverifieerd. Zwakker signaal dan een DKIM-controle.",
     "badge_gmail": "Bezorgd door Gmail",
@@ -268,6 +271,8 @@
     "sub_shared": "Link naar een gedeeld bestand of formulier ({services}): open het alleen als u het verwachtte.",
     "sub_trusted": "Geverifieerde afzender van de vertrouwde lijst.",
     "sub_crypto": "Identiteit van de afzender bevestigd met een DKIM-handtekening.",
+    "sub_dmarc": "Domein van de afzender bevestigd met DMARC.",
+    "sub_gmail": "Gmail heeft de afzender vóór de bezorging gecontroleerd.",
     "text_high": "De inhoud van het bericht lijkt op oplichting.",
     "text_mid": "Het bericht bevat verdachte formuleringen.",
     "text_low": "Het bericht zelf lijkt normaal.",
@@ -385,5 +390,5 @@
     "privacy_notice_text": "Om een e-mail te controleren, stuurt PhishLens de tekst, links en headers naar PhishLens Cloud. De e-mail wordt in het geheugen geanalyseerd en niet bewaard. Wilt u dat geen enkele e-mail uw computer verlaat, draai dan uw eigen server en kies die in de instellingen. Het antwoord, niet de e-mail, wordt 24 uur bewaard zodat een tweede controle van dezelfde e-mail direct gaat; wat in uw browser blijft, en hoe lang, staat in het privacybeleid.",
     "privacy_notice_ok": "Begrepen",
     "privacy_notice_link": "Privacybeleid",
-    "lead_links_elsewhere": "Het domein is echt (DKIM), maar geen van de links leidt naar dat domein en de tekst lijkt op phishing. Klik niet en antwoord niet voordat u de afzender via een andere weg hebt gecontroleerd."
+    "lead_links_elsewhere": "Het domein is echt, maar geen van de links leidt naar dat domein en de tekst lijkt op phishing. Klik niet en antwoord niet voordat u de afzender via een andere weg hebt gecontroleerd."
 };
