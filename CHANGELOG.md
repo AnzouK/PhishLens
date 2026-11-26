@@ -7,6 +7,8 @@ backend share one version number.
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-26
+
 ### Added
 - New trust path `dmarc_verified`, reported in the `/analyse` answer
   (`trust_path` and `sender_auth.dmarc_verified`). It is for mail whose
@@ -28,8 +30,9 @@ backend share one version number.
   inbox path when Gmail delivers it to the inbox (see the threat model,
   R14).
 - The banner and the popup show a "DMARC verified" pill and their own
-  reason line for this path, in the 8 interface languages. The popup
-  also gained the missing reason line for the Gmail inbox path.
+  reason line for this path, in the 8 interface languages, and the
+  website demo shows a "DMARC verified" tag. The popup also gained the
+  missing reason line for the Gmail inbox path.
 
 ### Changed
 - Install instructions point to the Chrome Web Store (README, website in
@@ -52,10 +55,6 @@ backend share one version number.
   count as elsewhere. With `dmarc_verified` (above), replayed on the
   cached scores of the November run: inbox false alarms 28 to 14 of 675,
   personal phishing caught unchanged (16 of 17).
-- A `dmarc_verified` email in the Gmail inbox was also reported as
-  `gmail_inbox_soft_verified`, so the banner showed "Delivered by Gmail"
-  next to it, even on a phishing verdict. The two are now exclusive.
-- The website's `shared.js` was not rebuilt after the change above.
 
 ### Security
 - These tracking platforms are self-service: anyone can send through
@@ -1198,7 +1197,8 @@ No change to detection behaviour or to the extension's features.
 backend URL selector, Hugging Face Hub model fallback, and hosting on
 Hugging Face Spaces then Render before the Oracle Cloud move.
 
-[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/AnzouK/PhishLens/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/AnzouK/PhishLens/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/AnzouK/PhishLens/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/AnzouK/PhishLens/compare/v2.0.12...v2.1.0
 [2.0.12]: https://github.com/AnzouK/PhishLens/compare/v2.0.11...v2.0.12

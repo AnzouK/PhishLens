@@ -15,7 +15,7 @@ from pathlib import Path
 
 # The extension uses the same version (extension/manifest.json) and CI
 # checks that they match.
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 
 # Text model
 # MODEL_DIR holds the text model checkpoint. When it is empty, the model
