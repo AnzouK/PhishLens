@@ -139,6 +139,7 @@
   "js_size_kb": "{size} KB",
   "js_tag_trusted": "Vertrauenswürdiger Absender",
   "js_tag_dkim": "Per DKIM bestätigt",
+  "js_tag_dmarc": "Per DMARC bestätigt",
   "js_tag_auth_fail": "{name} fehlgeschlagen",
   "js_tag_flagged": "Gemeldet von {source}",
   "js_tag_forwarded": "Weitergeleitete E-Mail",

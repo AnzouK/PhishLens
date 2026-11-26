@@ -139,6 +139,7 @@
   "js_size_kb": "{size} KB",
   "js_tag_trusted": "Mittente attendibile",
   "js_tag_dkim": "Verificato con DKIM",
+  "js_tag_dmarc": "Verificato con DMARC",
   "js_tag_auth_fail": "{name} non superato",
   "js_tag_flagged": "Segnalato da {source}",
   "js_tag_forwarded": "Email inoltrata",

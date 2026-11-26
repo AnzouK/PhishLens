@@ -139,6 +139,7 @@
   "js_size_kb": "{size} Ko",
   "js_tag_trusted": "Expéditeur de confiance",
   "js_tag_dkim": "Vérifié par DKIM",
+  "js_tag_dmarc": "Vérifié par DMARC",
   "js_tag_auth_fail": "Échec {name}",
   "js_tag_flagged": "Signalé par {source}",
   "js_tag_forwarded": "E-mail transféré",

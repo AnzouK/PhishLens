@@ -901,7 +901,8 @@ async def analyse(request: Request, req: AnalyseRequest):
         links_elsewhere=CRYPTO_LINK_RULE and links_elsewhere_only(links),
     )
     # Tell the interface when the link rule lifted the signed-sender
-    # discount, since it shows a "DKIM verified" badge next to the verdict.
+    # discount, since it shows a DKIM-signed or DMARC-verified badge next
+    # to the verdict.
     links_rule_fired = bool(
         CRYPTO_LINK_RULE
         and "links_elsewhere" in path.forcing

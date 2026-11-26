@@ -139,6 +139,7 @@
   "js_size_kb": "{size} kB",
   "js_tag_trusted": "Vertrouwde afzender",
   "js_tag_dkim": "Geverifieerd met DKIM",
+  "js_tag_dmarc": "Geverifieerd met DMARC",
   "js_tag_auth_fail": "{name} mislukt",
   "js_tag_flagged": "Gemeld door {source}",
   "js_tag_forwarded": "Doorgestuurde e-mail",
